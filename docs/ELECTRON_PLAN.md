@@ -28,13 +28,13 @@ app.whenReady().then(async () => {
   const secrets = { getDiscogsToken: () => readToken(safeStorage) }; // replaces .env
   const logger = createLogger({ sink: fileSink(path.join(userData, "digga.log")) });
   const server = createServer({ config, paths, secrets, logger });
-  const { url } = await server.start(0, "127.0.0.1"); // free port, localhost only
+  const { browserUrl } = await server.start(0, "127.0.0.1"); // free port, localhost only
 
   session.defaultSession.setUserAgent(CHROME_UA); // YouTube embeds reject Electron's UA
   const win = new BrowserWindow({
     webPreferences: { autoplayPolicy: "no-user-gesture-required", contextIsolation: true },
   });
-  await win.loadURL(url); // http origin, so the IFrame API works
+  await win.loadURL(browserUrl); // http://localhost:port; YouTube refuses some embeds on 127.0.0.1
   Menu.setApplicationMenu(buildMenu(server, paths, win));
   app.on("before-quit", () => void server.stop());
 });

@@ -1,47 +1,94 @@
-# Keymap (spec for the UI session)
+# Keymap
 
-All keys are single presses without modifiers unless stated. Every action shows its key on screen.
+All keys are single presses without modifiers unless stated. Every action shows its key on screen,
+and `?` lists the keys of the current page. The definitions live in `src/client/keymap.ts`; the
+handlers are in `src/client/pages/Triage.svelte`, `Twelves.svelte` and `App.svelte`. Keys are
+ignored while a text field has focus, while the `?` overlay is open, and when held with Cmd, Ctrl
+or Alt. Holding a key down never repeats a verdict.
 
-## Player
+## Pages (everywhere)
 
-| key       | action                                               |
-| --------- | ---------------------------------------------------- |
-| `Space`   | play / pause                                         |
-| `J` / `K` | next / previous track (video) of the current release |
-| `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s)     |
-| `1` … `9` | jump to 10% … 90% of the video                       |
-| `O`       | open the release on discogs.com                      |
-| `?`       | show this help                                       |
+| key | action                 |
+| --- | ---------------------- |
+| `T` | triage                 |
+| `W` | twelves                |
+| `,` | settings               |
+| `?` | show or hide the keys  |
+| Esc | close the keys overlay |
 
-## Verdicts (one per release, undoable)
+## Triage: player
 
-| key | status      | copy                                                                               |
-| --- | ----------- | ---------------------------------------------------------------------------------- |
-| `R` | `rejected`  | "skip"                                                                             |
-| `A` | `accepted`  | "wheel up" (session 3 pushes it to the Discogs wantlist)                           |
-| `M` | `maybe`     | "maybe"                                                                            |
-| `C` | `candidate` | "bo!" (possible match for the ID hunt)                                             |
-| `N` | none        | next release without a verdict (the release stays in the queue)                    |
-| `Z` | undo        | reverts the last verdict (`DELETE /api/verdicts/:key`) and returns to that release |
+| key       | action                                                               |
+| --------- | -------------------------------------------------------------------- |
+| `Space`   | play / pause (also starts sound the first time, see below)           |
+| `J` / `K` | next / previous track (video) of the current release                 |
+| `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s); repeats while held |
+| `1` … `9` | jump to 10% … 90% of the video                                       |
+| `O`       | open the release on discogs.com                                      |
+| `S`       | open a YouTube search for artist + title                             |
+| `Enter`   | retry when the queue or the release failed to load                   |
 
-Counter copy reads "4,312 rinsed".
+## Triage: verdicts (one per release, undoable)
 
-## Track marks (optional, per track)
+| key | status      | copy       | notes                                                         |
+| --- | ----------- | ---------- | ------------------------------------------------------------- |
+| `R` | `rejected`  | "skip"     |                                                               |
+| `A` | `accepted`  | "wheel up" | also pushes the release to the Discogs wantlist               |
+| `M` | `maybe`     | "maybe"    |                                                               |
+| `C` | `candidate` | "bo!"      | possible match for the ID hunt                                |
+| `D` | `no_audio`  | "no audio" | leaves the queue without a judgement                          |
+| `N` | none        | "next"     | moves on; the release stays in the queue and comes back later |
+| `Z` | undo        |            | reverts the last verdict or `N` and returns to that release   |
 
-| key       | mark                        |
-| --------- | --------------------------- |
-| `Shift+K` | `keep` on the current track |
-| `Shift+M` | `meh`                       |
-| `Shift+C` | `candidate`                 |
+`Z` walks back through the whole session, one step per press. A verdict is undone with
+`DELETE /api/verdicts/:key`; an `N` is undone locally. The counter reads "4,312 rinsed", where
+rinsed counts `rejected`, `accepted`, `maybe`, `candidate` and `no_audio`.
+
+## Triage: track marks (optional, on the playing track)
+
+| key       | mark        |
+| --------- | ----------- |
+| `Shift+K` | `keep`      |
+| `Shift+M` | `meh`       |
+| `Shift+C` | `candidate` |
+
+Pressing the same mark again clears it.
+
+## Twelves
+
+| key                  | action                                                     |
+| -------------------- | ---------------------------------------------------------- |
+| `1` … `6`            | shelf: everything, wheel up, wantlist, owned, maybe, bo!   |
+| `J` / `K`, `↓` / `↑` | move the selection                                         |
+| `S`                  | next sort order (newest, label, artist, year, price, want) |
+| `/`                  | focus the filter; Enter or Esc leaves it                   |
+| `O`                  | open the release on discogs.com                            |
+| `E`                  | edit the note; Enter saves, Esc cancels                    |
+| `A` `M` `C` `R`      | re-judge a triage verdict (`R` takes it off the shelves)   |
+| `Z`                  | undo the last change                                       |
+
+Wantlist and owned records come from Discogs and cannot be re-judged here.
+
+## Settings
+
+`Cmd+S` / `Ctrl+S` saves. Fields are reached with Tab.
 
 ## Player behaviours
 
-- Start each video at `player.startAtFraction` (default 0.5) of `videos.duration_seconds`, falling
-  back to the player's reported duration when unknown.
-- Preload the next release in a hidden second player so `N` and verdict keys are instant.
-- Post to `POST /api/listen-log` when a track has played for a few seconds and on leaving it, so
-  `heard_tracks` accumulates and the same tune is greyed out elsewhere.
-- Grey out tracks whose `heard` flag is set; skip them by default when auto-advancing with `J`.
-- `no_audio` state for releases without embeddable videos: show the facts, offer `S` to open a
-  YouTube search (`youtubeSearchUrl(artist + title)`), and let `R`/`A`/`M`/`C`/`N` work as usual.
-  A dedicated key records `no_audio` so the release leaves the queue without a judgement.
+- Each video starts at `player.startAtFraction` (default 0.5) of `videos.duration_seconds`, or
+  of the player's reported duration when the dump has none, and at least 5 s before the end.
+- The hidden second player loads the next release's first video muted and pauses at its start
+  offset, so a verdict or `N` starts the next release at once.
+- A release opens on its first video whose tune was not heard before (on any release). `J` and
+  auto-advance at the end of a video skip heard tunes, videos that failed, and second uploads of a
+  track already played; `J` falls back to heard tunes when nothing else is left. `K` never skips
+  heard tunes.
+- `POST /api/listen-log` is sent after 4 s of playback and again, with the remaining seconds,
+  when the listener leaves the track. The track then counts as heard everywhere it appears.
+- Videos with `embeddable = 0`, and videos YouTube refuses (error 100, 101, 150), are skipped
+  with a notice. When nothing on a release plays, the player shows the `no_audio` state: `S`
+  searches YouTube, `D` records `no_audio`, and the verdict keys still work.
+- Browsers hold back sound until the page has had a key press or click. Until then the player
+  shows "Space: start listening".
+- The embed never takes focus or clicks (`pointer-events: none`, `controls: 0`, `disablekb: 1`),
+  so keys always reach Digga.

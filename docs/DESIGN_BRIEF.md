@@ -53,7 +53,36 @@ that reads as a music streaming app. Ergonomics win every tie.
 - **Settings** (`#/settings`): universe (styles, load years), filters, strategy, Discogs account,
   player defaults, and the jobs panel (load dump, import seeds, enrich) with progress.
 
+## The design as built (session 2)
+
+Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (30 to 38).
+
+- **Palette:** ground `#161618`, sleeve `#1d1d20` (raised bars), groove `#323238` (rules),
+  dust `#6b675e` (heard, disabled), faded `#a8a294` (secondary text), paper `#ebe5d4` (primary
+  text), flyer `#ffd21a` (the accent, used as a fill) on flyer-ink `#17150d`. A static
+  photocopy grain covers the page at low opacity.
+- **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
+  Mono (87.5% width) for everything else. Sizes run 11 / 12.5 / 14 / 17 / 22 / 30 / 40 px.
+- **Triage layout:** top bar (wordmark, pages with keys, sandbox stamp, rinsed / to go / ETA /
+  session count); left column with the catalogue-number stamp, label, artist, title, facts,
+  market line, other versions and the scrolling tracklist; right column with the player, the
+  now-playing line and progress bar (the start point is marked), player keys, the slip with the
+  last verdict and "up next"; a verdict bar pinned to the bottom with filled key caps for
+  R / A / M / C and outlined ones for N / D / Z / ?. Below 980 px the columns stack.
+- **Tracklist rows:** position, a glyph (▶ playing, ● has a video, × won't embed, blank for no
+  video), `artist – title` for compilation credits, notes (heard, played, no embed), the track
+  mark as a small stamp, and the duration. Heard tunes are set in dust; the playing row gets the
+  flyer bar.
+- **States:** loading, "Space: start listening" before the first gesture, no videos / none will
+  play (with `S` and `D`), a notice for a skipped embed, pending and done wantlist pushes on
+  the slip, undo ("undone" stamp), queue failed (`Enter` retries), and the end of the queue: a
+  large RINSED stamp with a way to go round the releases passed with `N`.
+- **Twelves** reads like a record box: one row per record with catalogue number, artist and
+  title, note, label and year, market, a verdict stamp and the day it was decided.
+- **Settings** is one column of sections with a sticky save bar and the jobs panel at the end.
+
 ## What exists already
 
-The API contracts in `src/shared/api.ts` and the placeholder pages in `src/client/pages/` show the
-data available to the UI. `src/client/api.ts` is the only way pages talk to the server.
+The API contracts in `src/shared/api.ts` show the data available to the UI. `src/client/api.ts`
+is the only way pages talk to the server; in sandbox mode it wraps the HTTP API with
+`src/client/sandbox.ts`.

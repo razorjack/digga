@@ -84,4 +84,7 @@ genres, styles`, enough for a stub release row.
 
 Video ids are parsed from `watch?v=`, `youtu.be/`, `embed/`, `shorts/`. The IFrame Player API
 requires an http(s) origin, which the localhost server provides; a custom Electron scheme would not.
+The origin must be a host name: on `http://127.0.0.1:3456` YouTube refuses some videos with error
+150 ("the uploader blocks embedding") that play on `http://localhost:3456`, so the app is always
+opened on localhost.
 `embed="false"` videos are stored with `embeddable = 0` so the UI can offer the search fallback.

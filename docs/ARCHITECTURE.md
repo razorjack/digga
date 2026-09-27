@@ -22,6 +22,24 @@ browser  --HTTP-->  src/client/api.ts  --/api/*-->  src/server/app.ts (Hono)  --
 job runner and the Discogs client into `createApp()`, and exposes `start(port, host)` / `stop()`.
 The CLI's `serve` command calls it; an Electron main process will call the same function.
 
+## The client
+
+`src/client/api.ts` defines the `Api` interface and its HTTP implementation. The exported `api`
+is currently `createSandboxApi(createHttpApi())`: reads go to the server, writes (verdicts, track
+marks, listens, settings, jobs, the wantlist push) are kept in memory by `src/client/sandbox.ts`
+and overlaid on later reads. `api.mode` tells the UI which one it is talking to.
+
+- `src/client/triage/session.svelte.ts` holds the queue buffer, prefetches release details,
+  applies verdicts optimistically, keeps the undo history and passes, and serialises writes so
+  an undo never overtakes its verdict.
+- `src/client/player/` wraps the YouTube IFrame API: `deck.ts` is one player, and
+  `triage-player.svelte.ts` runs two of them (one audible, one preloading the next release),
+  picks tracks with `src/shared/playlist.ts`, and logs listens.
+- `src/client/stores.svelte.ts` holds app-wide state: stats for the counter, settings (with a
+  version that restarts the queue on save) and the help overlay flag.
+- Pages: `Triage.svelte` (always mounted, hidden when another page is shown), `Twelves.svelte`,
+  `Settings.svelte`. The keymap and its help text are in `keymap.ts`.
+
 ## The universe and the queue
 
 The set of releases to dig comes from the monthly Discogs releases dump, never from the search

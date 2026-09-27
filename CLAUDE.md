@@ -13,7 +13,12 @@ that change without reloading data.
 
 ## Delivery shape
 
-- **Now (v1):** a Node process serving a Svelte app on `http://127.0.0.1:3456`, opened in a browser.
+- **Now (v1):** a Node process bound to 127.0.0.1:3456 serving a Svelte app, opened in a browser at
+  `http://localhost:3456` (YouTube refuses some embeds on IP-address origins).
+- **Sandbox mode (current):** the UI fakes every write in memory (`src/client/sandbox.ts`): no
+  verdict, listen, setting or job reaches the database or the config file, and nothing is sent
+  to Discogs. The owner is tuning the flow; do not switch `src/client/api.ts` to live writes
+  unless asked.
 - **Later:** an Electron app. Its main process imports `createServer` from `src/server/server.ts`,
   starts it on a free localhost port, opens a `BrowserWindow` at it, and exposes the CLI jobs as
   menu items. That must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
@@ -23,7 +28,7 @@ that change without reloading data.
 ```sh
 npm install                      # Node >= 22.18 (runs .ts directly, no build step for the server)
 vp dev                           # Vite dev server on :5173, proxies /api to :3456
-npm run digga -- serve           # Hono server on 127.0.0.1:3456 (serves dist/ after vp build)
+npm run digga -- serve           # Hono server on 127.0.0.1:3456, open http://localhost:3456 (serves dist/ after vp build)
 npm run digga -- serve --port 0  # pick a free port
 vp build                         # build the client into dist/
 vp check                         # format + lint + type check (oxfmt, oxlint, tsgolint)
@@ -60,13 +65,15 @@ digga.config.example.json  committed defaults; copied to digga.config.json (giti
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
-                       triage-key, youtube, formats). Imports nothing from Node.
+                       triage-key, youtube, formats, playlist, rate, display). Imports nothing from Node.
 src/server/            server.ts (createServer) app.ts (Hono routes) paths.ts secrets.ts logger.ts stats.ts static.ts
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts)
                        discogs/ (client.ts, types.ts) importers/ (collection, wantlist, history, seeds)
                        jobs/ (dump-load, enrich, runner, dump-load-worker, index) queue/query.ts
 src/cli/digga.ts       command entry: dump load | import collection|wantlist|history | enrich | stats | serve
-src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts, pages/ (placeholders)
+src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
+                       stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, HelpOverlay),
+                       player/ (YouTube decks), triage/ (session + triage components), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 data/                  gitignored: digga.sqlite, dumps/, tmp/

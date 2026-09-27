@@ -13,10 +13,13 @@ cp digga.config.example.json digga.config.json   # optional: the first run creat
 npm run digga -- dump load data/dumps/discogs_YYYYMMDD_releases.xml.gz
 npm run digga -- import collection && npm run digga -- import wantlist && npm run digga -- import history
 npm run digga -- enrich
-vp build && npm run digga -- serve   # http://127.0.0.1:3456
+vp build && npm run digga -- serve   # open http://localhost:3456
 ```
 
 See `CLAUDE.md` for the full command list and layout, `docs/` for architecture, data model, Discogs
 notes, the design brief, keymap, roadmap, decisions and the Electron plan.
 
-Status: foundation only. The triage UI is the next session (`docs/ROADMAP.md`).
+Status: the full UI (triage, Twelves, settings) runs in sandbox mode: verdicts, listens,
+settings and jobs are kept in memory and nothing is written to the database or sent to Discogs.
+Keys are listed in `docs/KEYMAP.md` and on screen with `?`. Going live is session 3
+(`docs/ROADMAP.md`).

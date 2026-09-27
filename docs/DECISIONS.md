@@ -62,3 +62,51 @@ Chronological. Each entry records a choice made without asking and why.
     holds the Discogs username and is rewritten by `PUT /api/settings`, so it is per-user state
     like `.env`. The first run copies the example (or the schema defaults when the example is
     absent, as in Electron), and a test keeps the example equal to the schema defaults.
+27. **Writes are faked in the transport seam, not on the server.** The owner asked for a full
+    flow with no database writes and nothing sent to Discogs while the UI is tuned.
+    `createSandboxApi(inner)` in `src/client/sandbox.ts` forwards reads, keeps verdicts, track
+    marks, listens, settings and jobs in memory, and overlays them on later reads (queue,
+    remaining, rate/ETA, Twelves, heard tracks). The client never sends a write request, so a
+    server started normally stays untouched. A server-side scratch copy of the database was the
+    alternative; it would have exercised the real write routes but still counts as writing a
+    database. Going live is one line in `src/client/api.ts`. A test runs the sandbox over the real
+    HTTP API with every inner write method throwing and checks that no table changes.
+28. **`GET /api/queue` and `GET /api/stats` accept a `filters` JSON parameter** that replaces the
+    configured filters for that read. The sandbox needs it to apply unsaved settings; Settings
+    uses it for the live "these filters match N records" preview. Both are reads.
+29. **The app is opened on `localhost`, never `127.0.0.1`.** YouTube refuses some embeds with
+    error 150 on IP-address origins while playing them on `localhost` (checked with three
+    videos from the same release: two refused on 127.0.0.1, all three played on localhost). The
+    server still binds to 127.0.0.1; `start()` returns `browserUrl` on localhost, the CLI prints
+    it, and the app shows a link to the localhost address when opened on 127.0.0.1.
+30. **Typefaces: Michroma and Martian Mono, bundled via Fontsource.** Michroma descends from
+    Eurostile Extended, the type of late-90s drum & bass sleeves; it sets artist names, counters
+    and stamps. Martian Mono (variable width, set at 87.5%) sets everything else and keeps
+    positions, catalogue numbers and durations aligned. Fonts ship in `dist/`, so Electron and
+    offline use need no CDN.
+31. **One accent, used as paper.** Dayglo flyer yellow (`#ffd21a`) fills the verdict key caps,
+    the playing-track bar, progress and the positive verdict stamps; it is never used for glowing
+    text. Surfaces are graphite, text is white-label paper (`#ebe5d4`).
+32. **The signature is rubber-stamp ink.** Catalogue numbers and verdicts render as stamps: an
+    SVG filter (`#ink`, `#ink-fine` in `App.svelte`) adds speckled voids and wobbly edges, and a
+    stable per-release tilt (`stampTilt`). The only motion is the stamp slamming onto the last
+    verdict slip (150 ms, off under `prefers-reduced-motion`).
+33. **`D` records `no_audio`.** The keymap left the key open. `D` sits next to `S` (the YouTube
+    search for the same situation) and away from the verdict keys.
+34. **`Z` also undoes `N`.** Undo walks back through verdicts and passes alike, so an accidental
+    `N` is as cheap to take back as an accidental verdict.
+35. **The embed never takes focus.** Players are created with `controls: 0` and `disablekb: 1`
+    and the iframe has `pointer-events: none`; YouTube's own J/K/arrow/digit shortcuts would
+    otherwise swallow Digga's keys after a click on the video. Every control is a key or a
+    button outside the iframe.
+36. **Two decks, swapped rather than moved.** Both player iframes stay in place; the hidden one
+    is transparent and muted. Moving an iframe in the DOM reloads it, so a verdict swaps which
+    deck is visible. Events and progress from a deck that still holds the previous release are
+    ignored.
+37. **The Triage page stays mounted when another page is shown.** The session (queue, undo
+    history, passes) and the players survive a visit to Twelves or Settings; leaving the page
+    pauses playback. Saving settings restarts the queue with the new filters.
+38. **A listen is logged after 4 s of playback**, then the remainder when the track is left.
+    Shorter taps (seeking past, skipping at once) do not grey a tune out elsewhere.
+39. **Rate and ETA helpers moved to `src/shared/rate.ts`** so the sandbox computes the same
+    rate from its in-memory decisions as the server computes from the `verdicts` table.
