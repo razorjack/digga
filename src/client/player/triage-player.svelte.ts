@@ -1,0 +1,402 @@
+import { SvelteSet } from "svelte/reactivity";
+import type { ReleaseDetail } from "../../shared/api.ts";
+import {
+  buildPlaylist,
+  firstEntry,
+  nextEntry,
+  type PlaylistEntry,
+  previousEntry,
+  startSeconds,
+} from "../../shared/playlist.ts";
+import type { Api } from "../api.ts";
+import { Deck, type DeckListener } from "./deck.ts";
+import { embedErrorReason, loadYouTubeApi, PlayerState } from "./youtube.ts";
+
+export type PlayerStatus =
+  | "starting"
+  | "idle"
+  | "loading"
+  | "playing"
+  | "paused"
+  | "ended"
+  | "no_audio"
+  | "needs_gesture"
+  | "unavailable";
+
+/** A listen counts (and the tune turns heard) after this many seconds of playback. */
+const LOG_AFTER_SECONDS = 4;
+const TICK_MS = 250;
+/** How long a "play" load may sit unstarted before we assume the browser blocked sound. */
+const BLOCKED_AFTER_MS = 3500;
+
+interface Listen {
+  releaseId: number;
+  position: string | null;
+  videoId: string;
+  seconds: number;
+  logged: number;
+}
+
+function hasUserActivation(): boolean {
+  return navigator.userActivation?.hasBeenActive ?? true;
+}
+
+/**
+ * Two YouTube decks: the visible one plays the release under judgement, the hidden one buffers
+ * the first video of the next release. A verdict swaps them, so the next release starts at once.
+ */
+export class TriagePlayer {
+  status = $state<PlayerStatus>("starting");
+  release = $state.raw<ReleaseDetail | null>(null);
+  entries = $state.raw<PlaylistEntry[]>([]);
+  current = $state<number | null>(null);
+  time = $state(0);
+  duration = $state(0);
+  /** Short message about the player, such as a video that would not embed. */
+  notice = $state<string | null>(null);
+  /** The first video of the next release is buffered. */
+  nextReady = $state(false);
+  /** Index of the visible deck. */
+  active = $state(0);
+  /** Video ids that failed this session; a blocked embed stays blocked. */
+  readonly failed = new SvelteSet<string>();
+  /** Video ids played on the open release. */
+  readonly played = new SvelteSet<string>();
+  /** Track positions that reached a logged listen on the open release. */
+  readonly heardNow = new SvelteSet<string>();
+
+  #api: Api;
+  #fraction: () => number;
+  #decks: Deck[] = [];
+  #wanted: { detail: ReleaseDetail | null; next: ReleaseDetail | null } = {
+    detail: null,
+    next: null,
+  };
+  /** Release the decks were last pointed at; undefined before the first one. */
+  #openedId: number | null | undefined = undefined;
+  #listen: Listen | null = null;
+  #timer: ReturnType<typeof setInterval> | null = null;
+  #noticeTimer: ReturnType<typeof setTimeout> | null = null;
+  #lastTick = 0;
+  #loadingSince = 0;
+  #destroyed = false;
+
+  constructor(api: Api, startAtFraction: () => number) {
+    this.#api = api;
+    this.#fraction = startAtFraction;
+  }
+
+  get entry(): PlaylistEntry | null {
+    return this.current === null ? null : (this.entries[this.current] ?? null);
+  }
+
+  async mount(hosts: [HTMLElement, HTMLElement]): Promise<void> {
+    try {
+      const yt = await loadYouTubeApi();
+      if (this.#destroyed) return;
+      const listener: DeckListener = {
+        onState: (deck, state) => this.#onState(deck, state),
+        onError: (deck, code) => this.#onError(deck, code),
+      };
+      this.#decks = [new Deck(0, hosts[0], yt, listener), new Deck(1, hosts[1], yt, listener)];
+      this.#lastTick = performance.now();
+      this.#timer = setInterval(() => this.#tick(), TICK_MS);
+      this.#sync();
+    } catch (e) {
+      this.status = "unavailable";
+      this.notice = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  destroy(): void {
+    this.#destroyed = true;
+    this.#flushListen();
+    if (this.#timer) clearInterval(this.#timer);
+    if (this.#noticeTimer) clearTimeout(this.#noticeTimer);
+    for (const deck of this.#decks) deck.destroy();
+    this.#decks = [];
+  }
+
+  /** The release under judgement and the one after it. Safe to call on every change. */
+  show(detail: ReleaseDetail | null, next: ReleaseDetail | null): void {
+    this.#wanted = { detail, next };
+    this.#sync();
+  }
+
+  toggle(): void {
+    const deck = this.#activeDeck();
+    if (!deck?.videoId || this.status === "no_audio") return;
+    if (this.status === "playing") {
+      deck.pause();
+      return;
+    }
+    if (this.status === "ended") deck.seekTo(deck.startOffset());
+    deck.play();
+  }
+
+  pause(): void {
+    this.#activeDeck()?.pause();
+  }
+
+  nextTrack(): void {
+    const n = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: true });
+    if (n === null) this.#notify("That was the last track. Judge it.");
+    else this.playEntry(n);
+  }
+
+  previousTrack(): void {
+    const p = previousEntry(this.entries, this.current, this.#playlistState());
+    if (p === null) this.#notify("Already on the first track.");
+    else this.playEntry(p);
+  }
+
+  seekBy(seconds: number): void {
+    const deck = this.#activeDeck();
+    if (!deck?.videoId) return;
+    const end = this.duration > 0 ? this.duration - 1 : Number.POSITIVE_INFINITY;
+    deck.seekTo(Math.min(end, deck.currentTime() + seconds));
+    this.time = deck.currentTime();
+  }
+
+  jumpTo(fraction: number): void {
+    const deck = this.#activeDeck();
+    if (!deck?.videoId || this.duration <= 0) return;
+    deck.seekTo(this.duration * fraction);
+    if (this.status !== "playing" && hasUserActivation()) deck.play();
+  }
+
+  playEntry(index: number): void {
+    const entry = this.entries[index];
+    const deck = this.#activeDeck();
+    const release = this.release;
+    if (!entry || !deck || !release) return;
+    this.#flushListen();
+    this.current = index;
+    this.played.add(entry.video.videoId);
+    deck.tag = { releaseId: release.release.id, entry: index };
+    const mode = hasUserActivation() ? "play" : "cue";
+    this.status = mode === "play" ? "loading" : "needs_gesture";
+    this.#loadingSince = performance.now();
+    this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+    this.duration = entry.video.durationSeconds ?? 0;
+    void deck.load(entry.video.videoId, entry.video.durationSeconds, this.#fraction(), mode);
+    this.#beginListen(release.release.id, entry);
+  }
+
+  #activeDeck(): Deck | undefined {
+    return this.#decks[this.active];
+  }
+
+  #hiddenDeck(): Deck | undefined {
+    return this.#decks[1 - this.active];
+  }
+
+  #playlistState() {
+    return { failed: this.failed, played: this.played };
+  }
+
+  #sync(): void {
+    if (this.#decks.length === 0) return;
+    const { detail, next } = this.#wanted;
+    if ((detail?.release.id ?? null) !== this.#openedId) this.#openRelease(detail);
+    this.#preload(next);
+  }
+
+  #openRelease(detail: ReleaseDetail | null): void {
+    this.#openedId = detail?.release.id ?? null;
+    this.#flushListen();
+    this.played.clear();
+    this.heardNow.clear();
+    this.notice = null;
+    this.release = detail;
+    this.time = 0;
+    this.duration = 0;
+    const active = this.#activeDeck();
+    if (!detail || !active) {
+      this.entries = [];
+      this.current = null;
+      active?.park();
+      this.status = "idle";
+      return;
+    }
+    const entries = buildPlaylist(detail);
+    this.entries = entries;
+    const hidden = this.#hiddenDeck();
+    if (hidden && hidden.tag?.releaseId === detail.release.id && hidden.videoId) {
+      const index = entries.findIndex((e) => e.video.videoId === hidden.videoId);
+      const entry = entries[index];
+      if (entry && !this.failed.has(entry.video.videoId)) {
+        active.park();
+        this.active = hidden.id;
+        this.nextReady = false;
+        this.current = index;
+        this.played.add(entry.video.videoId);
+        this.duration = entry.video.durationSeconds ?? 0;
+        this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+        if (hasUserActivation()) {
+          this.status = hidden.state === PlayerState.PLAYING ? "playing" : "loading";
+          this.#loadingSince = performance.now();
+          hidden.play();
+        } else {
+          this.status = "needs_gesture";
+        }
+        this.#beginListen(detail.release.id, entry);
+        return;
+      }
+    }
+    const first = firstEntry(entries, this.#playlistState());
+    if (first === null) {
+      this.current = null;
+      active.park();
+      this.status = "no_audio";
+      return;
+    }
+    this.playEntry(first);
+  }
+
+  #preload(next: ReleaseDetail | null): void {
+    const hidden = this.#hiddenDeck();
+    if (!hidden) return;
+    if (next && hidden.tag?.releaseId === next.release.id) return;
+    hidden.park();
+    this.nextReady = false;
+    if (!next) return;
+    const entries = buildPlaylist(next);
+    const first = firstEntry(entries, { failed: this.failed, played: new Set() });
+    const entry = first === null ? undefined : entries[first];
+    if (first === null || !entry) return;
+    hidden.tag = { releaseId: next.release.id, entry: first };
+    void hidden.load(entry.video.videoId, entry.video.durationSeconds, this.#fraction(), "preload");
+  }
+
+  /** Events from a deck still holding a previous release (pausing, parking) must not leak. */
+  #holdsOpenRelease(deck: Deck): boolean {
+    return deck.tag !== null && deck.tag.releaseId === this.#openedId;
+  }
+
+  #onState(deck: Deck, state: number): void {
+    if (deck.id !== this.active) {
+      if (deck.primed) this.nextReady = true;
+      return;
+    }
+    if (!this.#holdsOpenRelease(deck)) return;
+    switch (state) {
+      case PlayerState.PLAYING:
+        this.status = "playing";
+        break;
+      case PlayerState.PAUSED:
+        if (this.status !== "needs_gesture") this.status = "paused";
+        break;
+      case PlayerState.BUFFERING:
+        if (this.status !== "playing") this.status = "loading";
+        break;
+      case PlayerState.CUED:
+        if (!hasUserActivation()) this.status = "needs_gesture";
+        break;
+      case PlayerState.ENDED:
+        this.#advance();
+        break;
+    }
+  }
+
+  #onError(deck: Deck, code: number): void {
+    if (deck.videoId) this.failed.add(deck.videoId);
+    if (deck.id !== this.active) {
+      deck.tag = null;
+      this.#preload(this.#wanted.next);
+      return;
+    }
+    if (!this.#holdsOpenRelease(deck)) return;
+    const entry = this.entry;
+    this.#listen = null;
+    const what = entry?.track ? `${entry.track.position} ${entry.track.title}` : "This video";
+    this.#notify(`${what} won't play here: ${embedErrorReason(code)}. Skipped.`);
+    const state = this.#playlistState();
+    const n =
+      nextEntry(this.entries, this.current, state, { fallback: true }) ??
+      firstEntry(this.entries, state);
+    if (n === null) {
+      this.current = null;
+      this.status = "no_audio";
+      return;
+    }
+    this.playEntry(n);
+  }
+
+  #advance(): void {
+    const n = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: false });
+    if (n === null) {
+      this.#flushListen();
+      this.status = "ended";
+      return;
+    }
+    this.playEntry(n);
+  }
+
+  #tick(): void {
+    const now = performance.now();
+    const dt = Math.min(1, (now - this.#lastTick) / 1000);
+    this.#lastTick = now;
+    const deck = this.#activeDeck();
+    if (!deck?.ready || !deck.videoId || !this.#holdsOpenRelease(deck)) return;
+    if (this.status === "playing" || this.status === "paused") {
+      this.time = deck.currentTime();
+      const d = deck.duration();
+      if (d > 0) this.duration = d;
+    }
+    if (
+      this.status === "loading" &&
+      now - this.#loadingSince > BLOCKED_AFTER_MS &&
+      (deck.state === PlayerState.UNSTARTED || deck.state === PlayerState.CUED)
+    ) {
+      this.status = "needs_gesture";
+    }
+    const listen = this.#listen;
+    if (this.status !== "playing" || !listen) return;
+    listen.seconds += dt;
+    if (listen.logged === 0 && listen.seconds >= LOG_AFTER_SECONDS) {
+      this.#postListen(listen, listen.seconds);
+      listen.logged = listen.seconds;
+      if (listen.position) this.heardNow.add(listen.position);
+    }
+  }
+
+  #beginListen(releaseId: number, entry: PlaylistEntry): void {
+    this.#listen = {
+      releaseId,
+      position: entry.track?.position ?? null,
+      videoId: entry.video.videoId,
+      seconds: 0,
+      logged: 0,
+    };
+  }
+
+  /** Logs the playback since the last post when the listener leaves a track. */
+  #flushListen(): void {
+    const listen = this.#listen;
+    this.#listen = null;
+    if (!listen || listen.seconds - listen.logged < 1) return;
+    this.#postListen(listen, listen.seconds - listen.logged);
+  }
+
+  #postListen(listen: Listen, seconds: number): void {
+    this.#api
+      .postListenLog({
+        releaseId: listen.releaseId,
+        position: listen.position,
+        videoId: listen.videoId,
+        seconds: Math.round(seconds * 10) / 10,
+      })
+      .catch(() => {
+        // A lost listen only affects greying; the next listen of the tune logs it again.
+      });
+  }
+
+  #notify(message: string): void {
+    this.notice = message;
+    if (this.#noticeTimer) clearTimeout(this.#noticeTimer);
+    this.#noticeTimer = setTimeout(() => {
+      this.notice = null;
+    }, 5000);
+  }
+}

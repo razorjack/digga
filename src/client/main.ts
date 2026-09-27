@@ -1,3 +1,6 @@
+import "@fontsource/michroma/latin-400.css";
+import "@fontsource-variable/martian-mono/wdth.css";
+import "./styles.css";
 import { mount } from "svelte";
 import App from "./App.svelte";
 
