@@ -25,6 +25,8 @@ const REFILL_BELOW = 8;
 /** Release details fetched ahead of the cursor (the next one also feeds the preloading deck). */
 const PREFETCH = 3;
 const MAX_QUEUE_LIMIT = 5000;
+/** A wheel up waits this long before the wantlist push, so a quick Z cancels it instead. */
+const PUSH_GRACE_MS = 1500;
 
 export class TriageSession {
   upcoming = $state.raw<QueueItem[]>([]);
@@ -48,12 +50,18 @@ export class TriageSession {
   #batch = 200;
   #loading = new Set<number>();
   #refilling: Promise<void> | null = null;
+  /** Bumped by start(); a refill from an older generation drops its result. */
+  #generation = 0;
+  /** Triage keys whose wantlist push went through. */
+  #pushed = new Set<string>();
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
 
   async start(batch: number): Promise<void> {
     this.#batch = batch;
+    this.#generation += 1;
+    this.#refilling = null;
     this.status = "loading";
     this.error = null;
     this.upcoming = [];
@@ -88,25 +96,19 @@ export class TriageSession {
       try {
         await api.postVerdict({ key: item.triageKey, status, releaseId: item.id });
       } catch (e) {
+        this.#flash(`The verdict was not saved: ${errorMessage(e)}`);
+        stats.refreshSoon(0);
+        // Already undone: nothing to put back.
+        if (!this.history.includes(entry)) return;
         this.history = this.history.filter((h) => h !== entry);
         this.upcoming = [item, ...this.upcoming.filter((i) => i.triageKey !== item.triageKey)];
         stats.session -= 1;
         this.slip = null;
-        this.#flash(`The verdict was not saved: ${errorMessage(e)}`);
-        stats.refreshSoon(0);
         return;
       }
       stats.refreshSoon();
-      if (status !== "accepted") return;
-      let push: "done" | "failed" = "done";
-      try {
-        await api.pushToWantlist(item.id);
-      } catch (e) {
-        push = "failed";
-        this.#flash(`Not added to the Discogs wantlist: ${errorMessage(e)}`);
-      }
-      const slip = this.slip;
-      if (slip?.kind === "verdict" && slip.id === id) this.slip = { ...slip, push };
+      // Outside the write chain: a slow Discogs push must not hold back the next verdicts.
+      if (status === "accepted") void this.#pushToWantlist(entry, id);
     });
   }
 
@@ -154,6 +156,8 @@ export class TriageSession {
     if (entry.kind !== "verdict") return;
     stats.session -= 1;
     this.#bumpStats(entry.status, -1);
+    if (entry.status === "accepted" && this.#pushed.delete(item.triageKey) && api.mode === "live")
+      this.#flash("It stays on your Discogs wantlist; remove it on discogs.com.");
     void this.#write(async () => {
       try {
         await api.deleteVerdict(item.triageKey);
@@ -192,6 +196,21 @@ export class TriageSession {
     this.#flash(message);
   }
 
+  async #pushToWantlist(entry: HistoryEntry, slipId: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, PUSH_GRACE_MS));
+    if (!this.history.includes(entry)) return;
+    let push: "done" | "failed" = "done";
+    try {
+      await api.pushToWantlist(entry.item.id);
+      this.#pushed.add(entry.item.triageKey);
+    } catch (e) {
+      push = "failed";
+      this.#flash(`Not added to the Discogs wantlist: ${errorMessage(e)}`);
+    }
+    const slip = this.slip;
+    if (slip?.kind === "verdict" && slip.id === slipId) this.slip = { ...slip, push };
+  }
+
   /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
   #write(fn: () => Promise<void>): Promise<void> {
     const run = this.#writes.then(fn);
@@ -213,14 +232,22 @@ export class TriageSession {
     this.#prefetch();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
       this.#refill().catch((e: unknown) => {
-        this.#flash(`Could not fetch more of the queue: ${errorMessage(e)}`);
+        const message = `Could not fetch more of the queue: ${errorMessage(e)}`;
+        this.#flash(message);
+        // With nothing buffered, the page needs the error state so Enter can retry.
+        if (this.upcoming.length === 0) {
+          this.status = "error";
+          this.error = message;
+        }
       });
     }
     this.#prune();
   }
 
   #refill(): Promise<void> {
-    this.#refilling ??= (async () => {
+    if (this.#refilling) return this.#refilling;
+    const generation = this.#generation;
+    const run = (async () => {
       const known = new Set(
         [...this.upcoming, ...this.passed, ...this.history.map((h) => h.item)].map(
           (i) => i.triageKey,
@@ -229,14 +256,17 @@ export class TriageSession {
       const res = await api.getQueue({
         limit: Math.min(MAX_QUEUE_LIMIT, this.#batch + this.upcoming.length + this.passed.length),
       });
+      if (generation !== this.#generation) return;
       const fresh = res.items.filter((i) => !known.has(i.triageKey));
       if (fresh.length === 0) this.exhausted = true;
       this.upcoming = [...this.upcoming, ...fresh];
       this.#prefetch();
-    })().finally(() => {
-      this.#refilling = null;
+    })();
+    const tracked: Promise<void> = run.finally(() => {
+      if (this.#refilling === tracked) this.#refilling = null;
     });
-    return this.#refilling;
+    this.#refilling = tracked;
+    return tracked;
   }
 
   #prefetch(): void {
