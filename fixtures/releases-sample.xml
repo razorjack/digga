@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<releases>
+<release id="1001" status="Accepted">
+<images><image height="600" type="primary" uri="" uri150="" width="600"/></images>
+<artists><artist><id>11</id><name>Ed Rush (2)</name><anv></anv><join>&amp;</join><role></role><tracks></tracks></artist><artist><id>12</id><name>Optical</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists>
+<title>Wormhole</title>
+<labels><label catno="RH 20" id="77" name="Renegade Hardware"/></labels>
+<extraartists><artist><id>99</id><name>Some Engineer</name><anv></anv><join></join><role>Mastered By</role><tracks></tracks></artist></extraartists>
+<formats><format name="Vinyl" qty="2" text=""><descriptions><description>12"</description><description>33 ⅓ RPM</description></descriptions></format></formats>
+<genres><genre>Electronic</genre></genres>
+<styles><style>Drum n Bass</style><style>Techstep</style></styles>
+<country>UK</country>
+<released>2000-05-01</released>
+<notes>Test pressing notes with &lt;angle&gt; brackets.</notes>
+<data_quality>Correct</data_quality>
+<master_id is_main_release="true">501</master_id>
+<tracklist>
+<track><position>A1</position><title>Wormhole</title><duration>6:12</duration></track>
+<track><position>A2</position><title>Funktion</title><duration>5:40</duration><extraartists><artist><id>98</id><name>Ryme Tyme</name><anv></anv><join></join><role>Vocals</role><tracks></tracks></artist></extraartists></track>
+<track><position>B1</position><title>Watermelon</title><duration>7:01</duration></track>
+</tracklist>
+<identifiers><identifier type="Matrix / Runout" value="RH 20 A"/></identifiers>
+<videos>
+<video src="https://www.youtube.com/watch?v=aaaaaaaaaa1" duration="372" embed="true"><title>Ed Rush &amp; Optical - Wormhole</title><description>desc</description></video>
+<video src="https://www.youtube.com/watch?v=aaaaaaaaaa2" duration="421" embed="true"><title>Ed Rush &amp; Optical - Watermelon (Renegade Hardware)</title><description></description></video>
+</videos>
+<companies><company><id>5</id><name>Renegade Hardware</name><catno></catno><entity_type>1</entity_type><entity_type_name>Label</entity_type_name><resource_url></resource_url></company></companies>
+</release>
+<release id="1002" status="Accepted">
+<artists><artist><id>11</id><name>Ed Rush (2)</name><anv></anv><join>&amp;</join><role></role><tracks></tracks></artist><artist><id>12</id><name>Optical</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists>
+<title>Wormhole</title>
+<labels><label catno="RH 20 R" id="77" name="Renegade Hardware"/></labels>
+<formats><format name="Vinyl" qty="2" text="Repress"><descriptions><description>12"</description></descriptions></format></formats>
+<genres><genre>Electronic</genre></genres>
+<styles><style>Drum n Bass</style></styles>
+<country>Germany</country>
+<released>2001</released>
+<master_id is_main_release="false">501</master_id>
+<tracklist>
+<track><position>A1</position><title>Wormhole</title><duration></duration></track>
+<track><position>B1</position><title>Watermelon</title><duration></duration></track>
+</tracklist>
+<videos></videos>
+</release>
+<release id="1003" status="Accepted">
+<artists><artist><id>194</id><name>Various</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists>
+<title>Hardware Sampler</title>
+<labels><label catno="RH SAMP 1" id="77" name="Renegade Hardware"/></labels>
+<formats><format name="Vinyl" qty="1" text=""><descriptions><description>12"</description><description>Sampler</description></descriptions></format></formats>
+<genres><genre>Electronic</genre></genres>
+<styles><style>Drum n Bass</style></styles>
+<country>UK</country>
+<released></released>
+<tracklist>
+<track><position>A</position><title>Messiah</title><duration>6:30</duration><artists><artist><id>21</id><name>Konflict</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists></track>
+<track><position>AA</position><title>Beckoning</title><duration>6:02</duration><artists><artist><id>21</id><name>Konflict</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists></track>
+</tracklist>
+<videos>
+<video src="https://youtu.be/bbbbbbbbbb1" duration="390" embed="true"><title>Konflict - Messiah</title><description></description></video>
+<video src="https://www.vimeo.com/12345" duration="100" embed="true"><title>Not YouTube</title><description></description></video>
+</videos>
+</release>
+<release id="1004" status="Accepted">
+<artists><artist><id>31</id><name>Dom &amp; Roland (2)</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists>
+<title>Industry</title>
+<labels><label catno="MOSCD 1" id="88" name="Moving Shadow"/></labels>
+<formats><format name="CD" qty="1" text=""><descriptions><description>Album</description></descriptions></format></formats>
+<genres><genre>Electronic</genre></genres>
+<styles><style>Drum n Bass</style><style>Jungle</style></styles>
+<country>UK</country>
+<released>1996-00-00</released>
+<tracklist>
+<track><position>1</position><title>Industry</title><duration>6:00</duration></track>
+<track><position>2</position><title>Distortion</title><duration>7:00</duration></track>
+</tracklist>
+<videos>
+<video src="https://www.youtube.com/watch?v=cccccccccc1" duration="360" embed="true"><title>Dom &amp; Roland - Industry</title><description></description></video>
+</videos>
+</release>
+<release id="1005" status="Accepted">
+<artists><artist><id>41</id><name>Surgeon</name><anv></anv><join></join><role></role><tracks></tracks></artist></artists>
+<title>Force + Form</title>
+<labels><label catno="TRESOR 123" id="77" name="Renegade Hardware"/></labels>
+<formats><format name="Vinyl" qty="1" text=""><descriptions><description>12"</description></descriptions></format></formats>
+<genres><genre>Electronic</genre></genres>
+<styles><style>Techno</style></styles>
+<country>UK</country>
+<released>1999</released>
+<master_id is_main_release="true">505</master_id>
+<tracklist>
+<track><position>A</position><title>Force</title><duration></duration></track>
+</tracklist>
+</release>
+<release id="1006" status="Accepted">
+<artists><artist><id>21</id><name>Konflict</name><anv>Konflikt</anv><join></join><role></role><tracks></tracks></artist></artists>
+<title>Messiah / Beckoning</title>
+<labels><label catno="RH 18" id="77" name="Renegade Hardware"/><label catno="RH 18" id="78" name="Renegade Hardware Ltd."/></labels>
+<formats><format name="Vinyl" qty="1" text=""><descriptions><description>12"</description><description>45 RPM</description></descriptions></format></formats>
+<genres><genre>Electronic</genre></genres>
+<styles><style>Drum n Bass</style></styles>
+<country>UK</country>
+<released>1999-00-00</released>
+<master_id is_main_release="true">506</master_id>
+<tracklist>
+<track><position>A</position><title>Messiah</title><duration>6:31</duration></track>
+<track><position>AA</position><title>Beckoning</title><duration>6:02</duration></track>
+</tracklist>
+<videos>
+<video src="https://www.youtube.com/watch?v=dddddddddd1" duration="391" embed="true"><title>Konflict - Messiah [RH18]</title><description></description></video>
+<video src="https://www.youtube.com/watch?v=dddddddddd2" duration="120" embed="false"><title>Renegade Hardware label mix 1999</title><description></description></video>
+</videos>
+</release>
+</releases>
