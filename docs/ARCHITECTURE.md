@@ -56,15 +56,17 @@ videos), orders by strategy and limits. Changing filters or strategy never requi
 
 ## Verdicts and coverage
 
-`verdicts` holds one row per triage key. Seeds (`import collection|wantlist|history`) write
-`collection`, `wantlist` or `seen` with precedence collection > wantlist > seen; triage decisions
-(`rejected`, `accepted`, `maybe`, `candidate`, `no_audio`) are written by the UI. `listen_log` records
+`verdicts` holds one row per triage key. Seeds (`import collection|wantlist|history|list`) write
+`collection`, `wantlist`, `seen` or `maybe` (from the Discogs Maybe list) under the precedence in
+`docs/DATA_MODEL.md`; triage decisions (`rejected`, `accepted`, `maybe`, `candidate`, `snoozed`,
+`no_audio`) are written by the UI. `listen_log` records
 every listen (proof of coverage) and feeds `heard_tracks`, keyed by the normalized
 `artist - title`, so a tune already heard on another release is greyed out instead of replayed.
 
 ## Jobs
 
-The five jobs (`dumpLoad`, `importCollection`, `importWantlist`, `importHistory`, `enrich`) are
+The six jobs (`dumpLoad`, `importCollection`, `importWantlist`, `importHistory`, `importList`,
+`enrich`) are
 async functions in `src/server/jobs/` taking explicit dependencies and an `onProgress` callback.
 `jobs/runner.ts` creates the `jobs` row, streams progress into `progress_json` and records the
 outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits for them. The dump

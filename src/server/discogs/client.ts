@@ -2,7 +2,10 @@ import type { Logger } from "../logger.ts";
 import type {
   DiscogsCollectionPage,
   DiscogsIdentity,
+  DiscogsList,
+  DiscogsMaster,
   DiscogsRelease,
+  DiscogsUserListsPage,
   DiscogsWantlistPage,
 } from "./types.ts";
 
@@ -55,6 +58,11 @@ export interface DiscogsClient {
   ): Promise<DiscogsCollectionPage>;
   getWantlistPage(username: string, page: number, perPage?: number): Promise<DiscogsWantlistPage>;
   getIdentity(): Promise<DiscogsIdentity>;
+  getMaster(id: number): Promise<DiscogsMaster>;
+  /** The user's lists; private ones only with that user's token. */
+  getUserLists(username: string, page: number, perPage?: number): Promise<DiscogsUserListsPage>;
+  /** A list with its items. The API has no endpoint to add or remove items. */
+  getList(id: number): Promise<DiscogsList>;
   /** Stub: PUT /users/{u}/wants/{id} with notes and rating. */
   addToWantlist(
     username: string,
@@ -160,6 +168,13 @@ export function createDiscogsClient(opts: DiscogsClientOptions = {}): DiscogsCli
         per_page: perPage,
       }),
     getIdentity: () => request<DiscogsIdentity>("/oauth/identity"),
+    getMaster: (id) => request<DiscogsMaster>(`/masters/${id}`),
+    getUserLists: (username, page, perPage = 100) =>
+      request<DiscogsUserListsPage>(`/users/${encodeURIComponent(username)}/lists`, {
+        page,
+        per_page: perPage,
+      }),
+    getList: (id) => request<DiscogsList>(`/lists/${id}`),
     addToWantlist: () => Promise.reject(new NotImplementedError("addToWantlist")),
     addToCollection: () => Promise.reject(new NotImplementedError("addToCollection")),
     rateLimit: () => ({ ...state }),

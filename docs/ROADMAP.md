@@ -27,7 +27,9 @@ query, Hono API, CLI, placeholder Svelte UI, docs, tests, portability check.
   does to the wantlist (the sandbox pretends nothing needs undoing).
 - Settings writes and jobs then run for real; check the jobs panel against real progress shapes.
 - Token status in Settings (a read-only endpoint saying whether `DISCOGS_TOKEN` is set).
-- Re-audition maybes: open a Twelves record in the triage player.
+- Re-audition snoozed releases: open a Twelves record in the triage player, or a queue of them.
+- If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
+  wantlist, and drop the manual hand-off in Twelves.
 
 ## Session 4: coverage pass and freshness
 

@@ -39,7 +39,7 @@ labels and test pressings, stamped and hand-written catalogue numbers, deadwax e
 photocopied flyers, grain and distortion used sparingly, industrial or monospace type, one harsh
 accent colour. Slightly courageous and whimsical: the app should have a personality and one or two
 signature elements that make it distinct and fun. The whimsy lives in copy and micro-details
-(verdict copy: skip, want, maybe, grail), not in motion that costs attention.
+(verdict copy: skip, want, maybe, grail, snooze), not in motion that costs attention.
 
 Avoid: generic SaaS cards, gradients, glassmorphism, rounded pastel, neon-cyberpunk clichés, anything
 that reads as a music streaming app. Ergonomics win every tie.

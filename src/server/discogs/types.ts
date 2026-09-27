@@ -104,3 +104,38 @@ export interface DiscogsIdentity {
   id: number;
   username: string;
 }
+
+export interface DiscogsUserList {
+  id: number;
+  name: string;
+  public: boolean;
+  description?: string;
+  date_changed?: string;
+}
+
+export interface DiscogsUserListsPage {
+  pagination: DiscogsPagination;
+  lists: DiscogsUserList[];
+}
+
+/** A list entry; `type` is release, master, artist or label. */
+export interface DiscogsListItem {
+  id: number;
+  type: string;
+  display_title?: string;
+  comment?: string;
+  uri?: string;
+}
+
+export interface DiscogsList {
+  id: number;
+  name: string;
+  public?: boolean;
+  items: DiscogsListItem[];
+}
+
+export interface DiscogsMaster {
+  id: number;
+  main_release: number;
+  title?: string;
+}

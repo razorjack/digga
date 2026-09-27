@@ -223,6 +223,7 @@ export class TriageSession {
     if (!s) return;
     stats.value = {
       ...s,
+      dug: Math.max(0, s.dug + delta),
       remaining: Math.max(0, s.remaining - delta),
       verdicts: { ...s.verdicts, [status]: s.verdicts[status] + delta },
     };

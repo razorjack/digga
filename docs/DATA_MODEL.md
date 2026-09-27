@@ -59,17 +59,21 @@ Non-YouTube videos are dropped at load time.
 
 ## verdicts
 
-| column       | notes                                                                                      |
-| ------------ | ------------------------------------------------------------------------------------------ |
-| `key`        | PK, triage key                                                                             |
-| `status`     | `collection`, `wantlist`, `seen`, `rejected`, `accepted`, `maybe`, `candidate`, `no_audio` |
-| `source`     | `seed:collection`, `seed:wantlist`, `seed:history`, `triage`, `manual`                     |
-| `notes`      | nullable                                                                                   |
-| `release_id` | the release that was on screen or imported, nullable for master-only history hits          |
-| `decided_at` | ISO; seeds use Discogs `date_added` or the last browser visit                              |
+| column       | notes                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| `key`        | PK, triage key                                                                                        |
+| `status`     | `collection`, `wantlist`, `seen`, `rejected`, `accepted`, `maybe`, `candidate`, `no_audio`, `snoozed` |
+| `source`     | `seed:collection`, `seed:wantlist`, `seed:history`, `seed:list`, `triage`, `manual`                   |
+| `notes`      | nullable                                                                                              |
+| `release_id` | the release that was on screen or imported, nullable for master-only history hits                     |
+| `decided_at` | ISO; seeds use Discogs `date_added` or the last browser visit                                         |
 
-Seed precedence (`applySeedVerdict`): collection (3) > wantlist (2) > triage/manual decisions (1.5) >
-seen (1). A seed never downgrades a higher rank.
+Seed precedence (`applySeedVerdict`, ranks in `src/shared/verdict-rank.ts`): collection (3) >
+wantlist (2) > `accepted` or `candidate` from triage (1.6) > the Discogs Maybe list, `maybe` from
+`seed:list` (1.55) > other triage/manual decisions (1.5) > seen (1). A seed never downgrades a
+higher rank. `maybe` means the release belongs on the Discogs Maybe list: from `triage` it is not
+there yet, from `seed:list` it is. `snoozed` is "hear it again later". The "dug" count is every
+verdict with source `triage` or `manual`.
 
 ## track_verdicts
 

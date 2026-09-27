@@ -2,12 +2,18 @@ import type { Stats } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type Db, getMeta } from "./db/db.ts";
-import { countHeardTracks, countVerdictsByStatus, triageDecisionTimes } from "./db/verdicts.ts";
+import {
+  countDug,
+  countHeardTracks,
+  countVerdictsByStatus,
+  triageDecisionTimes,
+} from "./db/verdicts.ts";
 import { countRemaining, countUniverseKeys, countUniverseReleases } from "./queue/query.ts";
 
 export function computeStats(db: Db, config: Config): Stats {
   const remaining = countRemaining(db, config.filters);
   return {
+    dug: countDug(db),
     universe: {
       releases: countUniverseReleases(db),
       keys: countUniverseKeys(db, null),

@@ -68,6 +68,15 @@ Endpoints used:
   `releases[].{id, instance_id, date_added, rating, notes[], basic_information}`.
 - `GET /users/{u}/wants?per_page=100&page=N`: `wants[].{id, rating, notes, date_added, basic_information}`.
 - `GET /oauth/identity` for a token check.
+- `GET /users/{u}/lists?per_page=100&page=N`: `lists[].{id, name, public}`; private lists appear
+  only with that user's token.
+- `GET /lists/{id}`: `items[].{id, type, display_title, comment, uri}` with `type` in release,
+  master, artist, label, and no pagination. Digga keeps releases and masters; a release outside
+  the dump is looked up with `GET /releases/{id}`, a master with `GET /masters/{id}` and then its
+  `main_release`, so each entry gets its triage key and a stub row.
+- Lists are read-only in the API: there is no endpoint to create a list or to add, edit or remove
+  items (checked against the maintained Python client, which models lists read-only, in September
+  2026). The `M` verdict therefore leaves adding to the Discogs list to the user.
 - Stubs for later: `PUT /users/{u}/wants/{release_id}` (notes, rating), `POST
 /users/{u}/collection/folders/{folder_id}/releases/{release_id}`.
 

@@ -3,7 +3,7 @@ import type { VerdictStatus } from "../shared/types.ts";
 /** Verdicts the triage keys write. */
 export type TriageStatus = Extract<
   VerdictStatus,
-  "rejected" | "accepted" | "maybe" | "candidate" | "no_audio"
+  "rejected" | "accepted" | "maybe" | "candidate" | "snoozed" | "no_audio"
 >;
 
 export type StampTone = "paper" | "flyer" | "dust";
@@ -14,20 +14,62 @@ export interface VerdictKey {
   copy: string;
   hint: string;
   tone: StampTone;
+  /** "judge" verdicts get the large buttons; "defer" ones sit with N in the smaller group. */
+  group: "judge" | "defer";
+  /** Only offered once a Discogs Maybe list is chosen in Settings. */
+  needsMaybeList?: boolean;
 }
 
 export const VERDICT_KEYS: VerdictKey[] = [
-  { status: "rejected", key: "R", copy: "skip", hint: "not for the box", tone: "paper" },
-  { status: "accepted", key: "A", copy: "want", hint: "onto the wantlist", tone: "flyer" },
-  { status: "maybe", key: "M", copy: "maybe", hint: "hear it again later", tone: "paper" },
+  {
+    status: "rejected",
+    key: "R",
+    copy: "skip",
+    hint: "not for the box",
+    tone: "paper",
+    group: "judge",
+  },
+  {
+    status: "accepted",
+    key: "A",
+    copy: "want",
+    hint: "onto the wantlist",
+    tone: "flyer",
+    group: "judge",
+  },
+  {
+    status: "maybe",
+    key: "M",
+    copy: "maybe",
+    hint: "for your Maybe list",
+    tone: "paper",
+    group: "judge",
+    needsMaybeList: true,
+  },
   {
     status: "candidate",
     key: "C",
     copy: "grail",
     hint: "the one you've been hunting",
     tone: "flyer",
+    group: "judge",
   },
-  { status: "no_audio", key: "D", copy: "no audio", hint: "off the queue, unjudged", tone: "dust" },
+  {
+    status: "snoozed",
+    key: "L",
+    copy: "snooze",
+    hint: "hear it again later",
+    tone: "dust",
+    group: "defer",
+  },
+  {
+    status: "no_audio",
+    key: "D",
+    copy: "no audio",
+    hint: "off the queue, unjudged",
+    tone: "dust",
+    group: "defer",
+  },
 ];
 
 /** How each verdict status reads on screen. */
@@ -37,6 +79,7 @@ export const STATUS_COPY: Record<VerdictStatus, string> = {
   maybe: "maybe",
   candidate: "grail",
   no_audio: "no audio",
+  snoozed: "snooze",
   wantlist: "wantlist",
   collection: "owned",
   seen: "seen",
@@ -48,6 +91,7 @@ export const STATUS_TONE: Record<VerdictStatus, StampTone> = {
   maybe: "paper",
   candidate: "flyer",
   no_audio: "dust",
+  snoozed: "dust",
   wantlist: "paper",
   collection: "paper",
   seen: "dust",
@@ -73,12 +117,18 @@ export const GLOBAL_KEYS: KeyGroup = {
   ],
 };
 
-export function triageKeyGroups(seekStepSeconds: number): KeyGroup[] {
+export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean): KeyGroup[] {
   return [
     {
       title: "Verdicts",
       keys: [
-        ...VERDICT_KEYS.map((v) => ({ keys: [v.key], label: `${v.copy}: ${v.hint}` })),
+        ...VERDICT_KEYS.map((v) => ({
+          keys: [v.key],
+          label:
+            v.needsMaybeList && !hasMaybeList
+              ? `${v.copy}: pick your Discogs Maybe list in Settings first`
+              : `${v.copy}: ${v.hint}`,
+        })),
         { keys: ["N"], label: "next: decide later, it stays in the queue" },
         { keys: ["Z"], label: "undo the last verdict or next" },
       ],
@@ -109,12 +159,13 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
   {
     title: "Twelves",
     keys: [
-      { keys: ["1", "…", "6"], label: "switch shelf" },
+      { keys: ["1", "…", "7"], label: "switch shelf" },
       { keys: ["J", "K"], label: "move down / up (also ↓ ↑)" },
       { keys: ["S"], label: "change the sort" },
       { keys: ["O"], label: "open the release on discogs.com" },
       { keys: ["E"], label: "edit the note" },
-      { keys: ["A", "M", "C", "R"], label: "re-judge a triage verdict" },
+      { keys: ["A", "M", "C", "R", "L"], label: "re-judge a triage verdict" },
+      { keys: ["I"], label: "check your Discogs Maybe list again" },
       { keys: ["Z"], label: "undo the last change" },
     ],
   },

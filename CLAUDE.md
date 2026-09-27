@@ -52,6 +52,7 @@ gzip -dc data/dumps/discogs_20250901_releases.xml.gz | npm run digga -- dump loa
 npm run digga -- import collection
 npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
+npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
 # 3. Prices, have/want, fresh videos for the next 200 queue items
 npm run digga -- enrich --ahead 200
 npm run digga -- stats

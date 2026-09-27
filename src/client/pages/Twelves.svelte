@@ -3,15 +3,23 @@
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
-  import type { Verdict, VerdictStatus } from "../../shared/types.ts";
+  import type { ImportProgress, Verdict, VerdictStatus } from "../../shared/types.ts";
+  import { isTriageSource } from "../../shared/verdict-rank.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
   import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
   import { openExternal } from "../router.svelte.ts";
-  import { errorMessage, stats, ui } from "../stores.svelte.ts";
+  import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
 
-  type ShelfId = "all" | "accepted" | "wantlist" | "collection" | "maybe" | "candidate";
+  type ShelfId =
+    | "all"
+    | "accepted"
+    | "wantlist"
+    | "collection"
+    | "maybe"
+    | "candidate"
+    | "snoozed";
   type SortId = "newest" | "label" | "artist" | "year" | "price" | "want";
 
   const SHELVES: { id: ShelfId; label: string }[] = [
@@ -21,8 +29,16 @@
     { id: "collection", label: "Owned" },
     { id: "maybe", label: "Maybe" },
     { id: "candidate", label: "Grail" },
+    { id: "snoozed", label: "Snoozed" },
   ];
-  const STATUSES: VerdictStatus[] = ["accepted", "wantlist", "collection", "maybe", "candidate"];
+  const STATUSES: VerdictStatus[] = [
+    "accepted",
+    "wantlist",
+    "collection",
+    "maybe",
+    "candidate",
+    "snoozed",
+  ];
   const SORTS: { id: SortId; label: string }[] = [
     { id: "newest", label: "newest" },
     { id: "label", label: "label" },
@@ -36,8 +52,9 @@
     accepted: "Nothing wanted yet. Press A on a release in Triage.",
     wantlist: "No wantlist imported. Run npm run digga -- import wantlist.",
     collection: "No collection imported. Run npm run digga -- import collection.",
-    maybe: "No maybes. Press M in Triage to put a release aside.",
+    maybe: "No maybes. Press M in Triage for a release that belongs on your Discogs Maybe list.",
     candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
+    snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",
   };
   /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
   const JUDGE_KEYS: Record<string, VerdictStatus> = {
@@ -45,8 +62,15 @@
     m: "maybe",
     c: "candidate",
     r: "rejected",
+    l: "snoozed",
   };
-  const TRIAGE_STATUSES = new Set<VerdictStatus>(["accepted", "maybe", "candidate", "rejected"]);
+  const TRIAGE_STATUSES = new Set<VerdictStatus>([
+    "accepted",
+    "maybe",
+    "candidate",
+    "rejected",
+    "snoozed",
+  ]);
 
   let items = $state.raw<TwelvesItem[]>([]);
   let loading = $state(true);
@@ -61,6 +85,13 @@
   let undoStack = $state.raw<Verdict[]>([]);
   let filterInput = $state<HTMLInputElement | null>(null);
   let listEl = $state<HTMLOListElement | null>(null);
+  let checking = $state(false);
+
+  const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
+  /** A maybe decided in Digga that has not shown up on the Discogs list yet. */
+  const notOnList = (i: TwelvesItem) =>
+    i.verdict.status === "maybe" && isTriageSource(i.verdict.source);
+  const pending = $derived(items.filter(notOnList).length);
 
   const counts = $derived(
     Object.fromEntries(
@@ -218,6 +249,34 @@
     selectedKey = visible[i]!.verdict.key;
   }
 
+  /** Reads the Discogs Maybe list again, so maybes added there by hand lose their marker. */
+  async function checkList(): Promise<void> {
+    if (checking) return;
+    if (!hasMaybeList) {
+      showFlash("Pick your Discogs Maybe list in Settings first.");
+      return;
+    }
+    checking = true;
+    try {
+      let job = await api.startImport("list");
+      while (job.status === "running" || job.status === "queued") {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        job = await api.getJob(job.id);
+      }
+      if (job.status !== "done") throw new Error(job.error ?? `the check ended as ${job.status}`);
+      const p = job.progress as ImportProgress;
+      await load();
+      void stats.refresh();
+      showFlash(
+        `Your Discogs Maybe list has ${formatCount(p.processed)} records; ${formatCount(p.verdictsWritten)} changed here.`,
+      );
+    } catch (e) {
+      showFlash(`The list check failed: ${errorMessage(e)}`);
+    } finally {
+      checking = false;
+    }
+  }
+
   function cycleSort(): void {
     const i = SORTS.findIndex((s) => s.id === sort);
     sort = SORTS[(i + 1) % SORTS.length]!.id;
@@ -226,13 +285,14 @@
   function onkeydown(e: KeyboardEvent): void {
     if (ui.helpOpen || e.defaultPrevented || isTyping(e) || hasCommandModifier(e) || e.shiftKey) return;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    const shelfIndex = /^[1-6]$/.test(key) ? Number(key) - 1 : -1;
+    const shelfIndex = /^[1-7]$/.test(key) ? Number(key) - 1 : -1;
     if (shelfIndex >= 0) shelf = SHELVES[shelfIndex]!.id;
     else if (key === "j" || key === "ArrowDown") move(1);
     else if (key === "k" || key === "ArrowUp") move(-1);
     else if (key === "s") cycleSort();
     else if (key === "/") filterInput?.focus();
     else if (key === "z") void undo();
+    else if (key === "i") void checkList();
     else if (key === "o" && selected?.release) openExternal(discogsReleaseUrl(selected.release.id));
     else if (key === "e" && selected) void startEditing(selected);
     else if (JUDGE_KEYS[key] && selected) rejudge(selected, JUDGE_KEYS[key]);
@@ -294,6 +354,29 @@
     </div>
   </div>
 
+  {#if shelf === "maybe" || (shelf === "all" && pending > 0)}
+    <div class="handoff">
+      {#if !hasMaybeList}
+        <p>Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step with it.</p>
+      {:else}
+        <p>
+          {#if pending > 0}
+            <b>{formatCount(pending)}</b>
+            {pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet. The Discogs
+            API cannot add to lists: <Key label="O" /> opens the release, where "Add to list" is one
+            click.
+          {:else}
+            Every maybe here is on your Discogs Maybe list.
+          {/if}
+        </p>
+        <button type="button" class="check" disabled={checking} onclick={() => void checkList()}>
+          <Key label="I" />
+          {checking ? "Reading your Discogs Maybe list…" : "check the list again"}
+        </button>
+      {/if}
+    </div>
+  {/if}
+
   {#if loading}
     <p class="empty">Loading…</p>
   {:else if error}
@@ -338,6 +421,9 @@
             {:else if item.verdict.notes}
               <p class="note">{item.verdict.notes}</p>
             {/if}
+            {#if notOnList(item)}
+              <p class="pending">not on your Discogs Maybe list yet</p>
+            {/if}
           </div>
           <div class="where">
             {#if r}
@@ -372,7 +458,8 @@
       <span><Key label="J" /><Key label="K" /> move</span>
       <span><Key label="O" /> discogs</span>
       <span><Key label="E" /> note</span>
-      <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /> re-judge</span>
+      <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
+      <span><Key label="I" /> check Maybe list</span>
       <span><Key label="Z" /> undo</span>
     </p>
     <p class="flash" aria-live="polite">{flash ?? ""}</p>
@@ -381,8 +468,8 @@
 
 <style>
   .twelves {
-    display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    display: flex;
+    flex-direction: column;
     min-height: 100%;
     padding: 32px 40px 0;
   }
@@ -531,6 +618,46 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .pending {
+    margin-top: 4px;
+    color: var(--faded);
+    font-size: var(--text-sm);
+  }
+  .pending::before {
+    content: "○ ";
+    color: var(--flyer);
+  }
+  .handoff {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 28px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    border: 1px dashed var(--groove);
+    color: var(--faded);
+    font-size: var(--text-sm);
+  }
+  .handoff p {
+    max-width: 90ch;
+  }
+  .handoff b {
+    color: var(--paper);
+  }
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: none;
+    color: var(--paper);
+    padding: 0;
+  }
+  .check:disabled {
+    color: var(--faded);
+    cursor: default;
+  }
   .note-input {
     width: 100%;
     margin-top: 6px;
@@ -574,7 +701,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 20px;
-    margin: 0 -40px;
+    margin: auto -40px 0;
     padding: 12px 40px 14px;
     border-top: 1px solid var(--groove);
     background: var(--sleeve);

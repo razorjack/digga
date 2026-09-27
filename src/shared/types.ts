@@ -7,6 +7,7 @@ export const VERDICT_STATUSES = [
   "maybe",
   "candidate",
   "no_audio",
+  "snoozed",
 ] as const;
 export type VerdictStatus = (typeof VERDICT_STATUSES)[number];
 
@@ -14,6 +15,7 @@ export const VERDICT_SOURCES = [
   "seed:collection",
   "seed:wantlist",
   "seed:history",
+  "seed:list",
   "triage",
   "manual",
 ] as const;
@@ -27,6 +29,7 @@ export const JOB_TYPES = [
   "import_collection",
   "import_wantlist",
   "import_history",
+  "import_list",
   "enrich",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];

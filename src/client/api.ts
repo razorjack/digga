@@ -1,6 +1,8 @@
 import {
   filtersParam,
   type DeleteVerdictResponse,
+  type DiscogsListResponse,
+  type DiscogsListsResponse,
   type DumpLoadJobInput,
   type EnrichJobInput,
   type ImportJobInput,
@@ -52,6 +54,9 @@ export interface Api {
   getJob(id: string): Promise<Job>;
   cancelJob(id: string): Promise<{ cancelled: boolean; job: Job }>;
   pushToWantlist(releaseId: number, input?: WantlistPushInput): Promise<WantlistPushResponse>;
+  getDiscogsLists(): Promise<DiscogsListsResponse>;
+  /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
+  getDiscogsList(id: number): Promise<DiscogsListResponse>;
 }
 
 export class ApiRequestError extends Error {
@@ -117,6 +122,8 @@ export function createHttpApi(baseUrl = "/api"): Api {
     cancelJob: (id) => call("POST", `/jobs/${id}/cancel`),
     pushToWantlist: (releaseId, input = {}) =>
       call("POST", `/discogs/wantlist/${releaseId}`, input),
+    getDiscogsLists: () => call("GET", "/discogs/lists"),
+    getDiscogsList: (id) => call("GET", `/discogs/lists/${id}`),
   };
 }
 

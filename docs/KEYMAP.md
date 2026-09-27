@@ -34,15 +34,20 @@ or Alt. Holding a key down never repeats a verdict.
 | --- | ----------- | ---------- | ------------------------------------------------------------- |
 | `R` | `rejected`  | "skip"     |                                                               |
 | `A` | `accepted`  | "want"     | pushes to the Discogs wantlist after 1.5 s unless undone      |
-| `M` | `maybe`     | "maybe"    |                                                               |
+| `M` | `maybe`     | "maybe"    | for your Discogs Maybe list; offered once the list is chosen  |
 | `C` | `candidate` | "grail"    | the one you've been hunting: a top want or an ID-hunt match   |
+| `L` | `snoozed`   | "snooze"   | off the queue, to hear again later (Snoozed shelf)            |
 | `D` | `no_audio`  | "no audio" | leaves the queue without a judgement                          |
 | `N` | none        | "next"     | moves on; the release stays in the queue and comes back later |
 | `Z` | undo        |            | reverts the last verdict or `N` and returns to that release   |
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key`; an `N` is undone locally. The counter reads "4,312 dug", where
-dug counts `rejected`, `accepted`, `maybe`, `candidate` and `no_audio`.
+dug counts every verdict made in Digga (source `triage` or `manual`), not seeds.
+
+The Discogs API cannot add to lists, so `M` only records the verdict. Twelves marks maybes that are
+not on the Discogs list yet; after adding them there by hand, `I` in Twelves (or the Maybe list
+import) reads the list again and clears the marks.
 
 ## Triage: track marks (optional, on the playing track)
 
@@ -56,16 +61,17 @@ Pressing the same mark again clears it.
 
 ## Twelves
 
-| key                  | action                                                         |
-| -------------------- | -------------------------------------------------------------- |
-| `1` … `6`            | shelf: everything, want, Discogs wantlist, owned, maybe, grail |
-| `J` / `K`, `↓` / `↑` | move the selection                                             |
-| `S`                  | next sort order (newest, label, artist, year, price, want)     |
-| `/`                  | focus the filter; Enter or Esc leaves it                       |
-| `O`                  | open the release on discogs.com                                |
-| `E`                  | edit the note; Enter saves, Esc cancels                        |
-| `A` `M` `C` `R`      | re-judge a triage verdict (`R` takes it off the shelves)       |
-| `Z`                  | undo the last change                                           |
+| key                  | action                                                                  |
+| -------------------- | ----------------------------------------------------------------------- |
+| `1` … `7`            | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed |
+| `J` / `K`, `↓` / `↑` | move the selection                                                      |
+| `S`                  | next sort order (newest, label, artist, year, price, want)              |
+| `/`                  | focus the filter; Enter or Esc leaves it                                |
+| `O`                  | open the release on discogs.com                                         |
+| `E`                  | edit the note; Enter saves, Esc cancels                                 |
+| `A` `M` `C` `R` `L`  | re-judge a triage verdict (`R` takes it off the shelves)                |
+| `I`                  | read the Discogs Maybe list again                                       |
+| `Z`                  | undo the last change                                                    |
 
 Wantlist and owned records come from Discogs and cannot be re-judged here.
 

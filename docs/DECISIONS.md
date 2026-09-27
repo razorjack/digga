@@ -130,3 +130,25 @@ Chronological. Each entry records a choice made without asking and why.
     "rinsed". It ties to the app's name and reads the same for any genre. `dugCount()` in
     `src/shared/api.ts` defines it for the app and for `digga stats`: every triage verdict
     (`rejected`, `accepted`, `maybe`, `candidate`, `no_audio`), no seeds.
+46. **`M` means "maybe: for the Discogs Maybe list"; the old "hear it again later" is `snoozed`
+    on `L`.** The owner keeps a private Discogs list for records not good enough for the
+    wantlist. No triage verdicts existed yet, so the status could be renamed without a migration.
+    `L` ("later") was free; `snoozed` sits with `N` and `D` in the smaller group of the verdict
+    bar, since it defers rather than judges.
+47. **The Discogs API cannot write to lists**, so `M` records the verdict and Twelves hands off:
+    maybes from triage are marked "not on your Discogs Maybe list yet", `O` opens the release, and
+    reading the list again (`I` in Twelves, the Maybe list import, `digga import list`) turns
+    them into `seed:list` maybes. The website's own add-to-list call uses a browser session, not
+    the API token, and was not used.
+48. **`discogs.maybeListId` in the config chooses the list**, from `GET /api/discogs/lists`. `M`
+    is only offered once it is set; the key explains where to set it otherwise.
+49. **The Maybe list ranks between want/grail and other triage verdicts** (1.55 against 1.6 and
+    1.5). A triage `maybe`, skip or snooze turns into the list seed; a want or grail stays, and a
+    wantlist or collection seed still wins. Removing an item from the Discogs list does not remove
+    the verdict, as with the wantlist import.
+50. **The sandbox reads the real list.** Reading a list is not a write, so the sandbox's Maybe list
+    import calls `GET /api/discogs/lists/:id` (which resolves entries without writing) and keeps
+    the resulting `maybe` seeds in memory. That lets the whole hand-off be tried before going live.
+51. **"Dug" is counted by source, not status**: `Stats.dug` counts verdicts with source `triage`
+    or `manual`, because `maybe` can now also be a seed from the Discogs list. It replaces the
+    client-side `dugCount()` of decision 45.

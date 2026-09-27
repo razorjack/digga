@@ -4,27 +4,31 @@
 
   let {
     disabled,
+    hasMaybeList,
     onjudge,
     onpass,
     onundo,
     onhelp,
   }: {
     disabled: boolean;
+    hasMaybeList: boolean;
     onjudge: (status: TriageStatus) => void;
     onpass: () => void;
     onundo: () => void;
     onhelp: () => void;
   } = $props();
 
-  const main = VERDICT_KEYS.filter((v) => v.status !== "no_audio");
-  const noAudio = VERDICT_KEYS.find((v) => v.status === "no_audio")!;
+  const judged = $derived(
+    VERDICT_KEYS.filter((v) => v.group === "judge" && (hasMaybeList || !v.needsMaybeList)),
+  );
+  const deferred = VERDICT_KEYS.filter((v) => v.group === "defer");
   // Buttons never keep focus, so Space always reaches the player instead of the last button clicked.
   const keepFocus = (e: MouseEvent) => e.preventDefault();
 </script>
 
 <nav class="bar" aria-label="Verdicts">
   <div class="verdicts">
-    {#each main as v (v.status)}
+    {#each judged as v (v.status)}
       <button
         type="button"
         class="verdict {v.tone}"
@@ -43,16 +47,18 @@
     <button type="button" tabindex="-1" onmousedown={keepFocus} onclick={onpass}>
       <Key label="N" /> next
     </button>
-    <button
-      type="button"
-      tabindex="-1"
-      {disabled}
-      onmousedown={keepFocus}
-      onclick={() => onjudge(noAudio.status)}
-    >
-      <Key label={noAudio.key} />
-      {noAudio.copy}
-    </button>
+    {#each deferred as v (v.status)}
+      <button
+        type="button"
+        tabindex="-1"
+        {disabled}
+        onmousedown={keepFocus}
+        onclick={() => onjudge(v.status)}
+      >
+        <Key label={v.key} />
+        {v.copy}
+      </button>
+    {/each}
     <button type="button" tabindex="-1" onmousedown={keepFocus} onclick={onundo}>
       <Key label="Z" /> undo
     </button>
@@ -130,7 +136,7 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 6px 18px;
+    gap: 6px 14px;
     font-size: var(--text-sm);
   }
   .aside button:not(:disabled):hover {

@@ -5,6 +5,8 @@ import type { z } from "zod";
 import {
   type ApiError,
   type DeleteVerdictResponse,
+  type DiscogsListResponse,
+  type DiscogsListsResponse,
   DumpLoadJobInputSchema,
   EnrichJobInputSchema,
   IMPORT_KINDS,
@@ -39,8 +41,17 @@ import {
   setTrackVerdict,
   upsertVerdict,
 } from "./db/verdicts.ts";
-import type { DiscogsClient } from "./discogs/client.ts";
-import { dumpLoad, enrich, importCollection, importHistory, importWantlist } from "./jobs/index.ts";
+import { DiscogsApiError, type DiscogsClient } from "./discogs/client.ts";
+import type { DiscogsUserList } from "./discogs/types.ts";
+import { listEntriesForApi, resolveListEntries } from "./importers/list.ts";
+import {
+  dumpLoad,
+  enrich,
+  importCollection,
+  importHistory,
+  importList,
+  importWantlist,
+} from "./jobs/index.ts";
 import type { DumpLoadWorkerData } from "./jobs/dump-load-worker.ts";
 import type { JobRunner } from "./jobs/runner.ts";
 import type { Logger } from "./logger.ts";
@@ -312,6 +323,18 @@ export function createApp(ctx: AppContext): Hono {
     const body = await parseJson(c, ImportJobInputSchema);
     if (!body.ok) return body.response;
     const config = ctx.getConfig();
+    if (kind === "list") {
+      const listId = body.data.listId ?? config.discogs.maybeListId;
+      if (listId === null) return badRequest(c, "Choose your Discogs Maybe list in Settings first");
+      const job = ctx.jobs.run("import_list", ({ signal, onProgress }) =>
+        importList(
+          { db, discogs: ctx.getDiscogs(), logger },
+          { listId, currency: config.discogs.currency, signal },
+          onProgress,
+        ),
+      );
+      return c.json(job, 202);
+    }
     if (kind === "history") {
       const job = ctx.jobs.run("import_history", ({ signal, onProgress }) =>
         importHistory(
@@ -353,6 +376,40 @@ export function createApp(ctx: AppContext): Hono {
     return c.json({ cancelled, job });
   });
 
+  api.get("/discogs/lists", async (c) => {
+    const { username } = ctx.getConfig().discogs;
+    if (username === "") return badRequest(c, "Set your Discogs username in Settings first");
+    const lists: DiscogsUserList[] = [];
+    for (let page = 1; ; page += 1) {
+      const data = await ctx.getDiscogs().getUserLists(username, page);
+      lists.push(...data.lists);
+      if (page >= data.pagination.pages || data.lists.length === 0) break;
+    }
+    const body: DiscogsListsResponse = {
+      lists: lists.map((l) => ({ id: l.id, name: l.name, public: l.public })),
+    };
+    return c.json(body);
+  });
+
+  api.get("/discogs/lists/:id", async (c) => {
+    const id = Number.parseInt(c.req.param("id"), 10);
+    if (Number.isNaN(id)) return badRequest(c, "Invalid list id");
+    const list = await ctx.getDiscogs().getList(id);
+    const entries = await resolveListEntries(
+      { db, discogs: ctx.getDiscogs(), logger },
+      list.items,
+      {
+        currency: ctx.getConfig().discogs.currency,
+      },
+    );
+    const body: DiscogsListResponse = {
+      id: list.id,
+      name: list.name,
+      entries: listEntriesForApi(db, entries),
+    };
+    return c.json(body);
+  });
+
   api.post("/discogs/wantlist/:id", (c) =>
     c.json(
       { error: "Pushing to the Discogs wantlist is planned for session 3" } satisfies ApiError,
@@ -366,6 +423,10 @@ export function createApp(ctx: AppContext): Hono {
     c.json({ error: `No such API route: ${c.req.method} ${c.req.path}` } satisfies ApiError, 404),
   );
   app.onError((err, c) => {
+    if (err instanceof DiscogsApiError) {
+      logger.warn(`${c.req.method} ${c.req.path}: Discogs answered ${err.status}`);
+      return c.json({ error: `Discogs answered ${err.status}` } satisfies ApiError, 502);
+    }
     logger.error(`${c.req.method} ${c.req.path} failed`, err);
     return c.json({ error: err.message } satisfies ApiError, 500);
   });

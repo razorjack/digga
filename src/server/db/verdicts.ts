@@ -7,6 +7,7 @@ import type {
   VerdictStatus,
 } from "../../shared/types.ts";
 import { VERDICT_STATUSES } from "../../shared/types.ts";
+import { seedRank } from "../../shared/verdict-rank.ts";
 import { type Db, nowIso } from "./db.ts";
 
 interface VerdictRow {
@@ -93,25 +94,12 @@ export function upsertVerdict(db: Db, v: VerdictWrite): Verdict {
   return getVerdict(db, v.key)!;
 }
 
-/**
- * Seed precedence: collection > wantlist > seen. A triage or manual decision
- * outranks "seen" (history) but is superseded by collection/wantlist, which
- * describe facts about the user's Discogs account.
- */
-export function seedRank(status: VerdictStatus): number {
-  if (status === "collection") return 3;
-  if (status === "wantlist") return 2;
-  if (status === "seen") return 1;
-  return 1.5;
-}
-
 export function applySeedVerdict(
   db: Db,
   v: VerdictWrite,
 ): { written: boolean; previous: Verdict | null } {
   const previous = getVerdict(db, v.key);
-  if (previous && seedRank(v.status) < seedRank(previous.status))
-    return { written: false, previous };
+  if (previous && seedRank(v) < seedRank(previous)) return { written: false, previous };
   if (
     previous &&
     previous.status === v.status &&
@@ -151,6 +139,15 @@ export function listVerdicts(db: Db, statuses: VerdictStatus[]): Verdict[] {
     .prepare(`SELECT * FROM verdicts WHERE status IN (${placeholders}) ORDER BY decided_at DESC`)
     .all(...statuses) as VerdictRow[];
   return rows.map(rowToVerdict);
+}
+
+/** Verdicts made in Digga (triage or manual): the "dug" count. */
+export function countDug(db: Db): number {
+  return (
+    db.prepare("SELECT COUNT(*) AS n FROM verdicts WHERE source IN ('triage', 'manual')").get() as {
+      n: number;
+    }
+  ).n;
 }
 
 /** Timestamps of triage decisions, oldest first, for the rate/ETA estimate. */

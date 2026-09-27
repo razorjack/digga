@@ -40,6 +40,10 @@
             {sandbox ? "Added to your wantlist (sandbox: nothing sent)." : "Added to your Discogs wantlist."}
           {:else if slip.kind === "verdict" && slip.push === "failed"}
             Saved, but not on the Discogs wantlist.
+          {:else if slip.kind === "verdict" && slip.status === "maybe"}
+            On the Maybe shelf; add it to your Discogs list from Twelves.
+          {:else if slip.kind === "verdict" && slip.status === "snoozed"}
+            On the Snoozed shelf, out of the queue.
           {:else if slip.kind === "pass"}
             Stays in the queue for another go.
           {:else if slip.kind === "undo"}

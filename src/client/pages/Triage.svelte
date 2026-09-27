@@ -1,6 +1,5 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { dugCount } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
   import type { TrackMark } from "../../shared/types.ts";
@@ -25,6 +24,7 @@
   const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5);
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
   const startAt = $derived(settings.value?.player.startAtFraction ?? 0.5);
+  const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
   const detailError = $derived(
     session.current ? (session.detailErrors.get(session.current.id) ?? null) : null,
   );
@@ -48,7 +48,12 @@
   });
 
   function judge(status: TriageStatus): void {
-    if (session.current) session.judge(status);
+    if (!session.current) return;
+    if (status === "maybe" && !hasMaybeList) {
+      session.showFlash("M needs your Discogs Maybe list: pick it in Settings, under Discogs.");
+      return;
+    }
+    session.judge(status);
   }
 
   function markPlaying(mark: TrackMark): void {
@@ -154,7 +159,7 @@
           <Stamp text="all dug" tone="flyer" size="xl" seed={1} slam />
           <p class="headline">Every release under your filters has a verdict.</p>
           <p class="quiet">
-            {stats.value ? `${formatCount(dugCount(stats.value))} dug so far.` : ""}
+            {stats.value ? `${formatCount(stats.value.dug)} dug so far.` : ""}
             Widen the years, formats or countries in settings to dig further.
           </p>
           <p class="actions">
@@ -203,6 +208,7 @@
 
   <VerdictBar
     disabled={!session.current}
+    {hasMaybeList}
     onjudge={judge}
     onpass={() => session.pass()}
     onundo={() => session.undo()}

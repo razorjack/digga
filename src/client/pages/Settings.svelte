@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { BROWSERS, type Browser, type Stats } from "../../shared/api.ts";
+  import { BROWSERS, type Browser, type DiscogsListSummary, type Stats } from "../../shared/api.ts";
   import { type Config, QUEUE_STRATEGIES, type QueueStrategy, validateConfig } from "../../shared/config.ts";
   import { formatCount, formatDay } from "../../shared/display.ts";
   import type { Job, JobType } from "../../shared/types.ts";
@@ -22,6 +22,7 @@
     import_collection: "Import collection",
     import_wantlist: "Import wantlist",
     import_history: "Import browser history",
+    import_list: "Import Maybe list",
     enrich: "Enrich",
   };
 
@@ -31,6 +32,9 @@
   let preview = $state<Stats | null>(null);
   let jobs = $state.raw<Job[]>([]);
   let jobsError = $state<string | null>(null);
+  let lists = $state.raw<DiscogsListSummary[]>([]);
+  let listsState = $state<"idle" | "loading" | "error">("idle");
+  let listsError = $state<string | null>(null);
   let enrichAhead = $state(200);
   let historyBrowser = $state<Browser>("brave");
   let dumpFile = $state("");
@@ -47,6 +51,14 @@
 
   $effect(() => {
     if (saved && draft === null) draft = $state.snapshot(saved);
+  });
+
+  // The lists load once the username is known; settings may arrive after this page mounts.
+  let listsRequested = false;
+  $effect(() => {
+    if (!saved?.discogs.username || listsRequested) return;
+    listsRequested = true;
+    void loadLists();
   });
 
   // Live count of what the edited filters match, before saving.
@@ -80,6 +92,19 @@
     if (pollTimer) clearInterval(pollTimer);
     if (previewTimer) clearTimeout(previewTimer);
   });
+
+  /** Reads the user's Discogs lists for the Maybe list picker (a read, fine in the sandbox). */
+  async function loadLists(): Promise<void> {
+    listsState = "loading";
+    try {
+      lists = (await api.getDiscogsLists()).lists;
+      listsState = "idle";
+      listsError = null;
+    } catch (e) {
+      listsState = "error";
+      listsError = errorMessage(e);
+    }
+  }
 
   async function loadJobs(): Promise<void> {
     try {
@@ -119,7 +144,13 @@
   async function startJob(start: () => Promise<Job>): Promise<void> {
     try {
       const job = await start();
-      showFlash(sandbox ? `${JOB_LABEL[job.type]} simulated (sandbox): nothing is written.` : `${JOB_LABEL[job.type]} started.`);
+      showFlash(
+        !sandbox
+          ? `${JOB_LABEL[job.type]} started.`
+          : job.type === "import_list"
+            ? "Reading your Discogs Maybe list; its maybes are kept in memory (sandbox)."
+            : `${JOB_LABEL[job.type]} simulated (sandbox): nothing is written.`,
+      );
       await loadJobs();
     } catch (e) {
       showFlash(`Did not start: ${errorMessage(e)}`);
@@ -218,7 +249,7 @@
         </p>
         <p class="quiet">
           want {formatCount(s.verdicts.accepted)}, grail {formatCount(s.verdicts.candidate)}, maybe {formatCount(s.verdicts.maybe)},
-          skip {formatCount(s.verdicts.rejected)}, no audio {formatCount(s.verdicts.no_audio)};
+          skip {formatCount(s.verdicts.rejected)}, snooze {formatCount(s.verdicts.snoozed)}, no audio {formatCount(s.verdicts.no_audio)};
           Discogs wantlist {formatCount(s.verdicts.wantlist)}, owned {formatCount(s.verdicts.collection)}, seen {formatCount(s.verdicts.seen)}
         </p>
       {/if}
@@ -361,6 +392,42 @@
             </select>
             <span class="hint">For lowest prices from enrich.</span>
           </label>
+          <div class="field">
+            <span class="name">Maybe list</span>
+            <div class="inline wrap">
+              <select
+                aria-label="Maybe list"
+                value={draft.discogs.maybeListId === null ? "" : String(draft.discogs.maybeListId)}
+                onchange={(e) =>
+                  (draft!.discogs.maybeListId =
+                    e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+              >
+                <option value="">None: no M verdict</option>
+                {#each lists as l (l.id)}
+                  <option value={String(l.id)}>{l.name}{l.public ? "" : " (private)"}</option>
+                {/each}
+                {#if draft.discogs.maybeListId !== null && !lists.some((l) => l.id === draft!.discogs.maybeListId)}
+                  <option value={String(draft.discogs.maybeListId)}>List {draft.discogs.maybeListId}</option>
+                {/if}
+              </select>
+              <button
+                type="button"
+                class="secondary"
+                disabled={listsState === "loading" || draft.discogs.username === ""}
+                onclick={() => void loadLists()}
+              >
+                {listsState === "loading" ? "Reading lists…" : lists.length > 0 ? "Reload lists" : "Read my lists"}
+              </button>
+            </div>
+            <span class="hint">
+              {#if listsState === "error"}
+                Lists did not load: {listsError}.
+              {:else}
+                The Discogs list you keep maybes on. Once it is set, M files a release as maybe; the
+                Discogs API cannot add to lists, so Twelves shows which ones still need adding there.
+              {/if}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -452,6 +519,14 @@
             </select>
             <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("history", { browser: historyBrowser }))}>
               History
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              disabled={(saved?.discogs.maybeListId ?? null) === null}
+              onclick={() => startJob(() => api.startImport("list"))}
+            >
+              Maybe list
             </button>
           </div>
         </div>

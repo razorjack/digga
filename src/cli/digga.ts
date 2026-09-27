@@ -12,6 +12,7 @@ import {
   enrich,
   importCollection,
   importHistory,
+  importList,
   importWantlist,
 } from "../server/jobs/index.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
@@ -20,7 +21,7 @@ import { resolvePaths } from "../server/paths.ts";
 import { createSecrets } from "../server/secrets.ts";
 import { createServer } from "../server/server.ts";
 import { computeStats } from "../server/stats.ts";
-import { BROWSERS, type Browser, dugCount } from "../shared/api.ts";
+import { BROWSERS, type Browser } from "../shared/api.ts";
 import { readIdList } from "../../tools/dump/load.ts";
 
 const HELP = `digga - dig Discogs vinyl by ear
@@ -39,6 +40,8 @@ Commands:
   import history            Mark releases you already opened on discogs.com as seen
       --browser NAME        brave (default) | chrome | firefox
       --path FILE           Explicit History / places.sqlite file
+  import list               Mark the releases on your Discogs Maybe list as maybe
+      --list ID             Another list than discogs.maybeListId
   enrich [--ahead N]        Fetch price, have/want and fresh videos for the next N queue items (default 200)
   stats                     Print universe size, verdict counts, remaining and ETA
   serve [--port N] [--host H]
@@ -124,7 +127,7 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { browser: { type: "string" }, path: { type: "string" } },
+    options: { browser: { type: "string" }, path: { type: "string" }, list: { type: "string" } },
   });
   const kind = positionals[0];
   const db = openDb(rt.paths.dbFile);
@@ -147,8 +150,30 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
     );
     return;
   }
+  if (kind === "list") {
+    const listId = intOption(values.list, "list") ?? rt.config.discogs.maybeListId;
+    if (!listId)
+      fail("set discogs.maybeListId in digga.config.json (or Settings) or pass --list ID");
+    const discogs = createDiscogsClient({
+      token: rt.secrets.getDiscogsToken(),
+      logger: rt.logger.child("discogs"),
+    });
+    const { result } = await runner.runAndWait("import_list", ({ signal, onProgress }) =>
+      importList(
+        { db, discogs, logger: rt.logger },
+        { listId, currency: rt.config.discogs.currency, signal },
+        onProgress,
+      ),
+    );
+    db.close();
+    const r = result as Awaited<ReturnType<typeof importList>>;
+    console.log(
+      `import list "${r.listName}": ${r.processed} items, ${r.stubs} stub releases, ${r.verdictsWritten} verdicts written`,
+    );
+    return;
+  }
   if (kind !== "collection" && kind !== "wantlist")
-    fail("import needs one of: collection, wantlist, history");
+    fail("import needs one of: collection, wantlist, history, list");
   const discogs = createDiscogsClient({
     token: rt.secrets.getDiscogsToken(),
     logger: rt.logger.child("discogs"),
@@ -232,7 +257,7 @@ function cmdStats(rt: Runtime): void {
       : `${s.rate.verdictsPerHour}/h over ${s.rate.sessions} session(s)`;
   const eta = s.rate.etaHours === null ? "n/a" : `${s.rate.etaHours} h`;
   console.log(
-    `dug:       ${dugCount(s).toLocaleString()}, ${s.remaining.toLocaleString()} to go, rate ${rate}, ETA ${eta}`,
+    `dug:       ${s.dug.toLocaleString()}, ${s.remaining.toLocaleString()} to go, rate ${rate}, ETA ${eta}`,
   );
 }
 

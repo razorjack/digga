@@ -193,6 +193,8 @@ export const StatsQuerySchema = z.object({
 export type StatsQuery = z.infer<typeof StatsQuerySchema>;
 
 export interface Stats {
+  /** Releases dug: verdicts made in Digga (triage or manual), not seeds. */
+  dug: number;
   universe: {
     releases: number;
     keys: number;
@@ -210,12 +212,6 @@ export interface Stats {
     loadedAt: string | null;
   };
   heardTracks: number;
-}
-
-/** Releases dug: every triage verdict. Seeds from Discogs and browser history do not count. */
-export function dugCount(s: Pick<Stats, "verdicts">): number {
-  const v = s.verdicts;
-  return v.rejected + v.accepted + v.maybe + v.candidate + v.no_audio;
 }
 
 // GET|PUT /api/settings
@@ -238,13 +234,15 @@ export const DumpLoadJobInputSchema = z.object({
 export type DumpLoadJobInput = z.input<typeof DumpLoadJobInputSchema>;
 
 // POST /api/jobs/import/:kind
-export const IMPORT_KINDS = ["collection", "wantlist", "history"] as const;
+export const IMPORT_KINDS = ["collection", "wantlist", "history", "list"] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 export const BROWSERS = ["brave", "chrome", "firefox"] as const;
 export type Browser = (typeof BROWSERS)[number];
 export const ImportJobInputSchema = z.object({
   browser: z.enum(BROWSERS).optional(),
   path: z.string().optional(),
+  /** List import: the Discogs list to read; defaults to discogs.maybeListId. */
+  listId: z.number().int().positive().optional(),
 });
 export type ImportJobInput = z.infer<typeof ImportJobInputSchema>;
 
@@ -262,4 +260,33 @@ export type WantlistPushInput = z.infer<typeof WantlistPushInputSchema>;
 export interface WantlistPushResponse {
   releaseId: number;
   ok: boolean;
+}
+
+// GET /api/discogs/lists (the configured user's lists, private ones included with a token)
+export interface DiscogsListSummary {
+  id: number;
+  name: string;
+  public: boolean;
+}
+export interface DiscogsListsResponse {
+  lists: DiscogsListSummary[];
+}
+
+// GET /api/discogs/lists/:id (read only: nothing is written)
+export interface DiscogsListEntry {
+  type: "release" | "master";
+  discogsId: number;
+  /** Triage key the entry maps to. */
+  key: string;
+  displayTitle: string;
+  comment: string | null;
+  /** The release shown for the entry: from the dump, or built from the API when outside it. */
+  release: QueueItem | null;
+  /** Digga's verdict for the key before the list is applied. */
+  verdict: Verdict | null;
+}
+export interface DiscogsListResponse {
+  id: number;
+  name: string;
+  entries: DiscogsListEntry[];
 }

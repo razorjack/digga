@@ -16,6 +16,7 @@ import { type Config, ConfigSchema } from "../shared/config.ts";
 import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
 import type { Job, JobType, TrackVerdict, Verdict } from "../shared/types.ts";
+import { isTriageSource, seedRank } from "../shared/verdict-rank.ts";
 import type { Api } from "./api.ts";
 
 export interface SandboxOptions {
@@ -85,6 +86,14 @@ function jobProgressPlan(type: JobType, size: number): (step: number) => unknown
       return (step) => ({
         page: Math.max(1, Math.ceil((3 * step) / JOB_STEPS)),
         pages: 3,
+        processed: share(step, size),
+        stubs: 0,
+        verdictsWritten: 0,
+      });
+    case "import_list":
+      return (step) => ({
+        page: 1,
+        pages: 1,
         processed: share(step, size),
         stubs: 0,
         verdictsWritten: 0,
@@ -181,7 +190,54 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
   /** Local verdicts on keys the server has no verdict for: they shrink "remaining". */
   const newlyDecided = () => [...verdicts.values()].filter((l) => l.base === null).length;
 
-  const startJob = (type: JobType, size: number): Job => {
+  /** How the local verdicts change the server's "dug" count (decisions made in Digga). */
+  const dugDelta = () => {
+    let delta = 0;
+    for (const { verdict, base } of verdicts.values()) {
+      const wasDug = base ? isTriageSource(base.source) : false;
+      if (isTriageSource(verdict.source) && !wasDug) delta += 1;
+      if (!isTriageSource(verdict.source) && wasDug) delta -= 1;
+    }
+    return delta;
+  };
+
+  /** Applies a Discogs list as `maybe` seeds in memory, with the same precedence as the import. */
+  const applyListSeeds = async (listId: number, job: FakeJob): Promise<void> => {
+    const list = await inner.getDiscogsList(listId);
+    let written = 0;
+    for (const entry of list.entries) {
+      if (entry.release) rememberRelease(entry.release);
+      if (!serverVerdicts.has(entry.key)) serverVerdicts.set(entry.key, entry.verdict);
+      const previous = verdicts.get(entry.key)?.verdict ?? serverVerdicts.get(entry.key) ?? null;
+      const seed: Verdict = {
+        key: entry.key,
+        status: "maybe",
+        source: "seed:list",
+        notes: entry.comment ?? previous?.notes ?? null,
+        releaseId: entry.release?.id ?? null,
+        decidedAt: now().toISOString(),
+      };
+      if (previous?.status === "maybe" && previous.source === "seed:list") continue;
+      if (previous && seedRank(seed) < seedRank(previous)) continue;
+      const existing = verdicts.get(entry.key);
+      verdicts.set(entry.key, { verdict: seed, base: existing ? existing.base : entry.verdict });
+      written += 1;
+    }
+    job.job = {
+      ...job.job,
+      status: "done",
+      progress: {
+        page: 1,
+        pages: 1,
+        processed: list.entries.length,
+        stubs: 0,
+        verdictsWritten: written,
+      },
+      finishedAt: now().toISOString(),
+    };
+  };
+
+  const startJob = (type: JobType, size: number, run?: (job: FakeJob) => Promise<void>): Job => {
     jobSeq += 1;
     const stamp = now().toISOString();
     const fake: FakeJob = {
@@ -200,6 +256,19 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
       timer: null,
     };
     fake.job.progress = fake.progress(0);
+    jobs.set(fake.job.id, fake);
+    if (run) {
+      // A real read runs instead of the simulated ticks; it finishes the job itself.
+      run(fake).catch((e: unknown) => {
+        fake.job = {
+          ...fake.job,
+          status: "failed",
+          error: e instanceof Error ? e.message : String(e),
+          finishedAt: now().toISOString(),
+        };
+      });
+      return { ...fake.job };
+    }
     const tick = () => {
       fake.step += 1;
       fake.job = { ...fake.job, progress: fake.progress(fake.step) };
@@ -211,7 +280,6 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
       fake.timer = setTimeout(tick, jobTickMs);
     };
     fake.timer = setTimeout(tick, jobTickMs);
-    jobs.set(fake.job.id, fake);
     return { ...fake.job };
   };
 
@@ -343,6 +411,7 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
             };
       return {
         ...stats,
+        dug: Math.max(0, stats.dug + dugDelta()),
         verdicts: counts,
         remaining,
         rate,
@@ -370,7 +439,13 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
 
     async startImport(kind, input = {}) {
       if (!IMPORT_KINDS.includes(kind)) throw new Error(`Unknown import kind ${String(kind)}`);
-      ImportJobInputSchema.parse(input);
+      const opts = ImportJobInputSchema.parse(input);
+      if (kind === "list") {
+        // Reading the list is not a write, so the sandbox reads the real list.
+        const listId = opts.listId ?? (await config()).discogs.maybeListId;
+        if (listId === null) throw new Error("Choose your Discogs Maybe list in Settings first");
+        return startJob("import_list", 0, (job) => applyListSeeds(listId, job));
+      }
       return startJob(
         kind === "collection"
           ? "import_collection"
@@ -403,6 +478,10 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
       fake.job = { ...fake.job, status: "cancelled", finishedAt: now().toISOString() };
       return { cancelled: true, job: { ...fake.job } };
     },
+
+    getDiscogsLists: () => inner.getDiscogsLists(),
+
+    getDiscogsList: (id) => inner.getDiscogsList(id),
 
     async pushToWantlist(releaseId, input = {}) {
       WantlistPushInputSchema.parse(input);

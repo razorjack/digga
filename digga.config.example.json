@@ -1,6 +1,6 @@
 {
   "server": { "host": "127.0.0.1", "port": 3456 },
-  "discogs": { "username": "", "currency": "EUR" },
+  "discogs": { "username": "", "currency": "EUR", "maybeListId": null },
   "universe": { "styles": ["Drum n Bass"], "loadYears": [1994, 2008] },
   "filters": {
     "yearFrom": 1998,

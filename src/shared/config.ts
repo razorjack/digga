@@ -26,6 +26,8 @@ export const ConfigSchema = z.object({
     .object({
       username: z.string().default(""),
       currency: z.string().length(3).default("EUR"),
+      /** The Discogs list that holds maybes; the M verdict appears when it is set. */
+      maybeListId: z.number().int().positive().nullable().default(null),
     })
     .prefault({}),
   universe: z
