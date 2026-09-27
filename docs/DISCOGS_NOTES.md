@@ -1,0 +1,87 @@
+# Discogs notes
+
+## The data dump
+
+Monthly dumps are listed at https://data.discogs.com/ (CC0). Digga reads
+`discogs_YYYYMMDD_releases.xml.gz` (~10 GB gzipped) as a stream: `fs.createReadStream ->
+zlib.createGunzip -> saxes`. It never decompresses to disk and never enumerates through
+`/database/search`. `dump load -` accepts already-decompressed XML on stdin
+(`gzip -dc file | digga dump load -`).
+
+No real dump was present under `data/dumps/` during the bootstrap session, so the element shape is
+an assumption based on the published dump format, encoded in `fixtures/releases-sample.xml` and
+`tools/dump/parse.ts`. Verify it against the first records of a real dump
+(`gzip -dc file | head -c 20000`) before the first full load:
+
+```xml
+<releases>
+<release id="1" status="Accepted">
+  <images>...</images>
+  <artists><artist><id>1</id><name>Name (2)</name><anv/><join>&amp;</join><role/><tracks/></artist></artists>
+  <title>...</title>
+  <labels><label catno="RH 20" id="77" name="Renegade Hardware"/></labels>
+  <extraartists>...</extraartists>                       <!-- ignored -->
+  <formats><format name="Vinyl" qty="2" text=""><descriptions><description>12"</description></descriptions></format></formats>
+  <genres><genre>Electronic</genre></genres>
+  <styles><style>Drum n Bass</style></styles>
+  <country>UK</country>
+  <released>2000-05-01</released>                        <!-- or 2000, 2000-00-00, empty -->
+  <notes/> <data_quality/>
+  <master_id is_main_release="true">501</master_id>      <!-- absent for orphans -->
+  <tracklist><track><position>A1</position><title>...</title><duration>6:12</duration><artists>...</artists></track></tracklist>
+  <identifiers/>
+  <videos><video src="https://www.youtube.com/watch?v=..." duration="372" embed="true"><title>...</title><description/></video></videos>
+  <companies/>
+</release>
+</releases>
+```
+
+Parser rules: release-level `<artists>` and track-level `<artists>` are kept; `<extraartists>` are
+ignored; `<sub_tracks>` are flattened into the tracklist; the `status` attribute is stored but not
+filtered on. Style strings must match Discogs exactly (`Drum n Bass`, not `Drum & Bass`).
+
+Load-time filter: any style in `universe.styles`, and, when `universe.loadYears` is set, the parsed
+year inside the window or unknown. Format, country and the tight year range are query-time filters.
+`--labels ids.txt` / `--artists ids.txt` switch to id matching regardless of style (for the
+coverage pass in session 4).
+
+The dump does not carry prices, have/want counts or fresh videos; `enrich` fills those from the API.
+
+## The API
+
+Base `https://api.discogs.com`, JSON, personal access token from Settings > Developer sent as
+`Authorization: Discogs token=...`. Always send a descriptive `User-Agent`
+(`Digga/0.1 (+https://github.com/razorjack/digga)`); Discogs throttles anonymous-looking clients.
+
+Rate limits: 60 requests/minute authenticated, 25 unauthenticated, reported in
+`X-Discogs-Ratelimit`, `X-Discogs-Ratelimit-Used`, `X-Discogs-Ratelimit-Remaining`. The client keeps
+a 1.1 s gap between requests, pauses 60 s when `Remaining` reaches 1 and honours `Retry-After` on
+`429` (three retries).
+
+Endpoints used:
+
+- `GET /releases/{id}?curr_abbr=EUR`: `lowest_price`, `num_for_sale`, `community.have/want`,
+  `videos[].uri/title/duration/embed`, `tracklist`. Median and highest sale prices are shown on the
+  website only; the API does not expose them. `curr_abbr` accepts USD, GBP, EUR, CAD, AUD, JPY,
+  CHF, MXN, BRL, NZD, SEK, ZAR; PLN is not supported, hence the EUR default.
+- `GET /users/{u}/collection/folders/0/releases?per_page=100&page=N&sort=added&sort_order=desc`:
+  `releases[].{id, instance_id, date_added, rating, notes[], basic_information}`.
+- `GET /users/{u}/wants?per_page=100&page=N`: `wants[].{id, rating, notes, date_added, basic_information}`.
+- `GET /oauth/identity` for a token check.
+- Stubs for later: `PUT /users/{u}/wants/{release_id}` (notes, rating), `POST
+/users/{u}/collection/folders/{folder_id}/releases/{release_id}`.
+
+`basic_information` has `id, master_id, title, year, artists, labels, formats (qty as string),
+genres, styles`, enough for a stub release row.
+
+## Discogs URLs in browser history
+
+`src/shared/discogs-urls.ts` recognises `/release/{id}[-slug]`, `/master/{id}[-slug]`, the legacy
+`/{Artist-Title}/release/{id}` and `/master/{id}`, localized prefixes (`/de/`, `/pl/`, ...) and
+`/sell/release/{id}`. Artist, label, `/sell/item/` and API URLs are ignored.
+
+## YouTube
+
+Video ids are parsed from `watch?v=`, `youtu.be/`, `embed/`, `shorts/`. The IFrame Player API
+requires an http(s) origin, which the localhost server provides; a custom Electron scheme would not.
+`embed="false"` videos are stored with `embeddable = 0` so the UI can offer the search fallback.
