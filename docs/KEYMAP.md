@@ -33,7 +33,7 @@ or Alt. Holding a key down never repeats a verdict.
 | key | status      | copy       | notes                                                         |
 | --- | ----------- | ---------- | ------------------------------------------------------------- |
 | `R` | `rejected`  | "skip"     |                                                               |
-| `A` | `accepted`  | "wheel up" | also pushes the release to the Discogs wantlist               |
+| `A` | `accepted`  | "wheel up" | pushes to the Discogs wantlist after 1.5 s unless undone      |
 | `M` | `maybe`     | "maybe"    |                                                               |
 | `C` | `candidate` | "bo!"      | possible match for the ID hunt                                |
 | `D` | `no_audio`  | "no audio" | leaves the queue without a judgement                          |

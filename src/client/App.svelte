@@ -32,6 +32,9 @@
 
   const eta = $derived(formatEta(stats.value?.rate.etaHours ?? null));
 
+  // A clicked header link must not keep focus: a later Enter would follow it again.
+  const keepFocus = (e: MouseEvent) => e.preventDefault();
+
   onMount(() => {
     void settings.load();
     void stats.refresh();
@@ -93,10 +96,10 @@
 
 <div class="app">
   <header class="top">
-    <a class="wordmark" href="#/triage" aria-label="Digga, triage">digga</a>
+    <a class="wordmark" href="#/triage" aria-label="Digga, triage" onmousedown={keepFocus}>digga</a>
     <nav aria-label="Pages">
       {#each ROUTES as r (r.route)}
-        <a href="#/{r.route}" aria-current={route === r.route ? "page" : undefined}>
+        <a href="#/{r.route}" aria-current={route === r.route ? "page" : undefined} onmousedown={keepFocus}>
           {r.label}
           <Key label={r.key} size="sm" />
         </a>

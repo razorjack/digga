@@ -143,6 +143,9 @@
   }
 
   async function write(previous: Verdict, next: Partial<Verdict>, message: string): Promise<void> {
+    // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
+    const index = visible.findIndex((i) => i.verdict.key === previous.key);
+    const neighbour = (visible[index + 1] ?? visible[index - 1])?.verdict.key ?? null;
     try {
       await api.postVerdict({
         key: previous.key,
@@ -154,6 +157,7 @@
       undoStack = [...undoStack, previous];
       showFlash(message);
       await load();
+      if (!visible.some((i) => i.verdict.key === selectedKey)) selectedKey = neighbour;
       void stats.refresh();
     } catch (e) {
       showFlash(`Not saved: ${errorMessage(e)}`);

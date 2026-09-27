@@ -110,3 +110,15 @@ Chronological. Each entry records a choice made without asking and why.
     Shorter taps (seeking past, skipping at once) do not grey a tune out elsewhere.
 39. **Rate and ETA helpers moved to `src/shared/rate.ts`** so the sandbox computes the same
     rate from its in-memory decisions as the server computes from the `verdicts` table.
+40. **A wheel up waits 1.5 s before the wantlist push**, and the push runs outside the serialised
+    write chain. A quick `Z` cancels the push instead of chasing it, and a slow Discogs request
+    never holds back the next verdicts. Undoing after the push leaves the release on the Discogs
+    wantlist; live mode says so.
+41. **`GET /api/queue` accepts `offset`.** The sandbox pages past its own verdicts, which the
+    server still counts as undecided, instead of hitting the 5,000-row limit after a long session.
+42. **YouTube errors are charged to the video the player reports** (`getVideoData().video_id`),
+    not to whatever the deck loaded last; an error that arrives after `J` moved on would
+    otherwise block the wrong video for the session.
+43. **Tunes heard this session are tracked in the player** (`heardKeys`), because the next
+    releases' details were prefetched before the listen and still say `heard: false`. Playlists,
+    the preload and the tracklist use the set.
