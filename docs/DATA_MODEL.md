@@ -72,8 +72,10 @@ Seed precedence (`applySeedVerdict`, ranks in `src/shared/verdict-rank.ts`): col
 wantlist (2) > `accepted` or `candidate` from triage (1.6) > the Discogs Maybe list, `maybe` from
 `seed:list` (1.55) > other triage/manual decisions (1.5) > seen (1). A seed never downgrades a
 higher rank. `maybe` means the release belongs on the Discogs Maybe list: from `triage` it is not
-there yet, from `seed:list` it is. `snoozed` is "hear it again later". The "dug" count is every
-verdict with source `triage` or `manual`.
+there yet, from `seed:list` it is. `snoozed` is "hear it again later": a round of snoozed records
+in Triage replaces it with the new verdict, and undo there restores the snooze with its original
+`decided_at` (`POST /api/verdicts` accepts `decidedAt` for that). The "dug" count is every verdict
+with source `triage` or `manual`.
 
 ## track_verdicts
 
@@ -91,11 +93,16 @@ Append-only proof of coverage: `id`, `release_id`, `position` (nullable), `video
 ## seed_items
 
 Raw Discogs seed rows: `(kind, release_id)` PK with `kind` in `collection | wantlist`, `master_id`,
-`date_added`, `rating`, `notes`, `basic_information_json`, `imported_at`.
+`date_added`, `rating`, `notes`, `basic_information_json`, `imported_at`. A want Digga pushes to
+the Discogs wantlist is recorded here too (with `basic_information_json` built from the release
+row), and removed when Digga takes it off, so `TwelvesItem.onWantlist` can say which wants reached
+Discogs before the next wantlist import. The push leaves the `accepted` verdict as it is; the next
+wantlist import turns it into a `wantlist` seed by rank.
 
 ## jobs
 
-`id` (uuid), `type` (`dump_load`, `import_collection`, `import_wantlist`, `import_history`, `enrich`),
+`id` (uuid), `type` (`dump_load`, `import_collection`, `import_wantlist`, `import_history`,
+`import_list`, `enrich`),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`
 with error `interrupted`.

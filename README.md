@@ -19,7 +19,8 @@ vp build && npm run digga -- serve   # open http://localhost:3456
 See `CLAUDE.md` for the full command list and layout, `docs/` for architecture, data model, Discogs
 notes, the design brief, keymap, roadmap, decisions and the Electron plan.
 
-Status: the full UI (triage, Twelves, settings) runs in sandbox mode: verdicts, listens,
-settings and jobs are kept in memory and nothing is written to the database or sent to Discogs.
-Keys are listed in `docs/KEYMAP.md` and on screen with `?`. Going live is session 3
-(`docs/ROADMAP.md`).
+Status: triage, Twelves and settings are complete. The app starts in sandbox mode: verdicts,
+track marks and listens stay in the browser tab and nothing is sent to Discogs. Turn it off in
+Settings (or click the sandbox stamp in the header) to save verdicts and let `A` add releases to
+your Discogs wantlist, which needs `DISCOGS_TOKEN` in `.env`. Keys are listed in
+`docs/KEYMAP.md` and on screen with `?`.

@@ -25,9 +25,16 @@ The CLI's `serve` command calls it; an Electron main process will call the same 
 ## The client
 
 `src/client/api.ts` defines the `Api` interface and its HTTP implementation. The exported `api`
-is currently `createSandboxApi(createHttpApi())`: reads go to the server, writes (verdicts, track
-marks, listens, settings, jobs, the wantlist push) are kept in memory by `src/client/sandbox.ts`
-and overlaid on later reads. `api.mode` tells the UI which one it is talking to.
+is an `AppApi` facade (`createAppApi`) over one of two implementations: the HTTP api, or
+`createSandboxApi(http)` from `src/client/sandbox.ts`, which keeps the digging writes (verdicts,
+track marks, listens, wantlist pushes and removals, the Maybe list import) in memory and overlays
+them on later reads. Settings and the other jobs pass through. The facade starts in the sandbox;
+the settings store calls `api.setSandbox(config.sandbox)` whenever it loads or saves settings,
+before anything reacts to them. Every switch bumps `api.generation`, which tells the triage session
+to drop its undo history and details, and every switch into the sandbox starts an empty one. The
+session sends each write through `api.pinned()`, the implementation of the moment, so a write
+queued before a switch cannot land in the other mode. The server checks the same setting and
+answers `409` to digging writes while `sandbox` is on.
 
 - `src/client/triage/session.svelte.ts` holds the queue buffer, prefetches release details,
   applies verdicts optimistically, keeps the undo history and passes, and serialises writes so
@@ -36,7 +43,8 @@ and overlaid on later reads. `api.mode` tells the UI which one it is talking to.
   `triage-player.svelte.ts` runs two of them (one audible, one preloading the next release),
   picks tracks with `src/shared/playlist.ts`, and logs listens.
 - `src/client/stores.svelte.ts` holds app-wide state: stats for the counter, settings (with a
-  version that restarts the queue on save) and the help overlay flag.
+  version that restarts the queue on save, and the api mode switch), the help overlay flag, and
+  the snoozed records Twelves hands to Triage for a round.
 - Pages: `Triage.svelte` (always mounted, hidden when another page is shown), `Twelves.svelte`,
   `Settings.svelte`. The keymap and its help text are in `keymap.ts`.
 
@@ -79,14 +87,20 @@ stops at the next release when its `AbortSignal` fires.
 
 `src/server/discogs/client.ts` wraps the handful of endpoints used: release detail (with
 `curr_abbr`), collection and wantlist pages, identity. It serialises requests, keeps a 1.1 s gap
-between them, backs off on `429` and pauses when `X-Discogs-Ratelimit-Remaining` is exhausted. Push
-operations (add to wantlist, add to collection) are typed stubs until session 3.
+between them, backs off on `429` and pauses when `X-Discogs-Ratelimit-Remaining` is exhausted.
+`addToWantlist` (`PUT /users/{u}/wants/{id}`) and `removeFromWantlist` (`DELETE`, where `404`
+counts as removed) back `POST` / `DELETE /api/discogs/wantlist/:id`; the server then records or
+forgets the release in `seed_items`, as a wantlist import would, so Twelves knows which wants are on
+the Discogs wantlist. `addToCollection` is still a typed stub.
 
 ## Configuration and paths
 
 `digga.config.json` is the single source of truth, validated by the zod schema in
 `src/shared/config.ts`. It is per-user and gitignored; the first run creates it from the committed
-`digga.config.example.json`. `PUT /api/settings` validates and rewrites the file. `src/server/paths.ts`
+`digga.config.example.json`. `PUT /api/settings` validates and rewrites the file. Besides the
+Discogs account, universe, filters, order and player, it holds `sandbox` (default `true`, so a
+first run changes nothing by accident) and `filters.skipWithoutVideos` (default `false`), which
+drops releases without an embeddable video from the queue and its counts. `src/server/paths.ts`
 decides every filesystem location from a base directory (`process.cwd()` for the CLI,
 `app.getPath('userData')` for Electron) plus optional `DIGGA_DATA_DIR` / `DIGGA_CONFIG_FILE`
 overrides. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `.env`.

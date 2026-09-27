@@ -18,18 +18,26 @@ query, Hono API, CLI, placeholder Svelte UI, docs, tests, portability check.
 - **Sandbox mode:** `src/client/sandbox.ts` fakes every write in memory, including the wantlist
   push and the jobs. The owner uses this to tune the flow before any real decision is stored.
 
-## Session 3: go live, push to Discogs
+## Session 3 (done): go live, push to Discogs
 
-- Decide when to leave the sandbox: `export const api = createHttpApi()` in `src/client/api.ts`
-  (or a setting that switches between the two; keep the sandbox for demos).
-- Implement `POST /api/discogs/wantlist/:id` and the client stubs `addToWantlist` /
-  `addToCollection`; push `accepted` with notes and rating. Decide what undo of an `accepted`
-  does to the wantlist (the sandbox pretends nothing needs undoing).
-- Settings writes and jobs then run for real; check the jobs panel against real progress shapes.
-- Token status in Settings (a read-only endpoint saying whether `DISCOGS_TOKEN` is set).
-- Re-audition snoozed releases: open a Twelves record in the triage player, or a queue of them.
+- `sandbox` in the config, on by default, switched in Settings (the header's sandbox stamp links
+  to the highlighted setting). The sandbox fakes only the digging writes now; settings and jobs
+  are real. The server refuses digging writes while it is on.
+- `POST` / `DELETE /api/discogs/wantlist/:id`: `A` adds the release to the Discogs wantlist, `Z`
+  takes it off again, Twelves re-judging keeps the wantlist in step and marks wants that did not
+  reach it (`A` retries, "add all" for several).
+- Token status in Settings (`GET /api/discogs/account`, whose token it is).
+- Rounds of snoozed records in Triage, from Twelves (`Enter`) or the end of the queue.
+- `filters.skipWithoutVideos`; first-run states for an empty library and filters that match
+  nothing.
+
+## Next
+
+- Check the jobs panel against real progress shapes on a long enrich and a full dump load.
+- `addToCollection` is still a stub; nothing in the UI needs it yet.
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.
+- Twelves notes on a want could be copied to the Discogs wantlist notes.
 
 ## Session 4: coverage pass and freshness
 
@@ -48,9 +56,9 @@ Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with
 - The dump element shape was written from the published format, not verified against a real
   dump (none was present). Verify on first load (`docs/DISCOGS_NOTES.md`).
 - `enrich` treats a 404 as enriched to avoid retry loops; a later `enrich --force` could revisit.
-- Sandbox: prices and have/want appear only for releases enriched from the CLI
-  (`npm run digga -- enrich --ahead 200`), which writes to the database; the app's Enrich button
-  only simulates. After a settings change, the sandbox's "to go" count still subtracts every
-  sandbox verdict, including ones the new filters exclude.
+- Sandbox: after a settings change, the "to go" count still subtracts every sandbox verdict,
+  including ones the new filters exclude.
+- `skipWithoutVideos` also narrows enrich, which works through the queue, so a release without
+  videos in the dump only comes back with a newer dump.
 - Twelves lists every shelf in one request; fine for hundreds of records, worth paging past a
   few thousand.

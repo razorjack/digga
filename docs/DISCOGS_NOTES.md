@@ -67,7 +67,8 @@ Endpoints used:
 - `GET /users/{u}/collection/folders/0/releases?per_page=100&page=N&sort=added&sort_order=desc`:
   `releases[].{id, instance_id, date_added, rating, notes[], basic_information}`.
 - `GET /users/{u}/wants?per_page=100&page=N`: `wants[].{id, rating, notes, date_added, basic_information}`.
-- `GET /oauth/identity` for a token check.
+- `GET /oauth/identity` for a token check: Settings shows whose token is set, since wantlist
+  writes to `/users/{u}/...` fail when the token belongs to another account.
 - `GET /users/{u}/lists?per_page=100&page=N`: `lists[].{id, name, public}`; private lists appear
   only with that user's token.
 - `GET /lists/{id}`: `items[].{id, type, display_title, comment, uri}` with `type` in release,
@@ -77,8 +78,10 @@ Endpoints used:
 - Lists are read-only in the API: there is no endpoint to create a list or to add, edit or remove
   items (checked against the maintained Python client, which models lists read-only, in September
   2026). The `M` verdict therefore leaves adding to the Discogs list to the user.
-- Stubs for later: `PUT /users/{u}/wants/{release_id}` (notes, rating), `POST
-/users/{u}/collection/folders/{folder_id}/releases/{release_id}`.
+- `PUT /users/{u}/wants/{release_id}` adds a release (`201`), with optional `notes` and `rating`
+  sent as JSON; `DELETE /users/{u}/wants/{release_id}` removes it (`204`, `404` when it was not
+  there, which Digga treats as removed). Both need the user's token.
+- Stub for later: `POST /users/{u}/collection/folders/{folder_id}/releases/{release_id}`.
 
 `basic_information` has `id, master_id, title, year, artists, labels, formats (qty as string),
 genres, styles`, enough for a stub release row.

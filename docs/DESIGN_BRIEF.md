@@ -63,8 +63,8 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   photocopy grain covers the page at low opacity.
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
   Mono (87.5% width) for everything else. Sizes run 11 / 12.5 / 14 / 17 / 22 / 30 / 40 px.
-- **Triage layout:** top bar (wordmark, pages with keys, sandbox stamp, dug / to go / ETA /
-  session count); left column with the catalogue-number stamp, label, artist, title, facts,
+- **Triage layout:** top bar (wordmark, pages with keys, the sandbox stamp linking to the
+  setting, dug / to go / ETA / session count); left column with the catalogue-number stamp, label, artist, title, facts,
   market line, other versions and the scrolling tracklist; right column with the player, the
   now-playing line and progress bar (the start point is marked), player keys, the slip with the
   last verdict and "up next"; a verdict bar pinned to the bottom with filled key caps for
@@ -75,14 +75,20 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   flyer bar.
 - **States:** loading, "Space: start listening" before the first gesture, no videos / none will
   play (with `S` and `D`), a notice for a skipped embed, pending and done wantlist pushes on
-  the slip, undo ("undone" stamp), queue failed (`Enter` retries), and the end of the queue: a
-  large ALL DUG stamp with a way to go round the releases passed with `N`.
+  the slip, undo ("undone" stamp), queue failed (`Enter` retries), no releases loaded, filters
+  that match nothing, and the end of the queue: a large ALL DUG stamp with a way to go round the
+  releases passed with `N` or to hear the snoozed records again. A round of snoozed records shows
+  a strip above the desk (sleeve, with the flyer bar) counting what is left, with `Esc` back.
 - **Twelves** reads like a record box: one row per record with catalogue number, artist and
-  title, note, label and year, market, a verdict stamp and the day it was decided.
+  title, note, label and year, market, a verdict stamp and the day it was decided. Wants missing
+  from the Discogs wantlist and maybes missing from the Maybe list carry a small marker, with a
+  dashed banner above the shelf.
 - **Settings** is one column of sections with a sticky save bar and the jobs panel at the end.
+  The Sandbox section comes first and switches at once, outside the save bar; arriving from the
+  header stamp highlights it with the same sleeve and flyer bar as a selected Twelves row.
 
 ## What exists already
 
 The API contracts in `src/shared/api.ts` show the data available to the UI. `src/client/api.ts`
-is the only way pages talk to the server; in sandbox mode it wraps the HTTP API with
-`src/client/sandbox.ts`.
+is the only way pages talk to the server; in sandbox mode it goes through
+`src/client/sandbox.ts`, which wraps the HTTP API.

@@ -15,10 +15,11 @@ that change without reloading data.
 
 - **Now (v1):** a Node process bound to 127.0.0.1:3456 serving a Svelte app, opened in a browser at
   `http://localhost:3456` (YouTube refuses some embeds on IP-address origins).
-- **Sandbox mode (current):** the UI fakes every write in memory (`src/client/sandbox.ts`): no
-  verdict, listen, setting or job reaches the database or the config file, and nothing is sent
-  to Discogs. The owner is tuning the flow; do not switch `src/client/api.ts` to live writes
-  unless asked.
+- **Sandbox mode:** `sandbox` in `digga.config.json`, on by default and switched in Settings (the
+  header's sandbox stamp links there). While it is on, the UI fakes the digging writes in memory
+  (`src/client/sandbox.ts`): verdicts, track marks, listens, wantlist pushes and the Maybe list
+  import. Settings and the other jobs are real. The server refuses those writes with `409` too.
+  Never turn the owner's sandbox off (or edit their config) to test; use a throwaway data dir.
 - **Later:** an Electron app. Its main process imports `createServer` from `src/server/server.ts`,
   starts it on a free localhost port, opens a `BrowserWindow` at it, and exposes the CLI jobs as
   menu items. That must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.

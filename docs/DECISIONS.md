@@ -152,3 +152,40 @@ Chronological. Each entry records a choice made without asking and why.
 51. **"Dug" is counted by source, not status**: `Stats.dug` counts verdicts with source `triage`
     or `manual`, because `maybe` can now also be a seed from the Discogs list. It replaces the
     client-side `dugCount()` of decision 45.
+52. **Sandbox mode is a setting, `sandbox` in `digga.config.json`, on by default.** A first run
+    cannot change anything by accident; the header's sandbox stamp links to the setting, which
+    Settings highlights. The switch is saved at once, outside the save bar, because it decides
+    whether the next verdict is kept.
+53. **The sandbox fakes only the digging writes**: verdicts, track marks, listens, wantlist pushes
+    and removals, and the Maybe list import (which writes verdicts). Settings and the other jobs
+    (dump load, enrich, collection, wantlist and history imports) set Digga up rather than dig, so
+    they are real in the sandbox too; otherwise a new user would configure and load everything
+    twice. This replaces the session 2 sandbox, which faked every write.
+54. **The server refuses digging writes with `409` while `sandbox` is on.** The client fakes them
+    anyway; the check means a client that missed a switch cannot save a verdict or reach Discogs.
+55. **`api` is a facade that switches implementations** (`createAppApi`). Each switch into the
+    sandbox starts an empty one, and bumps `api.generation`, which makes the triage session drop
+    its undo history, passes and details, and the player its heard tunes. The session sends every
+    write through `api.pinned()`, so a write queued in one mode never lands in the other.
+56. **Undo after a wantlist push takes the release off the Discogs wantlist**, replacing the last
+    sentence of decision 40. An undo while the push is in flight removes it once the push returns.
+    In Twelves, re-judging a record as want adds it to the wantlist, and re-judging a want as
+    anything else (grail too) takes it off, so the Want shelf and the wantlist agree; `Z` reverses
+    both. `A` on a want that is not on the wantlist retries the push.
+57. **A push is recorded in `seed_items`, not in the verdict.** The row is what the next wantlist
+    import would write, so `TwelvesItem.onWantlist` works from one table for imported and pushed
+    wants. The verdict stays `accepted` until that import outranks it with a `wantlist` seed.
+58. **Snoozed records come back as rounds.** `Enter` on a snoozed record in Twelves, or the button
+    at the end of the queue, puts snoozed records ahead of the queue (oldest first from the end of
+    the queue, shelf order from Twelves). A verdict replaces the snooze and keeps its note, `N`
+    leaves it snoozed, undo restores it with its original date, and the queue resumes where it was
+    after the last one or on `Esc`. A timed return to the queue was not chosen: the queue always
+    starts at the first undecided release, so snoozed records would come back on every reload.
+59. **`filters.skipWithoutVideos` is a query-time filter** on releases with at least one embeddable
+    video. It applies per release before grouping, so a master whose main release has no video is
+    represented by a pressing that has one. Off by default.
+60. **Page keys work while a checkbox, radio button or slider has focus.** Only text fields and
+    menus take the keys; a clicked checkbox used to swallow `T` and the verdict keys.
+61. **Settings shows whose `DISCOGS_TOKEN` it is** (`GET /api/discogs/account`, one identity
+    request), and the Sandbox section warns before going live when a push would fail: no token, a
+    token for another account, or no username.
