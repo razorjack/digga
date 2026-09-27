@@ -14,6 +14,7 @@ export interface QueueParams {
   filters: Filters;
   strategy: QueueStrategy;
   limit: number;
+  offset?: number;
   seed?: number | null;
   /** Only releases enrich has not touched yet (used by the enrich job). */
   unenrichedOnly?: boolean;
@@ -117,8 +118,8 @@ export function buildQueueSql(p: QueueParams): SqlFragment {
 ), ${RANKED}
 SELECT * FROM ranked WHERE ${outer}
 ORDER BY ${order.sql}
-LIMIT ?`;
-  return { sql, params: [...where.params, ...order.params, p.limit] };
+LIMIT ? OFFSET ?`;
+  return { sql, params: [...where.params, ...order.params, p.limit, p.offset ?? 0] };
 }
 
 export function rowToQueueItem(r: QueueRow): QueueItem {

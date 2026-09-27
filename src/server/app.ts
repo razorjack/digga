@@ -165,6 +165,7 @@ export function createApp(ctx: AppContext): Hono {
       filters,
       strategy,
       limit: q.data.limit ?? config.queue.limit,
+      offset: q.data.offset,
       seed,
     });
     const body: QueueResponse = {

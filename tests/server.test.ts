@@ -69,7 +69,11 @@ describe("HTTP API", () => {
     const limited = await get<QueueResponse>("/api/queue?limit=1&strategy=random&seed=5");
     expect(limited.body.items).toHaveLength(1);
     expect(limited.body.seed).toBe(5);
+    expect((await get<QueueResponse>("/api/queue?offset=1")).body.items.map((i) => i.id)).toEqual([
+      1001,
+    ]);
     expect((await get("/api/queue?strategy=bogus")).status).toBe(400);
+    expect((await get("/api/queue?offset=-1")).status).toBe(400);
   });
 
   it("previews unsaved filters on the queue and stats", async () => {

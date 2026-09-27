@@ -28,6 +28,7 @@ let tmp: string;
 let db: Db;
 let server: DiggaServer;
 let sandbox: Api;
+let apiUrl: string;
 
 const forbidden = (name: string) => () => {
   throw new Error(`sandbox called ${name} on the server`);
@@ -54,7 +55,8 @@ beforeEach(async () => {
     serveStatic: false,
   });
   const info = await server.start(0);
-  const http = createHttpApi(`${info.url}/api`);
+  apiUrl = `${info.url}/api`;
+  const http = createHttpApi(apiUrl);
   const inner: Api = { ...http, ...Object.fromEntries(WRITES.map((w) => [w, forbidden(w)])) };
   sandbox = createSandboxApi(inner, { pushDelayMs: 1, jobTickMs: 1 });
 });
@@ -87,6 +89,17 @@ describe("sandbox api", () => {
     expect(await sandbox.deleteVerdict("m:506")).toEqual({ deleted: false, previous: null });
     await expect(sandbox.postVerdict({ key: "nope", status: "accepted" })).rejects.toThrow();
     expect(tableCounts()).toEqual(before);
+  });
+
+  it("pages past sandbox verdicts when they fill a whole server page", async () => {
+    const paged = createSandboxApi(createHttpApi(apiUrl), { queuePageLimit: 1 });
+    await paged.getQueue();
+    await paged.postVerdict({ key: "m:506", status: "rejected", releaseId: 1006 });
+    expect((await paged.getQueue({ limit: 1 })).items.map((i) => i.id)).toEqual([1001]);
+    await paged.postVerdict({ key: "m:501", status: "rejected", releaseId: 1001 });
+    const empty = await paged.getQueue({ limit: 1 });
+    expect(empty.items).toEqual([]);
+    expect(empty.remaining).toBe(0);
   });
 
   it("marks tunes heard across releases and keeps track marks in memory", async () => {

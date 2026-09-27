@@ -65,6 +65,11 @@ describe("queue query", () => {
     expect(
       queryQueue(db, { filters: filters({}), strategy: "label_sweep", limit: 1 }),
     ).toHaveLength(1);
+    expect(
+      queryQueue(db, { filters: filters({}), strategy: "label_sweep", limit: 5, offset: 1 }).map(
+        (i) => i.id,
+      ),
+    ).toEqual([1001]);
     db.close();
   });
 
@@ -127,6 +132,6 @@ describe("queue query", () => {
     });
     expect(sql).toContain("json_each(r.formats_json)");
     expect(sql).toContain("NOT EXISTS (SELECT 1 FROM verdicts");
-    expect(params).toEqual([1998, 2002, "Vinyl", "UK", 3, 10]);
+    expect(params).toEqual([1998, 2002, "Vinyl", "UK", 3, 10, 0]);
   });
 });

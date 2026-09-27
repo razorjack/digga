@@ -24,6 +24,8 @@ export interface SandboxOptions {
   pushDelayMs?: number;
   /** Interval between simulated job progress updates; a job finishes after JOB_STEPS ticks. */
   jobTickMs?: number;
+  /** Largest queue page requested from the server (its own cap is 5000). */
+  queuePageLimit?: number;
 }
 
 interface LocalVerdict {
@@ -116,6 +118,7 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
   const now = opts.now ?? (() => new Date());
   const pushDelayMs = opts.pushDelayMs ?? 350;
   const jobTickMs = opts.jobTickMs ?? 250;
+  const queuePageLimit = opts.queuePageLimit ?? MAX_QUEUE_LIMIT;
 
   const verdicts = new Map<string, LocalVerdict>();
   /** Server verdicts seen in earlier reads; null for keys the queue returned as undecided. */
@@ -218,22 +221,27 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
     async getQueue(query = {}) {
       const cfg = await config();
       const want = query.limit ?? cfg.queue.limit;
-      const res = await inner.getQueue({
-        ...query,
-        strategy: query.strategy ?? (settings ? settings.queue.strategy : undefined),
-        filters: query.filters ?? settings?.filters,
-        // Locally decided keys are still undecided on the server; fetch enough to replace them.
-        limit: Math.min(MAX_QUEUE_LIMIT, want + verdicts.size),
-      });
-      for (const item of res.items) {
-        rememberRelease(item);
-        if (!serverVerdicts.has(item.triageKey)) serverVerdicts.set(item.triageKey, null);
+      // Locally decided keys are still undecided on the server, so page past them.
+      const limit = Math.min(queuePageLimit, want + verdicts.size);
+      const items: QueueItem[] = [];
+      let offset = query.offset ?? 0;
+      for (;;) {
+        const res = await inner.getQueue({
+          ...query,
+          strategy: query.strategy ?? (settings ? settings.queue.strategy : undefined),
+          filters: query.filters ?? settings?.filters,
+          limit,
+          offset,
+        });
+        for (const item of res.items) {
+          rememberRelease(item);
+          if (!serverVerdicts.has(item.triageKey)) serverVerdicts.set(item.triageKey, null);
+          if (!verdicts.has(item.triageKey) && items.length < want) items.push(item);
+        }
+        offset += res.items.length;
+        if (items.length >= want || res.items.length < limit)
+          return { ...res, items, remaining: Math.max(0, res.remaining - newlyDecided()) };
       }
-      return {
-        ...res,
-        items: res.items.filter((i) => !verdicts.has(i.triageKey)).slice(0, want),
-        remaining: Math.max(0, res.remaining - newlyDecided()),
-      };
     },
 
     async getRelease(id) {

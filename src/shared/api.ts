@@ -49,10 +49,11 @@ export function filtersParam(filters: Filters | undefined): string | undefined {
   return filters === undefined ? undefined : JSON.stringify(filters);
 }
 
-// GET /api/queue?strategy&limit&seed&filters
+// GET /api/queue?strategy&limit&offset&seed&filters
 export const QueueQuerySchema = z.object({
   strategy: z.enum(QUEUE_STRATEGIES).optional(),
   limit: z.coerce.number().int().positive().max(5000).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
   seed: z.coerce.number().int().optional(),
   filters: FiltersParamSchema.optional(),
 });
