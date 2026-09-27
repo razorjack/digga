@@ -1,0 +1,48 @@
+{
+  "name": "digga",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-first app for exhaustively digging Discogs vinyl by ear.",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "digga": "node src/cli/digga.ts",
+    "serve": "node src/cli/digga.ts serve",
+    "check:portability": "node scripts/check-portability.ts",
+    "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
+    "verify": "vp check && vp test && vp run check:portability && vp run check:svelte"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "better-sqlite3": "^13.0.3",
+    "hono": "^4.13.9",
+    "saxes": "^6.0.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.13.3",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "~6.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0-rc.1",
+    "vite-plus": "1.0.0-rc.1"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0-rc.1"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": "11.16.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

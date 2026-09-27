@@ -1,0 +1,14 @@
+{
+  "server": { "host": "127.0.0.1", "port": 3456 },
+  "discogs": { "username": "", "currency": "EUR" },
+  "universe": { "styles": ["Drum n Bass"], "loadYears": [1994, 2008] },
+  "filters": {
+    "yearFrom": 1998,
+    "yearTo": 2002,
+    "includeUnknownYear": false,
+    "formats": ["Vinyl"],
+    "countries": []
+  },
+  "queue": { "strategy": "label_sweep", "limit": 200 },
+  "player": { "startAtFraction": 0.5, "seekStepSeconds": 10 }
+}
