@@ -42,7 +42,8 @@
   });
 
   $effect(() => {
-    if (!active) untrack(() => player.pause());
+    const hidden = !active;
+    untrack(() => player.suspend(hidden));
   });
 
   function judge(status: TriageStatus): void {

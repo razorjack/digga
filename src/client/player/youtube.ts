@@ -21,6 +21,8 @@ export interface YTPlayer {
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
+  /** Not in the official reference, but present; reports the video the player last described. */
+  getVideoData?(): { video_id?: string } | undefined;
   destroy(): void;
 }
 

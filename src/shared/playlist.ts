@@ -16,11 +16,14 @@ export interface PlaylistState {
   played: ReadonlySet<string>;
 }
 
-/** Embeddable videos in tracklist order; unmatched videos follow in their original order. */
-export function buildPlaylist(detail: {
-  tracks: TrackDetail[];
-  videos: VideoRecord[];
-}): PlaylistEntry[] {
+/**
+ * Embeddable videos in tracklist order; unmatched videos follow in their original order.
+ * `heardElsewhere` adds heard keys the detail does not know about yet (heard after it was fetched).
+ */
+export function buildPlaylist(
+  detail: { tracks: TrackDetail[]; videos: VideoRecord[] },
+  heardElsewhere: ReadonlySet<string> = new Set(),
+): PlaylistEntry[] {
   const byPosition = new Map<string, TrackDetail>();
   for (const t of detail.tracks)
     if (t.position !== "" && !byPosition.has(t.position)) byPosition.set(t.position, t);
@@ -29,7 +32,8 @@ export function buildPlaylist(detail: {
     .map((video, order) => {
       const track =
         video.matchedPosition === null ? null : (byPosition.get(video.matchedPosition) ?? null);
-      return { video, track, heardBefore: track?.heard ?? false, order };
+      const heardBefore = track !== null && (track.heard || heardElsewhere.has(track.heardKey));
+      return { video, track, heardBefore, order };
     })
     .sort(
       (a, b) =>

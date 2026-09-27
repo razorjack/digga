@@ -10,7 +10,8 @@ export type DeckMode = "play" | "preload" | "cue";
 
 export interface DeckListener {
   onState(deck: Deck, state: number): void;
-  onError(deck: Deck, code: number): void;
+  /** `videoId` is the video YouTube refused, which may no longer be the deck's current one. */
+  onError(deck: Deck, code: number, videoId: string | null): void;
 }
 
 /** One YouTube player in a host element that the page never moves (moving an iframe reloads it). */
@@ -31,6 +32,8 @@ export class Deck {
   #fraction = 0.5;
   #seekWhenPlaying = false;
   #started = false;
+  /** play() arrived before the player was ready; the pending load() must start with sound. */
+  #playRequested = false;
 
   constructor(id: number, host: HTMLElement, yt: YTNamespace, listener: DeckListener) {
     this.id = id;
@@ -60,7 +63,7 @@ export class Deck {
           resolveReady();
         },
         onStateChange: (e) => this.#onState(e.data),
-        onError: (e) => this.#listener.onError(this, e.data),
+        onError: (e) => this.#listener.onError(this, e.data, this.#erroredVideo()),
       },
     });
   }
@@ -75,6 +78,8 @@ export class Deck {
     this.primed = false;
     await this.#readyPromise;
     if (this.videoId !== videoId) return;
+    if (this.#playRequested) mode = "play";
+    this.#playRequested = false;
     this.#mode = mode;
     this.#fraction = fraction;
     this.#started = false;
@@ -90,7 +95,10 @@ export class Deck {
   /** Plays with sound: a cued video, a paused one, or a preload that becomes the audible deck. */
   play(): void {
     this.#mode = "play";
-    if (!this.ready) return;
+    if (!this.ready) {
+      this.#playRequested = true;
+      return;
+    }
     this.#player.unMute();
     this.#player.playVideo();
   }
@@ -102,6 +110,9 @@ export class Deck {
   /** Silences a deck that goes into hiding; its next load() replaces the video. */
   park(): void {
     this.#mode = "preload";
+    this.#playRequested = false;
+    // Forgetting the video also cancels a load() still waiting for the player to be ready.
+    this.videoId = null;
     this.tag = null;
     this.primed = false;
     if (!this.ready) return;
@@ -128,6 +139,15 @@ export class Deck {
 
   destroy(): void {
     this.#player.destroy();
+  }
+
+  /**
+   * An error can arrive after the next load() was issued; the player's own video data still
+   * names the refused video then, so the error is not charged to its successor.
+   */
+  #erroredVideo(): string | null {
+    const reported = this.#player.getVideoData?.()?.video_id;
+    return reported && /^[\w-]{11}$/.test(reported) ? reported : this.videoId;
   }
 
   #onState(state: number): void {

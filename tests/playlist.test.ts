@@ -70,6 +70,12 @@ describe("playlist", () => {
     expect(nextEntry(entries, 4, none, { fallback: true })).toBeNull();
   });
 
+  it("treats tunes heard since the detail was fetched as heard", () => {
+    const later = buildPlaylist({ tracks, videos }, new Set(["artist - tune A1"]));
+    expect(later.map((e) => e.heardBefore)).toEqual([true, true, false, false, false]);
+    expect(firstEntry(later, none)).toBe(2);
+  });
+
   it("falls back to heard tunes when nothing else is left", () => {
     const allHeard = buildPlaylist({
       tracks: [track(0, "A", true), track(1, "B", true)],

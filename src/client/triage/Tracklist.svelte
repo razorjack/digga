@@ -65,9 +65,10 @@
       {@const state = videoState(track.position)}
       {@const index = entryForPosition(entries, track.position)}
       {@const heardNow = mine && player.heardNow.has(track.position)}
+      {@const heard = track.heard || (player.heardKeys.has(track.heardKey) && !heardNow)}
       <li
         class="row {state}"
-        class:heard={track.heard && state !== "playing"}
+        class:heard={heard && state !== "playing"}
         class:playing={state === "playing"}
       >
         <button
@@ -86,7 +87,7 @@
             {track.title}
           </span>
           <span class="tags">
-            {#if track.heard && !heardNow}<span class="note">heard</span>{/if}
+            {#if heard && !heardNow}<span class="note">heard</span>{/if}
             {#if heardNow && state !== "playing"}<span class="note">played</span>{/if}
             {#if state === "failed" || state === "blocked"}<span class="note">no embed</span>{/if}
             {#if track.mark}<Stamp text={MARK_COPY[track.mark]} tone={track.mark === "meh" ? "dust" : "flyer"} size="sm" seed={track.seq + detail.release.id} />{/if}
