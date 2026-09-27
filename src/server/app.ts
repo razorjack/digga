@@ -5,6 +5,7 @@ import type { z } from "zod";
 import {
   type ApiError,
   type DeleteVerdictResponse,
+  type DiscogsAccountResponse,
   type DiscogsListResponse,
   type DiscogsListsResponse,
   DumpLoadJobInputSchema,
@@ -25,6 +26,8 @@ import {
   type TwelvesItem,
   type TwelvesResponse,
   VerdictInputSchema,
+  WantlistPushInputSchema,
+  type WantlistPushResponse,
 } from "../shared/api.ts";
 import { type Config, ConfigSchema } from "../shared/config.ts";
 import { formatSummary } from "../shared/formats.ts";
@@ -44,6 +47,7 @@ import {
 import { DiscogsApiError, type DiscogsClient } from "./discogs/client.ts";
 import type { DiscogsUserList } from "./discogs/types.ts";
 import { listEntriesForApi, resolveListEntries } from "./importers/list.ts";
+import { forgetWantlistItem, recordWantlistPush, wantlistKeys } from "./importers/seeds.ts";
 import {
   dumpLoad,
   enrich,
@@ -104,6 +108,16 @@ async function parseJson<T>(
   return { ok: true, data: result.data };
 }
 
+const SANDBOX_REFUSAL: ApiError = {
+  error:
+    "Sandbox mode is on, so the server saves no verdicts and sends nothing to Discogs. Turn it off in Settings.",
+};
+
+function parseId(raw: string): number | null {
+  const id = Number.parseInt(raw, 10);
+  return Number.isNaN(id) || id <= 0 ? null : id;
+}
+
 function parseQuery<T>(
   c: Context,
   schema: z.ZodType<T>,
@@ -112,6 +126,12 @@ function parseQuery<T>(
   if (!result.success)
     return { ok: false, response: badRequest(c, "Invalid query", result.error.issues) };
   return { ok: true, data: result.data };
+}
+
+function discogsErrorMessage(err: DiscogsApiError): string {
+  if (err.status === 401 || err.status === 403)
+    return `Discogs answered ${err.status}: check DISCOGS_TOKEN in .env and that it belongs to your Discogs username`;
+  return `Discogs answered ${err.status}`;
 }
 
 function daySeed(): number {
@@ -163,6 +183,23 @@ export function createApp(ctx: AppContext): Hono {
   const api = new Hono();
   const { db, logger } = ctx;
 
+  /**
+   * The client fakes these writes in sandbox mode; refusing them here as well means a client
+   * that missed the switch cannot save a verdict or reach Discogs.
+   */
+  const refuseInSandbox = (c: Context): Response | null =>
+    ctx.getConfig().sandbox ? c.json(SANDBOX_REFUSAL, 409) : null;
+
+  /** The account the wantlist writes go to, or the response explaining why there is none. */
+  const wantlistAccount = (c: Context): { username: string } | { response: Response } => {
+    const { username } = ctx.getConfig().discogs;
+    if (username === "")
+      return { response: badRequest(c, "Set your Discogs username in Settings first") };
+    if (!ctx.getDiscogs().hasToken())
+      return { response: badRequest(c, "DISCOGS_TOKEN is not set in .env") };
+    return { username };
+  };
+
   api.get("/health", (c) => c.json({ ok: true, name: "digga" }));
 
   api.get("/queue", (c) => {
@@ -198,6 +235,8 @@ export function createApp(ctx: AppContext): Hono {
   });
 
   api.post("/verdicts", async (c) => {
+    const refused = refuseInSandbox(c);
+    if (refused) return refused;
     const body = await parseJson(c, VerdictInputSchema);
     if (!body.ok) return body.response;
     const v = upsertVerdict(db, body.data);
@@ -205,18 +244,24 @@ export function createApp(ctx: AppContext): Hono {
   });
 
   api.delete("/verdicts/:key", (c) => {
+    const refused = refuseInSandbox(c);
+    if (refused) return refused;
     const previous = deleteVerdict(db, c.req.param("key"));
     const body: DeleteVerdictResponse = { deleted: previous !== null, previous };
     return c.json(body);
   });
 
   api.post("/track-verdicts", async (c) => {
+    const refused = refuseInSandbox(c);
+    if (refused) return refused;
     const body = await parseJson(c, TrackVerdictInputSchema);
     if (!body.ok) return body.response;
     return c.json(setTrackVerdict(db, body.data));
   });
 
   api.post("/listen-log", async (c) => {
+    const refused = refuseInSandbox(c);
+    if (refused) return refused;
     const body = await parseJson(c, ListenLogInputSchema);
     if (!body.ok) return body.response;
     const r = logListen(db, { ...body.data, position: body.data.position ?? null });
@@ -230,6 +275,7 @@ export function createApp(ctx: AppContext): Hono {
     const config = ctx.getConfig();
     const where = buildFilterWhere(config.filters, { includeDecided: true });
     const passes = db.prepare(`SELECT 1 FROM releases r WHERE r.id = ? AND ${where.sql}`);
+    const onWantlist = wantlistKeys(db);
     const items: TwelvesItem[] = [];
     for (const verdict of listVerdicts(db, q.data.status)) {
       const release =
@@ -240,7 +286,7 @@ export function createApp(ctx: AppContext): Hono {
         (release === null || passes.get(release.id, ...where.params) === undefined)
       )
         continue;
-      items.push({ verdict, release });
+      items.push({ verdict, release, onWantlist: onWantlist.has(verdict.key) });
     }
     const body: TwelvesResponse = { items, statuses: q.data.status };
     return c.json(body);
@@ -324,6 +370,9 @@ export function createApp(ctx: AppContext): Hono {
     if (!body.ok) return body.response;
     const config = ctx.getConfig();
     if (kind === "list") {
+      // The sandbox applies the list in memory; the import would write verdicts.
+      const refused = refuseInSandbox(c);
+      if (refused) return refused;
       const listId = body.data.listId ?? config.discogs.maybeListId;
       if (listId === null) return badRequest(c, "Choose your Discogs Maybe list in Settings first");
       const job = ctx.jobs.run("import_list", ({ signal, onProgress }) =>
@@ -410,12 +459,53 @@ export function createApp(ctx: AppContext): Hono {
     return c.json(body);
   });
 
-  api.post("/discogs/wantlist/:id", (c) =>
-    c.json(
-      { error: "Pushing to the Discogs wantlist is planned for session 3" } satisfies ApiError,
-      501,
-    ),
-  );
+  api.get("/discogs/account", async (c) => {
+    const discogs = ctx.getDiscogs();
+    const body: DiscogsAccountResponse = {
+      username: ctx.getConfig().discogs.username,
+      hasToken: discogs.hasToken(),
+      tokenUsername: null,
+      error: null,
+    };
+    if (body.hasToken) {
+      try {
+        body.tokenUsername = (await discogs.getIdentity()).username;
+      } catch (e) {
+        body.error = e instanceof DiscogsApiError ? discogsErrorMessage(e) : String(e);
+      }
+    }
+    return c.json(body);
+  });
+
+  api.post("/discogs/wantlist/:id", async (c) => {
+    const refused = refuseInSandbox(c);
+    if (refused) return refused;
+    const id = parseId(c.req.param("id"));
+    if (id === null) return badRequest(c, "Invalid release id");
+    const body = await parseJson(c, WantlistPushInputSchema);
+    if (!body.ok) return body.response;
+    const release = getRelease(db, id);
+    if (!release) return c.json({ error: "Release not found" } satisfies ApiError, 404);
+    const account = wantlistAccount(c);
+    if ("response" in account) return account.response;
+    await ctx.getDiscogs().addToWantlist(account.username, id, body.data);
+    recordWantlistPush(db, release, body.data.notes ?? null);
+    logger.info(`added release ${id} to the Discogs wantlist`);
+    return c.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
+  });
+
+  api.delete("/discogs/wantlist/:id", async (c) => {
+    const refused = refuseInSandbox(c);
+    if (refused) return refused;
+    const id = parseId(c.req.param("id"));
+    if (id === null) return badRequest(c, "Invalid release id");
+    const account = wantlistAccount(c);
+    if ("response" in account) return account.response;
+    await ctx.getDiscogs().removeFromWantlist(account.username, id);
+    forgetWantlistItem(db, id);
+    logger.info(`removed release ${id} from the Discogs wantlist`);
+    return c.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
+  });
 
   app.route("/api", api);
   // Hono applies notFound/onError of the root app only, so the API fallbacks live here.
@@ -425,7 +515,7 @@ export function createApp(ctx: AppContext): Hono {
   app.onError((err, c) => {
     if (err instanceof DiscogsApiError) {
       logger.warn(`${c.req.method} ${c.req.path}: Discogs answered ${err.status}`);
-      return c.json({ error: `Discogs answered ${err.status}` } satisfies ApiError, 502);
+      return c.json({ error: discogsErrorMessage(err) } satisfies ApiError, 502);
     }
     logger.error(`${c.req.method} ${c.req.path} failed`, err);
     return c.json({ error: err.message } satisfies ApiError, 500);

@@ -13,9 +13,16 @@ export const FiltersSchema = z.object({
   includeUnknownYear: z.boolean().default(false),
   formats: z.array(z.string().min(1)).default(["Vinyl"]),
   countries: z.array(z.string().min(1)).default([]),
+  /** Leave out releases without an embeddable video, so every record in the queue can play. */
+  skipWithoutVideos: z.boolean().default(false),
 });
 
 export const ConfigSchema = z.object({
+  /**
+   * The UI keeps verdicts, track marks and listens in memory and sends nothing to Discogs.
+   * On by default, so a first run cannot change anything by accident.
+   */
+  sandbox: z.boolean().default(true),
   server: z
     .object({
       host: z.string().default("127.0.0.1"),

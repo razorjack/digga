@@ -1,7 +1,7 @@
 import { isVinyl } from "../../shared/formats.ts";
 import { artistDisplay } from "../../shared/normalize.ts";
 import { triageKeyFor } from "../../shared/triage-key.ts";
-import type { ArtistRef, FormatRef, LabelRef } from "../../shared/types.ts";
+import type { ArtistRef, FormatRef, LabelRef, ReleaseRecord } from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
 import { getRelease, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
 import { applySeedVerdict } from "../db/verdicts.ts";
@@ -124,4 +124,55 @@ export function applySeedItem(
     decidedAt: item.dateAdded ?? nowIso(),
   });
   return { stubCreated, verdictWritten: written };
+}
+
+/** API-shaped basic information from a stored release, for seed rows Digga writes itself. */
+export function basicInformationFromRelease(r: ReleaseRecord): DiscogsBasicInformation {
+  return {
+    id: r.id,
+    master_id: r.masterId,
+    title: r.title,
+    year: r.year ?? 0,
+    artists: r.artists.map((a) => ({ id: a.id ?? 0, name: a.name, anv: a.anv, join: a.join })),
+    labels: r.labels.map((l) => ({ id: l.id ?? 0, name: l.name, catno: l.catno })),
+    formats: r.formats.map((f) => ({
+      name: f.name,
+      qty: String(f.qty),
+      text: f.text,
+      descriptions: f.descriptions,
+    })),
+    genres: r.genres,
+    styles: r.styles,
+  };
+}
+
+/**
+ * Records a release Digga put on the Discogs wantlist, as the next wantlist import would. The
+ * verdict stays as it is; the row only tells Twelves that the release is on the wantlist.
+ */
+export function recordWantlistPush(db: Db, release: ReleaseRecord, notes: string | null): void {
+  recordSeedItem(db, {
+    kind: "wantlist",
+    releaseId: release.id,
+    masterId: release.masterId,
+    dateAdded: nowIso(),
+    rating: null,
+    notes,
+    basicInformation: basicInformationFromRelease(release),
+  });
+}
+
+export function forgetWantlistItem(db: Db, releaseId: number): void {
+  db.prepare("DELETE FROM seed_items WHERE kind = 'wantlist' AND release_id = ?").run(releaseId);
+}
+
+/** Triage keys with at least one release on the Discogs wantlist. */
+export function wantlistKeys(db: Db): Set<string> {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT r.triage_key AS key FROM seed_items s
+       JOIN releases r ON r.id = s.release_id WHERE s.kind = 'wantlist'`,
+    )
+    .all() as { key: string }[];
+  return new Set(rows.map((r) => r.key));
 }

@@ -63,16 +63,24 @@ export interface DiscogsClient {
   getUserLists(username: string, page: number, perPage?: number): Promise<DiscogsUserListsPage>;
   /** A list with its items. The API has no endpoint to add or remove items. */
   getList(id: number): Promise<DiscogsList>;
-  /** Stub: PUT /users/{u}/wants/{id} with notes and rating. */
+  /** PUT /users/{u}/wants/{id}; the token must belong to that user. */
   addToWantlist(
     username: string,
     releaseId: number,
     opts?: { notes?: string; rating?: number },
   ): Promise<void>;
+  /** DELETE /users/{u}/wants/{id}; a release that is not on the wantlist counts as removed. */
+  removeFromWantlist(username: string, releaseId: number): Promise<void>;
   /** Stub: POST /users/{u}/collection/folders/{folder}/releases/{id}. */
   addToCollection(username: string, releaseId: number, folderId?: number): Promise<void>;
   rateLimit(): RateLimitState;
   hasToken(): boolean;
+}
+
+interface RequestOptions {
+  method?: "GET" | "PUT" | "DELETE";
+  /** Sent as JSON. */
+  body?: unknown;
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -112,6 +120,7 @@ export function createDiscogsClient(opts: DiscogsClientOptions = {}): DiscogsCli
   const requestOnce = async <T>(
     path: string,
     query: Record<string, string | number | undefined>,
+    init: RequestOptions,
   ): Promise<T> => {
     const url = new URL(baseUrl + path);
     for (const [k, v] of Object.entries(query))
@@ -125,7 +134,14 @@ export function createDiscogsClient(opts: DiscogsClientOptions = {}): DiscogsCli
         state.remaining = null;
       }
       lastRequestAt = now();
-      const res = await fetchImpl(url, { headers: headers() });
+      const res = await fetchImpl(url, {
+        method: init.method ?? "GET",
+        headers:
+          init.body === undefined
+            ? headers()
+            : { ...headers(), "Content-Type": "application/json" },
+        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      });
       readRateLimit(res);
       if (res.status === 429 && attempt < maxRetries) {
         const retryAfter = Number.parseInt(res.headers.get("Retry-After") ?? "", 10);
@@ -135,7 +151,8 @@ export function createDiscogsClient(opts: DiscogsClientOptions = {}): DiscogsCli
         continue;
       }
       if (!res.ok) throw new DiscogsApiError(res.status, await res.text());
-      return (await res.json()) as T;
+      const text = await res.text();
+      return (text === "" ? undefined : JSON.parse(text)) as T;
     }
   };
 
@@ -143,8 +160,9 @@ export function createDiscogsClient(opts: DiscogsClientOptions = {}): DiscogsCli
   const request = <T>(
     path: string,
     query: Record<string, string | number | undefined> = {},
+    init: RequestOptions = {},
   ): Promise<T> => {
-    const next = chain.then(() => requestOnce<T>(path, query));
+    const next = chain.then(() => requestOnce<T>(path, query, init));
     chain = next.catch(() => {});
     return next;
   };
@@ -175,7 +193,30 @@ export function createDiscogsClient(opts: DiscogsClientOptions = {}): DiscogsCli
         per_page: perPage,
       }),
     getList: (id) => request<DiscogsList>(`/lists/${id}`),
-    addToWantlist: () => Promise.reject(new NotImplementedError("addToWantlist")),
+    addToWantlist: async (username, releaseId, extra = {}) => {
+      const body = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined));
+      await request(
+        `/users/${encodeURIComponent(username)}/wants/${releaseId}`,
+        {},
+        {
+          method: "PUT",
+          body: Object.keys(body).length > 0 ? body : undefined,
+        },
+      );
+    },
+    removeFromWantlist: async (username, releaseId) => {
+      try {
+        await request(
+          `/users/${encodeURIComponent(username)}/wants/${releaseId}`,
+          {},
+          {
+            method: "DELETE",
+          },
+        );
+      } catch (e) {
+        if (!(e instanceof DiscogsApiError && e.status === 404)) throw e;
+      }
+    },
     addToCollection: () => Promise.reject(new NotImplementedError("addToCollection")),
     rateLimit: () => ({ ...state }),
     hasToken: () => Boolean(opts.token),

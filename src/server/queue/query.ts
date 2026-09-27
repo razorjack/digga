@@ -64,6 +64,10 @@ export function buildFilterWhere(
     clauses.push(`r.country IN (${placeholders(filters.countries.length)})`);
     params.push(...filters.countries);
   }
+  if (filters.skipWithoutVideos)
+    clauses.push(
+      "EXISTS (SELECT 1 FROM videos vf WHERE vf.release_id = r.id AND vf.embeddable = 1)",
+    );
   if (!opts.includeDecided)
     clauses.push("NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)");
   return { sql: clauses.join("\n    AND "), params };

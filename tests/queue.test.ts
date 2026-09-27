@@ -73,6 +73,19 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("skips records without an embeddable video when asked", async () => {
+    const db = await fixtureDb();
+    const f = filters({ skipWithoutVideos: true });
+    const ids = () =>
+      queryQueue(db, { filters: f, strategy: "label_sweep", limit: 200 }).map((i) => i.id);
+    expect(ids()).toEqual([1006, 1001]);
+    db.prepare("UPDATE videos SET embeddable = 0 WHERE release_id = 1006").run();
+    expect(ids()).toEqual([1001]);
+    expect(countRemaining(db, f)).toBe(1);
+    expect(countRemaining(db, filters({}))).toBe(2);
+    db.close();
+  });
+
   it("excludes keys with a verdict and honours the other strategies", async () => {
     const db = await fixtureDb();
     upsertVerdict(db, { key: "m:506", status: "rejected", source: "triage" });

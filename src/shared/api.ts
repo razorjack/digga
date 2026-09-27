@@ -126,6 +126,8 @@ export const VerdictInputSchema = z.object({
   source: z.enum(VERDICT_SOURCES).default("triage"),
   notes: z.string().max(4000).nullable().optional(),
   releaseId: z.number().int().positive().nullable().optional(),
+  /** Restores a verdict's original date (undo); omitted, the verdict is dated now. */
+  decidedAt: z.iso.datetime({ offset: true }).optional(),
 });
 export type VerdictInput = z.input<typeof VerdictInputSchema>;
 export type VerdictResponse = Verdict;
@@ -179,6 +181,8 @@ export type TwelvesQueryInput = z.input<typeof TwelvesQuerySchema>;
 export interface TwelvesItem {
   verdict: Verdict;
   release: QueueItem | null;
+  /** A release of this record is on the Discogs wantlist, as imported or pushed from Digga. */
+  onWantlist: boolean;
 }
 
 export interface TwelvesResponse {
@@ -251,7 +255,7 @@ export interface JobsResponse {
   jobs: Job[];
 }
 
-// POST /api/discogs/wantlist/:id (501 until session 3)
+// POST /api/discogs/wantlist/:id adds a release; DELETE takes it off again
 export const WantlistPushInputSchema = z.object({
   notes: z.string().max(255).optional(),
   rating: z.number().int().min(0).max(5).optional(),
@@ -260,6 +264,15 @@ export type WantlistPushInput = z.infer<typeof WantlistPushInputSchema>;
 export interface WantlistPushResponse {
   releaseId: number;
   ok: boolean;
+}
+
+// GET /api/discogs/account
+export interface DiscogsAccountResponse {
+  username: string;
+  hasToken: boolean;
+  /** The account the token belongs to; null without a token or when Discogs could not be asked. */
+  tokenUsername: string | null;
+  error: string | null;
 }
 
 // GET /api/discogs/lists (the configured user's lists, private ones included with a token)

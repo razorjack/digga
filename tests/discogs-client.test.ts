@@ -7,7 +7,9 @@ import {
 
 interface Call {
   url: string;
+  method: string;
   headers: Record<string, string>;
+  body: string | null;
 }
 
 function fakeFetch(responses: (() => Response)[]): { fetchImpl: typeof fetch; calls: Call[] } {
@@ -15,7 +17,9 @@ function fakeFetch(responses: (() => Response)[]): { fetchImpl: typeof fetch; ca
   const fetchImpl: typeof fetch = async (input, init) => {
     calls.push({
       url: input instanceof Request ? input.url : input.toString(),
+      method: init?.method ?? "GET",
       headers: (init?.headers as Record<string, string>) ?? {},
+      body: typeof init?.body === "string" ? init.body : null,
     });
     const next = responses.shift();
     if (!next) throw new Error("no more responses");
@@ -103,7 +107,6 @@ describe("discogs client", () => {
       minIntervalMs: 0,
     });
     await expect(client.getIdentity()).rejects.toBeInstanceOf(DiscogsApiError);
-    await expect(client.addToWantlist("u", 1)).rejects.toBeInstanceOf(NotImplementedError);
     await expect(client.addToCollection("u", 1)).rejects.toBeInstanceOf(NotImplementedError);
   });
 
@@ -121,5 +124,36 @@ describe("discogs client", () => {
       "https://api.discogs.com/users/dj%20name/collection/folders/0/releases?page=2&per_page=50&sort=added&sort_order=desc",
     );
     expect(calls[1]!.url).toBe("https://api.discogs.com/users/dj/wants?page=3&per_page=100");
+  });
+
+  it("adds to and removes from the wantlist, treating a missing want as removed", async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      json({ id: 7 }, {}, 201),
+      json({ id: 7 }, {}, 201),
+      () => new Response(null, { status: 204 }),
+      json({ message: "The requested resource was not found." }, {}, 404),
+      json({ message: "You must authenticate to access this resource." }, {}, 401),
+    ]);
+    const client = createDiscogsClient({
+      token: "t0k",
+      fetchImpl,
+      sleep: async () => {},
+      now: () => 0,
+      minIntervalMs: 0,
+    });
+    await client.addToWantlist("dj name", 7);
+    await client.addToWantlist("dj name", 7, { notes: "from Digga", rating: undefined });
+    await client.removeFromWantlist("dj name", 7);
+    await client.removeFromWantlist("dj name", 7);
+    await expect(client.removeFromWantlist("dj name", 7)).rejects.toBeInstanceOf(DiscogsApiError);
+    expect(calls.map((c) => [c.method, c.url, c.body])).toEqual([
+      ["PUT", "https://api.discogs.com/users/dj%20name/wants/7", null],
+      ["PUT", "https://api.discogs.com/users/dj%20name/wants/7", '{"notes":"from Digga"}'],
+      ["DELETE", "https://api.discogs.com/users/dj%20name/wants/7", null],
+      ["DELETE", "https://api.discogs.com/users/dj%20name/wants/7", null],
+      ["DELETE", "https://api.discogs.com/users/dj%20name/wants/7", null],
+    ]);
+    expect(calls[1]!.headers["Content-Type"]).toBe("application/json");
+    expect(calls[0]!.headers.Authorization).toBe("Discogs token=t0k");
   });
 });

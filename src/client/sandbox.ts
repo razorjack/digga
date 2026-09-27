@@ -1,7 +1,4 @@
 import {
-  DumpLoadJobInputSchema,
-  EnrichJobInputSchema,
-  IMPORT_KINDS,
   ImportJobInputSchema,
   ListenLogInputSchema,
   TrackVerdictInputSchema,
@@ -12,19 +9,16 @@ import {
   type TrackDetail,
   type TwelvesItem,
 } from "../shared/api.ts";
-import { type Config, ConfigSchema } from "../shared/config.ts";
 import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
-import type { Job, JobType, TrackVerdict, Verdict } from "../shared/types.ts";
+import type { Job, TrackVerdict, Verdict } from "../shared/types.ts";
 import { isTriageSource, seedRank } from "../shared/verdict-rank.ts";
 import type { Api } from "./api.ts";
 
 export interface SandboxOptions {
   now?: () => Date;
-  /** Simulated round trip of a Discogs wantlist push, so the UI shows its pending state. */
+  /** Simulated round trip of a Discogs wantlist write, so the UI shows its pending state. */
   pushDelayMs?: number;
-  /** Interval between simulated job progress updates; a job finishes after JOB_STEPS ticks. */
-  jobTickMs?: number;
   /** Largest queue page requested from the server (its own cap is 5000). */
   queuePageLimit?: number;
 }
@@ -35,14 +29,6 @@ interface LocalVerdict {
   base: Verdict | null | undefined;
 }
 
-interface FakeJob {
-  job: Job;
-  step: number;
-  progress: (step: number) => unknown;
-  timer: ReturnType<typeof setTimeout> | null;
-}
-
-export const JOB_STEPS = 24;
 const MAX_QUEUE_LIMIT = 5000;
 
 const markKey = (releaseId: number, position: string) => `${releaseId}\n${position}`;
@@ -71,62 +57,17 @@ function queueItemFromDetail(d: ReleaseDetail, videoCount: number): QueueItem {
   };
 }
 
-function jobProgressPlan(type: JobType, size: number): (step: number) => unknown {
-  const share = (step: number, total: number) => Math.round((total * step) / JOB_STEPS);
-  switch (type) {
-    case "enrich":
-      return (step) => ({
-        done: share(step, size),
-        total: size,
-        currentReleaseId: null,
-        failed: 0,
-      });
-    case "import_collection":
-    case "import_wantlist":
-      return (step) => ({
-        page: Math.max(1, Math.ceil((3 * step) / JOB_STEPS)),
-        pages: 3,
-        processed: share(step, size),
-        stubs: 0,
-        verdictsWritten: 0,
-      });
-    case "import_list":
-      return (step) => ({
-        page: 1,
-        pages: 1,
-        processed: share(step, size),
-        stubs: 0,
-        verdictsWritten: 0,
-      });
-    case "import_history":
-      return (step) => ({
-        files: 1,
-        urls: share(step, 40_000),
-        discogsUrls: share(step, 1_200),
-        keys: share(step, 800),
-        verdictsWritten: 0,
-      });
-    case "dump_load":
-      return (step) => ({
-        phase: step >= JOB_STEPS ? "done" : "scanning",
-        scanned: share(step, size),
-        matched: share(step, Math.round(size / 270)),
-        upserted: 0,
-        elapsedSeconds: step,
-      });
-  }
-}
-
 /**
- * An Api that forwards every read to `inner` and fakes every write in memory. Nothing reaches
- * the database, the config file or Discogs; a reload starts from the server's state again.
- * Reads are overlaid with the fake writes, so the queue, counters, Twelves, heard tracks and
- * undo behave as if the writes had happened.
+ * An Api that fakes the digging writes in memory: verdicts, track marks, listens, wantlist
+ * pushes and the Maybe list import. None of them reach the database or Discogs, and a reload
+ * starts from the server's state again. Reads are overlaid with the fake writes, so the queue,
+ * counters, Twelves, heard tracks and undo behave as if the writes had happened. Settings and
+ * the other jobs (dump load, enrich, collection, wantlist and history imports) set the app up
+ * rather than dig, so they go to the server.
  */
 export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
   const now = opts.now ?? (() => new Date());
   const pushDelayMs = opts.pushDelayMs ?? 350;
-  const jobTickMs = opts.jobTickMs ?? 250;
   const queuePageLimit = opts.queuePageLimit ?? MAX_QUEUE_LIMIT;
 
   const verdicts = new Map<string, LocalVerdict>();
@@ -137,17 +78,11 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
   const heard = new Set<string>();
   const releases = new Map<number, QueueItem>();
   const details = new Map<number, ReleaseDetail>();
-  const jobs = new Map<string, FakeJob>();
-  let settings: Config | null = null;
-  let serverConfig: Promise<Config> | null = null;
+  /** Triage keys pushed to (true) or taken off (false) the wantlist in this sandbox. */
+  const wantlist = new Map<string, boolean>();
+  const jobs = new Map<string, { job: Job }>();
   let listenSeq = 0;
   let jobSeq = 0;
-
-  const config = (): Promise<Config> => {
-    if (settings) return Promise.resolve(settings);
-    serverConfig ??= inner.getSettings();
-    return serverConfig;
-  };
 
   const rememberRelease = (item: QueueItem) => {
     releases.set(item.id, item);
@@ -179,6 +114,16 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
     };
   };
 
+  const keyForRelease = (id: number): string | null =>
+    releases.get(id)?.triageKey ?? details.get(id)?.release.triageKey ?? null;
+
+  const fakeWantlistWrite = async (releaseId: number, on: boolean) => {
+    await new Promise((resolve) => setTimeout(resolve, pushDelayMs));
+    const key = keyForRelease(releaseId);
+    if (key !== null) wantlist.set(key, on);
+    return { releaseId, ok: true };
+  };
+
   const releaseFor = (v: Verdict): QueueItem | null => {
     if (v.releaseId === null) return null;
     const cached = releases.get(v.releaseId);
@@ -202,7 +147,7 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
   };
 
   /** Applies a Discogs list as `maybe` seeds in memory, with the same precedence as the import. */
-  const applyListSeeds = async (listId: number, job: FakeJob): Promise<void> => {
+  const applyListSeeds = async (listId: number, job: { job: Job }): Promise<void> => {
     const list = await inner.getDiscogsList(listId);
     let written = 0;
     for (const entry of list.entries) {
@@ -237,49 +182,31 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
     };
   };
 
-  const startJob = (type: JobType, size: number, run?: (job: FakeJob) => Promise<void>): Job => {
+  /** The Maybe list import: reads the real list, then applies it in memory. */
+  const startListImport = (listId: number): Job => {
     jobSeq += 1;
     const stamp = now().toISOString();
-    const fake: FakeJob = {
+    const fake: { job: Job } = {
       job: {
         id: `sandbox-${jobSeq}`,
-        type,
+        type: "import_list",
         status: "running",
-        progress: null,
+        progress: { page: 1, pages: 1, processed: 0, stubs: 0, verdictsWritten: 0 },
         error: null,
         createdAt: stamp,
         startedAt: stamp,
         finishedAt: null,
       },
-      step: 0,
-      progress: jobProgressPlan(type, size),
-      timer: null,
     };
-    fake.job.progress = fake.progress(0);
     jobs.set(fake.job.id, fake);
-    if (run) {
-      // A real read runs instead of the simulated ticks; it finishes the job itself.
-      run(fake).catch((e: unknown) => {
-        fake.job = {
-          ...fake.job,
-          status: "failed",
-          error: e instanceof Error ? e.message : String(e),
-          finishedAt: now().toISOString(),
-        };
-      });
-      return { ...fake.job };
-    }
-    const tick = () => {
-      fake.step += 1;
-      fake.job = { ...fake.job, progress: fake.progress(fake.step) };
-      if (fake.step >= JOB_STEPS) {
-        fake.job = { ...fake.job, status: "done", finishedAt: now().toISOString() };
-        fake.timer = null;
-        return;
-      }
-      fake.timer = setTimeout(tick, jobTickMs);
-    };
-    fake.timer = setTimeout(tick, jobTickMs);
+    applyListSeeds(listId, fake).catch((e: unknown) => {
+      fake.job = {
+        ...fake.job,
+        status: "failed",
+        error: e instanceof Error ? e.message : String(e),
+        finishedAt: now().toISOString(),
+      };
+    });
     return { ...fake.job };
   };
 
@@ -287,20 +214,13 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
     mode: "sandbox",
 
     async getQueue(query = {}) {
-      const cfg = await config();
-      const want = query.limit ?? cfg.queue.limit;
+      const want = query.limit ?? (await inner.getSettings()).queue.limit;
       // Locally decided keys are still undecided on the server, so page past them.
       const limit = Math.min(queuePageLimit, want + verdicts.size);
       const items: QueueItem[] = [];
       let offset = query.offset ?? 0;
       for (;;) {
-        const res = await inner.getQueue({
-          ...query,
-          strategy: query.strategy ?? (settings ? settings.queue.strategy : undefined),
-          filters: query.filters ?? settings?.filters,
-          limit,
-          offset,
-        });
+        const res = await inner.getQueue({ ...query, limit, offset });
         for (const item of res.items) {
           rememberRelease(item);
           if (!serverVerdicts.has(item.triageKey)) serverVerdicts.set(item.triageKey, null);
@@ -327,7 +247,7 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
         source: v.source,
         notes: v.notes ?? null,
         releaseId: v.releaseId ?? null,
-        decidedAt: now().toISOString(),
+        decidedAt: v.decidedAt ?? now().toISOString(),
       };
       const existing = verdicts.get(v.key);
       verdicts.set(v.key, {
@@ -380,16 +300,29 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
         serverVerdicts.set(item.verdict.key, item.verdict);
         if (item.release) rememberRelease(item.release);
       }
+      const serverWantlist = new Set(
+        res.items.filter((i) => i.onWantlist).map((i) => i.verdict.key),
+      );
+      const onWantlist = (key: string) => wantlist.get(key) ?? serverWantlist.has(key);
       const local: TwelvesItem[] = [...verdicts.values()]
         .filter((l) => res.statuses.includes(l.verdict.status))
-        .map((l) => ({ verdict: { ...l.verdict }, release: releaseFor(l.verdict) }));
-      const items = [...local, ...res.items.filter((i) => !verdicts.has(i.verdict.key))];
+        .map((l) => ({
+          verdict: { ...l.verdict },
+          release: releaseFor(l.verdict),
+          onWantlist: onWantlist(l.verdict.key),
+        }));
+      const items = [
+        ...local,
+        ...res.items
+          .filter((i) => !verdicts.has(i.verdict.key))
+          .map((i) => ({ ...i, onWantlist: onWantlist(i.verdict.key) })),
+      ];
       items.sort((a, b) => b.verdict.decidedAt.localeCompare(a.verdict.decidedAt));
       return { ...res, items };
     },
 
     async getStats(query = {}) {
-      const stats = await inner.getStats({ filters: query.filters ?? settings?.filters });
+      const stats = await inner.getStats(query);
       const counts = { ...stats.verdicts };
       for (const { verdict, base } of verdicts.values()) {
         counts[verdict.status] += 1;
@@ -419,47 +352,26 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
       };
     },
 
-    async getSettings() {
-      return structuredClone(await config());
-    },
+    getSettings: () => inner.getSettings(),
 
-    async putSettings(next) {
-      settings = ConfigSchema.parse(next);
-      return structuredClone(settings);
-    },
+    putSettings: (config) => inner.putSettings(config),
 
-    async startEnrich(input = {}) {
-      return startJob("enrich", EnrichJobInputSchema.parse(input).ahead);
-    },
+    startEnrich: (input) => inner.startEnrich(input),
 
-    async startDumpLoad(input) {
-      const opts = DumpLoadJobInputSchema.parse(input);
-      return startJob("dump_load", opts.limit ? opts.limit * 270 : 19_400_000);
-    },
+    startDumpLoad: (input) => inner.startDumpLoad(input),
 
     async startImport(kind, input = {}) {
-      if (!IMPORT_KINDS.includes(kind)) throw new Error(`Unknown import kind ${String(kind)}`);
-      const opts = ImportJobInputSchema.parse(input);
-      if (kind === "list") {
-        // Reading the list is not a write, so the sandbox reads the real list.
-        const listId = opts.listId ?? (await config()).discogs.maybeListId;
-        if (listId === null) throw new Error("Choose your Discogs Maybe list in Settings first");
-        return startJob("import_list", 0, (job) => applyListSeeds(listId, job));
-      }
-      return startJob(
-        kind === "collection"
-          ? "import_collection"
-          : kind === "wantlist"
-            ? "import_wantlist"
-            : "import_history",
-        kind === "collection" ? 40 : 250,
-      );
+      if (kind !== "list") return inner.startImport(kind, input);
+      // Reading the list is not a write, so the sandbox reads the real list.
+      const listId =
+        ImportJobInputSchema.parse(input).listId ?? (await inner.getSettings()).discogs.maybeListId;
+      if (listId === null) throw new Error("Choose your Discogs Maybe list in Settings first");
+      return startListImport(listId);
     },
 
     async getJobs() {
       const res = await inner.getJobs();
-      const fake = [...jobs.values()].map((f) => ({ ...f.job }));
-      const all = [...fake, ...res.jobs];
+      const all = [...[...jobs.values()].map((f) => ({ ...f.job })), ...res.jobs];
       all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return { jobs: all };
     },
@@ -471,13 +383,11 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
 
     async cancelJob(id) {
       const fake = jobs.get(id);
-      if (!fake) return { cancelled: false, job: await inner.getJob(id) };
-      if (fake.job.status !== "running") return { cancelled: false, job: { ...fake.job } };
-      if (fake.timer) clearTimeout(fake.timer);
-      fake.timer = null;
-      fake.job = { ...fake.job, status: "cancelled", finishedAt: now().toISOString() };
-      return { cancelled: true, job: { ...fake.job } };
+      // The list read is a single request; there is nothing to stop halfway.
+      return fake ? { cancelled: false, job: { ...fake.job } } : inner.cancelJob(id);
     },
+
+    getDiscogsAccount: () => inner.getDiscogsAccount(),
 
     getDiscogsLists: () => inner.getDiscogsLists(),
 
@@ -485,8 +395,9 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
 
     async pushToWantlist(releaseId, input = {}) {
       WantlistPushInputSchema.parse(input);
-      await new Promise((resolve) => setTimeout(resolve, pushDelayMs));
-      return { releaseId, ok: true };
+      return fakeWantlistWrite(releaseId, true);
     },
+
+    removeFromWantlist: (releaseId) => fakeWantlistWrite(releaseId, false),
   };
 }

@@ -20,8 +20,10 @@ describe("config schema", () => {
       includeUnknownYear: false,
       formats: ["Vinyl"],
       countries: [],
+      skipWithoutVideos: false,
     });
     expect(DEFAULT_CONFIG.queue.strategy).toBe("label_sweep");
+    expect(DEFAULT_CONFIG.sandbox).toBe(true);
   });
 
   it("accepts nullable year bounds and null loadYears", () => {

@@ -275,6 +275,8 @@ async function cmdServe(rt: Runtime, args: string[]): Promise<void> {
   });
   const info = await server.start(port, values.host);
   console.log(`digga serving on ${info.browserUrl} (data: ${rt.paths.dataDir})`);
+  if (server.getConfig().sandbox)
+    console.log("sandbox mode: verdicts stay in the browser; turn it off in Settings to save them");
   const shutdown = () => {
     void server.stop().then(() => process.exit(0));
   };

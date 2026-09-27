@@ -1,6 +1,7 @@
 import {
   filtersParam,
   type DeleteVerdictResponse,
+  type DiscogsAccountResponse,
   type DiscogsListResponse,
   type DiscogsListsResponse,
   type DumpLoadJobInput,
@@ -54,6 +55,9 @@ export interface Api {
   getJob(id: string): Promise<Job>;
   cancelJob(id: string): Promise<{ cancelled: boolean; job: Job }>;
   pushToWantlist(releaseId: number, input?: WantlistPushInput): Promise<WantlistPushResponse>;
+  removeFromWantlist(releaseId: number): Promise<WantlistPushResponse>;
+  /** Whether a token is set and whose it is; asks Discogs once per call. */
+  getDiscogsAccount(): Promise<DiscogsAccountResponse>;
   getDiscogsLists(): Promise<DiscogsListsResponse>;
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
@@ -122,13 +126,68 @@ export function createHttpApi(baseUrl = "/api"): Api {
     cancelJob: (id) => call("POST", `/jobs/${id}/cancel`),
     pushToWantlist: (releaseId, input = {}) =>
       call("POST", `/discogs/wantlist/${releaseId}`, input),
+    removeFromWantlist: (releaseId) => call("DELETE", `/discogs/wantlist/${releaseId}`),
+    getDiscogsAccount: () => call("GET", "/discogs/account"),
     getDiscogsLists: () => call("GET", "/discogs/lists"),
     getDiscogsList: (id) => call("GET", `/discogs/lists/${id}`),
   };
 }
 
+/** The app's Api: the server's own, or a sandbox around it that fakes the digging writes. */
+export interface AppApi extends Api {
+  /** Switches modes; every switch into the sandbox starts an empty one. */
+  setSandbox(on: boolean): void;
+  /** The implementation in use now. A write sent through it stays in that mode after a switch. */
+  pinned(): Api;
+  /** Bumped by every switch, so state built in the previous mode can be dropped. */
+  readonly generation: number;
+}
+
+export function createAppApi(
+  http: Api,
+  makeSandbox: (inner: Api) => Api = createSandboxApi,
+): AppApi {
+  let current = makeSandbox(http);
+  let generation = 0;
+  return {
+    get mode() {
+      return current.mode;
+    },
+    get generation() {
+      return generation;
+    },
+    setSandbox(on) {
+      if ((current.mode === "sandbox") === on) return;
+      current = on ? makeSandbox(http) : http;
+      generation += 1;
+    },
+    pinned: () => current,
+    getQueue: (query) => current.getQueue(query),
+    getRelease: (id) => current.getRelease(id),
+    postVerdict: (input) => current.postVerdict(input),
+    deleteVerdict: (key) => current.deleteVerdict(key),
+    postTrackVerdict: (input) => current.postTrackVerdict(input),
+    postListenLog: (input) => current.postListenLog(input),
+    getTwelves: (query) => current.getTwelves(query),
+    getStats: (query) => current.getStats(query),
+    getSettings: () => current.getSettings(),
+    putSettings: (config) => current.putSettings(config),
+    startEnrich: (input) => current.startEnrich(input),
+    startDumpLoad: (input) => current.startDumpLoad(input),
+    startImport: (kind, input) => current.startImport(kind, input),
+    getJobs: () => current.getJobs(),
+    getJob: (id) => current.getJob(id),
+    cancelJob: (id) => current.cancelJob(id),
+    pushToWantlist: (releaseId, input) => current.pushToWantlist(releaseId, input),
+    removeFromWantlist: (releaseId) => current.removeFromWantlist(releaseId),
+    getDiscogsAccount: () => current.getDiscogsAccount(),
+    getDiscogsLists: () => current.getDiscogsLists(),
+    getDiscogsList: (id) => current.getDiscogsList(id),
+  };
+}
+
 /**
- * Every write is faked in memory until the owner has tuned the triage flow: nothing reaches the
- * database, the config file or Discogs. Export createHttpApi() instead to go live.
+ * Starts in the sandbox, so nothing is written before the config is read; the settings store
+ * then switches to the mode `sandbox` in digga.config.json asks for.
  */
-export const api: Api = createSandboxApi(createHttpApi());
+export const api: AppApi = createAppApi(createHttpApi());

@@ -20,7 +20,7 @@ beforeEach(async () => {
   const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
-    config: DEFAULT_CONFIG,
+    config: { ...DEFAULT_CONFIG, sandbox: false },
     paths,
     secrets: { getDiscogsToken: () => undefined },
     logger: silentLogger,
@@ -214,8 +214,7 @@ describe("HTTP API", () => {
     expect((await get("/api/jobs/missing")).status).toBe(404);
   });
 
-  it("stubs the wantlist push with 501 and 404s unknown routes", async () => {
-    expect((await send("POST", "/api/discogs/wantlist/1001", { notes: "x" })).status).toBe(501);
+  it("404s unknown routes", async () => {
     expect((await get("/api/nothing")).status).toBe(404);
   });
 

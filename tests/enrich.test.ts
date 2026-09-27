@@ -15,6 +15,7 @@ function fakeDiscogs(handler: (id: number) => Promise<DiscogsRelease>): DiscogsC
     getUserLists: () => Promise.reject(new Error("unused")),
     getList: () => Promise.reject(new Error("unused")),
     addToWantlist: () => Promise.reject(new Error("unused")),
+    removeFromWantlist: () => Promise.reject(new Error("unused")),
     addToCollection: () => Promise.reject(new Error("unused")),
     rateLimit: () => ({ limit: null, remaining: null, used: null }),
     hasToken: () => true,

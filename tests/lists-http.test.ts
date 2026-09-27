@@ -51,7 +51,11 @@ beforeEach(async () => {
   const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
-    config: { ...DEFAULT_CONFIG, discogs: { username: "dj", currency: "EUR", maybeListId: 77 } },
+    config: {
+      ...DEFAULT_CONFIG,
+      sandbox: false,
+      discogs: { username: "dj", currency: "EUR", maybeListId: 77 },
+    },
     paths,
     secrets: { getDiscogsToken: () => "token" },
     logger: silentLogger,
