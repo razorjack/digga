@@ -235,6 +235,7 @@ describe("HTTP API", () => {
     const info = await server.start(0);
     expect(info.port).toBeGreaterThan(0);
     expect(info.host).toBe("127.0.0.1");
+    expect(info.browserUrl).toBe(`http://localhost:${info.port}`);
     const res = await fetch(`${info.url}/api/health`);
     expect(await res.json()).toEqual({ ok: true, name: "digga" });
   });

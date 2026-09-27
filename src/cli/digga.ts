@@ -247,7 +247,7 @@ async function cmdServe(rt: Runtime, args: string[]): Promise<void> {
     logger: rt.logger,
   });
   const info = await server.start(port, values.host);
-  console.log(`digga serving on ${info.url} (data: ${rt.paths.dataDir})`);
+  console.log(`digga serving on ${info.browserUrl} (data: ${rt.paths.dataDir})`);
   const shutdown = () => {
     void server.stop().then(() => process.exit(0));
   };

@@ -30,7 +30,14 @@ export interface StartInfo {
   host: string;
   port: number;
   url: string;
+  /**
+   * The URL to open the app at. YouTube refuses some embeds (error 150) on IP-address origins
+   * such as 127.0.0.1, so a loopback server is opened as localhost.
+   */
+  browserUrl: string;
 }
+
+const LOOPBACK = new Set(["127.0.0.1", "::1"]);
 
 export interface DiggaServer {
   app: Hono;
@@ -101,8 +108,9 @@ export function createServer(opts: CreateServerOptions): DiggaServer {
       return new Promise<StartInfo>((resolve, reject) => {
         const server = serve({ fetch: app.fetch, port: requested, hostname }, (info) => {
           const url = `http://${info.address.includes(":") ? `[${info.address}]` : info.address}:${info.port}`;
+          const browserUrl = LOOPBACK.has(info.address) ? `http://localhost:${info.port}` : url;
           logger.info(`listening on ${url}`);
-          resolve({ host: info.address, port: info.port, url });
+          resolve({ host: info.address, port: info.port, url, browserUrl });
         });
         server.on("error", reject);
         httpServer = server;
