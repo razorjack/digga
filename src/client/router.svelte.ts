@@ -7,23 +7,35 @@ export const ROUTES: { route: Route; label: string; key: string }[] = [
   { route: "settings", label: "Settings", key: "," },
 ];
 
-function parse(hash: string): Route {
-  const name = hash.replace(/^#\/?/, "").split(/[/?]/)[0] ?? "";
-  return ROUTES.some((r) => r.route === name) ? (name as Route) : "triage";
+interface HashLocation {
+  route: Route;
+  /** A part of the page to point at: `#/settings/sandbox` highlights the sandbox setting. */
+  anchor: string | null;
 }
 
-let current = $state<Route>(parse(window.location.hash));
+function parse(hash: string): HashLocation {
+  const [name = "", anchor] = hash.replace(/^#\/?/, "").split(/[?]/)[0]!.split("/");
+  return ROUTES.some((r) => r.route === name)
+    ? { route: name as Route, anchor: anchor || null }
+    : { route: "triage", anchor: null };
+}
+
+let current = $state<HashLocation>(parse(window.location.hash));
 
 window.addEventListener("hashchange", () => {
   current = parse(window.location.hash);
 });
 
 export function getRoute(): Route {
-  return current;
+  return current.route;
 }
 
-export function navigate(route: Route): void {
-  window.location.hash = `#/${route}`;
+export function getAnchor(): string | null {
+  return current.anchor;
+}
+
+export function navigate(route: Route, anchor?: string): void {
+  window.location.hash = anchor ? `#/${route}/${anchor}` : `#/${route}`;
 }
 
 /**

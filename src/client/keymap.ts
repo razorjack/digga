@@ -131,6 +131,7 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
         })),
         { keys: ["N"], label: "next: decide later, it stays in the queue" },
         { keys: ["Z"], label: "undo the last verdict or next" },
+        { keys: ["Esc"], label: "leave a round of snoozed records, back to the queue" },
       ],
     },
     {
@@ -165,17 +166,23 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
       { keys: ["O"], label: "open the release on discogs.com" },
       { keys: ["E"], label: "edit the note" },
       { keys: ["A", "M", "C", "R", "L"], label: "re-judge a triage verdict" },
+      { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
+      { keys: ["Enter"], label: "hear snoozed records again in Triage, from the selected one" },
       { keys: ["I"], label: "check your Discogs Maybe list again" },
       { keys: ["Z"], label: "undo the last change" },
     ],
   },
 ];
 
+/** Inputs that take no typed text, so a focused one (after a click) keeps the shortcuts working. */
+const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "range", "button", "submit", "reset"]);
+
 /** True when the key press belongs to a form field rather than to the shortcuts. */
 export function isTyping(e: KeyboardEvent): boolean {
   const t = e.target;
   if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName);
+  if (t instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(t.type);
+  return t.isContentEditable || ["TEXTAREA", "SELECT"].includes(t.tagName);
 }
 
 /** Shortcuts are single keys; anything held with Cmd, Ctrl or Alt belongs to the browser. */

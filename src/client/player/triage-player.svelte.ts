@@ -94,6 +94,11 @@ export class TriagePlayer {
     this.#fraction = startAtFraction;
   }
 
+  /** Forgets the tunes heard this session, e.g. those heard in a sandbox that was left. */
+  forgetHeard(): void {
+    this.heardKeys.clear();
+  }
+
   get entry(): PlaylistEntry | null {
     return this.current === null ? null : (this.entries[this.current] ?? null);
   }

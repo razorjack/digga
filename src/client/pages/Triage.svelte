@@ -10,7 +10,7 @@
   import { hasCommandModifier, isTyping, type TriageStatus, VERDICT_KEYS } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
-  import { settings, stats, ui } from "../stores.svelte.ts";
+  import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
   import PlayerPanel from "../triage/PlayerPanel.svelte";
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
   import { TriageSession } from "../triage/session.svelte.ts";
@@ -29,12 +29,51 @@
     session.current ? (session.detailErrors.get(session.current.id) ?? null) : null,
   );
 
+  let apiGeneration = api.generation;
+
   // (Re)start the queue once settings are known and after every save: filters may have changed.
   $effect(() => {
     const config = settings.value;
     void settings.version;
-    if (config) untrack(() => void session.start(config.queue.limit));
+    if (!config) return;
+    untrack(() => {
+      if (api.generation !== apiGeneration) {
+        apiGeneration = api.generation;
+        player.forgetHeard();
+      }
+      void session.start(config.queue.limit);
+    });
   });
+
+  // Snoozed records handed over by Twelves.
+  $effect(() => {
+    const items = ui.snoozedRound;
+    if (!items) return;
+    untrack(() => {
+      ui.snoozedRound = null;
+      session.startRound(items);
+    });
+  });
+
+  let loadingSnoozed = $state(false);
+
+  async function hearSnoozed(): Promise<void> {
+    if (loadingSnoozed) return;
+    loadingSnoozed = true;
+    try {
+      session.startRound((await api.getTwelves({ status: ["snoozed"] })).items.toReversed());
+    } catch (e) {
+      session.showFlash(`The snoozed records did not load: ${errorMessage(e)}`);
+    } finally {
+      loadingSnoozed = false;
+    }
+  }
+
+  const snoozedCount = $derived(stats.value?.verdicts.snoozed ?? 0);
+  const noReleases = $derived(stats.value !== null && stats.value.universe.releases === 0);
+  const nothingMatches = $derived(
+    stats.value !== null && stats.value.universe.releases > 0 && stats.value.universe.filteredKeys === 0,
+  );
 
   $effect(() => {
     const detail = session.currentDetail;
@@ -121,6 +160,10 @@
         return true;
       case "Enter":
         return retry();
+      case "Escape":
+        if (!session.round) return false;
+        session.endRound();
+        return true;
     }
     if (/^[1-9]$/.test(key)) {
       player.jumpTo(Number(key) / 10);
@@ -143,6 +186,15 @@
 <svelte:window {onkeydown} />
 
 <div class="triage">
+  {#if session.round}
+    <p class="round" aria-live="polite">
+      <span>
+        Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
+        {formatCount(session.round.total)} left. A verdict replaces the snooze; <Key label="N" size="sm" /> leaves it.
+      </span>
+      <button type="button" onclick={() => session.endRound()}><Key label="Esc" size="sm" /> back to the queue</button>
+    </p>
+  {/if}
   <div class="desk">
     <div class="record">
       {#if session.status === "error"}
@@ -152,6 +204,33 @@
           <p class="quiet">
             Check that the server runs (<code>npm run digga -- serve</code>), then press
             <Key label="Enter" /> to try again.
+          </p>
+        </div>
+      {:else if session.finished && noReleases}
+        <div class="state">
+          <p class="headline">No releases loaded yet.</p>
+          <p class="quiet">
+            Digga digs a Discogs releases dump. Download the latest
+            <code>discogs_YYYYMMDD_releases.xml.gz</code> from data.discogs.com into
+            <code>data/dumps/</code>, then load it with
+            <code>npm run digga -- dump load data/dumps/…</code> or from Jobs in settings. The styles and
+            years it keeps are under Universe.
+          </p>
+          <p class="actions">
+            <button type="button" onclick={() => navigate("settings")}><Key label="," /> settings</button>
+          </p>
+        </div>
+      {:else if session.finished && nothingMatches}
+        <div class="state">
+          <p class="headline">Your filters match no records.</p>
+          <p class="quiet">
+            {formatCount(stats.value?.universe.keys ?? 0)} records are loaded. Widen the years, formats or
+            countries in settings{settings.value?.filters.skipWithoutVideos
+              ? ", or let in releases without videos"
+              : ""}.
+          </p>
+          <p class="actions">
+            <button type="button" onclick={() => navigate("settings")}><Key label="," /> settings</button>
           </p>
         </div>
       {:else if session.finished}
@@ -166,6 +245,11 @@
             {#if session.passed.length > 0}
               <button type="button" onclick={() => session.goRound()}>
                 <Key label="N" primary /> go round the {formatCount(session.passed.length)} you passed
+              </button>
+            {/if}
+            {#if snoozedCount > 0}
+              <button type="button" disabled={loadingSnoozed} onclick={() => void hearSnoozed()}>
+                hear the {formatCount(snoozedCount)} snoozed again
               </button>
             {/if}
             <button type="button" onclick={() => navigate("settings")}><Key label="," /> settings</button>
@@ -196,11 +280,8 @@
         startAtFraction={startAt}
         seekStepSeconds={seekStep}
       />
-      <Slip
-        slip={session.slip}
-        next={session.next}
-        nextReady={player.nextReady}
-        sandbox={api.mode === "sandbox"}
+      <Slip slip={session.slip} next={session.next} nextReady={player.nextReady} sandbox={settings.sandbox}
+        inRound={session.round !== null}
       />
       <p class="flash" aria-live="assertive">{session.flash ?? ""}</p>
     </aside>
@@ -218,11 +299,37 @@
 
 <style>
   .triage {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     height: 100%;
   }
+  .round {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 10px 40px;
+    border-bottom: 1px solid var(--groove);
+    background: var(--sleeve);
+    box-shadow: inset 3px 0 0 var(--flyer);
+    color: var(--faded);
+    font-size: var(--text-sm);
+  }
+  .round b {
+    color: var(--paper);
+    font-weight: 600;
+  }
+  .round button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    border: 0;
+    background: none;
+    padding: 0;
+  }
   .desk {
+    flex: 1;
     display: grid;
     grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);
     gap: 48px;
@@ -282,6 +389,9 @@
     border: 0;
     background: none;
     padding: 0;
+  }
+  .actions button:disabled {
+    opacity: 0.5;
   }
   .flash {
     min-height: 1.4em;

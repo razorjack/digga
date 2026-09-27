@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { formatCount, formatEta } from "../shared/display.ts";
-  import { api } from "./api.ts";
   import HelpOverlay from "./components/HelpOverlay.svelte";
   import Key from "./components/Key.svelte";
   import Stamp from "./components/Stamp.svelte";
@@ -19,7 +18,6 @@
   import { settings, stats, ui } from "./stores.svelte.ts";
 
   const route = $derived(getRoute());
-  const sandbox = api.mode === "sandbox";
   const localhostUrl = localhostAlternative();
 
   const helpGroups = $derived(
@@ -112,18 +110,25 @@
       {/each}
     </nav>
 
-    {#if sandbox}
-      <p class="sandbox" title="Verdicts, notes, settings and jobs are kept in memory until the page reloads.">
+    {#if settings.sandbox}
+      <a
+        class="sandbox"
+        href="#/settings/sandbox"
+        title="Verdicts, notes, track marks and heard tunes stay in this tab, and nothing goes to Discogs. Click to change."
+        onmousedown={keepFocus}
+      >
         <Stamp text="sandbox" tone="flyer" size="sm" seed={3} />
-        <span>nothing saved or sent</span>
-      </p>
+        <span>verdicts are not saved</span>
+      </a>
     {/if}
 
     <div class="counter" aria-live="off">
       {#if stats.value}
         <p><b>{formatCount(stats.value.dug)}</b> dug</p>
         <p><b>{formatCount(stats.value.remaining)}</b> to go</p>
-        <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
+        {#if stats.value.remaining > 0}
+          <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
+        {/if}
         {#if stats.session > 0}<p class="session">+{formatCount(stats.session)} this session</p>{/if}
       {:else if stats.error}
         <p class="error">Server unreachable</p>
@@ -203,6 +208,12 @@
     gap: 12px;
     color: var(--faded);
     font-size: var(--text-sm);
+    text-decoration: none;
+  }
+  .sandbox:hover span {
+    color: var(--paper);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .counter {
     display: flex;

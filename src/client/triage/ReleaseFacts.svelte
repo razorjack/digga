@@ -49,7 +49,7 @@
   </dl>
 
   {#if !enriched}
-    <p class="unenriched">No price or have/want yet; <code>npm run digga -- enrich</code> fetches them.</p>
+    <p class="unenriched">No price or have/want yet; Enrich in settings fetches them.</p>
   {:else}
     <p class="market">
       <span class="price">
@@ -151,10 +151,6 @@
   .unenriched {
     color: var(--dust);
     font-size: var(--text-sm);
-  }
-  .unenriched code {
-    font-family: inherit;
-    color: var(--faded);
   }
   .versions {
     color: var(--dust);

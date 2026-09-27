@@ -9,7 +9,7 @@
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
   import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
-  import { openExternal } from "../router.svelte.ts";
+  import { navigate, openExternal } from "../router.svelte.ts";
   import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
 
   type ShelfId =
@@ -56,6 +56,12 @@
     candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
     snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",
   };
+
+  /** A change in Twelves and what it did to the Discogs wantlist, so Z can reverse both. */
+  interface UndoEntry {
+    previous: Verdict;
+    wantlist: { releaseId: number; change: "added" | "removed" } | null;
+  }
   /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
   const JUDGE_KEYS: Record<string, VerdictStatus> = {
     a: "accepted",
@@ -82,16 +88,23 @@
   let editingKey = $state<string | null>(null);
   let noteDraft = $state("");
   let flash = $state<string | null>(null);
-  let undoStack = $state.raw<Verdict[]>([]);
+  let undoStack = $state.raw<UndoEntry[]>([]);
   let filterInput = $state<HTMLInputElement | null>(null);
   let listEl = $state<HTMLOListElement | null>(null);
   let checking = $state(false);
+  let pushing = $state(false);
 
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
   /** A maybe decided in Digga that has not shown up on the Discogs list yet. */
   const notOnList = (i: TwelvesItem) =>
     i.verdict.status === "maybe" && isTriageSource(i.verdict.source);
   const pending = $derived(items.filter(notOnList).length);
+  /** A want that did not reach the Discogs wantlist (a failed push). */
+  const notOnWantlist = (i: TwelvesItem) => i.verdict.status === "accepted" && !i.onWantlist;
+  const wantsPending = $derived(items.filter(notOnWantlist));
+  const releaseIdOf = (i: TwelvesItem) => i.verdict.releaseId ?? i.release?.id ?? null;
+  const nameOf = (i: TwelvesItem) =>
+    i.release ? `${i.release.artistDisplay} – ${i.release.title}` : i.verdict.key;
 
   const counts = $derived(
     Object.fromEntries(
@@ -173,7 +186,42 @@
     }, 5000);
   }
 
-  async function write(previous: Verdict, next: Partial<Verdict>, message: string): Promise<void> {
+  /** Returns null when Discogs took the change, else what went wrong. */
+  async function wantlistWrite(releaseId: number, add: boolean): Promise<string | null> {
+    try {
+      if (add) await api.pushToWantlist(releaseId);
+      else await api.removeFromWantlist(releaseId);
+      return null;
+    } catch (e) {
+      return errorMessage(e);
+    }
+  }
+
+  /** Keeps the Discogs wantlist in step when a record becomes a want or stops being one. */
+  async function syncWantlist(
+    item: TwelvesItem,
+    status: VerdictStatus,
+  ): Promise<{ entry: UndoEntry["wantlist"]; note: string }> {
+    const releaseId = releaseIdOf(item);
+    const from = item.verdict.status;
+    if (releaseId === null || status === from) return { entry: null, note: "" };
+    if (status === "accepted" && !item.onWantlist) {
+      const error = await wantlistWrite(releaseId, true);
+      return error
+        ? { entry: null, note: ` Not on your Discogs wantlist: ${error}; A tries again.` }
+        : { entry: { releaseId, change: "added" }, note: " Added to your Discogs wantlist." };
+    }
+    if (from === "accepted" && item.onWantlist) {
+      const error = await wantlistWrite(releaseId, false);
+      return error
+        ? { entry: null, note: ` Still on your Discogs wantlist: ${error}.` }
+        : { entry: { releaseId, change: "removed" }, note: " Taken off your Discogs wantlist." };
+    }
+    return { entry: null, note: "" };
+  }
+
+  async function write(item: TwelvesItem, next: Partial<Verdict>, message: string): Promise<void> {
+    const previous = item.verdict;
     // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
     const index = visible.findIndex((i) => i.verdict.key === previous.key);
     const neighbour = (visible[index + 1] ?? visible[index - 1])?.verdict.key ?? null;
@@ -185,23 +233,26 @@
         notes: next.notes === undefined ? previous.notes : next.notes,
         releaseId: previous.releaseId,
       });
-      undoStack = [...undoStack, previous];
-      showFlash(message);
-      await load();
-      if (!visible.some((i) => i.verdict.key === selectedKey)) selectedKey = neighbour;
-      void stats.refresh();
     } catch (e) {
       showFlash(`Not saved: ${errorMessage(e)}`);
+      return;
     }
+    const wantlist = await syncWantlist(item, next.status ?? previous.status);
+    undoStack = [...undoStack, { previous, wantlist: wantlist.entry }];
+    showFlash(`${message}${wantlist.note} Z undoes it.`);
+    await load();
+    if (!visible.some((i) => i.verdict.key === selectedKey)) selectedKey = neighbour;
+    void stats.refresh();
   }
 
   async function undo(): Promise<void> {
-    const previous = undoStack.at(-1);
-    if (!previous) {
+    const entry = undoStack.at(-1);
+    if (!entry) {
       showFlash("Nothing to undo.");
       return;
     }
     undoStack = undoStack.slice(0, -1);
+    const { previous, wantlist } = entry;
     try {
       await api.postVerdict({
         key: previous.key,
@@ -209,14 +260,47 @@
         source: previous.source,
         notes: previous.notes,
         releaseId: previous.releaseId,
+        decidedAt: previous.decidedAt,
       });
-      selectedKey = previous.key;
-      showFlash("Undone.");
-      await load();
-      void stats.refresh();
     } catch (e) {
       showFlash(`Undo failed: ${errorMessage(e)}`);
+      return;
     }
+    const error = wantlist ? await wantlistWrite(wantlist.releaseId, wantlist.change === "removed") : null;
+    selectedKey = previous.key;
+    showFlash(error ? `Undone, but the Discogs wantlist did not follow: ${error}` : "Undone.");
+    await load();
+    void stats.refresh();
+  }
+
+  /** Pushes wants that are not on the Discogs wantlist yet, one request at a time. */
+  async function addToWantlist(list: TwelvesItem[]): Promise<void> {
+    if (pushing || list.length === 0) return;
+    pushing = true;
+    let added = 0;
+    let error: string | null = null;
+    for (const item of list) {
+      const releaseId = releaseIdOf(item);
+      if (releaseId === null) continue;
+      if (list.length > 1) flash = `Adding to your Discogs wantlist: ${added + 1} of ${list.length}…`;
+      error = await wantlistWrite(releaseId, true);
+      if (error) break;
+      added += 1;
+    }
+    pushing = false;
+    await load();
+    if (error)
+      showFlash(
+        added > 0
+          ? `${formatCount(added)} added, then Discogs refused: ${error}`
+          : `Not added to your Discogs wantlist: ${error}`,
+      );
+    else
+      showFlash(
+        list.length === 1
+          ? `${nameOf(list[0]!)}: added to your Discogs wantlist.`
+          : `${formatCount(added)} added to your Discogs wantlist.`,
+      );
   }
 
   function rejudge(item: TwelvesItem, status: VerdictStatus): void {
@@ -224,9 +308,26 @@
       showFlash("Wantlist and owned records come from Discogs; change them there.");
       return;
     }
-    if (item.verdict.status === status) return;
-    const name = item.release ? `${item.release.artistDisplay} – ${item.release.title}` : item.verdict.key;
-    void write(item.verdict, { status, source: "triage" }, `${name}: ${STATUS_COPY[status]}. Z undoes it.`);
+    if (item.verdict.status === status) {
+      if (notOnWantlist(item)) void addToWantlist([item]);
+      return;
+    }
+    void write(item, { status, source: "triage" }, `${nameOf(item)}: ${STATUS_COPY[status]}.`);
+  }
+
+  /** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
+  function hearAgain(): void {
+    if (selected?.verdict.status !== "snoozed") {
+      showFlash("Enter hears snoozed records again; pick one on the Snoozed shelf (7).");
+      return;
+    }
+    const round = visible.slice(selectedIndex).filter((i) => i.verdict.status === "snoozed" && i.release);
+    if (round.length === 0) {
+      showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+      return;
+    }
+    ui.snoozedRound = round;
+    navigate("triage");
   }
 
   async function startEditing(item: TwelvesItem): Promise<void> {
@@ -240,7 +341,7 @@
     editingKey = null;
     const notes = noteDraft.trim() === "" ? null : noteDraft.trim();
     if (notes === item.verdict.notes) return;
-    void write(item.verdict, { notes }, notes ? "Note saved." : "Note removed.");
+    void write(item, { notes }, notes ? "Note saved." : "Note removed.");
   }
 
   function move(delta: number): void {
@@ -293,6 +394,7 @@
     else if (key === "/") filterInput?.focus();
     else if (key === "z") void undo();
     else if (key === "i") void checkList();
+    else if (key === "Enter") hearAgain();
     else if (key === "o" && selected?.release) openExternal(discogsReleaseUrl(selected.release.id));
     else if (key === "e" && selected) void startEditing(selected);
     else if (JUDGE_KEYS[key] && selected) rejudge(selected, JUDGE_KEYS[key]);
@@ -377,6 +479,34 @@
     </div>
   {/if}
 
+  {#if shelf === "accepted" || (shelf === "all" && wantsPending.length > 0)}
+    <div class="handoff">
+      <p>
+        {#if wantsPending.length > 0}
+          <b>{formatCount(wantsPending.length)}</b>
+          {wantsPending.length === 1 ? "want is" : "wants are"} not on your Discogs wantlist: the push
+          failed or was undone. <Key label="A" /> on one tries again.
+        {:else}
+          Every want here is on your Discogs wantlist.
+        {/if}
+      </p>
+      {#if wantsPending.length > 1}
+        <button type="button" class="check" disabled={pushing} onclick={() => void addToWantlist(wantsPending)}>
+          {pushing ? "Adding…" : `add all ${formatCount(wantsPending.length)}`}
+        </button>
+      {/if}
+    </div>
+  {/if}
+
+  {#if shelf === "snoozed" && counts.snoozed > 0}
+    <div class="handoff">
+      <p>
+        <Key label="Enter" /> hears the snoozed records again in Triage, from the selected one. A verdict
+        replaces the snooze; <Key label="N" /> leaves it.
+      </p>
+    </div>
+  {/if}
+
   {#if loading}
     <p class="empty">Loading…</p>
   {:else if error}
@@ -423,6 +553,8 @@
             {/if}
             {#if notOnList(item)}
               <p class="pending">not on your Discogs Maybe list yet</p>
+            {:else if notOnWantlist(item)}
+              <p class="pending">not on your Discogs wantlist</p>
             {/if}
           </div>
           <div class="where">
@@ -460,6 +592,9 @@
       <span><Key label="E" /> note</span>
       <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
       <span><Key label="I" /> check Maybe list</span>
+      {#if shelf === "snoozed" || selected?.verdict.status === "snoozed"}
+        <span><Key label="Enter" /> hear again</span>
+      {/if}
       <span><Key label="Z" /> undo</span>
     </p>
     <p class="flash" aria-live="polite">{flash ?? ""}</p>

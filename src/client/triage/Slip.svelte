@@ -10,7 +10,15 @@
     next,
     nextReady,
     sandbox,
-  }: { slip: Slip | null; next: QueueItem | null; nextReady: boolean; sandbox: boolean } = $props();
+    inRound,
+  }: {
+    slip: Slip | null;
+    next: QueueItem | null;
+    nextReady: boolean;
+    sandbox: boolean;
+    /** The slip's release is the last of a snoozed round, so the queue comes next. */
+    inRound: boolean;
+  } = $props();
 
   const name = (i: QueueItem) => `${i.artistDisplay} – ${i.title}`;
 </script>
@@ -45,7 +53,7 @@
           {:else if slip.kind === "verdict" && slip.status === "snoozed"}
             On the Snoozed shelf, out of the queue.
           {:else if slip.kind === "pass"}
-            Stays in the queue for another go.
+            {slip.stays === "snoozed" ? "Stays snoozed." : "Stays in the queue for another go."}
           {:else if slip.kind === "undo"}
             Back on it; the {slip.undone === "pass" ? "next" : STATUS_COPY[slip.undone]} is gone.
           {:else}
@@ -74,7 +82,7 @@
         {/if}
       </p>
     {:else}
-      <p class="quiet">Nothing after this one.</p>
+      <p class="quiet">{inRound ? "Then back to the queue." : "Nothing after this one."}</p>
     {/if}
   </div>
 </div>

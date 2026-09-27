@@ -1,4 +1,4 @@
-import type { Stats } from "../shared/api.ts";
+import type { Stats, TwelvesItem } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
 import { api } from "./api.ts";
 
@@ -37,10 +37,12 @@ class SettingsStore {
   error = $state<string | null>(null);
   /** Increments on every save, so the triage queue knows to reload. */
   version = $state(0);
+  /** True until the config says otherwise, like the api, so nothing is saved before it is known. */
+  sandbox = $derived(this.value?.sandbox ?? true);
 
   async load(): Promise<void> {
     try {
-      this.value = await api.getSettings();
+      this.#apply(await api.getSettings());
       this.error = null;
     } catch (e) {
       this.error = errorMessage(e);
@@ -49,9 +51,20 @@ class SettingsStore {
 
   async save(next: Config): Promise<Config> {
     const saved = await api.putSettings(next);
-    this.value = saved;
+    this.#apply(saved);
     this.version += 1;
     return saved;
+  }
+
+  /** Switches the api before anything reacts to the new settings, e.g. by restarting the queue. */
+  #apply(config: Config): void {
+    const generation = api.generation;
+    api.setSandbox(config.sandbox);
+    if (api.generation !== generation) {
+      stats.session = 0;
+      void stats.refresh();
+    }
+    this.value = config;
   }
 }
 
@@ -61,6 +74,8 @@ export const settings = new SettingsStore();
 class UiStore {
   /** The ? overlay is open; page shortcuts stay quiet while it is. */
   helpOpen = $state(false);
+  /** Snoozed records Twelves hands to Triage to hear again; Triage takes them and clears this. */
+  snoozedRound = $state.raw<TwelvesItem[] | null>(null);
 }
 
 export const ui = new UiStore();

@@ -1,14 +1,20 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { BROWSERS, type Browser, type DiscogsListSummary, type Stats } from "../../shared/api.ts";
+  import {
+    BROWSERS,
+    type Browser,
+    type DiscogsAccountResponse,
+    type DiscogsListSummary,
+    type Stats,
+  } from "../../shared/api.ts";
   import { type Config, QUEUE_STRATEGIES, type QueueStrategy, validateConfig } from "../../shared/config.ts";
   import { formatCount, formatDay } from "../../shared/display.ts";
   import type { Job, JobType } from "../../shared/types.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
+  import { getAnchor } from "../router.svelte.ts";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
 
-  const sandbox = api.mode === "sandbox";
   const CURRENCIES = ["EUR", "USD", "GBP", "CAD", "AUD", "JPY", "CHF", "MXN", "BRL", "NZD", "SEK", "ZAR"];
   const STRATEGY_COPY: Record<QueueStrategy, { label: string; hint: string }> = {
     label_sweep: { label: "Label sweep", hint: "label by label, in catalogue order" },
@@ -40,6 +46,11 @@
   let dumpFile = $state("");
   let dumpLimit = $state<number | null>(null);
   let dumpDryRun = $state(false);
+  let account = $state<DiscogsAccountResponse | null>(null);
+  let accountError = $state<string | null>(null);
+  let switching = $state(false);
+  let modeEl = $state<HTMLElement | null>(null);
+  let modeButton = $state<HTMLButtonElement | null>(null);
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let previewTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -48,6 +59,17 @@
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
   const running = $derived(jobs.some((j) => j.status === "running" || j.status === "queued"));
+  /** The header's sandbox link points here. */
+  const highlighted = $derived(getAnchor() === "sandbox");
+  const tokenProblem = $derived.by(() => {
+    if (!account) return null;
+    if (!account.hasToken) return "DISCOGS_TOKEN is not set in .env";
+    if (account.error) return `Discogs did not confirm the token (${account.error})`;
+    if (account.username === "") return "your Discogs username is not set below";
+    if (account.tokenUsername && account.tokenUsername.toLowerCase() !== account.username.toLowerCase())
+      return `the token belongs to ${account.tokenUsername}, not ${account.username}`;
+    return null;
+  });
 
   $effect(() => {
     if (saved && draft === null) draft = $state.snapshot(saved);
@@ -83,8 +105,15 @@
     }
   });
 
+  $effect(() => {
+    if (!highlighted || !modeEl) return;
+    modeEl.scrollIntoView({ block: "nearest" });
+    modeButton?.focus({ preventScroll: true });
+  });
+
   onMount(() => {
     void loadJobs();
+    void loadAccount();
     void stats.refresh();
   });
 
@@ -92,6 +121,34 @@
     if (pollTimer) clearInterval(pollTimer);
     if (previewTimer) clearTimeout(previewTimer);
   });
+
+  async function loadAccount(): Promise<void> {
+    try {
+      account = await api.getDiscogsAccount();
+      accountError = null;
+    } catch (e) {
+      accountError = errorMessage(e);
+    }
+  }
+
+  /** Saved at once, outside the form: the mode decides whether the next verdict is kept. */
+  async function setSandbox(on: boolean): Promise<void> {
+    if (!saved || switching) return;
+    switching = true;
+    try {
+      await settings.save({ ...$state.snapshot(saved), sandbox: on });
+      if (draft) draft.sandbox = on;
+      showFlash(
+        on
+          ? "Back in the sandbox: verdicts stay in this tab again."
+          : "Sandbox off: verdicts are saved from now on.",
+      );
+    } catch (e) {
+      showFlash(`The sandbox did not switch: ${errorMessage(e)}`);
+    } finally {
+      switching = false;
+    }
+  }
 
   /** Reads the user's Discogs lists for the Maybe list picker (a read, fine in the sandbox). */
   async function loadLists(): Promise<void> {
@@ -125,11 +182,13 @@
   async function save(): Promise<void> {
     if (!draft || !validation?.ok || saving) return;
     saving = true;
+    const username = saved?.discogs.username;
     try {
       await settings.save(validation.config);
       draft = $state.snapshot(settings.value!);
-      showFlash(sandbox ? "Saved for this session only (sandbox). The queue has reloaded." : "Saved. The queue has reloaded.");
+      showFlash("Saved. The queue has reloaded.");
       void stats.refresh();
+      if (settings.value?.discogs.username !== username) void loadAccount();
     } catch (e) {
       showFlash(`Not saved: ${errorMessage(e)}`);
     } finally {
@@ -145,11 +204,9 @@
     try {
       const job = await start();
       showFlash(
-        !sandbox
-          ? `${JOB_LABEL[job.type]} started.`
-          : job.type === "import_list"
-            ? "Reading your Discogs Maybe list; its maybes are kept in memory (sandbox)."
-            : `${JOB_LABEL[job.type]} simulated (sandbox): nothing is written.`,
+        settings.sandbox && job.type === "import_list"
+          ? "Reading your Discogs Maybe list; its maybes stay in this tab (sandbox)."
+          : `${JOB_LABEL[job.type]} started.`,
       );
       await loadJobs();
     } catch (e) {
@@ -224,15 +281,61 @@
 <div class="settings">
   <header class="head">
     <h1>Settings</h1>
-    <p class="lede">
-      Filters and order change the queue as soon as you save.
-      {#if sandbox}In the sandbox, saved settings last until the page reloads and jobs are simulated.{/if}
-    </p>
+    <p class="lede">Filters and order change the queue as soon as you save.</p>
   </header>
 
   {#if !draft}
     <p class="quiet">{settings.error ? `Settings did not load: ${settings.error}` : "Loading…"}</p>
   {:else}
+    <section class="mode" class:highlight={highlighted} id="sandbox" bind:this={modeEl}>
+      <h2>Sandbox</h2>
+      {#if settings.sandbox}
+        <p>
+          <b>On.</b> Verdicts, notes, track marks and heard tunes stay in this browser tab until it reloads,
+          and nothing is sent to Discogs. Settings and jobs are saved as usual.
+        </p>
+        <p class="quiet">
+          Turn it off to dig for real: every verdict is saved, and <Key label="A" size="sm" /> adds the release to
+          your Discogs wantlist{tokenProblem ? "" : account?.tokenUsername ? ` (${account.tokenUsername})` : ""}.
+          What you did in the sandbox is dropped.
+        </p>
+        {#if tokenProblem}
+          <p class="problem">
+            Before you do: {tokenProblem}. Verdicts are saved either way, but wants will not reach the Discogs
+            wantlist.
+          </p>
+        {/if}
+        <div class="inline">
+          <button
+            type="button"
+            class="primary"
+            bind:this={modeButton}
+            disabled={switching}
+            onclick={() => void setSandbox(false)}
+          >
+            {switching ? "Switching…" : "Turn off the sandbox"}
+          </button>
+        </div>
+      {:else}
+        <p>
+          <b>Off.</b> Verdicts are saved, and <Key label="A" size="sm" /> adds the release to your Discogs wantlist;
+          <Key label="Z" size="sm" /> right after takes it off again.
+        </p>
+        <p class="quiet">The sandbox keeps verdicts in this tab only, for trying the flow without consequences.</p>
+        <div class="inline">
+          <button
+            type="button"
+            class="secondary"
+            bind:this={modeButton}
+            disabled={switching}
+            onclick={() => void setSandbox(true)}
+          >
+            {switching ? "Switching…" : "Back to the sandbox"}
+          </button>
+        </div>
+      {/if}
+    </section>
+
     <section class="library">
       <h2>Library</h2>
       {#if stats.value}
@@ -308,6 +411,17 @@
             />
             <span class="hint">As Discogs writes them: UK, Germany, US. Empty means any.</span>
           </label>
+          <div class="field">
+            <span class="name">Videos</span>
+            <label class="check">
+              <input type="checkbox" bind:checked={draft.filters.skipWithoutVideos} />
+              skip releases without videos
+            </label>
+            <span class="hint">
+              Leaves out releases with no playable YouTube video on Discogs. A newer dump brings back those
+              that got one since.
+            </span>
+          </div>
           {#if draft.universe.styles.length > 1}
             <div class="field">
               <span class="name">Styles</span>
@@ -385,6 +499,26 @@
             <input bind:value={draft.discogs.username} autocomplete="off" spellcheck="false" />
             <span class="hint">Collection and wantlist imports read this account. The token lives in .env.</span>
           </label>
+          <div class="field">
+            <span class="name">Token</span>
+            <p class:problem={tokenProblem !== null}>
+              {#if accountError}
+                Not checked: {accountError}.
+              {:else if !account}
+                Checking…
+              {:else if !account.hasToken}
+                No DISCOGS_TOKEN in .env.
+              {:else if tokenProblem}
+                {tokenProblem[0]!.toUpperCase() + tokenProblem.slice(1)}.
+              {:else}
+                Works for {account.tokenUsername}.
+              {/if}
+            </p>
+            <span class="hint">
+              A personal access token from discogs.com/settings/developers, in .env as DISCOGS_TOKEN. Pushes to your
+              wantlist and reads of private lists need it.
+            </span>
+          </div>
           <label class="field narrow">
             <span class="name">Currency</span>
             <select bind:value={draft.discogs.currency}>
@@ -495,9 +629,8 @@
     <section class="jobs">
       <h2>Jobs</h2>
       <p class="hint">
-        {sandbox
-          ? "Sandbox: these buttons simulate the jobs so you can see their progress. The CLI runs them for real."
-          : "Jobs run on the server; closing this page does not stop them."}
+        Jobs run on the server, in the sandbox too, since they set Digga up rather than dig. Closing this page does
+        not stop them.{settings.sandbox ? " Only the Maybe list import stays in this tab in the sandbox." : ""}
       </p>
       <div class="job-actions">
         <div class="job">
@@ -594,10 +727,22 @@
     padding: 32px 40px 0;
   }
   .head,
+  .mode,
   .library,
   .form > section,
   .jobs {
     max-width: 940px;
+  }
+  .mode p {
+    max-width: 72ch;
+  }
+  .mode.highlight {
+    max-width: calc(940px + 23px);
+    margin-left: -23px;
+    padding-left: 20px;
+    padding-right: 20px;
+    background: var(--sleeve);
+    box-shadow: inset 3px 0 0 var(--flyer);
   }
   .head {
     display: grid;
