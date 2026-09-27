@@ -151,8 +151,8 @@
     height: 0;
   }
   .app {
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     height: 100%;
   }
   .top {
@@ -229,6 +229,7 @@
   }
   main {
     position: relative;
+    flex: 1;
     min-height: 0;
   }
   .page {
