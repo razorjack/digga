@@ -43,7 +43,7 @@ vp run verify                    # all four of the above
 npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz            # ~10 GB gz, streams
 npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz --limit 500 --dry-run
 gzip -dc data/dumps/discogs_20250901_releases.xml.gz | npm run digga -- dump load -   # from stdin
-# 2. Seeds (needs discogs.username in digga.config.json and DISCOGS_TOKEN in .env)
+# 2. Seeds (needs discogs.username in digga.config.json, created on first run, and DISCOGS_TOKEN in .env)
 npm run digga -- import collection
 npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
@@ -55,8 +55,8 @@ npm run digga -- stats
 ## Layout
 
 ```
-digga.config.json      user-editable defaults (validated by zod, rewritten by PUT /api/settings)
-.env.example           DISCOGS_TOKEN=
+digga.config.example.json  committed defaults; copied to digga.config.json (gitignored, per-user) on first run
+.env.example           DISCOGS_TOKEN= (copy to .env, gitignored)
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
@@ -78,7 +78,9 @@ data/                  gitignored: digga.sqlite, dumps/, tmp/
   erasable syntax (no enums, namespaces, parameter properties) and import with `.ts` extensions.
 - Tests for all pure logic and for the SQL builders (`tests/`, fixture-driven). Run `vp test`.
 - Schema changes only via a new numbered file in `src/server/db/migrations/`; never edit an applied one.
-- DnB defaults live only in `digga.config.json` (and the schema defaults in `src/shared/config.ts`).
+- DnB defaults live only in `digga.config.example.json` and the matching schema defaults in
+  `src/shared/config.ts` (a test keeps them equal). `digga.config.json` is per-user and gitignored:
+  it holds the Discogs username and whatever `PUT /api/settings` writes. Never commit it.
 - Comments explain constraints, not what the code says. No em dashes; en dash with spaces in prose.
 - Formatting and lint are owned by `vp check --fix`.
 

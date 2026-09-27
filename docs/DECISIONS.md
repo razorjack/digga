@@ -58,3 +58,7 @@ Chronological. Each entry records a choice made without asking and why.
 24. **Branch is `master`**, per the owner's request during the session.
 25. **API 404/500 handlers live on the root Hono app**, because Hono ignores `notFound`/`onError`
     of a mounted sub-app and the static catch-all would otherwise answer unknown `/api` routes.
+26. **`digga.config.json` is gitignored; `digga.config.example.json` is committed.** The file
+    holds the Discogs username and is rewritten by `PUT /api/settings`, so it is per-user state
+    like `.env`. The first run copies the example (or the schema defaults when the example is
+    absent, as in Electron), and a test keeps the example equal to the schema defaults.

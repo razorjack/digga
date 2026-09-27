@@ -6,6 +6,8 @@ export interface Paths {
   dataDir: string;
   dbFile: string;
   configFile: string;
+  /** Committed template used to create configFile on first run when present. */
+  configExampleFile: string;
   dumpsDir: string;
   tempDir: string;
   /** Built frontend bundle served by Hono in production. */
@@ -43,6 +45,7 @@ export function resolvePaths(opts: PathOptions): Paths {
     dataDir,
     dbFile: path.join(dataDir, "digga.sqlite"),
     configFile,
+    configExampleFile: path.join(path.dirname(configFile), "digga.config.example.json"),
     dumpsDir: path.join(dataDir, "dumps"),
     tempDir: path.join(dataDir, "tmp"),
     distDir: path.resolve(opts.distDir ?? DEFAULT_DIST_DIR),

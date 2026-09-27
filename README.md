@@ -9,6 +9,7 @@ Digga is the app, your twelves are what it finds.
 ```sh
 npm install
 cp .env.example .env            # add DISCOGS_TOKEN
+cp digga.config.example.json digga.config.json   # optional: the first run creates it; set discogs.username
 npm run digga -- dump load data/dumps/discogs_YYYYMMDD_releases.xml.gz
 npm run digga -- import collection && npm run digga -- import wantlist && npm run digga -- import history
 npm run digga -- enrich

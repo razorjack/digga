@@ -65,7 +65,8 @@ operations (add to wantlist, add to collection) are typed stubs until session 3.
 ## Configuration and paths
 
 `digga.config.json` is the single source of truth, validated by the zod schema in
-`src/shared/config.ts`. `PUT /api/settings` validates and rewrites the file. `src/server/paths.ts`
+`src/shared/config.ts`. It is per-user and gitignored; the first run creates it from the committed
+`digga.config.example.json`. `PUT /api/settings` validates and rewrites the file. `src/server/paths.ts`
 decides every filesystem location from a base directory (`process.cwd()` for the CLI,
 `app.getPath('userData')` for Electron) plus optional `DIGGA_DATA_DIR` / `DIGGA_CONFIG_FILE`
 overrides. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `.env`.

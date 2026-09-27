@@ -62,7 +62,7 @@ interface Runtime {
 function boot(): Runtime {
   const cwd = process.cwd();
   const paths = resolvePaths({ baseDir: cwd });
-  const config = loadConfig(paths.configFile);
+  const config = loadConfig(paths.configFile, paths.configExampleFile);
   const secrets = createSecrets({ envFile: paths.envFile });
   const level = (process.env.DIGGA_LOG_LEVEL as LogLevel | undefined) ?? "info";
   const logger = createLogger({ level });
