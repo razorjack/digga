@@ -10,7 +10,7 @@ A person sits with Digga for hours, listening to a few seconds of every track on
 records, deciding with one key per record. The screen must let them read the facts of a release in
 one glance, keep the player always present, and never make them reach for the mouse. Two goals
 compete for attention: finding a handful of tunes remembered from pirate radio (the ID hunt, where
-`candidate` marks a maybe-match) and building a DJ wantlist (accept = wheel up). Both must feel
+`candidate` marks a maybe-match) and building a DJ wantlist (accept = want). Both must feel
 fast and safe: every action is undoable with `Z`.
 
 ## Hard constraints
@@ -39,7 +39,7 @@ labels and test pressings, stamped and hand-written catalogue numbers, deadwax e
 photocopied flyers, grain and distortion used sparingly, industrial or monospace type, one harsh
 accent colour. Slightly courageous and whimsical: the app should have a personality and one or two
 signature elements that make it distinct and fun. The whimsy lives in copy and micro-details
-(verdict copy speaks MC: skip, wheel up, bo!), not in motion that costs attention.
+(verdict copy: skip, want, maybe, grail), not in motion that costs attention.
 
 Avoid: generic SaaS cards, gradients, glassmorphism, rounded pastel, neon-cyberpunk clichés, anything
 that reads as a music streaming app. Ergonomics win every tie.

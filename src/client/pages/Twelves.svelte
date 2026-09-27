@@ -16,11 +16,11 @@
 
   const SHELVES: { id: ShelfId; label: string }[] = [
     { id: "all", label: "Everything" },
-    { id: "accepted", label: "Wheel up" },
-    { id: "wantlist", label: "Wantlist" },
+    { id: "accepted", label: "Want" },
+    { id: "wantlist", label: "Discogs wantlist" },
     { id: "collection", label: "Owned" },
     { id: "maybe", label: "Maybe" },
-    { id: "candidate", label: "Bo!" },
+    { id: "candidate", label: "Grail" },
   ];
   const STATUSES: VerdictStatus[] = ["accepted", "wantlist", "collection", "maybe", "candidate"];
   const SORTS: { id: SortId; label: string }[] = [
@@ -32,12 +32,12 @@
     { id: "want", label: "most wanted" },
   ];
   const EMPTY: Record<ShelfId, string> = {
-    all: "Nothing here yet. Wheel something up in Triage, or import your Discogs wantlist and collection.",
-    accepted: "Nothing wheeled up yet. Press A on a release in Triage.",
+    all: "Nothing here yet. Press A on a release in Triage, or import your Discogs wantlist and collection.",
+    accepted: "Nothing wanted yet. Press A on a release in Triage.",
     wantlist: "No wantlist imported. Run npm run digga -- import wantlist.",
     collection: "No collection imported. Run npm run digga -- import collection.",
     maybe: "No maybes. Press M in Triage to put a release aside.",
-    candidate: "No candidates for the ID hunt yet. Press C when a tune rings a bell.",
+    candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
   };
   /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
   const JUDGE_KEYS: Record<string, VerdictStatus> = {
@@ -255,7 +255,7 @@
   <header class="head">
     <h1>Twelves</h1>
     <p class="lede">
-      {formatCount(counts.all)} records: what you wheeled up, want, own, or put aside.
+      {formatCount(counts.all)} records you want, own, or put aside.
     </p>
   </header>
 

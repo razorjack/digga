@@ -12,7 +12,7 @@
     onplay,
   }: { detail: ReleaseDetail; player: TriagePlayer; onplay: (entry: number) => void } = $props();
 
-  const MARK_COPY: Record<TrackMark, string> = { keep: "keep", meh: "meh", candidate: "bo!" };
+  const MARK_COPY: Record<TrackMark, string> = { keep: "keep", meh: "meh", candidate: "grail" };
 
   const entries = $derived(buildPlaylist(detail));
   const strays = $derived(

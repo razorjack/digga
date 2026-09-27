@@ -18,18 +18,24 @@ export interface VerdictKey {
 
 export const VERDICT_KEYS: VerdictKey[] = [
   { status: "rejected", key: "R", copy: "skip", hint: "not for the box", tone: "paper" },
-  { status: "accepted", key: "A", copy: "wheel up", hint: "onto the wantlist", tone: "flyer" },
+  { status: "accepted", key: "A", copy: "want", hint: "onto the wantlist", tone: "flyer" },
   { status: "maybe", key: "M", copy: "maybe", hint: "hear it again later", tone: "paper" },
-  { status: "candidate", key: "C", copy: "bo!", hint: "could be the hunted tune", tone: "flyer" },
+  {
+    status: "candidate",
+    key: "C",
+    copy: "grail",
+    hint: "the one you've been hunting",
+    tone: "flyer",
+  },
   { status: "no_audio", key: "D", copy: "no audio", hint: "off the queue, unjudged", tone: "dust" },
 ];
 
-/** How each verdict status reads on screen: MC copy for triage verdicts, plain words for seeds. */
+/** How each verdict status reads on screen. */
 export const STATUS_COPY: Record<VerdictStatus, string> = {
   rejected: "skip",
-  accepted: "wheel up",
+  accepted: "want",
   maybe: "maybe",
-  candidate: "bo!",
+  candidate: "grail",
   no_audio: "no audio",
   wantlist: "wantlist",
   collection: "owned",
@@ -93,7 +99,7 @@ export function triageKeyGroups(seekStepSeconds: number): KeyGroup[] {
       keys: [
         { keys: ["⇧K"], label: "keep the playing track" },
         { keys: ["⇧M"], label: "meh" },
-        { keys: ["⇧C"], label: "bo! (candidate)" },
+        { keys: ["⇧C"], label: "grail" },
       ],
     },
   ];

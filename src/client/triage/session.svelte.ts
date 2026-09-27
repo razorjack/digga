@@ -25,7 +25,7 @@ const REFILL_BELOW = 8;
 /** Release details fetched ahead of the cursor (the next one also feeds the preloading deck). */
 const PREFETCH = 3;
 const MAX_QUEUE_LIMIT = 5000;
-/** A wheel up waits this long before the wantlist push, so a quick Z cancels it instead. */
+/** A want waits this long before the wantlist push, so a quick Z cancels it instead. */
 const PUSH_GRACE_MS = 1500;
 
 export class TriageSession {

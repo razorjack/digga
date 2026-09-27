@@ -217,9 +217,9 @@
           <b>{formatCount(s.heardTracks)}</b> {s.heardTracks === 1 ? "tune" : "tunes"} heard.
         </p>
         <p class="quiet">
-          wheel up {formatCount(s.verdicts.accepted)}, bo! {formatCount(s.verdicts.candidate)}, maybe {formatCount(s.verdicts.maybe)},
+          want {formatCount(s.verdicts.accepted)}, grail {formatCount(s.verdicts.candidate)}, maybe {formatCount(s.verdicts.maybe)},
           skip {formatCount(s.verdicts.rejected)}, no audio {formatCount(s.verdicts.no_audio)};
-          wantlist {formatCount(s.verdicts.wantlist)}, owned {formatCount(s.verdicts.collection)}, seen {formatCount(s.verdicts.seen)}
+          Discogs wantlist {formatCount(s.verdicts.wantlist)}, owned {formatCount(s.verdicts.collection)}, seen {formatCount(s.verdicts.seen)}
         </p>
       {/if}
     </section>

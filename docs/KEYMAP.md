@@ -33,9 +33,9 @@ or Alt. Holding a key down never repeats a verdict.
 | key | status      | copy       | notes                                                         |
 | --- | ----------- | ---------- | ------------------------------------------------------------- |
 | `R` | `rejected`  | "skip"     |                                                               |
-| `A` | `accepted`  | "wheel up" | pushes to the Discogs wantlist after 1.5 s unless undone      |
+| `A` | `accepted`  | "want"     | pushes to the Discogs wantlist after 1.5 s unless undone      |
 | `M` | `maybe`     | "maybe"    |                                                               |
-| `C` | `candidate` | "bo!"      | possible match for the ID hunt                                |
+| `C` | `candidate` | "grail"    | the one you've been hunting: a top want or an ID-hunt match   |
 | `D` | `no_audio`  | "no audio" | leaves the queue without a judgement                          |
 | `N` | none        | "next"     | moves on; the release stays in the queue and comes back later |
 | `Z` | undo        |            | reverts the last verdict or `N` and returns to that release   |
@@ -56,16 +56,16 @@ Pressing the same mark again clears it.
 
 ## Twelves
 
-| key                  | action                                                     |
-| -------------------- | ---------------------------------------------------------- |
-| `1` … `6`            | shelf: everything, wheel up, wantlist, owned, maybe, bo!   |
-| `J` / `K`, `↓` / `↑` | move the selection                                         |
-| `S`                  | next sort order (newest, label, artist, year, price, want) |
-| `/`                  | focus the filter; Enter or Esc leaves it                   |
-| `O`                  | open the release on discogs.com                            |
-| `E`                  | edit the note; Enter saves, Esc cancels                    |
-| `A` `M` `C` `R`      | re-judge a triage verdict (`R` takes it off the shelves)   |
-| `Z`                  | undo the last change                                       |
+| key                  | action                                                         |
+| -------------------- | -------------------------------------------------------------- |
+| `1` … `6`            | shelf: everything, want, Discogs wantlist, owned, maybe, grail |
+| `J` / `K`, `↓` / `↑` | move the selection                                             |
+| `S`                  | next sort order (newest, label, artist, year, price, want)     |
+| `/`                  | focus the filter; Enter or Esc leaves it                       |
+| `O`                  | open the release on discogs.com                                |
+| `E`                  | edit the note; Enter saves, Esc cancels                        |
+| `A` `M` `C` `R`      | re-judge a triage verdict (`R` takes it off the shelves)       |
+| `Z`                  | undo the last change                                           |
 
 Wantlist and owned records come from Discogs and cannot be re-judged here.
 
