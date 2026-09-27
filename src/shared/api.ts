@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { QUEUE_STRATEGIES, type Config, type Filters, type QueueStrategy } from "./config.ts";
+import {
+  FiltersSchema,
+  QUEUE_STRATEGIES,
+  type Config,
+  type Filters,
+  type QueueStrategy,
+} from "./config.ts";
 import { TRIAGE_KEY_PATTERN } from "./triage-key.ts";
 import {
   TRACK_MARKS,
@@ -22,11 +28,33 @@ export interface ApiError {
   issues?: unknown;
 }
 
-// GET /api/queue?strategy&limit&seed
+/**
+ * Query-time filters as a JSON query parameter. They replace the configured filters for one
+ * read, so a client can preview filters it has not saved.
+ */
+const FiltersParamSchema = z
+  .string()
+  .transform((s, ctx) => {
+    try {
+      return JSON.parse(s) as unknown;
+    } catch {
+      ctx.addIssue({ code: "custom", message: "filters must be a JSON object" });
+      return z.NEVER;
+    }
+  })
+  .pipe(FiltersSchema);
+
+/** Serialises filters for FiltersParamSchema. */
+export function filtersParam(filters: Filters | undefined): string | undefined {
+  return filters === undefined ? undefined : JSON.stringify(filters);
+}
+
+// GET /api/queue?strategy&limit&seed&filters
 export const QueueQuerySchema = z.object({
   strategy: z.enum(QUEUE_STRATEGIES).optional(),
   limit: z.coerce.number().int().positive().max(5000).optional(),
   seed: z.coerce.number().int().optional(),
+  filters: FiltersParamSchema.optional(),
 });
 export type QueueQuery = z.infer<typeof QueueQuerySchema>;
 
@@ -157,7 +185,12 @@ export interface TwelvesResponse {
   statuses: VerdictStatus[];
 }
 
-// GET /api/stats
+// GET /api/stats?filters
+export const StatsQuerySchema = z.object({
+  filters: FiltersParamSchema.optional(),
+});
+export type StatsQuery = z.infer<typeof StatsQuerySchema>;
+
 export interface Stats {
   universe: {
     releases: number;

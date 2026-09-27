@@ -5,6 +5,16 @@ export type QueueStrategy = (typeof QUEUE_STRATEGIES)[number];
 
 // Genre/style defaults for the owner's use case live here and in
 // digga.config.json only. Nothing else in the codebase may assume them.
+export const FiltersSchema = z.object({
+  /** Query-time style subset; null means every loaded style. */
+  styles: z.array(z.string().min(1)).nullable().default(null),
+  yearFrom: z.number().int().nullable().default(1998),
+  yearTo: z.number().int().nullable().default(2002),
+  includeUnknownYear: z.boolean().default(false),
+  formats: z.array(z.string().min(1)).default(["Vinyl"]),
+  countries: z.array(z.string().min(1)).default([]),
+});
+
 export const ConfigSchema = z.object({
   server: z
     .object({
@@ -24,17 +34,7 @@ export const ConfigSchema = z.object({
       loadYears: z.tuple([z.number().int(), z.number().int()]).nullable().default([1994, 2008]),
     })
     .prefault({}),
-  filters: z
-    .object({
-      /** Query-time style subset; null means every loaded style. */
-      styles: z.array(z.string().min(1)).nullable().default(null),
-      yearFrom: z.number().int().nullable().default(1998),
-      yearTo: z.number().int().nullable().default(2002),
-      includeUnknownYear: z.boolean().default(false),
-      formats: z.array(z.string().min(1)).default(["Vinyl"]),
-      countries: z.array(z.string().min(1)).default([]),
-    })
-    .prefault({}),
+  filters: FiltersSchema.prefault({}),
   queue: z
     .object({
       strategy: z.enum(QUEUE_STRATEGIES).default("label_sweep"),

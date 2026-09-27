@@ -16,6 +16,7 @@ import {
   QueueQuerySchema,
   type QueueResponse,
   type ReleaseDetail,
+  StatsQuerySchema,
   type TrackDetail,
   TrackVerdictInputSchema,
   TwelvesQuerySchema,
@@ -158,19 +159,20 @@ export function createApp(ctx: AppContext): Hono {
     if (!q.ok) return q.response;
     const config = ctx.getConfig();
     const strategy = q.data.strategy ?? config.queue.strategy;
+    const filters = q.data.filters ?? config.filters;
     const seed = strategy === "random" ? (q.data.seed ?? daySeed()) : null;
     const items = queryQueue(db, {
-      filters: config.filters,
+      filters,
       strategy,
       limit: q.data.limit ?? config.queue.limit,
       seed,
     });
     const body: QueueResponse = {
       items,
-      remaining: countRemaining(db, config.filters),
+      remaining: countRemaining(db, filters),
       strategy,
       seed,
-      filters: config.filters,
+      filters,
     };
     return c.json(body);
   });
@@ -232,7 +234,12 @@ export function createApp(ctx: AppContext): Hono {
     return c.json(body);
   });
 
-  api.get("/stats", (c) => c.json(computeStats(db, ctx.getConfig())));
+  api.get("/stats", (c) => {
+    const q = parseQuery(c, StatsQuerySchema);
+    if (!q.ok) return q.response;
+    const config = ctx.getConfig();
+    return c.json(computeStats(db, { ...config, filters: q.data.filters ?? config.filters }));
+  });
 
   api.get("/settings", (c) => c.json(ctx.getConfig()));
 

@@ -72,6 +72,25 @@ describe("HTTP API", () => {
     expect((await get("/api/queue?strategy=bogus")).status).toBe(400);
   });
 
+  it("previews unsaved filters on the queue and stats", async () => {
+    const open = JSON.stringify({ yearFrom: null, yearTo: null, formats: [] });
+    const q = await get<QueueResponse>(`/api/queue?filters=${encodeURIComponent(open)}`);
+    expect(q.body.items.map((i) => i.id)).toEqual([1004, 1006, 1001]);
+    expect(q.body.filters).toMatchObject({
+      yearFrom: null,
+      formats: [],
+      includeUnknownYear: false,
+    });
+    const stats = await get<Stats>(`/api/stats?filters=${encodeURIComponent(open)}`);
+    expect(stats.body.universe.filteredKeys).toBe(3);
+    expect(stats.body.remaining).toBe(3);
+    expect((await get<QueueResponse>("/api/queue")).body.remaining).toBe(2);
+    expect((await get("/api/queue?filters=nope")).status).toBe(400);
+    expect((await get(`/api/stats?filters=${encodeURIComponent('{"yearFrom":"x"}')}`)).status).toBe(
+      400,
+    );
+  });
+
   it("returns the full release record", async () => {
     const r = await get<ReleaseDetail>("/api/releases/1001");
     expect(r.status).toBe(200);
