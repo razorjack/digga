@@ -1,25 +1,28 @@
-import type {
-  DeleteVerdictResponse,
-  DumpLoadJobInput,
-  EnrichJobInput,
-  ImportJobInput,
-  ImportKind,
-  JobsResponse,
-  ListenLogInput,
-  ListenLogResponse,
-  QueueQuery,
-  QueueResponse,
-  ReleaseDetail,
-  Stats,
-  TrackVerdictInput,
-  TrackVerdictResponse,
-  TwelvesResponse,
-  VerdictInput,
-  WantlistPushInput,
-  WantlistPushResponse,
+import {
+  filtersParam,
+  type DeleteVerdictResponse,
+  type DumpLoadJobInput,
+  type EnrichJobInput,
+  type ImportJobInput,
+  type ImportKind,
+  type JobsResponse,
+  type ListenLogInput,
+  type ListenLogResponse,
+  type QueueQuery,
+  type QueueResponse,
+  type ReleaseDetail,
+  type Stats,
+  type StatsQuery,
+  type TrackVerdictInput,
+  type TrackVerdictResponse,
+  type TwelvesResponse,
+  type VerdictInput,
+  type WantlistPushInput,
+  type WantlistPushResponse,
 } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
 import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
+import { createSandboxApi } from "./sandbox.ts";
 
 /**
  * The one transport seam of the frontend. Every endpoint is a method here, and this
@@ -27,6 +30,8 @@ import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
  * can replace createHttpApi() without touching any page.
  */
 export interface Api {
+  /** "sandbox" when writes are faked in memory by createSandboxApi(), "live" when they reach the server. */
+  readonly mode: "live" | "sandbox";
   getQueue(query?: QueueQuery): Promise<QueueResponse>;
   getRelease(id: number): Promise<ReleaseDetail>;
   postVerdict(input: VerdictInput): Promise<Verdict>;
@@ -37,7 +42,7 @@ export interface Api {
     status?: VerdictStatus[];
     applyFilters?: boolean;
   }): Promise<TwelvesResponse>;
-  getStats(): Promise<Stats>;
+  getStats(query?: StatsQuery): Promise<Stats>;
   getSettings(): Promise<Config>;
   putSettings(config: Config): Promise<Config>;
   startEnrich(input?: EnrichJobInput): Promise<Job>;
@@ -87,7 +92,9 @@ export function createHttpApi(baseUrl = "/api"): Api {
     return data as T;
   };
   return {
-    getQueue: (query = {}) => call("GET", `/queue${queryString(query)}`),
+    mode: "live",
+    getQueue: ({ filters, ...rest } = {}) =>
+      call("GET", `/queue${queryString({ ...rest, filters: filtersParam(filters) })}`),
     getRelease: (id) => call("GET", `/releases/${id}`),
     postVerdict: (input) => call("POST", "/verdicts", input),
     deleteVerdict: (key) => call("DELETE", `/verdicts/${encodeURIComponent(key)}`),
@@ -98,7 +105,8 @@ export function createHttpApi(baseUrl = "/api"): Api {
         "GET",
         `/twelves${queryString({ status: query.status?.join(","), applyFilters: query.applyFilters })}`,
       ),
-    getStats: () => call("GET", "/stats"),
+    getStats: ({ filters } = {}) =>
+      call("GET", `/stats${queryString({ filters: filtersParam(filters) })}`),
     getSettings: () => call("GET", "/settings"),
     putSettings: (config) => call("PUT", "/settings", config),
     startEnrich: (input = {}) => call("POST", "/jobs/enrich", input),
@@ -112,4 +120,8 @@ export function createHttpApi(baseUrl = "/api"): Api {
   };
 }
 
-export const api: Api = createHttpApi();
+/**
+ * Every write is faked in memory until the owner has tuned the triage flow: nothing reaches the
+ * database, the config file or Discogs. Export createHttpApi() instead to go live.
+ */
+export const api: Api = createSandboxApi(createHttpApi());
