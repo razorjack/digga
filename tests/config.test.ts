@@ -6,6 +6,7 @@ describe("config schema", () => {
     expect(DEFAULT_CONFIG.server.port).toBe(3456);
     expect(DEFAULT_CONFIG.universe.styles).toEqual(["Drum n Bass"]);
     expect(DEFAULT_CONFIG.filters).toEqual({
+      styles: null,
       yearFrom: 1998,
       yearTo: 2002,
       includeUnknownYear: false,

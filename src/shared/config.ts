@@ -26,6 +26,8 @@ export const ConfigSchema = z.object({
     .prefault({}),
   filters: z
     .object({
+      /** Query-time style subset; null means every loaded style. */
+      styles: z.array(z.string().min(1)).nullable().default(null),
       yearFrom: z.number().int().nullable().default(1998),
       yearTo: z.number().int().nullable().default(2002),
       includeUnknownYear: z.boolean().default(false),
