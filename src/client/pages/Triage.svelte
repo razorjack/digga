@@ -59,9 +59,17 @@
     session.markTrack(release.release.id, track.position, mark);
   }
 
-  function retry(): void {
-    if (session.status === "error" && settings.value) void session.start(settings.value.queue.limit);
-    else if (session.current && detailError) session.retryDetail(session.current.id);
+  /** Returns false when there is nothing to retry, so Enter keeps its usual meaning. */
+  function retry(): boolean {
+    if (session.status === "error" && settings.value) {
+      void session.start(settings.value.queue.limit);
+      return true;
+    }
+    if (session.current && detailError) {
+      session.retryDetail(session.current.id);
+      return true;
+    }
+    return false;
   }
 
   /** Returns true when the key was a triage shortcut. */
@@ -105,8 +113,7 @@
         session.undo();
         return true;
       case "Enter":
-        retry();
-        return true;
+        return retry();
     }
     if (/^[1-9]$/.test(key)) {
       player.jumpTo(Number(key) / 10);
