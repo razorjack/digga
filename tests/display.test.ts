@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { dugCount } from "../src/shared/api.ts";
 import {
   formatCount,
   formatDay,
@@ -37,5 +38,21 @@ describe("display formatting", () => {
     expect(Math.max(...tilts)).toBeLessThanOrEqual(3.8);
     expect(tilts.every((t) => Math.abs(t) >= 0.6)).toBe(true);
     expect(new Set(tilts).size).toBeGreaterThan(50);
+  });
+});
+
+describe("dug count", () => {
+  it("counts triage verdicts and ignores seeds", () => {
+    const verdicts = {
+      collection: 8,
+      wantlist: 204,
+      seen: 30,
+      rejected: 5,
+      accepted: 2,
+      maybe: 1,
+      candidate: 1,
+      no_audio: 3,
+    };
+    expect(dugCount({ verdicts })).toBe(12);
   });
 });

@@ -41,8 +41,8 @@ or Alt. Holding a key down never repeats a verdict.
 | `Z` | undo        |            | reverts the last verdict or `N` and returns to that release   |
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
-`DELETE /api/verdicts/:key`; an `N` is undone locally. The counter reads "4,312 rinsed", where
-rinsed counts `rejected`, `accepted`, `maybe`, `candidate` and `no_audio`.
+`DELETE /api/verdicts/:key`; an `N` is undone locally. The counter reads "4,312 dug", where
+dug counts `rejected`, `accepted`, `maybe`, `candidate` and `no_audio`.
 
 ## Triage: track marks (optional, on the playing track)
 

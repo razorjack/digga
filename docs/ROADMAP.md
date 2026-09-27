@@ -11,7 +11,7 @@ query, Hono API, CLI, placeholder Svelte UI, docs, tests, portability check.
 - Visual design from `docs/DESIGN_BRIEF.md`; the choices are recorded at the end of that file.
 - Triage page: two YouTube IFrame decks (visible + preloading), start at `startAtFraction`,
   tracklist with heard/has-video/failed flags, the full keymap from `docs/KEYMAP.md`, undo of
-  verdicts and `N`, stats header (rinsed, remaining, ETA, session count), listen logging, help
+  verdicts and `N`, stats header (dug, remaining, ETA, session count), listen logging, help
   overlay, states for no audio, failed embeds, loading, the first key press and end of queue.
 - Twelves page (shelves, sort, filter, notes, re-judge, undo) and Settings page (filters with a
   live match count, order, player, account, universe, jobs panel with progress and cancel).

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { dugCount } from "../shared/api.ts";
   import { formatCount, formatEta } from "../shared/display.ts";
   import { api } from "./api.ts";
   import HelpOverlay from "./components/HelpOverlay.svelte";
@@ -16,7 +17,7 @@
   import Triage from "./pages/Triage.svelte";
   import Twelves from "./pages/Twelves.svelte";
   import { getRoute, localhostAlternative, navigate, ROUTES } from "./router.svelte.ts";
-  import { rinsedCount, settings, stats, ui } from "./stores.svelte.ts";
+  import { settings, stats, ui } from "./stores.svelte.ts";
 
   const route = $derived(getRoute());
   const sandbox = api.mode === "sandbox";
@@ -115,7 +116,7 @@
 
     <div class="counter" aria-live="off">
       {#if stats.value}
-        <p><b>{formatCount(rinsedCount(stats.value))}</b> rinsed</p>
+        <p><b>{formatCount(dugCount(stats.value))}</b> dug</p>
         <p><b>{formatCount(stats.value.remaining)}</b> to go</p>
         <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
         {#if stats.session > 0}<p class="session">+{formatCount(stats.session)} this session</p>{/if}

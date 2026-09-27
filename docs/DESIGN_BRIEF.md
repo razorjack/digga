@@ -26,7 +26,7 @@ fast and safe: every action is undoable with `Z`.
 - Release facts readable in one glance: artist, title, label + catalogue number, year, country,
   format, styles, lowest price + number for sale, have/want counts, and the tracklist showing which
   tracks have a video and which are already heard (greyed).
-- A visible session counter ("4,312 rinsed"), remaining count and ETA.
+- A visible session counter ("4,312 dug"), remaining count and ETA.
 - States that need a treatment: normal, `no_audio` (no videos, offer the YouTube search fallback),
   video failed to embed, loading the next release, undo confirmation, end of queue.
 - Must work unchanged inside an Electron window: no reliance on browser chrome, room for a custom
@@ -63,7 +63,7 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   photocopy grain covers the page at low opacity.
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
   Mono (87.5% width) for everything else. Sizes run 11 / 12.5 / 14 / 17 / 22 / 30 / 40 px.
-- **Triage layout:** top bar (wordmark, pages with keys, sandbox stamp, rinsed / to go / ETA /
+- **Triage layout:** top bar (wordmark, pages with keys, sandbox stamp, dug / to go / ETA /
   session count); left column with the catalogue-number stamp, label, artist, title, facts,
   market line, other versions and the scrolling tracklist; right column with the player, the
   now-playing line and progress bar (the start point is marked), player keys, the slip with the
@@ -76,7 +76,7 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
 - **States:** loading, "Space: start listening" before the first gesture, no videos / none will
   play (with `S` and `D`), a notice for a skipped embed, pending and done wantlist pushes on
   the slip, undo ("undone" stamp), queue failed (`Enter` retries), and the end of the queue: a
-  large RINSED stamp with a way to go round the releases passed with `N`.
+  large ALL DUG stamp with a way to go round the releases passed with `N`.
 - **Twelves** reads like a record box: one row per record with catalogue number, artist and
   title, note, label and year, market, a verdict stamp and the day it was decided.
 - **Settings** is one column of sections with a sticky save bar and the jobs panel at the end.

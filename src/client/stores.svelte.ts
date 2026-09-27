@@ -6,12 +6,6 @@ export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** Triage verdicts count as rinsed; seeds from Discogs and browser history do not. */
-export function rinsedCount(s: Stats): number {
-  const v = s.verdicts;
-  return v.rejected + v.accepted + v.maybe + v.candidate + v.no_audio;
-}
-
 class StatsStore {
   value = $state<Stats | null>(null);
   error = $state<string | null>(null);

@@ -212,6 +212,12 @@ export interface Stats {
   heardTracks: number;
 }
 
+/** Releases dug: every triage verdict. Seeds from Discogs and browser history do not count. */
+export function dugCount(s: Pick<Stats, "verdicts">): number {
+  const v = s.verdicts;
+  return v.rejected + v.accepted + v.maybe + v.candidate + v.no_audio;
+}
+
 // GET|PUT /api/settings
 export type SettingsResponse = Config;
 

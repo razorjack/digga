@@ -20,7 +20,7 @@ import { resolvePaths } from "../server/paths.ts";
 import { createSecrets } from "../server/secrets.ts";
 import { createServer } from "../server/server.ts";
 import { computeStats } from "../server/stats.ts";
-import { BROWSERS, type Browser } from "../shared/api.ts";
+import { BROWSERS, type Browser, dugCount } from "../shared/api.ts";
 import { readIdList } from "../../tools/dump/load.ts";
 
 const HELP = `digga - dig Discogs vinyl by ear
@@ -231,7 +231,9 @@ function cmdStats(rt: Runtime): void {
       ? "n/a"
       : `${s.rate.verdictsPerHour}/h over ${s.rate.sessions} session(s)`;
   const eta = s.rate.etaHours === null ? "n/a" : `${s.rate.etaHours} h`;
-  console.log(`remaining: ${s.remaining.toLocaleString()} rinsed-to-go, rate ${rate}, ETA ${eta}`);
+  console.log(
+    `dug:       ${dugCount(s).toLocaleString()}, ${s.remaining.toLocaleString()} to go, rate ${rate}, ETA ${eta}`,
+  );
 }
 
 async function cmdServe(rt: Runtime, args: string[]): Promise<void> {

@@ -126,3 +126,7 @@ Chronological. Each entry records a choice made without asking and why.
     for general digging, not only the ID hunt: a grail is the one you have been hunting, whether a
     long-sought record or a half-remembered tune. The imported wantlist shelf in Twelves is
     labelled "Discogs wantlist" so it does not read like the "Want" shelf.
+45. **The counter says "dug"** ("4,312 dug", ALL DUG at the end of the queue), replacing
+    "rinsed". It ties to the app's name and reads the same for any genre. `dugCount()` in
+    `src/shared/api.ts` defines it for the app and for `digga stats`: every triage verdict
+    (`rejected`, `accepted`, `maybe`, `candidate`, `no_audio`), no seeds.

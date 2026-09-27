@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { dugCount } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
   import type { TrackMark } from "../../shared/types.ts";
@@ -10,7 +11,7 @@
   import { hasCommandModifier, isTyping, type TriageStatus, VERDICT_KEYS } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
-  import { rinsedCount, settings, stats, ui } from "../stores.svelte.ts";
+  import { settings, stats, ui } from "../stores.svelte.ts";
   import PlayerPanel from "../triage/PlayerPanel.svelte";
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
   import { TriageSession } from "../triage/session.svelte.ts";
@@ -150,10 +151,10 @@
         </div>
       {:else if session.finished}
         <div class="state finished">
-          <Stamp text="rinsed" tone="flyer" size="xl" seed={1} slam />
+          <Stamp text="all dug" tone="flyer" size="xl" seed={1} slam />
           <p class="headline">Every release under your filters has a verdict.</p>
           <p class="quiet">
-            {stats.value ? `${formatCount(rinsedCount(stats.value))} rinsed so far.` : ""}
+            {stats.value ? `${formatCount(dugCount(stats.value))} dug so far.` : ""}
             Widen the years, formats or countries in settings to dig further.
           </p>
           <p class="actions">
