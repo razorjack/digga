@@ -65,7 +65,6 @@ export function buildFilterWhere(
   }
   if (!opts.includeDecided)
     clauses.push("NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)");
-  if (opts.unenrichedOnly) clauses.push("r.enriched_at IS NULL");
   return { sql: clauses.join("\n    AND "), params };
 }
 
@@ -110,12 +109,13 @@ ranked AS (
 export function buildQueueSql(p: QueueParams): SqlFragment {
   const where = buildFilterWhere(p.filters, {
     includeDecided: p.includeDecided,
-    unenrichedOnly: p.unenrichedOnly,
   });
   const order = orderClause(p.strategy, p.seed ?? 0);
+  // "Unenriched" applies to the representative release, not to every pressing of a master.
+  const outer = p.unenrichedOnly ? "rn = 1 AND enriched_at IS NULL" : "rn = 1";
   const sql = `WITH base AS (${BASE_SELECT}${where.sql}
 ), ${RANKED}
-SELECT * FROM ranked WHERE rn = 1
+SELECT * FROM ranked WHERE ${outer}
 ORDER BY ${order.sql}
 LIMIT ?`;
   return { sql, params: [...where.params, ...order.params, p.limit] };

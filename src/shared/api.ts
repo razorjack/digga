@@ -98,7 +98,7 @@ export const VerdictInputSchema = z.object({
   notes: z.string().max(4000).nullable().optional(),
   releaseId: z.number().int().positive().nullable().optional(),
 });
-export type VerdictInput = z.infer<typeof VerdictInputSchema>;
+export type VerdictInput = z.input<typeof VerdictInputSchema>;
 export type VerdictResponse = Verdict;
 
 // DELETE /api/verdicts/:key
@@ -145,6 +145,7 @@ export const TwelvesQuerySchema = z.object({
     .transform((s) => s === "1" || s === "true"),
 });
 export type TwelvesQuery = z.infer<typeof TwelvesQuerySchema>;
+export type TwelvesQueryInput = z.input<typeof TwelvesQuerySchema>;
 
 export interface TwelvesItem {
   verdict: Verdict;
@@ -184,7 +185,7 @@ export type SettingsResponse = Config;
 export const EnrichJobInputSchema = z.object({
   ahead: z.number().int().positive().max(5000).default(200),
 });
-export type EnrichJobInput = z.infer<typeof EnrichJobInputSchema>;
+export type EnrichJobInput = z.input<typeof EnrichJobInputSchema>;
 
 // POST /api/jobs/dump-load
 export const DumpLoadJobInputSchema = z.object({
@@ -194,7 +195,7 @@ export const DumpLoadJobInputSchema = z.object({
   labelsFile: z.string().optional(),
   artistsFile: z.string().optional(),
 });
-export type DumpLoadJobInput = z.infer<typeof DumpLoadJobInputSchema>;
+export type DumpLoadJobInput = z.input<typeof DumpLoadJobInputSchema>;
 
 // POST /api/jobs/import/:kind
 export const IMPORT_KINDS = ["collection", "wantlist", "history"] as const;
