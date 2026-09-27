@@ -224,7 +224,7 @@ function cmdStats(rt: Runtime): void {
   );
   console.log(`heard:     ${s.heardTracks.toLocaleString()} tracks`);
   console.log(
-    `dump:      ${s.dump.date ?? "not loaded"}${s.dump.loadedAt ? ` (loaded ${s.dump.loadedAt})` : ""}`,
+    `dump:      ${s.dump.date ?? (s.dump.loadedAt ? "unknown date" : "not loaded")}${s.dump.loadedAt ? ` (loaded ${s.dump.loadedAt})` : ""}`,
   );
   const rate =
     s.rate.verdictsPerHour === null
