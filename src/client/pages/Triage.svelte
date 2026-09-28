@@ -6,6 +6,7 @@
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
+  import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
   import {
@@ -365,7 +366,7 @@
         sandbox={settings.sandbox}
         inRound={session.round !== null}
       />
-      <p class="flash" role="status">{session.flash ?? ""}</p>
+      <Flash message={session.flash} />
     </aside>
   </div>
 
@@ -480,11 +481,6 @@
   }
   .actions button:disabled {
     opacity: 0.5;
-  }
-  .flash {
-    min-height: 1.4em;
-    color: var(--fg-accent);
-    font-size: var(--text-sm);
   }
   @media (max-width: 980px) {
     .triage {

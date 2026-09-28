@@ -79,7 +79,7 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        jobs/ (start, dump-load, enrich, runner, dump-load-worker, index), queue/ (query, detail, twelves)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
-                       stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, HelpOverlay),
+                       stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, Flash, HelpOverlay),
                        player/ (YouTube decks), triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (preview, jobs, Discogs state), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible

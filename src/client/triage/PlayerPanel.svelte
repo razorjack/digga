@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { QueueItem, ReleaseDetail } from "../../shared/api.ts";
   import { formatDuration } from "../../shared/display.ts";
+  import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import type { TriagePlayer } from "../player/triage-player.svelte.ts";
 
@@ -158,7 +159,7 @@
     <span><Key label="E" /> note</span>
   </div>
 
-  <p class="notice" role="status">{player.notice ?? ""}</p>
+  <Flash message={player.notice} />
 </section>
 
 <style>
@@ -303,11 +304,6 @@
     flex-wrap: wrap;
     gap: 8px 18px;
     color: var(--fg-muted);
-    font-size: var(--text-sm);
-  }
-  .notice {
-    min-height: 1.4em;
-    color: var(--fg-accent);
     font-size: var(--text-sm);
   }
 </style>

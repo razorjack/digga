@@ -3,6 +3,7 @@
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+  import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
   import {
@@ -436,7 +437,7 @@
       {/if}
       <span><Key label="Z" /> undo</span>
     </p>
-    <p class="flash" role="status">{shelfState.flash ?? ""}</p>
+    <Flash message={shelfState.flash} align="end" />
   </footer>
 </div>
 
@@ -699,11 +700,6 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-  }
-  .flash {
-    color: var(--fg-accent);
-    font-size: var(--text-sm);
-    text-align: right;
   }
   @media (max-width: 1100px) {
     th.catno {
