@@ -26,7 +26,7 @@
   const keepFocus = (e: MouseEvent) => e.preventDefault();
 </script>
 
-<nav class="bar" aria-label="Verdicts">
+<div class="bar" role="group" aria-label="Verdicts">
   <div class="verdicts">
     {#each judged as v (v.status)}
       <button
@@ -66,7 +66,7 @@
       <Key label="?" /> keys
     </button>
   </div>
-</nav>
+</div>
 
 <style>
   .bar {
