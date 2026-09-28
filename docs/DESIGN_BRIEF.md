@@ -58,7 +58,7 @@ that reads as a music streaming app. Ergonomics win every tie.
 Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (30 to 38).
 
 - **Palette** (the token for each role in brackets): ground `#161618` (`--bg`), sleeve `#1d1d20`
-  (`--surface`, raised bars), groove `#323238` (`--rule`), dust `#6b675e` (`--fg-faint`, heard,
+  (`--surface`, raised bars), groove `#323238` (`--rule`), dust `#8e897d` (`--fg-faint`, heard,
   disabled), faded `#a8a294` (`--fg-muted`, secondary text), paper `#ebe5d4` (`--fg`, primary
   text), flyer `#ffd21a` (`--accent`, used as a fill) on flyer-ink `#17150d` (`--on-accent`).
   The flyer also draws bars, underlines, outlines and progress (`--accent-mark`) and sets

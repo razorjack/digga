@@ -15,7 +15,7 @@
   --rule-soft: color-mix(in srgb, var(--rule) 60%, transparent);
   --fg: #ebe5d4;
   --fg-muted: #a8a294;
-  --fg-faint: #6b675e;
+  --fg-faint: #8e897d;
   --accent: #ffd21a;
   --on-accent: #17150d;
   --accent-mark: #ffd21a;

@@ -298,3 +298,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     (`--accent-mark`), and sets text (`--fg-accent`). Decision 31 kept it off text, but notes,
     flash messages and the playing position had taken it anyway; `--fg-accent` names that use.
     Yellow only reads as a fill on a light background, so the three can differ per scheme.
+80. **Faint text reaches 4.5:1.** Dust (`--fg-faint`) was `#6b675e`: 3.2:1 on the ground and
+    3.0:1 on the sleeve, below the WCAG minimum for text this size, and it sets hints,
+    placeholders, counts and heard tracks. `#8e897d` reaches 5.0:1 and 4.6:1, measured on
+    screenshots because the grain lightens both surfaces by a few levels, and stays a visible
+    step below faded.
