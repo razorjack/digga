@@ -193,6 +193,32 @@ describe("HTTP API", () => {
     expect((await send("PUT", "/api/settings", { server: { port: -1 } })).status).toBe(400);
   });
 
+  it("preserves active settings and sandbox protection when saving fails", async () => {
+    await send("PUT", "/api/settings", DEFAULT_CONFIG);
+    const configFile = path.join(tmp, "digga.config.json");
+    fs.rmSync(configFile);
+    fs.mkdirSync(configFile);
+
+    const response = await send("PUT", "/api/settings", {
+      ...DEFAULT_CONFIG,
+      sandbox: false,
+      discogs: { ...DEFAULT_CONFIG.discogs, username: "changed" },
+    });
+
+    expect(response.status).toBe(500);
+    expect(server.getConfig()).toEqual(DEFAULT_CONFIG);
+    expect((await get("/api/settings")).body).toEqual(DEFAULT_CONFIG);
+    expect(
+      (
+        await send("POST", "/api/verdicts", {
+          key: "m:501",
+          status: "accepted",
+          releaseId: 1001,
+        })
+      ).status,
+    ).toBe(409);
+  });
+
   it("runs jobs and reports them", async () => {
     const started = await send<Job>("POST", "/api/jobs/dump-load", {
       file: FIXTURE_GZ,

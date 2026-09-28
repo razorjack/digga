@@ -87,8 +87,8 @@ export function createServer(opts: CreateServerOptions): DiggaServer {
     jobs,
     getConfig: () => config,
     setConfig: (next) => {
-      config = next;
       if (opts.persistConfig !== false) saveConfig(opts.paths.configFile, next);
+      config = next;
       logger.info(`settings updated (${opts.paths.configFile})`);
     },
     getDiscogs,
