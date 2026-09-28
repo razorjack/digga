@@ -29,12 +29,17 @@ export interface EnrichResult extends EnrichProgress {
 }
 
 /** Writes the API snapshot and refreshes videos (the dump can be months stale). */
-export function applyEnrichment(db: Db, releaseId: number, release: DiscogsRelease): void {
+export function applyEnrichment(
+  db: Db,
+  releaseId: number,
+  release: DiscogsRelease,
+  currency: string | null = null,
+): void {
   db.transaction(() => {
     writeSnapshot(db, releaseId, {
       lowestPrice: release.lowest_price ?? null,
       numForSale: release.num_for_sale ?? null,
-      currency: null,
+      currency,
       communityHave: release.community?.have ?? null,
       communityWant: release.community?.want ?? null,
     });
@@ -56,19 +61,18 @@ export function applyEnrichment(db: Db, releaseId: number, release: DiscogsRelea
       writeVideos(db, releaseId, videos, { replace: true });
     }
   })();
-  db.prepare("UPDATE releases SET currency = ? WHERE id = ?").run(null, releaseId);
 }
 
 export async function enrich(
   deps: EnrichDeps,
-  opts: EnrichOptions,
+  options: EnrichOptions,
   onProgress?: (p: EnrichProgress) => void,
 ): Promise<EnrichResult> {
   const items = queryQueue(deps.db, {
-    filters: opts.filters,
-    strategy: opts.strategy,
-    limit: opts.ahead,
-    seed: opts.seed ?? 0,
+    filters: options.filters,
+    strategy: options.strategy,
+    limit: options.ahead,
+    seed: options.seed ?? 0,
     unenrichedOnly: true,
   });
   const progress: EnrichProgress = {
@@ -79,34 +83,14 @@ export async function enrich(
   };
   let aborted = false;
   for (const item of items) {
-    if (opts.signal?.aborted) {
+    if (options.signal?.aborted) {
       aborted = true;
       break;
     }
     progress.currentReleaseId = item.id;
     onProgress?.({ ...progress });
-    try {
-      const release = await deps.discogs.getRelease(item.id, opts.currency);
-      applyEnrichment(deps.db, item.id, release);
-      deps.db.prepare("UPDATE releases SET currency = ? WHERE id = ?").run(opts.currency, item.id);
-      progress.done += 1;
-    } catch (err) {
-      if (err instanceof DiscogsApiError && (err.status === 401 || err.status === 403)) throw err;
-      if (err instanceof DiscogsApiError && err.status === 404) {
-        // Gone from Discogs: mark as enriched so the job does not retry it forever.
-        writeSnapshot(deps.db, item.id, {
-          lowestPrice: null,
-          numForSale: null,
-          currency: null,
-          communityHave: null,
-          communityWant: null,
-        });
-      }
-      progress.failed += 1;
-      deps.logger.warn(
-        `enrich ${item.id} failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    if (await enrichRelease(deps, item.id, options.currency)) progress.done += 1;
+    else progress.failed += 1;
   }
   progress.currentReleaseId = null;
   onProgress?.({ ...progress });
@@ -114,4 +98,36 @@ export async function enrich(
     `enrich: ${progress.done}/${progress.total} done, ${progress.failed} failed${aborted ? ", aborted" : ""}`,
   );
   return { ...progress, aborted };
+}
+
+async function enrichRelease(
+  deps: EnrichDeps,
+  releaseId: number,
+  currency: string,
+): Promise<boolean> {
+  try {
+    const release = await deps.discogs.getRelease(releaseId, currency);
+    applyEnrichment(deps.db, releaseId, release, currency);
+    return true;
+  } catch (error) {
+    if (error instanceof DiscogsApiError && (error.status === 401 || error.status === 403))
+      throw error;
+    if (error instanceof DiscogsApiError && error.status === 404)
+      markUnavailable(deps.db, releaseId);
+    deps.logger.warn(
+      `enrich ${releaseId} failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return false;
+  }
+}
+
+function markUnavailable(db: Db, releaseId: number): void {
+  // A release removed from Discogs should not be retried on every enrichment pass.
+  writeSnapshot(db, releaseId, {
+    lowestPrice: null,
+    numForSale: null,
+    currency: null,
+    communityHave: null,
+    communityWant: null,
+  });
 }

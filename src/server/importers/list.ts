@@ -41,34 +41,34 @@ export interface ResolvedListEntry {
 }
 
 /** Stub row from a full API release, the same shape the collection and wantlist imports write. */
-export function releaseToWrite(rel: DiscogsRelease): ReleaseWrite {
+export function releaseToWrite(release: DiscogsRelease): ReleaseWrite {
   const write = basicInformationToWrite({
-    id: rel.id,
-    master_id: rel.master_id ?? null,
-    title: rel.title,
-    year: rel.year,
-    artists: rel.artists,
-    labels: rel.labels,
-    formats: rel.formats,
-    genres: rel.genres,
-    styles: rel.styles,
+    id: release.id,
+    master_id: release.master_id ?? null,
+    title: release.title,
+    year: release.year,
+    artists: release.artists,
+    labels: release.labels,
+    formats: release.formats,
+    genres: release.genres,
+    styles: release.styles,
   });
-  return { ...write, country: rel.country && rel.country !== "" ? rel.country : null };
+  return { ...write, country: release.country && release.country !== "" ? release.country : null };
 }
 
-export function queueItemFromWrite(w: ReleaseWrite): QueueItem {
+export function queueItemFromWrite(release: ReleaseWrite): QueueItem {
   return {
-    id: w.id,
-    triageKey: w.triageKey,
-    masterId: w.masterId,
-    title: w.title,
-    artistDisplay: w.artistDisplay,
-    labelName: w.labelName,
-    catno: w.catno,
-    year: w.year,
-    country: w.country,
-    formatSummary: formatSummary(w.formats),
-    styles: w.styles,
+    id: release.id,
+    triageKey: release.triageKey,
+    masterId: release.masterId,
+    title: release.title,
+    artistDisplay: release.artistDisplay,
+    labelName: release.labelName,
+    catno: release.catno,
+    year: release.year,
+    country: release.country,
+    formatSummary: formatSummary(release.formats),
+    styles: release.styles,
     videoCount: 0,
     communityWant: null,
     communityHave: null,
@@ -87,11 +87,11 @@ export function queueItemFromWrite(w: ReleaseWrite): QueueItem {
 export async function resolveListEntries(
   deps: { db: Db; discogs: DiscogsClient; logger: Logger },
   items: DiscogsListItem[],
-  opts: { currency: string; signal?: AbortSignal },
+  options: { currency: string; signal?: AbortSignal },
 ): Promise<ResolvedListEntry[]> {
-  const out: ResolvedListEntry[] = [];
+  const entries: ResolvedListEntry[] = [];
   for (const item of items) {
-    if (opts.signal?.aborted) break;
+    if (options.signal?.aborted) break;
     if (item.type !== "release" && item.type !== "master") continue;
     const base = {
       type: item.type,
@@ -100,51 +100,60 @@ export async function resolveListEntries(
       comment: item.comment && item.comment.trim() !== "" ? item.comment.trim() : null,
     } as const;
     try {
-      if (item.type === "release") {
-        const known = getRelease(deps.db, item.id);
-        if (known) {
-          out.push({ ...base, key: known.triageKey, releaseId: known.id, stub: null });
-          continue;
-        }
-        const stub = releaseToWrite(await deps.discogs.getRelease(item.id, opts.currency));
-        out.push({ ...base, key: stub.triageKey, releaseId: stub.id, stub });
-        continue;
-      }
-      const key = masterKey(item.id);
-      const representative = representativeForKey(deps.db, key);
-      if (representative) {
-        out.push({ ...base, key, releaseId: representative.id, stub: null });
-        continue;
-      }
-      const master = await deps.discogs.getMaster(item.id);
-      const main = await deps.discogs.getRelease(master.main_release, opts.currency);
-      const stub = releaseToWrite({ ...main, master_id: item.id });
-      out.push({ ...base, key, releaseId: stub.id, stub });
+      const resolved = await resolveListItem(deps, item, options.currency);
+      entries.push({ ...base, ...resolved });
     } catch (err) {
       deps.logger.warn(
         `list item ${item.type} ${item.id} could not be looked up: ${err instanceof Error ? err.message : String(err)}`,
       );
       const key = item.type === "master" ? masterKey(item.id) : releaseKey(item.id);
-      out.push({ ...base, key, releaseId: item.type === "release" ? item.id : null, stub: null });
+      entries.push({
+        ...base,
+        key,
+        releaseId: item.type === "release" ? item.id : null,
+        stub: null,
+      });
     }
   }
-  return out;
+  return entries;
+}
+
+async function resolveListItem(
+  deps: ListImportDeps,
+  item: DiscogsListItem,
+  currency: string,
+): Promise<Pick<ResolvedListEntry, "key" | "releaseId" | "stub">> {
+  if (item.type === "release") {
+    const known = getRelease(deps.db, item.id);
+    if (known) return { key: known.triageKey, releaseId: known.id, stub: null };
+    const stub = releaseToWrite(await deps.discogs.getRelease(item.id, currency));
+    return { key: stub.triageKey, releaseId: stub.id, stub };
+  }
+  const key = masterKey(item.id);
+  const representative = representativeForKey(deps.db, key);
+  if (representative) return { key, releaseId: representative.id, stub: null };
+  const master = await deps.discogs.getMaster(item.id);
+  const main = await deps.discogs.getRelease(master.main_release, currency);
+  const stub = releaseToWrite({ ...main, master_id: item.id });
+  return { key, releaseId: stub.id, stub };
+}
+
+function listEntryRelease(db: Db, entry: ResolvedListEntry): QueueItem | null {
+  if (entry.stub) return queueItemFromWrite(entry.stub);
+  if (entry.releaseId !== null) return queueItemForRelease(db, entry.releaseId);
+  return null;
 }
 
 /** The read-only view of a list: entries with the release to show and the current verdict. */
 export function listEntriesForApi(db: Db, entries: ResolvedListEntry[]): DiscogsListEntry[] {
-  return entries.map((e) => ({
-    type: e.type,
-    discogsId: e.discogsId,
-    key: e.key,
-    displayTitle: e.displayTitle,
-    comment: e.comment,
-    release: e.stub
-      ? queueItemFromWrite(e.stub)
-      : e.releaseId !== null
-        ? queueItemForRelease(db, e.releaseId)
-        : null,
-    verdict: getVerdict(db, e.key),
+  return entries.map((entry) => ({
+    type: entry.type,
+    discogsId: entry.discogsId,
+    key: entry.key,
+    displayTitle: entry.displayTitle,
+    comment: entry.comment,
+    release: listEntryRelease(db, entry),
+    verdict: getVerdict(db, entry.key),
   }));
 }
 
@@ -155,11 +164,20 @@ export function listEntriesForApi(db: Db, entries: ResolvedListEntry[]): Discogs
  */
 export async function importList(
   deps: ListImportDeps,
-  opts: ListImportOptions,
+  options: ListImportOptions,
   onProgress?: (p: ImportProgress) => void,
 ): Promise<ListImportResult> {
-  const list = await deps.discogs.getList(opts.listId);
-  const entries = await resolveListEntries(deps, list.items, opts);
+  const list = await deps.discogs.getList(options.listId);
+  const entries = await resolveListEntries(deps, list.items, options);
+  const progress = applyListEntries(deps.db, entries);
+  onProgress?.({ ...progress });
+  deps.logger.info(
+    `list "${list.name}": ${progress.processed} items, ${progress.verdictsWritten} verdicts written`,
+  );
+  return { kind: "list", listName: list.name, ...progress };
+}
+
+function applyListEntries(db: Db, entries: ResolvedListEntry[]): ImportProgress {
   const progress: ImportProgress = {
     page: 1,
     pages: 1,
@@ -167,26 +185,22 @@ export async function importList(
     stubs: 0,
     verdictsWritten: 0,
   };
-  deps.db.transaction(() => {
-    for (const e of entries) {
+  db.transaction(() => {
+    for (const entry of entries) {
       progress.processed += 1;
-      if (e.stub && insertStubRelease(deps.db, e.stub)) progress.stubs += 1;
-      const previous = getVerdict(deps.db, e.key);
+      if (entry.stub && insertStubRelease(db, entry.stub)) progress.stubs += 1;
+      const previous = getVerdict(db, entry.key);
       if (previous?.status === "maybe" && previous.source === "seed:list") continue;
-      const { written } = applySeedVerdict(deps.db, {
-        key: e.key,
+      const { written } = applySeedVerdict(db, {
+        key: entry.key,
         status: "maybe",
         source: "seed:list",
-        notes: e.comment ?? previous?.notes ?? null,
-        releaseId: e.releaseId,
+        notes: entry.comment ?? previous?.notes ?? null,
+        releaseId: entry.releaseId,
         decidedAt: nowIso(),
       });
       if (written) progress.verdictsWritten += 1;
     }
   })();
-  onProgress?.({ ...progress });
-  deps.logger.info(
-    `list "${list.name}": ${progress.processed} items, ${progress.verdictsWritten} verdicts written`,
-  );
-  return { kind: "list", listName: list.name, ...progress };
+  return progress;
 }
