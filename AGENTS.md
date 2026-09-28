@@ -92,6 +92,133 @@ data/                  gitignored: digga.sqlite, dumps/, tmp/
   it holds the Discogs username and whatever `PUT /api/settings` writes. Never commit it.
 - Comments explain constraints, not what the code says. No em dashes; en dash with spaces in prose.
 - Formatting and lint are owned by `vp check --fix`.
+- Prefer short, descriptive commit titles that explain the change without a commit body.
+
+## Code quality (binding)
+
+Code should be simple enough to read once and understand. High-level functions tell the reader
+what happens, in order; lower-level functions implement one named responsibility. Formatting and
+passing tests are necessary, but neither makes a difficult function acceptable. Apply these rules
+to TypeScript, Svelte scripts and templates, and tests when writing or changing them.
+
+### Names
+
+- Prefer short, unambiguous names: `release`, `verdict`, `track`, `options`, `response`, `row`.
+  Use the same domain terms as the types and UI. Do not shorten them to `r`, `v`, `t`, `opts`,
+  `res` or `rt` in a function that the reader has to follow.
+- One-letter names are acceptable only in tiny, obvious callbacks, such as
+  `ids.map(x => String(x))`. Use domain names in callbacks with branching, several statements or
+  nested callbacks. Name loop indices `index`, `videoIndex` or `trackIndex`; caught errors are
+  `error`, keyboard events are `event`.
+- Keep established terms such as `db`, `api`, `id`, `url` and SQL aliases. Use a qualifier when
+  values compete: `releaseId` and `videoId`, `savedVerdict` and `nextVerdict`. Include units when
+  they matter: `elapsedSeconds`, `delayMs`.
+- Function names state the operation and its subject: `parseImportOptions`, `saveVerdict`,
+  `matchVideos`. Avoid vague names such as `handleThing`, `processData`, `runStep` or `doWork`.
+  Generic names such as `value` or `result` are fine for generic code; use a domain name when one
+  exists. Do not hide an effect behind a name that sounds like a pure calculation.
+
+### Function bodies
+
+- Keep one level of abstraction per function. A command coordinates parsing, execution and
+  reporting through named operations. A route validates the request, calls the operation and
+  constructs the response. Neither implements SQL, matching rules or presentation details inline.
+  Use blank lines to separate phases so the sequence is visible at a glance.
+- Make the normal path readable from top to bottom. Use guard clauses for invalid input, missing
+  values and completed work. Prefer ordinary `if` statements and named intermediate values over
+  nested ternaries, conditional object spreads or expressions combining branching, formatting
+  and I/O. A simple ternary or nullish default is fine when both outcomes are obvious.
+- Keep callbacks to one expression or a few straightforward statements. Use a loop when building
+  a collection needs branching or mutation. Do not put state changes inside `filter` predicates
+  or rely on parallel arrays retaining the same indices through filtering and sorting.
+- Extract by responsibility, not line count. A helper must name an operation the reader would
+  recognize. Do not add forwarding layers, generic workflow engines, classes or configuration
+  tables merely to make a function shorter. Keep helpers in the same file until reuse or a real
+  module boundary warrants moving them. Put the workflow before its implementation helpers.
+- Separate pure transformations from HTTP, SQLite, filesystem and player I/O. Keep SQL and row
+  conversion in the database/query modules, HTTP parsing in routes, and transport in `api.ts`.
+  Share domain policy between live and sandbox implementations through pure functions when the
+  policy is the same; keep their different storage behavior explicit.
+- Parse and validate at the boundary, then pass valid domain values inward. A type assertion is
+  not validation. Preserve known types through helpers: a generic job runner should retain its
+  result type instead of returning `unknown` and making every caller cast it back. Use a
+  discriminated union when a job or message kind determines its payload.
+- Use an options object beyond four parameters, or earlier when positional booleans or numbers
+  would make a call ambiguous. Pass the dependencies an operation needs; do not introduce a
+  service locator to avoid arguments.
+- Production functions normally stay within 50 nonblank, noncomment lines, cyclomatic complexity
+  15 and three levels of control-flow nesting. These are review limits, not extraction targets.
+  A cohesive parser dispatch, a declarative mapping or a factory grouping short closures may
+  exceed the line limit when that keeps related code understandable. Keep the exception local
+  and explain the constraint. A factory containing several workflows does not qualify merely
+  because they share a closure. These thresholds are not currently configured as lint rules.
+
+### State and Svelte
+
+- Components own presentation, bindings and short event handlers. Move independent sorting,
+  filtering and formatting into pure helpers. A page that also implements persistence, undo
+  and job polling needs focused state/workflow code, as Triage has in its session and player.
+  Split components by a visible responsibility, not by a file-length quota.
+- Keep `$derived` calculations pure and `$effect` bodies focused on one synchronization task.
+  Templates should display prepared values and call named actions; avoid nested decisions and
+  substantial data manipulation inside markup.
+- Make asynchronous ownership explicit. Capture the API mode before queueing writes, reject stale
+  completions after a session or mode change, and keep related writes in their required order.
+  Extract helpers without moving these checks away from the operations they protect.
+- Make success, failure and cleanup paths visible. Publish saved state after persistence succeeds;
+  optimistic updates need an explicit recovery path. Close owned resources in `finally`, and keep
+  timer/listener cleanup with their lifecycle. Preserve transaction boundaries, cancellation and
+  sandbox behavior when simplifying code.
+
+### Canonical orchestration shape
+
+This is the target shape for the Maybe-list import. `applyListEntries` is an illustrative extracted
+helper, not an existing API: it owns the transaction that inserts stubs and applies seed verdicts.
+
+```ts
+export async function importList(
+  deps: ListImportDeps,
+  options: ListImportOptions,
+  onProgress?: (progress: ImportProgress) => void,
+): Promise<ListImportResult> {
+  const list = await deps.discogs.getList(options.listId);
+  const entries = await resolveListEntries(deps, list.items, options);
+
+  const progress = applyListEntries(deps.db, entries);
+  onProgress?.({ ...progress });
+
+  deps.logger.info(
+    `list "${list.name}": ${progress.processed} items, ${progress.verdictsWritten} verdicts written`,
+  );
+  return { kind: "list", listName: list.name, ...progress };
+}
+```
+
+The workflow is visible: fetch the list, resolve its entries, apply them, report the outcome.
+Each called operation has a specific responsibility. The transaction and seed precedence can be
+reviewed in the helper that applies entries without obscuring this sequence.
+
+Low-level code should be just as direct. For example, a nullable sort comparison has one job and
+spells out its cases without a nested ternary:
+
+```ts
+function compareNullable(left: number | null, right: number | null, direction: 1 | -1): number {
+  if (left === right) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+  return (left - right) * direction;
+}
+```
+
+### Before finishing a change
+
+Read every changed function from top to bottom. Its names and control flow must explain the
+operation without mentally expanding dense expressions or opening every helper. Check that each
+helper has one responsibility, effects occur in the right order, and failures leave coherent state.
+Keep comments for constraints and reasons; replace comments that narrate a block with clearer code.
+Test behavior at the affected boundary, including failure/order cases for asynchronous changes.
+Passing lint does not waive these rules. Improve the functions the task touches without turning an
+unrelated change into a repository-wide rewrite.
 
 ## Electron-ready rules (enforced by `vp run check:portability`)
 
@@ -118,6 +245,7 @@ data/                  gitignored: digga.sqlite, dumps/, tmp/
 
 ## Where to go next
 
+- `docs/CODE_QUALITY_AUDIT.md` for the readability audit, confirmed defects and refactoring priorities.
 - `docs/ROADMAP.md` for the session plan (design + triage UI next).
 - `docs/DESIGN_BRIEF.md` and `docs/KEYMAP.md` for the UI session.
 - `docs/ELECTRON_PLAN.md` for packaging.
