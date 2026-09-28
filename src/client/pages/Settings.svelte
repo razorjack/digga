@@ -83,6 +83,7 @@
 
   $effect(() => {
     void settings.version;
+    void settings.sandbox;
     untrack(() => void jobState.load());
   });
 

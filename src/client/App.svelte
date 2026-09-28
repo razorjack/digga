@@ -149,7 +149,10 @@
       <Triage active={route === "triage"} />
     </div>
     {#if route === "twelves"}
-      <div class="page scroll"><Twelves /></div>
+      <!-- A shelf's history and writes belong to one mode, including while Settings first loads. -->
+      {#key settings.sandbox}
+        <div class="page scroll"><Twelves /></div>
+      {/key}
     {:else if route === "settings"}
       <div class="page scroll"><Settings /></div>
     {/if}
