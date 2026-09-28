@@ -1,5 +1,5 @@
 import { formatCount } from "./display.ts";
-import type { Job } from "./types.ts";
+import type { Job, JobType } from "./types.ts";
 
 export function jobProgress(job: Job): { text: string; fraction: number | null } {
   if (job.progress === null) return { text: "Waiting for progress", fraction: null };
@@ -31,4 +31,20 @@ export function jobProgress(job: Job): { text: string; fraction: number | null }
       };
     }
   }
+}
+
+export const JOB_LABEL: Record<JobType, string> = {
+  dump_load: "Load dump",
+  import_collection: "Import collection",
+  import_wantlist: "Import wantlist",
+  import_history: "Import browser history",
+  import_list: "Import Maybe list",
+  enrich: "Enrich",
+};
+
+export function elapsed(job: Job): string {
+  if (!job.startedAt) return "";
+  const end = job.finishedAt ? Date.parse(job.finishedAt) : Date.now();
+  const s = Math.max(0, Math.round((end - Date.parse(job.startedAt)) / 1000));
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
 }

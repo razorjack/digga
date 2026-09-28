@@ -1,20 +1,26 @@
 <script lang="ts">
-  import { jobProgress } from "../../shared/job-display.ts";
-  import { onDestroy, onMount } from "svelte";
+  import { jobProgress, elapsed, JOB_LABEL } from "../../shared/job-display.ts";
+  import { onDestroy, onMount, untrack } from "svelte";
   import {
     BROWSERS,
     type Browser,
-    type DiscogsAccountResponse,
-    type DiscogsListSummary,
-    type Stats,
   } from "../../shared/api.ts";
   import { type Config, QUEUE_STRATEGIES, type QueueStrategy, validateConfig } from "../../shared/config.ts";
   import { formatCount, formatDay } from "../../shared/display.ts";
-  import type { Job, JobType } from "../../shared/types.ts";
+  import type { Job } from "../../shared/types.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
   import { getAnchor } from "../router.svelte.ts";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
+
+  import { FilterPreview } from "../settings/preview.svelte.ts";
+  import { SettingsJobs } from "../settings/jobs.svelte.ts";
+  import { DiscogsSettings } from "../settings/discogs.svelte.ts";
+  import { parseInteger } from "../../shared/integer.ts";
+  const filterPreview = new FilterPreview();
+  const jobState = new SettingsJobs();
+  const discogs = new DiscogsSettings();
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
 
   const CURRENCIES = ["EUR", "USD", "GBP", "CAD", "AUD", "JPY", "CHF", "MXN", "BRL", "NZD", "SEK", "ZAR"];
   const STRATEGY_COPY: Record<QueueStrategy, { label: string; hint: string }> = {
@@ -24,86 +30,44 @@
     year: { label: "By year", hint: "oldest first, then label" },
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
   };
-  const JOB_LABEL: Record<JobType, string> = {
-    dump_load: "Load dump",
-    import_collection: "Import collection",
-    import_wantlist: "Import wantlist",
-    import_history: "Import browser history",
-    import_list: "Import Maybe list",
-    enrich: "Enrich",
-  };
+
 
   let draft = $state<Config | null>(null);
   let saving = $state(false);
   let flash = $state<string | null>(null);
-  let preview = $state<Stats | null>(null);
-  let jobs = $state.raw<Job[]>([]);
-  let jobsError = $state<string | null>(null);
-  let lists = $state.raw<DiscogsListSummary[]>([]);
-  let listsState = $state<"idle" | "loading" | "error">("idle");
-  let listsError = $state<string | null>(null);
   let enrichAhead = $state(200);
   let historyBrowser = $state<Browser>("brave");
   let dumpFile = $state("");
   let dumpLimit = $state<number | null>(null);
   let dumpDryRun = $state(false);
-  let account = $state<DiscogsAccountResponse | null>(null);
-  let accountError = $state<string | null>(null);
   let switching = $state(false);
   let modeEl = $state<HTMLElement | null>(null);
   let modeButton = $state<HTMLButtonElement | null>(null);
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
-  let previewTimer: ReturnType<typeof setTimeout> | null = null;
 
   const saved = $derived(settings.value);
   const dirty = $derived(draft !== null && saved !== null && JSON.stringify(draft) !== JSON.stringify(saved));
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
-  const running = $derived(jobs.some((j) => j.status === "running" || j.status === "queued"));
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
-  const tokenProblem = $derived.by(() => {
-    if (!account) return null;
-    if (!account.hasToken) return "DISCOGS_TOKEN is not set in .env";
-    if (account.error) return `Discogs did not confirm the token (${account.error})`;
-    if (account.username === "") return "your Discogs username is not set below";
-    if (account.tokenUsername && account.tokenUsername.toLowerCase() !== account.username.toLowerCase())
-      return `the token belongs to ${account.tokenUsername}, not ${account.username}`;
-    return null;
-  });
 
   $effect(() => {
     if (saved && draft === null) draft = $state.snapshot(saved);
   });
 
-  // The lists load once the username is known; settings may arrive after this page mounts.
-  let listsRequested = false;
   $effect(() => {
-    if (!saved?.discogs.username || listsRequested) return;
-    listsRequested = true;
-    void loadLists();
-  });
-
-  // Live count of what the edited filters match, before saving.
-  $effect(() => {
-    const filters = draft ? $state.snapshot(draft.filters) : null;
-    if (!filters || !validation?.ok) return;
-    if (previewTimer) clearTimeout(previewTimer);
-    previewTimer = setTimeout(() => {
-      api
-        .getStats({ filters })
-        .then((s) => (preview = s))
-        .catch(() => (preview = null));
-    }, 300);
+    const username = saved?.discogs.username;
+    if (username) void discogs.loadLists();
   });
 
   $effect(() => {
-    if (running && !pollTimer) pollTimer = setInterval(() => void loadJobs(), 1000);
-    if (!running && pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-      void stats.refresh();
-    }
+    const filters = draft && validation?.ok ? $state.snapshot(draft.filters) : null;
+    filterPreview.update(filters);
+  });
+
+  $effect(() => {
+    void settings.version;
+    untrack(() => void jobState.load());
   });
 
   $effect(() => {
@@ -113,24 +77,16 @@
   });
 
   onMount(() => {
-    void loadJobs();
-    void loadAccount();
+    void discogs.loadAccount();
     void stats.refresh();
   });
 
   onDestroy(() => {
-    if (pollTimer) clearInterval(pollTimer);
-    if (previewTimer) clearTimeout(previewTimer);
+    jobState.destroy();
+    filterPreview.destroy();
+    discogs.destroy();
+    if (flashTimer) clearTimeout(flashTimer);
   });
-
-  async function loadAccount(): Promise<void> {
-    try {
-      account = await api.getDiscogsAccount();
-      accountError = null;
-    } catch (e) {
-      accountError = errorMessage(e);
-    }
-  }
 
   /** Saved at once, outside the form: the mode decides whether the next verdict is kept. */
   async function setSandbox(on: boolean): Promise<void> {
@@ -151,31 +107,10 @@
     }
   }
 
-  /** Reads the user's Discogs lists for the Maybe list picker (a read, fine in the sandbox). */
-  async function loadLists(): Promise<void> {
-    listsState = "loading";
-    try {
-      lists = (await api.getDiscogsLists()).lists;
-      listsState = "idle";
-      listsError = null;
-    } catch (e) {
-      listsState = "error";
-      listsError = errorMessage(e);
-    }
-  }
-
-  async function loadJobs(): Promise<void> {
-    try {
-      jobs = (await api.getJobs()).jobs.slice(0, 12);
-      jobsError = null;
-    } catch (e) {
-      jobsError = errorMessage(e);
-    }
-  }
-
   function showFlash(message: string): void {
     flash = message;
-    setTimeout(() => {
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
       if (flash === message) flash = null;
     }, 6000);
   }
@@ -189,7 +124,7 @@
       draft = $state.snapshot(settings.value!);
       showFlash("Saved. The queue has reloaded.");
       void stats.refresh();
-      if (settings.value?.discogs.username !== username) void loadAccount();
+      if (settings.value?.discogs.username !== username) void discogs.loadAccount();
     } catch (e) {
       showFlash(`Not saved: ${errorMessage(e)}`);
     } finally {
@@ -209,7 +144,7 @@
           ? "Reading your Discogs Maybe list; its maybes stay in this tab (sandbox)."
           : `${JOB_LABEL[job.type]} started.`,
       );
-      await loadJobs();
+      await jobState.load();
     } catch (e) {
       showFlash(`Did not start: ${errorMessage(e)}`);
     }
@@ -217,8 +152,7 @@
 
   async function cancel(job: Job): Promise<void> {
     try {
-      await api.cancelJob(job.id);
-      await loadJobs();
+      await jobState.cancel(job);
     } catch (e) {
       showFlash(`Cancel failed: ${errorMessage(e)}`);
     }
@@ -231,16 +165,8 @@
       .map((x) => x.trim())
       .filter((x) => x !== "");
   const numberOrNull = (s: string): number | null => {
-    const n = Number.parseInt(s, 10);
-    return Number.isNaN(n) ? null : n;
+    return parseInteger(s);
   };
-
-  function elapsed(job: Job): string {
-    if (!job.startedAt) return "";
-    const end = job.finishedAt ? Date.parse(job.finishedAt) : Date.now();
-    const s = Math.max(0, Math.round((end - Date.parse(job.startedAt)) / 1000));
-    return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
-  }
 
   function onkeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
@@ -270,12 +196,12 @@
         </p>
         <p class="quiet">
           Turn it off to dig for real: every verdict is saved, and <Key label="A" size="sm" /> adds the release to
-          your Discogs wantlist{tokenProblem ? "" : account?.tokenUsername ? ` (${account.tokenUsername})` : ""}.
+          your Discogs wantlist{discogs.tokenProblem ? "" : discogs.account?.tokenUsername ? ` (${discogs.account.tokenUsername})` : ""}.
           What you did in the sandbox is dropped.
         </p>
-        {#if tokenProblem}
+        {#if discogs.tokenProblem}
           <p class="problem">
-            Before you do: {tokenProblem}. Verdicts are saved either way, but wants will not reach the Discogs
+            Before you do: {discogs.tokenProblem}. Verdicts are saved either way, but wants will not reach the Discogs
             wantlist.
           </p>
         {/if}
@@ -422,9 +348,9 @@
           {/if}
         </div>
         <p class="preview" aria-live="polite">
-          {#if preview}
-            These filters match <b>{formatCount(preview.universe.filteredKeys)}</b> records,
-            <b>{formatCount(preview.remaining)}</b> still to dig.
+          {#if filterPreview.value}
+            These filters match <b>{formatCount(filterPreview.value.universe.filteredKeys)}</b> records,
+            <b>{formatCount(filterPreview.value.remaining)}</b> still to dig.
           {/if}
         </p>
       </section>
@@ -475,17 +401,17 @@
           </label>
           <div class="field">
             <span class="name">Token</span>
-            <p class:problem={tokenProblem !== null}>
-              {#if accountError}
-                Not checked: {accountError}.
-              {:else if !account}
+            <p class:problem={discogs.tokenProblem !== null}>
+              {#if discogs.accountError}
+                Not checked: {discogs.accountError}.
+              {:else if !discogs.account}
                 Checking…
-              {:else if !account.hasToken}
+              {:else if !discogs.account.hasToken}
                 No DISCOGS_TOKEN in .env.
-              {:else if tokenProblem}
-                {tokenProblem[0]!.toUpperCase() + tokenProblem.slice(1)}.
+              {:else if discogs.tokenProblem}
+                {discogs.tokenProblem[0]!.toUpperCase() + discogs.tokenProblem.slice(1)}.
               {:else}
-                Works for {account.tokenUsername}.
+                Works for {discogs.account.tokenUsername}.
               {/if}
             </p>
             <span class="hint">
@@ -511,25 +437,25 @@
                     e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
               >
                 <option value="">None: no M verdict</option>
-                {#each lists as l (l.id)}
+                {#each discogs.lists as l (l.id)}
                   <option value={String(l.id)}>{l.name}{l.public ? "" : " (private)"}</option>
                 {/each}
-                {#if draft.discogs.maybeListId !== null && !lists.some((l) => l.id === draft!.discogs.maybeListId)}
+                {#if draft.discogs.maybeListId !== null && !discogs.lists.some((l) => l.id === draft!.discogs.maybeListId)}
                   <option value={String(draft.discogs.maybeListId)}>List {draft.discogs.maybeListId}</option>
                 {/if}
               </select>
               <button
                 type="button"
                 class="secondary"
-                disabled={listsState === "loading" || draft.discogs.username === ""}
-                onclick={() => void loadLists()}
+                disabled={discogs.listsState === "loading" || draft.discogs.username === ""}
+                onclick={() => void discogs.loadLists()}
               >
-                {listsState === "loading" ? "Reading lists…" : lists.length > 0 ? "Reload lists" : "Read my lists"}
+                {discogs.listsState === "loading" ? "Reading lists…" : discogs.lists.length > 0 ? "Reload lists" : "Read my lists"}
               </button>
             </div>
             <span class="hint">
-              {#if listsState === "error"}
-                Lists did not load: {listsError}.
+              {#if discogs.listsState === "error"}
+                Lists did not load: {discogs.listsError}.
               {:else}
                 The Discogs list you keep maybes on. Once it is set, M files a release as maybe; the
                 Discogs API cannot add to lists, so Twelves shows which ones still need adding there.
@@ -665,13 +591,13 @@
         </div>
       </div>
 
-      {#if jobsError}
-        <p class="quiet">Jobs did not load: {jobsError}</p>
-      {:else if jobs.length === 0}
+      {#if jobState.error}
+        <p class="quiet">Jobs did not load: {jobState.error}</p>
+      {:else if jobState.items.length === 0}
         <p class="quiet">No jobs yet.</p>
       {:else}
         <ol class="job-list">
-          {#each jobs as job (job.id)}
+          {#each jobState.items as job (job.id)}
             {@const progress = jobProgress(job)}
             <li class="job-row {job.status}">
               <span class="job-name">{JOB_LABEL[job.type]}</span>
