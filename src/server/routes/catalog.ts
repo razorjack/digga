@@ -4,11 +4,13 @@ import {
   QueueQuerySchema,
   type QueueResponse,
   StatsQuerySchema,
+  type TrackMarksResponse,
   TwelvesQuerySchema,
   type TwelvesResponse,
 } from "../../shared/api.ts";
 import { countRemaining, queryQueue } from "../queue/query.ts";
 import { queryTwelves } from "../queue/twelves.ts";
+import { listMarkedTracks } from "../queue/track-marks.ts";
 import { computeStats } from "../stats.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseId, parseQuery } from "./request.ts";
@@ -19,6 +21,7 @@ export function registerCatalogRoutes(api: Hono, context: AppContext): void {
   api.get("/queue", (request) => queue(request, context));
   api.get("/releases/:id", (request) => release(request, context));
   api.get("/twelves", (request) => twelves(request, context));
+  api.get("/track-marks", (request) => trackMarks(request, context));
   api.get("/stats", (request) => stats(request, context));
 }
 
@@ -68,6 +71,11 @@ function twelves(request: Context, context: AppContext) {
   const filters = query.data.applyFilters ? config.filters : null;
   const items = queryTwelves(db, query.data.status, filters);
   const body: TwelvesResponse = { items, statuses: query.data.status };
+  return request.json(body);
+}
+
+function trackMarks(request: Context, context: AppContext) {
+  const body: TrackMarksResponse = { items: listMarkedTracks(context.db) };
   return request.json(body);
 }
 

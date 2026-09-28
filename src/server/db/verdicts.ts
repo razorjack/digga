@@ -160,6 +160,10 @@ export function triageDecisionTimes(db: Db, limit = 5000): string[] {
   return rows.map((row) => row.decided_at).reverse();
 }
 
+/**
+ * Sets or clears the mark on a track. Omitted notes keep the saved ones, and the mark keeps its
+ * date while it stays the same, so editing a note does not make an old mark new.
+ */
 export function setTrackVerdict(
   db: Db,
   input: { releaseId: number; position: string; mark: TrackMark | null; notes?: string | null },
@@ -172,9 +176,21 @@ export function setTrackVerdict(
     return null;
   }
   db.prepare(
-    `INSERT INTO track_verdicts (release_id, position, mark, notes, decided_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(release_id, position) DO UPDATE SET mark = excluded.mark, notes = excluded.notes, decided_at = excluded.decided_at`,
-  ).run(input.releaseId, input.position, input.mark, input.notes ?? null, nowIso());
+    `INSERT INTO track_verdicts (release_id, position, mark, notes, decided_at)
+     VALUES (@release_id, @position, @mark, @notes, @decided_at)
+     ON CONFLICT(release_id, position) DO UPDATE SET
+       notes = CASE WHEN @keep_notes THEN track_verdicts.notes ELSE excluded.notes END,
+       decided_at = CASE WHEN track_verdicts.mark = excluded.mark
+         THEN track_verdicts.decided_at ELSE excluded.decided_at END,
+       mark = excluded.mark`,
+  ).run({
+    release_id: input.releaseId,
+    position: input.position,
+    mark: input.mark,
+    notes: input.notes ?? null,
+    keep_notes: input.notes === undefined ? 1 : 0,
+    decided_at: nowIso(),
+  });
   const row = db
     .prepare("SELECT * FROM track_verdicts WHERE release_id = ? AND position = ?")
     .get(input.releaseId, input.position) as TrackVerdictRow;

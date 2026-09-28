@@ -6,8 +6,14 @@ import { type Db, openDb } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type { QueueResponse, ReleaseDetail, Stats, TwelvesResponse } from "../src/shared/api.ts";
-import type { Job, Verdict } from "../src/shared/types.ts";
+import type {
+  QueueResponse,
+  ReleaseDetail,
+  Stats,
+  TrackMarksResponse,
+  TwelvesResponse,
+} from "../src/shared/api.ts";
+import type { Job, TrackVerdict, Verdict } from "../src/shared/types.ts";
 import { FIXTURE_GZ, fixtureDb, silentLogger } from "./helpers.ts";
 
 let tmp: string;
@@ -145,6 +151,29 @@ describe("HTTP API", () => {
       mark: "keep",
     });
     expect(tv.body.mark).toBe("keep");
+    const noted = await send<TrackVerdict>("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "B1",
+      mark: "keep",
+      notes: "the drop at 3:10",
+    });
+    const remarked = await send<TrackVerdict>("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "B1",
+      mark: "candidate",
+    });
+    expect(remarked.body.notes).toBe("the drop at 3:10");
+    expect(noted.body.decidedAt <= remarked.body.decidedAt).toBe(true);
+    await send("POST", "/api/track-verdicts", { releaseId: 1001, position: "B1", mark: "keep" });
+    const marks = await get<TrackMarksResponse>("/api/track-marks");
+    expect(marks.body.items).toEqual([
+      expect.objectContaining({
+        mark: expect.objectContaining({ position: "B1", mark: "keep", notes: "the drop at 3:10" }),
+        track: { artistDisplay: "Ed Rush & Optical", title: "Watermelon", durationSeconds: 421 },
+        release: expect.objectContaining({ id: 1001, catno: "RH 20" }),
+        verdict: expect.objectContaining({ key: "m:501", status: "accepted" }),
+      }),
+    ]);
     const detail = await get<ReleaseDetail>("/api/releases/1001");
     expect(detail.body.tracks[2]!.mark).toBe("keep");
     expect(detail.body.verdict!.status).toBe("accepted");

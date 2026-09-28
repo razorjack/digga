@@ -115,12 +115,27 @@ describe("sandbox api", () => {
     expect((await sandbox.getRelease(1002)).tracks[0]!.heard).toBe(true);
     expect((await sandbox.getStats()).heardTracks).toBe(1);
 
-    await sandbox.postTrackVerdict({ releaseId: 1001, position: "B1", mark: "keep" });
+    await sandbox.postTrackVerdict({
+      releaseId: 1001,
+      position: "B1",
+      mark: "keep",
+      notes: "drop",
+    });
     const marked = await sandbox.getRelease(1001);
     expect(marked.tracks[2]!.mark).toBe("keep");
     expect(marked.trackVerdicts.map((t) => t.position)).toEqual(["B1"]);
+    await sandbox.postTrackVerdict({ releaseId: 1001, position: "B1", mark: "candidate" });
+    const listed = await sandbox.getTrackMarks();
+    expect(listed.items).toEqual([
+      expect.objectContaining({
+        mark: expect.objectContaining({ position: "B1", mark: "candidate", notes: "drop" }),
+        track: expect.objectContaining({ title: "Watermelon" }),
+        release: expect.objectContaining({ id: 1001 }),
+      }),
+    ]);
     await sandbox.postTrackVerdict({ releaseId: 1001, position: "B1", mark: null });
     expect((await sandbox.getRelease(1001)).tracks[2]!.mark).toBeNull();
+    expect((await sandbox.getTrackMarks()).items).toEqual([]);
     expect(tableCounts()).toMatchObject({ listen_log: 0, heard_tracks: 0, track_verdicts: 0 });
   });
 

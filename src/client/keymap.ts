@@ -160,11 +160,11 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
   {
     title: "Twelves",
     keys: [
-      { keys: ["1", "…", "7"], label: "switch shelf" },
+      { keys: ["1", "…", "8"], label: "switch shelf; 8 is the tracks you marked" },
       { keys: ["J", "K"], label: "move down / up (also ↓ ↑)" },
       { keys: ["S"], label: "change the sort" },
       { keys: ["O"], label: "open the release on discogs.com" },
-      { keys: ["E"], label: "edit the note" },
+      { keys: ["E"], label: "edit the note, on a record or a marked track" },
       { keys: ["A", "M", "C", "R", "L"], label: "re-judge a triage verdict" },
       { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
       { keys: ["Enter"], label: "hear snoozed records again in Triage, from the selected one" },

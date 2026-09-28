@@ -9,7 +9,16 @@
   import { navigate, openExternal } from "../router.svelte.ts";
   import { settings, ui } from "../stores.svelte.ts";
   import { TwelvesShelf } from "../twelves/shelf.svelte.ts";
-  import { SHELVES, SORTS, EMPTY, JUDGE_KEYS, notOnList, notOnWantlist } from "../twelves/model.ts";
+  import TrackTable from "../twelves/TrackTable.svelte";
+  import {
+    SHELVES,
+    SORTS,
+    EMPTY,
+    JUDGE_KEYS,
+    notOnList,
+    notOnWantlist,
+    trackKey,
+  } from "../twelves/model.ts";
   const shelfState = new TwelvesShelf();
   onMount(() => {
     void shelfState.load();
@@ -30,6 +39,13 @@
     if (shelfState.selectedIndex === -1 && shelfState.visible.length > 0)
       shelfState.selectedKey = shelfState.visible[0]!.verdict.key;
   });
+
+  $effect(() => {
+    const first = shelfState.visibleTracks[0];
+    if (shelfState.selectedTrackIndex === -1 && first) shelfState.selectedTrackKey = trackKey(first);
+  });
+
+  const onTracks = $derived(shelfState.shelf === "tracks");
 
   $effect(() => {
     void shelfState.selectedKey;
@@ -96,7 +112,7 @@
   }
 
   function runShortcut(key: string): boolean {
-    const shelfIndex = /^[1-7]$/.test(key) ? Number(key) - 1 : -1;
+    const shelfIndex = /^[1-8]$/.test(key) ? Number(key) - 1 : -1;
     if (shelfIndex >= 0) {
       shelfState.shelf = SHELVES[shelfIndex]!.id;
       return true;
@@ -110,6 +126,7 @@
   }
 
   function selectedShortcut(key: string): boolean {
+    if (onTracks) return trackShortcut(key);
     const selected = shelfState.selected;
     if (!selected) return false;
     if (key === "o" && selected.release) {
@@ -123,6 +140,22 @@
     const verdict = JUDGE_KEYS[key];
     if (!verdict) return false;
     shelfState.rejudge(selected, verdict);
+    return true;
+  }
+
+  function trackShortcut(key: string): boolean {
+    const track = shelfState.selectedTrack;
+    if (!track) return false;
+    if (key === "o" && track.release) {
+      openExternal(discogsReleaseUrl(track.release.id));
+      return true;
+    }
+    if (key === "e") {
+      editingKey = trackKey(track);
+      return true;
+    }
+    if (!JUDGE_KEYS[key]) return false;
+    shelfState.showFlash("Track marks change in Triage, on the playing track.");
     return true;
   }
 
@@ -250,6 +283,20 @@
     <p class="empty">Loading…</p>
   {:else if shelfState.error}
     <p class="empty">Twelves did not load: {shelfState.error}</p>
+  {:else if onTracks && shelfState.visibleTracks.length === 0}
+    <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY.tracks}</p>
+  {:else if onTracks}
+    <TrackTable
+      tracks={shelfState.visibleTracks}
+      selectedKey={shelfState.selectedTrackKey}
+      {editingKey}
+      onselect={(key) => (shelfState.selectedTrackKey = key)}
+      onsave={(track, notes) => {
+        editingKey = null;
+        shelfState.saveTrackNote(track, notes);
+      }}
+      oncancel={() => (editingKey = null)}
+    />
   {:else if shelfState.visible.length === 0}
     <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY[shelfState.shelf]}</p>
   {:else}
@@ -345,8 +392,10 @@
       <span><Key label="J" /><Key label="K" /> move</span>
       <span><Key label="O" /> discogs</span>
       <span><Key label="E" /> note</span>
-      <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
-      <span><Key label="I" /> check Maybe list</span>
+      {#if !onTracks}
+        <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
+        <span><Key label="I" /> check Maybe list</span>
+      {/if}
       {#if shelfState.shelf === "snoozed" || shelfState.selected?.verdict.status === "snoozed"}
         <span><Key label="Enter" /> hear again</span>
       {/if}

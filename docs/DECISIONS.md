@@ -224,3 +224,12 @@ Chronological. Each entry records a choice made without asking and why.
     exceeds the Discogs rate. It is a setup write like the enrich job, so it reaches the server in
     the sandbox too. The fresh market data replaces the queued record's; fresh videos replace the
     details of records still waiting, never those of the record playing.
+69. **Marked tracks get a Twelves shelf** (`8`, Tracks). For the ID hunt a track marked grail is
+    the result, and marks were only visible on the release in Triage. The shelf lists grail and
+    keep marks, not meh, sorted and filtered like the records by their release. `E` edits the
+    note the `track_verdicts` table always had; a mark written without notes keeps the saved one,
+    so changing a mark in Triage does not drop it, and editing a note keeps the mark's date.
+70. **The server writes the want's note.** A push without `notes` sends "grail B1; keep A1, A2;
+    the record's note", built from `track_verdicts` and the verdict at push time. Triage pushes
+    after the verdict and the marks are saved, so both reach Discogs; the same text goes into
+    `seed_items.notes`. Notes changed after the push stay in Digga.

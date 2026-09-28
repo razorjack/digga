@@ -79,7 +79,9 @@ with source `triage` or `manual`.
 
 ## track_verdicts
 
-`(release_id, position)` PK, `mark` in `keep | meh | candidate`, `notes`, `decided_at`.
+`(release_id, position)` PK, `mark` in `keep | meh | candidate`, `notes`, `decided_at`. A write
+without `notes` keeps the saved note, and `decided_at` changes only when the mark does.
+`GET /api/track-marks` lists them for the Twelves Tracks shelf.
 
 ## heard_tracks
 

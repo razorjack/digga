@@ -68,19 +68,22 @@ Pressing the same mark again clears it.
 
 ## Twelves
 
-| key                  | action                                                                  |
-| -------------------- | ----------------------------------------------------------------------- |
-| `1` … `7`            | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed |
-| `J` / `K`, `↓` / `↑` | move the selection                                                      |
-| `S`                  | next sort order (newest, label, artist, year, price, want)              |
-| `/`                  | focus the filter; Enter or Esc leaves it                                |
-| `O`                  | open the release on discogs.com                                         |
-| `E`                  | edit the note; Enter saves, Esc cancels                                 |
-| `A` `M` `C` `R` `L`  | re-judge a triage verdict (`R` takes it off the shelves)                |
-| `A` on a want        | add it to the Discogs wantlist when it is not there (a failed push)     |
-| `Enter`              | hear the selected snoozed record, and those after it, in Triage         |
-| `I`                  | read the Discogs Maybe list again                                       |
-| `Z`                  | undo the last change, including what it did to the Discogs wantlist     |
+| key                  | action                                                                          |
+| -------------------- | ------------------------------------------------------------------------------- |
+| `1` … `8`            | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks |
+| `J` / `K`, `↓` / `↑` | move the selection                                                              |
+| `S`                  | next sort order (newest, label, artist, year, price, want)                      |
+| `/`                  | focus the filter; Enter or Esc leaves it                                        |
+| `O`                  | open the release on discogs.com                                                 |
+| `E`                  | edit the note (of the record, or of the track on Tracks); Enter saves           |
+| `A` `M` `C` `R` `L`  | re-judge a triage verdict (`R` takes it off the shelves)                        |
+| `A` on a want        | add it to the Discogs wantlist when it is not there (a failed push)             |
+| `Enter`              | hear the selected snoozed record, and those after it, in Triage                 |
+| `I`                  | read the Discogs Maybe list again                                               |
+| `Z`                  | undo the last change, including what it did to the Discogs wantlist             |
+
+The Tracks shelf lists the tracks marked grail or keep in Triage, with their release and the
+record's verdict; `J`/`K`, `O`, `E`, `/` and `S` work there too. Marks themselves change in Triage.
 
 Wantlist and owned records come from Discogs and cannot be re-judged here. Re-judging a record as
 want adds it to the Discogs wantlist; re-judging a want as anything else takes it off.

@@ -7,6 +7,7 @@ import {
   type QueueStrategy,
 } from "./config.ts";
 import { TRIAGE_KEY_PATTERN } from "./triage-key.ts";
+import { WANTLIST_NOTE_LENGTH } from "./wantlist.ts";
 import {
   TRACK_MARKS,
   VERDICT_SOURCES,
@@ -201,6 +202,20 @@ export interface TwelvesResponse {
   statuses: VerdictStatus[];
 }
 
+// GET /api/track-marks
+export interface MarkedTrack {
+  mark: TrackVerdict;
+  /** From the tracklist; null when the release no longer lists the position. */
+  track: { artistDisplay: string; title: string; durationSeconds: number | null } | null;
+  release: QueueItem | null;
+  /** The verdict on the record the track is on, if it has one. */
+  verdict: Verdict | null;
+}
+export interface TrackMarksResponse {
+  /** Newest mark first. */
+  items: MarkedTrack[];
+}
+
 // GET /api/stats?filters
 export const StatsQuerySchema = z.object({
   filters: FiltersParamSchema.optional(),
@@ -276,7 +291,8 @@ export interface JobsResponse {
 
 // POST /api/discogs/wantlist/:id adds a release; DELETE takes it off again
 export const WantlistPushInputSchema = z.object({
-  notes: z.string().max(255).optional(),
+  /** Omitted, the server writes the release's grail and keep tracks and the record's note. */
+  notes: z.string().max(WANTLIST_NOTE_LENGTH).optional(),
   rating: z.number().int().min(0).max(5).optional(),
 });
 export type WantlistPushInput = z.infer<typeof WantlistPushInputSchema>;

@@ -5,6 +5,7 @@ import {
   VerdictInputSchema,
   WantlistPushInputSchema,
   type DiscogsListEntry,
+  type MarkedTrack,
   type QueueItem,
   type ReleaseDetail,
   type TrackDetail,
@@ -322,16 +323,63 @@ class SandboxApi implements Api {
       this.#marks.set(key, null);
       return null;
     }
+    // As on the server: omitted notes stay, and an unchanged mark keeps its date.
+    const previous = this.#savedMark(trackVerdict.releaseId, trackVerdict.position);
     const mark: TrackVerdict = {
       releaseId: trackVerdict.releaseId,
       position: trackVerdict.position,
       mark: trackVerdict.mark,
-      notes: trackVerdict.notes ?? null,
-      decidedAt: this.#now().toISOString(),
+      notes: trackVerdict.notes === undefined ? (previous?.notes ?? null) : trackVerdict.notes,
+      decidedAt:
+        previous?.mark === trackVerdict.mark ? previous.decidedAt : this.#now().toISOString(),
     };
     this.#marks.set(key, mark);
     return { ...mark };
   };
+
+  #savedMark(releaseId: number, position: string): TrackVerdict | null {
+    const local = this.#marks.get(markKey(releaseId, position));
+    if (local !== undefined) return local;
+    const saved = this.#details.get(releaseId)?.trackVerdicts;
+    return saved?.find((trackVerdict) => trackVerdict.position === position) ?? null;
+  }
+
+  getTrackMarks: Api["getTrackMarks"] = async () => {
+    const response = await this.#inner.getTrackMarks();
+    const items: MarkedTrack[] = [];
+    for (const item of response.items) {
+      if (this.#marks.has(markKey(item.mark.releaseId, item.mark.position))) continue;
+      items.push({ ...item, verdict: this.#localVerdict(item.release) ?? item.verdict });
+    }
+    for (const mark of this.#marks.values()) if (mark) items.push(this.#markedTrack(mark));
+    items.sort((left, right) => right.mark.decidedAt.localeCompare(left.mark.decidedAt));
+    return { items };
+  };
+
+  #markedTrack(mark: TrackVerdict): MarkedTrack {
+    const detail = this.#details.get(mark.releaseId);
+    const track = detail?.tracks.find((candidate) => candidate.position === mark.position);
+    const release = detail
+      ? queueItemFromDetail(detail, detail.videos.length)
+      : (this.#releases.get(mark.releaseId) ?? null);
+    const serverVerdict = release ? (this.#serverVerdicts.get(release.triageKey) ?? null) : null;
+    return {
+      mark: { ...mark },
+      track: track
+        ? {
+            artistDisplay: track.artistDisplay,
+            title: track.title,
+            durationSeconds: track.durationSeconds,
+          }
+        : null,
+      release,
+      verdict: this.#localVerdict(release) ?? serverVerdict,
+    };
+  }
+
+  #localVerdict(release: QueueItem | null): Verdict | null {
+    return release ? (this.#verdicts.get(release.triageKey)?.verdict ?? null) : null;
+  }
 
   postListenLog: Api["postListenLog"] = async (input) => {
     const log = ListenLogInputSchema.parse(input);

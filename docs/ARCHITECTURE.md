@@ -108,7 +108,9 @@ database, so sandbox verdicts, which live in the browser tab, are not in them.
 `curr_abbr`), collection and wantlist pages, identity. It serialises requests, keeps a 1.1 s gap
 between them, backs off on `429` and pauses when `X-Discogs-Ratelimit-Remaining` is exhausted.
 `addToWantlist` (`PUT /users/{u}/wants/{id}`) and `removeFromWantlist` (`DELETE`, where `404`
-counts as removed) back `POST` / `DELETE /api/discogs/wantlist/:id`; the server then records or
+counts as removed) back `POST` / `DELETE /api/discogs/wantlist/:id`. A push without notes sends
+the release's grail and keep tracks and the record's note (`wantlistNote()` in
+`src/shared/wantlist.ts`, at most 255 characters); the server then records or
 forgets the release in `seed_items`, as a wantlist import would, so Twelves knows which wants are on
 the Discogs wantlist. `addToCollection` is still a typed stub.
 

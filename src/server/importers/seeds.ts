@@ -1,10 +1,11 @@
 import { isVinyl } from "../../shared/formats.ts";
 import { artistDisplay } from "../../shared/normalize.ts";
 import { triageKeyFor } from "../../shared/triage-key.ts";
+import { wantlistNote } from "../../shared/wantlist.ts";
 import type { ArtistRef, FormatRef, LabelRef, ReleaseRecord } from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
-import { getRelease, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
-import { applySeedVerdict } from "../db/verdicts.ts";
+import { getRelease, getTracks, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
+import { applySeedVerdict, getTrackVerdicts, getVerdict } from "../db/verdicts.ts";
 import type {
   DiscogsArtist,
   DiscogsBasicInformation,
@@ -165,6 +166,17 @@ export function recordWantlistPush(db: Db, release: ReleaseRecord, notes: string
     notes,
     basicInformation: basicInformationFromRelease(release),
   });
+}
+
+/** The note for a want: the release's grail and keep tracks, and the record's note. */
+export function wantlistNoteFor(db: Db, release: ReleaseRecord): string | undefined {
+  const order = new Map(getTracks(db, release.id).map((track) => [track.position, track.seq]));
+  const marks = getTrackVerdicts(db, release.id).toSorted(
+    (left, right) =>
+      (order.get(left.position) ?? Number.MAX_SAFE_INTEGER) -
+      (order.get(right.position) ?? Number.MAX_SAFE_INTEGER),
+  );
+  return wantlistNote(marks, getVerdict(db, release.triageKey)?.notes ?? null);
 }
 
 export function forgetWantlistItem(db: Db, releaseId: number): void {

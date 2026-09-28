@@ -1,5 +1,10 @@
-import type { TwelvesItem } from "../../shared/api.ts";
-import type { VerdictStatus } from "../../shared/types.ts";
+import {
+  TWELVES_STATUSES,
+  type MarkedTrack,
+  type QueueItem,
+  type TwelvesItem,
+} from "../../shared/api.ts";
+import type { TrackMark, VerdictStatus } from "../../shared/types.ts";
 import { isTriageSource } from "../../shared/verdict-rank.ts";
 export type ShelfId =
   | "all"
@@ -8,7 +13,8 @@ export type ShelfId =
   | "collection"
   | "maybe"
   | "candidate"
-  | "snoozed";
+  | "snoozed"
+  | "tracks";
 
 export type SortId = "newest" | "label" | "artist" | "year" | "price" | "want";
 
@@ -23,16 +29,11 @@ export const SHELVES: {
   { id: "maybe", label: "Maybe" },
   { id: "candidate", label: "Grail" },
   { id: "snoozed", label: "Snoozed" },
+  { id: "tracks", label: "Tracks" },
 ];
 
-export const STATUSES: VerdictStatus[] = [
-  "accepted",
-  "wantlist",
-  "collection",
-  "maybe",
-  "candidate",
-  "snoozed",
-];
+/** The verdicts the record shelves load. */
+export const STATUSES: VerdictStatus[] = TWELVES_STATUSES;
 
 export const SORTS: {
   id: SortId;
@@ -54,7 +55,20 @@ export const EMPTY: Record<ShelfId, string> = {
   maybe: "No maybes. Press M in Triage for a release that belongs on your Discogs Maybe list.",
   candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
   snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",
+  tracks:
+    "No marked tracks yet. In Triage, Shift+C marks the playing track as a grail and Shift+K as a keeper.",
 };
+
+/** The marks the Tracks shelf lists: the finds, not the tracks marked meh. */
+export const SHELF_MARKS = new Set<TrackMark>(["candidate", "keep"]);
+
+export const MARK_COPY: Record<TrackMark, string> = {
+  keep: "keep",
+  meh: "meh",
+  candidate: "grail",
+};
+
+export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${track.mark.position}`;
 
 /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
 export const JUDGE_KEYS: Record<string, VerdictStatus> = {
@@ -85,7 +99,7 @@ export const releaseIdOf = (i: TwelvesItem) => i.verdict.releaseId ?? i.release?
 export const nameOf = (i: TwelvesItem) =>
   i.release ? `${i.release.artistDisplay} – ${i.release.title}` : i.verdict.key;
 
-export function countShelves(items: TwelvesItem[]): Record<ShelfId, number> {
+export function countShelves(items: TwelvesItem[], tracks: MarkedTrack[]): Record<ShelfId, number> {
   return {
     all: items.length,
     accepted: items.filter((item) => item.verdict.status === "accepted").length,
@@ -94,6 +108,7 @@ export function countShelves(items: TwelvesItem[]): Record<ShelfId, number> {
     maybe: items.filter((item) => item.verdict.status === "maybe").length,
     candidate: items.filter((item) => item.verdict.status === "candidate").length,
     snoozed: items.filter((item) => item.verdict.status === "snoozed").length,
+    tracks: tracks.filter((track) => SHELF_MARKS.has(track.mark.mark)).length,
   };
 }
 
@@ -110,8 +125,14 @@ export function compareNullable(
   return (left - right) * direction;
 }
 
-const comparators: Record<SortId, (left: TwelvesItem, right: TwelvesItem) => number> = {
-  newest: (left, right) => right.verdict.decidedAt.localeCompare(left.verdict.decidedAt),
+/** What the sort orders compare: when the entry was decided and the release it is on. */
+interface Sortable {
+  decidedAt: string;
+  release: QueueItem | null;
+}
+
+const comparators: Record<SortId, (left: Sortable, right: Sortable) => number> = {
+  newest: (left, right) => right.decidedAt.localeCompare(left.decidedAt),
   label: (left, right) =>
     collator.compare(left.release?.labelName ?? "~", right.release?.labelName ?? "~") ||
     collator.compare(left.release?.catno ?? "", right.release?.catno ?? ""),
@@ -130,10 +151,33 @@ export function visibleItems(
   options: { shelf: ShelfId; sort: SortId; query: string },
 ): TwelvesItem[] {
   const query = options.query.trim().toLowerCase();
+  const compare = comparators[options.sort];
   return items
     .filter((item) => matchesShelf(item, options.shelf) && matchesQuery(item, query))
-    .toSorted(comparators[options.sort]);
+    .toSorted((left, right) => compare(recordSortable(left), recordSortable(right)));
 }
+
+/** The Tracks shelf: grail and keep marks, filtered and sorted like the records. */
+export function visibleTracks(
+  tracks: MarkedTrack[],
+  options: { sort: SortId; query: string },
+): MarkedTrack[] {
+  const query = options.query.trim().toLowerCase();
+  const compare = comparators[options.sort];
+  return tracks
+    .filter((track) => SHELF_MARKS.has(track.mark.mark) && matchesTrackQuery(track, query))
+    .toSorted((left, right) => compare(trackSortable(left), trackSortable(right)));
+}
+
+const recordSortable = (item: TwelvesItem): Sortable => ({
+  decidedAt: item.verdict.decidedAt,
+  release: item.release,
+});
+
+const trackSortable = (track: MarkedTrack): Sortable => ({
+  decidedAt: track.mark.decidedAt,
+  release: track.release,
+});
 
 function matchesShelf(item: TwelvesItem, shelf: ShelfId): boolean {
   return shelf === "all" || item.verdict.status === shelf;
@@ -148,5 +192,19 @@ function matchesQuery(item: TwelvesItem, query: string): boolean {
     release?.labelName,
     release?.catno,
     item.verdict.notes,
+  ].some((value) => value?.toLowerCase().includes(query));
+}
+
+function matchesTrackQuery(track: MarkedTrack, query: string): boolean {
+  if (query === "") return true;
+  const release = track.release;
+  return [
+    track.track?.artistDisplay,
+    track.track?.title,
+    track.mark.notes,
+    release?.artistDisplay,
+    release?.title,
+    release?.labelName,
+    release?.catno,
   ].some((value) => value?.toLowerCase().includes(query));
 }

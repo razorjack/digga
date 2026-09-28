@@ -13,7 +13,7 @@ import { listUserLists } from "../discogs/lists.ts";
 import { listEntriesForApi, resolveListEntries } from "../importers/list.ts";
 import { enrichRelease } from "../jobs/enrich.ts";
 import { buildReleaseDetail } from "../queue/detail.ts";
-import { forgetWantlistItem, recordWantlistPush } from "../importers/seeds.ts";
+import { forgetWantlistItem, recordWantlistPush, wantlistNoteFor } from "../importers/seeds.ts";
 import type { AppContext } from "../context.ts";
 import {
   badRequest,
@@ -107,8 +107,9 @@ async function pushWantlist(request: Context, context: AppContext) {
   if (!release) return request.json({ error: "Release not found" } satisfies ApiError, 404);
   const account = wantlistAccount(request, context);
   if ("response" in account) return account.response;
-  await context.getDiscogs().addToWantlist(account.username, id, body.data);
-  recordWantlistPush(db, release, body.data.notes ?? null);
+  const notes = body.data.notes ?? wantlistNoteFor(db, release);
+  await context.getDiscogs().addToWantlist(account.username, id, { ...body.data, notes });
+  recordWantlistPush(db, release, notes ?? null);
   logger.info(`added release ${id} to the Discogs wantlist`);
   return request.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
 }

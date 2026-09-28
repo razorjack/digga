@@ -21,11 +21,13 @@ let db: Db;
 let server: DiggaServer;
 let token: string | undefined;
 let calls: Call[];
+let bodies: unknown[];
 
 const fakeFetch: typeof fetch = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : String(input));
   const method = init?.method ?? "GET";
   calls.push({ method, path: url.pathname });
+  if (typeof init?.body === "string") bodies.push(JSON.parse(init.body));
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   if (url.pathname === "/oauth/identity") return json({ id: 1, username: "dj" });
@@ -62,6 +64,7 @@ beforeEach(async () => {
   db = await fixtureDb();
   token = "token";
   calls = [];
+  bodies = [];
   const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
@@ -94,6 +97,25 @@ describe("Discogs wantlist over HTTP", () => {
     expect(calls).toEqual([{ method: "PUT", path: "/users/dj/wants/1001" }]);
     expect(wantlistRows()).toEqual([1001]);
     expect(await acceptedOnWantlist()).toEqual([["m:501", true]]);
+  });
+
+  it("sends the grail and keep tracks and the record's note with a want", async () => {
+    await send("POST", "/api/verdicts", {
+      key: "m:501",
+      status: "accepted",
+      releaseId: 1001,
+      notes: "from the Kool FM tape",
+    });
+    await send("POST", "/api/track-verdicts", { releaseId: 1001, position: "B1", mark: "keep" });
+    await send("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "A2",
+      mark: "candidate",
+    });
+    await send("POST", "/api/discogs/wantlist/1001", {});
+    expect(bodies).toEqual([{ notes: "grail A2; keep B1; from the Kool FM tape" }]);
+    const row = db.prepare("SELECT notes FROM seed_items WHERE release_id = 1001").get();
+    expect(row).toEqual({ notes: "grail A2; keep B1; from the Kool FM tape" });
   });
 
   it("takes a release off the wantlist again", async () => {

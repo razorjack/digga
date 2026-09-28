@@ -1,4 +1,4 @@
-import type { TwelvesItem } from "../../shared/api.ts";
+import type { MarkedTrack, TwelvesItem } from "../../shared/api.ts";
 import type { Verdict, VerdictStatus } from "../../shared/types.ts";
 import { api as appApi, type Api, type AppApi } from "../api.ts";
 import { waitForJob } from "../jobs.ts";
@@ -16,7 +16,9 @@ import {
   releaseIdOf,
   nameOf,
   countShelves,
+  trackKey,
   visibleItems,
+  visibleTracks,
 } from "./model.ts";
 interface UndoEntry {
   previous: Verdict;
@@ -46,6 +48,8 @@ export class TwelvesShelf {
   }
 
   items = $state.raw<TwelvesItem[]>([]);
+  /** Every marked track; the Tracks shelf shows the grail and keep marks. */
+  tracks = $state.raw<MarkedTrack[]>([]);
   loading = $state(true);
   error = $state<string | null>(null);
   shelf = $state<ShelfId>("all");
@@ -58,7 +62,7 @@ export class TwelvesShelf {
   pushing = $state(false);
   pending = $derived(this.items.filter(notOnList).length);
   wantsPending = $derived(this.items.filter(notOnWantlist));
-  counts = $derived(countShelves(this.items));
+  counts = $derived(countShelves(this.items, this.tracks));
   visible = $derived(
     visibleItems(this.items, { shelf: this.shelf, sort: this.sort, query: this.query }),
   );
@@ -66,13 +70,25 @@ export class TwelvesShelf {
     this.visible.findIndex((index) => index.verdict.key === this.selectedKey),
   );
   selected = $derived(this.selectedIndex === -1 ? null : this.visible[this.selectedIndex]!);
+  visibleTracks = $derived(visibleTracks(this.tracks, { sort: this.sort, query: this.query }));
+  selectedTrackKey = $state<string | null>(null);
+  selectedTrackIndex = $derived(
+    this.visibleTracks.findIndex((track) => trackKey(track) === this.selectedTrackKey),
+  );
+  selectedTrack = $derived(
+    this.selectedTrackIndex === -1 ? null : this.visibleTracks[this.selectedTrackIndex]!,
+  );
   changes: Promise<void> = Promise.resolve();
   async load(): Promise<void> {
     const version = ++this.#loadVersion;
     try {
-      const response = await this.#client.getTwelves({ status: STATUSES });
+      const [response, marks] = await Promise.all([
+        this.#client.getTwelves({ status: STATUSES }),
+        this.#client.getTrackMarks(),
+      ]);
       if (!this.#current() || version !== this.#loadVersion) return;
       this.items = response.items;
+      this.tracks = marks.items;
       this.error = null;
     } catch (error) {
       if (this.#current() && version === this.#loadVersion) this.error = errorMessage(error);
@@ -253,13 +269,40 @@ export class TwelvesShelf {
     });
   }
 
+  /** Saves the note on a marked track, keeping its mark. */
+  saveTrackNote(track: MarkedTrack, notes: string | null): void {
+    this.enqueueTask(async () => {
+      const { releaseId, position, mark } = track.mark;
+      try {
+        await this.#client.postTrackVerdict({ releaseId, position, mark, notes });
+      } catch (error) {
+        this.showFlash(`Not saved: ${errorMessage(error)}`);
+        return;
+      }
+      await this.load();
+      this.showFlash(notes ? "Note saved." : "Note removed.");
+    });
+  }
+
   move(delta: number): void {
+    if (this.shelf === "tracks") {
+      this.#moveTrack(delta);
+      return;
+    }
     if (this.visible.length === 0) return;
     const index = Math.min(
       this.visible.length - 1,
       Math.max(0, (this.selectedIndex === -1 ? 0 : this.selectedIndex) + delta),
     );
     this.selectedKey = this.visible[index]!.verdict.key;
+  }
+
+  #moveTrack(delta: number): void {
+    const tracks = this.visibleTracks;
+    if (tracks.length === 0) return;
+    const from = this.selectedTrackIndex === -1 ? 0 : this.selectedTrackIndex;
+    const index = Math.min(tracks.length - 1, Math.max(0, from + delta));
+    this.selectedTrackKey = trackKey(tracks[index]!);
   }
 
   async checkList(): Promise<void> {

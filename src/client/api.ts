@@ -18,6 +18,7 @@ import {
   type ReleaseDetail,
   type Stats,
   type StatsQuery,
+  type TrackMarksResponse,
   type TrackVerdictInput,
   type TrackVerdictResponse,
   type TwelvesResponse,
@@ -49,6 +50,8 @@ export interface Api {
     status?: VerdictStatus[];
     applyFilters?: boolean;
   }): Promise<TwelvesResponse>;
+  /** Every marked track, newest first. */
+  getTrackMarks(): Promise<TrackMarksResponse>;
   getStats(query?: StatsQuery): Promise<Stats>;
   getSettings(): Promise<Config>;
   putSettings(config: Config): Promise<Config>;
@@ -106,6 +109,7 @@ export function createHttpApi(baseUrl = "/api"): Api {
         "GET",
         `/twelves${queryString({ status: query.status?.join(","), applyFilters: query.applyFilters })}`,
       ),
+    getTrackMarks: () => call("GET", "/track-marks"),
     getStats: ({ filters } = {}) =>
       call("GET", `/stats${queryString({ filters: filtersParam(filters) })}`),
     getSettings: () => call("GET", "/settings"),
@@ -164,6 +168,7 @@ export function createAppApi(
     postTrackVerdict: (input) => current.postTrackVerdict(input),
     postListenLog: (input) => current.postListenLog(input),
     getTwelves: (query) => current.getTwelves(query),
+    getTrackMarks: () => current.getTrackMarks(),
     getStats: (query) => current.getStats(query),
     getSettings: () => current.getSettings(),
     putSettings: (config) => current.putSettings(config),

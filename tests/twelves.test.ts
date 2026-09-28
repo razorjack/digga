@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createAppApi, type Api } from "../src/client/api.ts";
 import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
-import { visibleItems, compareNullable } from "../src/client/twelves/model.ts";
-import type { TwelvesItem, VerdictInput } from "../src/shared/api.ts";
-import type { Verdict } from "../src/shared/types.ts";
+import {
+  compareNullable,
+  countShelves,
+  visibleItems,
+  visibleTracks,
+} from "../src/client/twelves/model.ts";
+import type { MarkedTrack, TwelvesItem, VerdictInput } from "../src/shared/api.ts";
+import type { TrackMark, Verdict } from "../src/shared/types.ts";
 import { queueItem } from "./helpers/catalog.ts";
 
 function record(id: number): TwelvesItem {
@@ -21,6 +26,15 @@ function record(id: number): TwelvesItem {
   };
 }
 
+function marked(id: number, position: string, mark: TrackMark, decidedAt: string): MarkedTrack {
+  return {
+    mark: { releaseId: id, position, mark, notes: null, decidedAt },
+    track: { artistDisplay: `Artist ${id}`, title: `Tune ${position}`, durationSeconds: 300 },
+    release: queueItem(id),
+    verdict: null,
+  };
+}
+
 const shelves: TwelvesShelf[] = [];
 afterEach(() => {
   for (const shelf of shelves.splice(0)) shelf.destroy();
@@ -32,6 +46,7 @@ async function setup(sandboxMode = false) {
   const http = {
     mode: "live",
     getTwelves: vi.fn(async () => ({ items: [item] })),
+    getTrackMarks: vi.fn(async () => ({ items: [] })),
     postVerdict: vi.fn(async (input: VerdictInput): Promise<Verdict> => {
       calls.push(input.status);
       item = { ...item, verdict: { ...item.verdict, ...input } };
@@ -146,5 +161,26 @@ describe("Twelves filtering and ordering", () => {
         (item) => item.verdict.key,
       ),
     ).toEqual(["r:3", "r:2", "r:1"]);
+  });
+});
+
+describe("the Tracks shelf", () => {
+  const tracks = [
+    marked(2, "A1", "keep", "2026-01-02T00:00:00.000Z"),
+    marked(1, "B1", "candidate", "2026-01-01T00:00:00.000Z"),
+    marked(3, "A2", "meh", "2026-01-03T00:00:00.000Z"),
+  ];
+
+  it("lists grail and keep marks, not meh, newest first", () => {
+    const visible = visibleTracks(tracks, { sort: "newest", query: "" });
+    expect(visible.map((track) => track.mark.position)).toEqual(["A1", "B1"]);
+    expect(countShelves([], tracks).tracks).toBe(2);
+  });
+
+  it("filters on the track and its release and sorts like the records", () => {
+    expect(visibleTracks(tracks, { sort: "newest", query: "tune b1" })).toHaveLength(1);
+    expect(visibleTracks(tracks, { sort: "newest", query: "artist 2" })).toHaveLength(1);
+    const byArtist = visibleTracks(tracks, { sort: "artist", query: "" });
+    expect(byArtist.map((track) => track.mark.releaseId)).toEqual([1, 2]);
   });
 });
