@@ -15,7 +15,10 @@ type VerdictEntry = {
   previous: Verdict | null;
 };
 
-type HistoryEntry = VerdictEntry | { kind: "pass"; item: QueueItem };
+/** X hid the label of the record on screen; undo lets it back into the queue. */
+type LabelEntry = { kind: "label"; item: QueueItem; label: string };
+
+type HistoryEntry = VerdictEntry | { kind: "pass"; item: QueueItem } | LabelEntry;
 
 /** What the slip under the player shows: the last thing that happened to a release. */
 export type Slip =
@@ -27,7 +30,8 @@ export type Slip =
       push: "pending" | "done" | "failed" | null;
     }
   | { kind: "pass"; item: QueueItem; id: number; stays: "queue" | "snoozed" }
-  | { kind: "undo"; item: QueueItem; undone: TriageStatus | "pass"; id: number };
+  | { kind: "label"; item: QueueItem; label: string; id: number }
+  | { kind: "undo"; item: QueueItem; undone: TriageStatus | "pass" | "label"; id: number };
 
 /** Snoozed records heard again, ahead of the queue, which resumes where it was afterwards. */
 export interface Round {
@@ -42,6 +46,8 @@ const MAX_QUEUE_LIMIT = 5000;
 export interface SessionOptions {
   /** A want waits this long before the wantlist push, so a quick Z cancels it instead. */
   pushGraceMs?: number;
+  /** Leaves a label out of the queue filters, or lets it back in; saving restarts the queue. */
+  setLabelHidden?: (label: string, hidden: boolean) => Promise<void>;
 }
 
 export interface StartOptions {
@@ -73,6 +79,7 @@ export class TriageSession {
 
   #api: AppApi;
   #pushGraceMs: number;
+  #setLabelHidden: SessionOptions["setLabelHidden"];
   #batch = 200;
   #enrichAheadCount = 0;
   #enrichAhead: EnrichAhead;
@@ -100,6 +107,7 @@ export class TriageSession {
     this.#api = api;
     this.#apiGeneration = api.generation;
     this.#pushGraceMs = opts.pushGraceMs ?? 1500;
+    this.#setLabelHidden = opts.setLabelHidden;
     this.#enrichAhead = this.#createEnrichAhead();
   }
 
@@ -284,10 +292,33 @@ export class TriageSession {
     this.#afterMove();
   }
 
+  /** X: leaves every record on the current record's label out of the queue; Z lets them back. */
+  async hideLabel(): Promise<void> {
+    const item = this.current;
+    const label = item?.labelName;
+    if (!item || !this.#setLabelHidden) return;
+    if (!label) {
+      this.#flash("This record has no label to hide.");
+      return;
+    }
+    try {
+      await this.#setLabelHidden(label, true);
+    } catch (error) {
+      this.#flash(`The label was not hidden: ${errorMessage(error)}`);
+      return;
+    }
+    this.history = [...this.history, { kind: "label", item, label }];
+    this.slip = { kind: "label", item, label, id: ++this.#slipSeq };
+  }
+
   undo(): void {
     const entry = this.history.at(-1);
     if (!entry) {
       this.#flash("Nothing to undo.");
+      return;
+    }
+    if (entry.kind === "label") {
+      void this.#showLabel(entry);
       return;
     }
     const { item } = entry;
@@ -312,6 +343,19 @@ export class TriageSession {
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
     void this.#write(() => this.#saveUndo(entry, client, generation));
+  }
+
+  /** Lets a hidden label back into the queue; saving the filters restarts it. */
+  async #showLabel(entry: LabelEntry): Promise<void> {
+    this.history = this.history.filter((later) => later !== entry);
+    try {
+      await this.#setLabelHidden?.(entry.label, false);
+    } catch (error) {
+      this.history = [...this.history, entry];
+      this.#flash(`${entry.label} is still hidden: ${errorMessage(error)}`);
+      return;
+    }
+    this.slip = { kind: "undo", item: entry.item, undone: "label", id: ++this.#slipSeq };
   }
 
   async #saveUndo(entry: VerdictEntry, client: Api, generation: number): Promise<void> {

@@ -7,6 +7,7 @@
     hasMaybeList,
     onjudge,
     onpass,
+    onhidelabel,
     onundo,
     onhelp,
   }: {
@@ -14,6 +15,7 @@
     hasMaybeList: boolean;
     onjudge: (status: TriageStatus) => void;
     onpass: () => void;
+    onhidelabel: () => void;
     onundo: () => void;
     onhelp: () => void;
   } = $props();
@@ -61,6 +63,16 @@
         {v.copy}
       </button>
     {/each}
+    <button
+      type="button"
+      tabindex="-1"
+      {disabled}
+      aria-keyshortcuts="X"
+      onmousedown={keepFocus}
+      onclick={onhidelabel}
+    >
+      <Key label="X" aria-hidden="true" /> hide label
+    </button>
     <button type="button" tabindex="-1" aria-keyshortcuts="Z" onmousedown={keepFocus} onclick={onundo}>
       <Key label="Z" aria-hidden="true" /> undo
     </button>

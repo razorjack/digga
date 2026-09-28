@@ -21,6 +21,9 @@ describe("config schema", () => {
       formats: ["Vinyl"],
       countries: [],
       skipWithoutVideos: false,
+      excludeLabels: [],
+      includeDescriptions: [],
+      excludeDescriptions: [],
     });
     expect(DEFAULT_CONFIG.queue.strategy).toBe("label_sweep");
     expect(DEFAULT_CONFIG.sandbox).toBe(true);

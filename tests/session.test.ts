@@ -23,7 +23,7 @@ async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> 
 }
 
 /** A server stand-in that records the writes the session makes. */
-function fakeServer(queue: number[]) {
+function fakeServer(queue: number[], labelName: string | null = null) {
   const calls: string[] = [];
   /** Notes sent with verdicts, as "key note". */
   const notes: string[] = [];
@@ -32,7 +32,9 @@ function fakeServer(queue: number[]) {
   const http = {
     mode: "live",
     getQueue: async () => ({
-      items: queue.map(queueItem).filter((i) => !verdicts.has(i.triageKey)),
+      items: queue
+        .map((id) => ({ ...queueItem(id), labelName }))
+        .filter((i) => !verdicts.has(i.triageKey)),
       remaining: 0,
       strategy: "label_sweep",
       seed: null,
@@ -413,6 +415,43 @@ describe("notes in Triage", () => {
     session.judge("rejected");
     await until(() => calls.includes("verdict r:5 rejected"));
     expect(notes).toEqual([]);
+    session.destroy();
+  });
+});
+
+describe("hiding a label", () => {
+  async function withLabels(fail = false) {
+    const server = fakeServer([1, 2], "Moving Shadow");
+    const changes: string[] = [];
+    const setLabelHidden = async (label: string, hidden: boolean) => {
+      if (fail) throw new Error("disk full");
+      changes.push(`${hidden ? "hide" : "show"} ${label}`);
+    };
+    const session = new TriageSession(server.app, { pushGraceMs: 0, setLabelHidden });
+    await session.start(50);
+    return { session, changes, calls: server.calls };
+  }
+
+  it("hides the label on screen, and Z lets it back before older verdicts", async () => {
+    const { session, changes, calls } = await withLabels();
+    session.judge("rejected");
+    await session.hideLabel();
+    expect(changes).toEqual(["hide Moving Shadow"]);
+    expect(session.slip).toMatchObject({ kind: "label", label: "Moving Shadow" });
+    session.undo();
+    await until(() => changes.length === 2);
+    expect(changes).toEqual(["hide Moving Shadow", "show Moving Shadow"]);
+    expect(session.slip).toMatchObject({ kind: "undo", undone: "label" });
+    session.undo();
+    await until(() => calls.includes("forget r:1"));
+    session.destroy();
+  });
+
+  it("keeps the history as it was when saving the filters fails", async () => {
+    const { session } = await withLabels(true);
+    await session.hideLabel();
+    expect(session.history).toEqual([]);
+    expect(session.flash).toContain("disk full");
     session.destroy();
   });
 });

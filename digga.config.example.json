@@ -9,7 +9,10 @@
     "includeUnknownYear": false,
     "formats": ["Vinyl"],
     "countries": [],
-    "skipWithoutVideos": false
+    "skipWithoutVideos": false,
+    "excludeLabels": [],
+    "includeDescriptions": [],
+    "excludeDescriptions": []
   },
   "queue": { "strategy": "label_sweep", "limit": 200 },
   "player": { "startAtFraction": 0.5, "seekStepSeconds": 10 }

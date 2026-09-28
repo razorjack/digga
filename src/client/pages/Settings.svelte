@@ -215,6 +215,11 @@
       .split(",")
       .map((x) => x.trim())
       .filter((x) => x !== "");
+  const parseLines = (text: string) =>
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
   const numberOrNull = (text: string): number | null => {
     return parseInteger(text);
   };
@@ -368,6 +373,45 @@
               placeholder="any country"
             />
             <span class="hint" id="{id}-countries-hint">As Discogs writes them: UK, Germany, US. Empty means any.</span>
+          </div>
+          <fieldset class="field">
+            <legend class="name">Format details</legend>
+            <div class="inline wrap">
+              <input
+                aria-label="Only with"
+                aria-describedby="{id}-descriptions-hint"
+                value={list(draft.filters.includeDescriptions)}
+                onchange={(event) => (draft!.filters.includeDescriptions = parseList(event.currentTarget.value))}
+                placeholder="only with: any"
+              />
+              <input
+                aria-label="Leave out"
+                aria-describedby="{id}-descriptions-hint"
+                value={list(draft.filters.excludeDescriptions)}
+                onchange={(event) => (draft!.filters.excludeDescriptions = parseList(event.currentTarget.value))}
+                placeholder="leave out: none"
+              />
+            </div>
+            <span class="hint" id="{id}-descriptions-hint">
+              Discogs format descriptions, comma separated: 12", EP, Promo, Test Pressing, Compilation, Unofficial
+              Release. The first keeps releases with one of them, the second leaves out releases with any.
+            </span>
+          </fieldset>
+          <div class="field">
+            <label class="name" for="{id}-labels">Hidden labels</label>
+            <textarea
+              id="{id}-labels"
+              rows="3"
+              aria-describedby="{id}-labels-hint"
+              value={draft.filters.excludeLabels.join("\n")}
+              onchange={(event) => (draft!.filters.excludeLabels = parseLines(event.currentTarget.value))}
+              placeholder="none"
+            ></textarea>
+            <span class="hint" id="{id}-labels-hint">
+              One label name per line, as Discogs writes it: Not On Label, Virgin. A record is left out when its first
+              label is one of them or a variant in brackets, such as Not On Label (Artist Self-released).
+              <Key label="X" size="sm" /> in Triage hides the label on screen.
+            </span>
           </div>
           <fieldset class="field">
             <legend class="name">Videos</legend>
@@ -893,13 +937,18 @@
     flex-wrap: wrap;
   }
   input,
-  select {
+  select,
+  textarea {
     padding: 6px 9px;
     border: 1px solid var(--groove);
     border-radius: var(--radius);
     background: var(--ground);
   }
-  input::placeholder {
+  textarea {
+    resize: vertical;
+  }
+  input::placeholder,
+  textarea::placeholder {
     color: var(--dust);
   }
   input:user-invalid {

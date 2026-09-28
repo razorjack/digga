@@ -63,7 +63,8 @@ API. `tools/dump/parse.ts` streams `fs -> gunzip -> saxes` and yields one lightw
 The queue is a query (`src/server/queue/query.ts`), not a table. It groups releases by triage key
 (`m:{master_id}` or `r:{release_id}`, see `src/shared/triage-key.ts`), drops keys that already have a
 verdict, applies the query-time filters (`filters.*` in config: styles subset, year range, unknown
-year, formats, countries), picks one representative release per key (main release, then most
+year, formats, format descriptions to require or leave out, countries, hidden labels, records
+without videos), picks one representative release per key (main release, then most
 videos), orders by strategy and limits. Changing filters or strategy never requires a reload.
 
 A record plays the videos of all its pressings. `buildReleaseDetail()` returns the release's own

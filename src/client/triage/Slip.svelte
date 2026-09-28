@@ -2,7 +2,7 @@
   import type { QueueItem } from "../../shared/api.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
-  import { STATUS_COPY, STATUS_TONE } from "../keymap.ts";
+  import { STATUS_COPY, STATUS_TONE, type TriageStatus } from "../keymap.ts";
   import type { Slip } from "./session.svelte.ts";
 
   let {
@@ -21,6 +21,12 @@
   } = $props();
 
   const name = (i: QueueItem) => `${i.artistDisplay} – ${i.title}`;
+
+  function undoneText(undone: TriageStatus | "pass" | "label"): string {
+    if (undone === "label") return "Its label is back in the queue.";
+    const what = undone === "pass" ? "next" : STATUS_COPY[undone];
+    return `Back on it; the ${what} is gone.`;
+  }
 </script>
 
 <div class="slips">
@@ -34,6 +40,8 @@
             <Stamp text={STATUS_COPY[slip.status]} tone={STATUS_TONE[slip.status]} seed={slip.item.id} slam />
           {:else if slip.kind === "pass"}
             <Stamp text="later" tone="dust" seed={slip.item.id} slam />
+          {:else if slip.kind === "label"}
+            <Stamp text="label hidden" tone="dust" seed={slip.item.id} slam />
           {:else}
             <Stamp text="undone" tone="dust" seed={slip.item.id} slam />
           {/if}
@@ -54,8 +62,10 @@
             On the Snoozed shelf, out of the queue.
           {:else if slip.kind === "pass"}
             {slip.stays === "snoozed" ? "Stays snoozed." : "Stays in the queue for another go."}
+          {:else if slip.kind === "label"}
+            Every record on {slip.label} is out of the queue; Settings lists the hidden labels.
           {:else if slip.kind === "undo"}
-            Back on it; the {slip.undone === "pass" ? "next" : STATUS_COPY[slip.undone]} is gone.
+            {undoneText(slip.undone)}
           {:else}
             {sandbox ? "Sandbox: nothing was saved." : "Saved."}
           {/if}

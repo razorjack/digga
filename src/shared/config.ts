@@ -15,6 +15,12 @@ export const FiltersSchema = z.object({
   countries: z.array(z.string().min(1)).default([]),
   /** Leave out releases without an embeddable video, so every record in the queue can play. */
   skipWithoutVideos: z.boolean().default(false),
+  /** Labels left out, by the exact name of a release's first label (the one the sweep uses). */
+  excludeLabels: z.array(z.string().min(1)).default([]),
+  /** Format descriptions a release needs one of, such as 12" or EP; empty means any. */
+  includeDescriptions: z.array(z.string().min(1)).default([]),
+  /** Format descriptions that leave a release out, such as Unofficial Release or Compilation. */
+  excludeDescriptions: z.array(z.string().min(1)).default([]),
 });
 
 export const ConfigSchema = z.object({
@@ -65,6 +71,12 @@ export type ConfigInput = z.input<typeof ConfigSchema>;
 export type Filters = Config["filters"];
 
 export const DEFAULT_CONFIG: Config = ConfigSchema.parse({});
+
+/** The filters with a label left out of the queue, or let back in. */
+export function withLabelExcluded(filters: Filters, label: string, excluded: boolean): Filters {
+  const others = filters.excludeLabels.filter((name) => name !== label);
+  return { ...filters, excludeLabels: excluded ? [...others, label] : others };
+}
 
 export function parseConfig(input: unknown): Config {
   return ConfigSchema.parse(input);

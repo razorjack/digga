@@ -35,46 +35,101 @@ export function buildFilterWhere(
   filters: Filters,
   opts: { includeDecided?: boolean } = {},
 ): SqlFragment {
-  const clauses: string[] = ["r.in_universe = 1"];
+  const fragments = [
+    { sql: "r.in_universe = 1", params: [] },
+    styleClause(filters),
+    yearClause(filters),
+    formatClause(filters),
+    descriptionClause(filters.includeDescriptions, "EXISTS"),
+    descriptionClause(filters.excludeDescriptions, "NOT EXISTS"),
+    countryClause(filters),
+    labelClause(filters),
+    filters.skipWithoutVideos ? { sql: HAS_VIDEO, params: [] } : null,
+    opts.includeDecided ? null : { sql: UNDECIDED, params: [] },
+  ].filter((fragment) => fragment !== null);
+  return {
+    sql: fragments.map((fragment) => fragment.sql).join("\n    AND "),
+    params: fragments.flatMap((fragment) => fragment.params),
+  };
+}
+
+// A record plays videos of every pressing of its master, so any of them counts.
+const HAS_VIDEO = `(EXISTS (SELECT 1 FROM videos vf JOIN releases rv ON rv.id = vf.release_id
+         WHERE rv.triage_key = r.triage_key AND vf.embeddable = 1)
+       OR EXISTS (SELECT 1 FROM user_videos uf JOIN releases ru ON ru.id = uf.release_id
+         WHERE ru.triage_key = r.triage_key))`;
+
+const UNDECIDED = "NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)";
+
+function styleClause(filters: Filters): SqlFragment | null {
+  if (!filters.styles || filters.styles.length === 0) return null;
+  return {
+    sql: `EXISTS (SELECT 1 FROM json_each(r.styles_json) WHERE json_each.value IN (${placeholders(filters.styles.length)}))`,
+    params: filters.styles,
+  };
+}
+
+function yearClause(filters: Filters): SqlFragment {
+  const parts: string[] = ["r.year IS NOT NULL"];
   const params: unknown[] = [];
-  if (filters.styles && filters.styles.length > 0) {
-    clauses.push(
-      `EXISTS (SELECT 1 FROM json_each(r.styles_json) WHERE json_each.value IN (${placeholders(filters.styles.length)}))`,
-    );
-    params.push(...filters.styles);
-  }
-  const yearParts: string[] = ["r.year IS NOT NULL"];
   if (filters.yearFrom !== null) {
-    yearParts.push("r.year >= ?");
+    parts.push("r.year >= ?");
     params.push(filters.yearFrom);
   }
   if (filters.yearTo !== null) {
-    yearParts.push("r.year <= ?");
+    parts.push("r.year <= ?");
     params.push(filters.yearTo);
   }
-  const known = `(${yearParts.join(" AND ")})`;
-  clauses.push(filters.includeUnknownYear ? `(${known} OR r.year IS NULL)` : known);
-  if (filters.formats.length > 0) {
-    clauses.push(
-      `EXISTS (SELECT 1 FROM json_each(r.formats_json) WHERE json_extract(json_each.value, '$.name') IN (${placeholders(filters.formats.length)}))`,
-    );
-    params.push(...filters.formats);
-  }
-  if (filters.countries.length > 0) {
-    clauses.push(`r.country IN (${placeholders(filters.countries.length)})`);
-    params.push(...filters.countries);
-  }
-  // A record plays videos of every pressing of its master, so any of them counts.
-  if (filters.skipWithoutVideos)
-    clauses.push(
-      `(EXISTS (SELECT 1 FROM videos vf JOIN releases rv ON rv.id = vf.release_id
-         WHERE rv.triage_key = r.triage_key AND vf.embeddable = 1)
-       OR EXISTS (SELECT 1 FROM user_videos uf JOIN releases ru ON ru.id = uf.release_id
-         WHERE ru.triage_key = r.triage_key))`,
-    );
-  if (!opts.includeDecided)
-    clauses.push("NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)");
-  return { sql: clauses.join("\n    AND "), params };
+  const known = `(${parts.join(" AND ")})`;
+  return { sql: filters.includeUnknownYear ? `(${known} OR r.year IS NULL)` : known, params };
+}
+
+function formatClause(filters: Filters): SqlFragment | null {
+  if (filters.formats.length === 0) return null;
+  return {
+    sql: `EXISTS (SELECT 1 FROM json_each(r.formats_json) WHERE json_extract(json_each.value, '$.name') IN (${placeholders(filters.formats.length)}))`,
+    params: filters.formats,
+  };
+}
+
+/** A release with (EXISTS) or without (NOT EXISTS) one of these format descriptions. */
+function descriptionClause(
+  descriptions: string[],
+  test: "EXISTS" | "NOT EXISTS",
+): SqlFragment | null {
+  if (descriptions.length === 0) return null;
+  return {
+    sql: `${test} (SELECT 1 FROM json_each(r.formats_json) fd, json_each(fd.value, '$.descriptions') dd
+      WHERE dd.value IN (${placeholders(descriptions.length)}))`,
+    params: descriptions,
+  };
+}
+
+function countryClause(filters: Filters): SqlFragment | null {
+  if (filters.countries.length === 0) return null;
+  return {
+    sql: `r.country IN (${placeholders(filters.countries.length)})`,
+    params: filters.countries,
+  };
+}
+
+/**
+ * Leaves out records whose first label is hidden. A name also covers its variants in brackets:
+ * Discogs names self-releases "Not On Label (Artist Self-released)" and tells same-named labels
+ * apart as "Name (2)".
+ */
+function labelClause(filters: Filters): SqlFragment | null {
+  const labels = filters.excludeLabels;
+  if (labels.length === 0) return null;
+  const variants = labels.map(() => "r.label_name LIKE ? ESCAPE '\\'").join(" OR ");
+  return {
+    sql: `(r.label_name IS NULL OR NOT (r.label_name COLLATE NOCASE IN (${placeholders(labels.length)}) OR ${variants}))`,
+    params: [...labels, ...labels.map((label) => `${escapeLike(label)} (%`)],
+  };
+}
+
+function escapeLike(text: string): string {
+  return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
 export function orderClause(strategy: QueueStrategy, seed: number): SqlFragment {

@@ -39,6 +39,7 @@ record as a want, skip it, flag a grail, or leave it for later. Undo walks back 
 | `C`       | Grail: a top want or the tune you have been hunting     |
 | `L`       | Snooze for another listening session                    |
 | `N`       | Move on without a verdict; keep the record in the queue |
+| `X`       | Hide the record's label from the queue                  |
 | `E`       | Note on the record, saved with its verdict              |
 | `Z`       | Undo                                                    |
 | `?`       | Show the keys for the current page                      |
@@ -63,7 +64,9 @@ enable `M`. Digga records maybes locally; adding them to the Discogs list is man
 ## Choose what to dig
 
 Settings controls the styles, years, formats, and countries in your queue, plus whether to skip
-releases without videos. Sweep label by label in catalogue order, start with the most wanted
+releases without videos. Format details such as `Unofficial Release` or `Compilation` can leave
+records out, and so can hidden labels; `X` in Triage hides the label on screen, and `Z` brings it
+back. Sweep label by label in catalogue order, start with the most wanted
 records, browse by country or year, or use a daily shuffle. Set where playback starts and how far
 the seek keys jump.
 

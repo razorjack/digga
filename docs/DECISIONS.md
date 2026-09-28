@@ -270,3 +270,15 @@ Chronological. Each entry records a choice made without asking and why.
     0.28 s, most of it the measurement's polling. The deck re-aims after every track change and
     after an embed error, and the three roles (playing, next release, next track) rotate between
     fixed hosts because moving an iframe reloads it (decision 36).
+77. **Labels and format descriptions are query-time filters.** `filters.excludeLabels` matches a
+    release's first label, the one shown and swept, case-insensitively, and also its bracketed
+    variants: Discogs names self-releases "Not On Label (Artist Self-released)" (about 240 of the
+    owner's records) and tells same-named labels apart as "Name (2)". `includeDescriptions` and
+    `excludeDescriptions` test the format descriptions (`12"`, `Promo`, `Unofficial Release`,
+    `Compilation`). Nothing is excluded by default: white labels and promos are ordinary records
+    in this scene.
+78. **`X` hides the label on screen and `Z` undoes it like a verdict.** The session keeps a
+    "label" entry in the undo history and changes the filter through a callback the Triage page
+    gives it, which saves the settings; the save restarts the queue as any settings change does.
+    Hiding is a settings write, so it is real in the sandbox too, and Settings lists the hidden
+    labels one per line (names can contain commas).

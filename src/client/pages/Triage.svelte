@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
+  import { withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
   import type { TrackMark } from "../../shared/types.ts";
@@ -27,7 +28,14 @@
 
   let { active }: { active: boolean } = $props();
 
-  const session = new TriageSession();
+  const session = new TriageSession(api, { setLabelHidden });
+
+  /** Saves the queue filters with the label left out or let back in; the queue restarts. */
+  async function setLabelHidden(label: string, hidden: boolean): Promise<void> {
+    const config = settings.value;
+    if (!config) throw new Error("the settings have not loaded");
+    await settings.save({ ...config, filters: withLabelExcluded(config.filters, label, hidden) });
+  }
   onDestroy(() => session.destroy());
   const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5);
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
@@ -153,6 +161,7 @@
     s: () => openReleaseLink("youtube"),
     n: () => session.pass(),
     z: () => session.undo(),
+    x: () => void session.hideLabel(),
     e: () => {
       if (session.current) editingNote = true;
     },
@@ -181,7 +190,7 @@
       return true;
     }
     // Holding a key down must not judge a run of releases.
-    if (event.repeat) return /^[ jknozse1-9radmc]$/.test(key);
+    if (event.repeat) return /^[ jknozsex1-9radmc]$/.test(key);
     return runShortcut(key);
   }
 
@@ -358,6 +367,7 @@
     {hasMaybeList}
     onjudge={judge}
     onpass={() => session.pass()}
+    onhidelabel={() => void session.hideLabel()}
     onundo={() => session.undo()}
     onhelp={() => (ui.helpOpen = true)}
   />

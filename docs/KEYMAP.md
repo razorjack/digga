@@ -32,17 +32,22 @@ or Alt. Holding a key down never repeats a verdict.
 
 ## Triage: verdicts (one per release, undoable)
 
-| key | status      | copy       | notes                                                         |
-| --- | ----------- | ---------- | ------------------------------------------------------------- |
-| `R` | `rejected`  | "skip"     |                                                               |
-| `A` | `accepted`  | "want"     | pushes to the Discogs wantlist after 1.5 s unless undone      |
-| `M` | `maybe`     | "maybe"    | for your Discogs Maybe list; offered once the list is chosen  |
-| `C` | `candidate` | "grail"    | the one you've been hunting: a top want or an ID-hunt match   |
-| `L` | `snoozed`   | "snooze"   | off the queue, to hear again later (Snoozed shelf)            |
-| `D` | `no_audio`  | "no audio" | leaves the queue without a judgement                          |
-| `N` | none        | "next"     | moves on; the release stays in the queue and comes back later |
-| `Z` | undo        |            | reverts the last verdict or `N` and returns to that release   |
-| Esc | none        |            | during a round of snoozed records: back to the queue          |
+| key | status      | copy         | notes                                                             |
+| --- | ----------- | ------------ | ----------------------------------------------------------------- |
+| `R` | `rejected`  | "skip"       |                                                                   |
+| `A` | `accepted`  | "want"       | pushes to the Discogs wantlist after 1.5 s unless undone          |
+| `M` | `maybe`     | "maybe"      | for your Discogs Maybe list; offered once the list is chosen      |
+| `C` | `candidate` | "grail"      | the one you've been hunting: a top want or an ID-hunt match       |
+| `L` | `snoozed`   | "snooze"     | off the queue, to hear again later (Snoozed shelf)                |
+| `D` | `no_audio`  | "no audio"   | leaves the queue without a judgement                              |
+| `N` | none        | "next"       | moves on; the release stays in the queue and comes back later     |
+| `X` | none        | "hide label" | leaves every record on the release's first label out of the queue |
+| `Z` | undo        |              | reverts the last verdict, `N` or `X` and returns to that release  |
+| Esc | none        |              | during a round of snoozed records: back to the queue              |
+
+`X` adds the release's first label to `filters.excludeLabels` and saves the settings, so the
+queue restarts without that label's records; `Z` takes the label out of the list again. A hidden
+name also covers its bracketed variants, such as `Not On Label (Artist Self-released)`.
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is

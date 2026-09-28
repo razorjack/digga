@@ -8,6 +8,7 @@ import {
   queryQueue,
   representativeForKey,
 } from "../src/server/queue/query.ts";
+import { type Filters, withLabelExcluded } from "../src/shared/config.ts";
 import { filters, fixtureDb } from "./helpers.ts";
 
 describe("queue query", () => {
@@ -84,6 +85,36 @@ describe("queue query", () => {
     expect(countRemaining(db, f)).toBe(1);
     expect(countRemaining(db, filters({}))).toBe(2);
     db.close();
+  });
+
+  it("leaves out labels and format descriptions", async () => {
+    const db = await fixtureDb();
+    const ids = (overrides: Partial<Filters>) =>
+      queryQueue(db, { filters: filters(overrides), strategy: "label_sweep", limit: 10 }).map(
+        (item) => item.id,
+      );
+    expect(ids({})).toEqual([1006, 1001]);
+    expect(ids({ excludeLabels: ["renegade hardware"] })).toEqual([]);
+    expect(ids({ excludeLabels: ["Moving Shadow"] })).toEqual([1006, 1001]);
+    db.prepare("UPDATE releases SET label_name = 'Renegade Hardware (2)' WHERE id = 1006").run();
+    expect(ids({ excludeLabels: ["Renegade Hardware"] })).toEqual([]);
+    // The sweep now orders the renamed label after the original.
+    expect(ids({ excludeLabels: ["Renegade"] })).toEqual([1001, 1006]);
+    expect(ids({ excludeLabels: ["Renegade_Hardware"] })).toEqual([1001, 1006]);
+    db.prepare("UPDATE releases SET label_name = 'Renegade Hardware' WHERE id = 1006").run();
+    expect(ids({ includeDescriptions: ["45 RPM"] })).toEqual([1006]);
+    expect(ids({ excludeDescriptions: ["45 RPM"] })).toEqual([1001]);
+    expect(ids({ includeDescriptions: ['12"'], excludeDescriptions: ["Sampler"] })).toEqual([
+      1006, 1001,
+    ]);
+    db.close();
+  });
+
+  it("adds and removes a label from the ones left out", () => {
+    const hidden = withLabelExcluded(filters({ excludeLabels: ["Virgin"] }), "Moving Shadow", true);
+    expect(hidden.excludeLabels).toEqual(["Virgin", "Moving Shadow"]);
+    expect(withLabelExcluded(hidden, "Moving Shadow", true).excludeLabels).toHaveLength(2);
+    expect(withLabelExcluded(hidden, "Virgin", false).excludeLabels).toEqual(["Moving Shadow"]);
   });
 
   it("counts videos of other pressings when skipping records without one", async () => {
