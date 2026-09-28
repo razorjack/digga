@@ -453,11 +453,6 @@
     gap: 28px;
     margin-bottom: 22px;
   }
-  h1 {
-    font-family: var(--display);
-    font-weight: 400;
-    font-size: var(--text-2xl);
-  }
   .lede {
     color: var(--fg-muted);
   }
@@ -470,19 +465,10 @@
     padding-bottom: 14px;
     border-bottom: 1px solid var(--rule);
   }
-  fieldset {
-    min-inline-size: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  /* A floated legend lays out as an ordinary flex item instead of sitting in the border. */
   legend {
-    float: left;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 0;
   }
   label:has(:focus-visible) {
     outline: 2px solid var(--accent-mark);

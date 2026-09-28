@@ -88,8 +88,6 @@
     margin-bottom: 20px;
   }
   h2 {
-    font-family: var(--display);
-    font-weight: 400;
     font-size: var(--text-xl);
   }
   .head button {

@@ -114,8 +114,6 @@
     margin-left: 0.6em;
   }
   .artist {
-    font-family: var(--display);
-    font-weight: 400;
     font-size: clamp(26px, 2.6vw, var(--text-3xl));
     line-height: 1.15;
     letter-spacing: 0.01em;

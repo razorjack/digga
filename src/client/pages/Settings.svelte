@@ -871,15 +871,7 @@
     gap: 8px;
     margin-bottom: 28px;
   }
-  h1 {
-    font-family: var(--display);
-    font-weight: 400;
-    font-size: var(--text-2xl);
-  }
   h2 {
-    font-family: var(--display);
-    font-weight: 400;
-    font-size: var(--text-lg);
     margin-bottom: 6px;
   }
   .lede,
@@ -906,17 +898,6 @@
   .fields {
     display: grid;
     gap: 16px;
-  }
-  fieldset {
-    min-inline-size: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  /* A floated legend lays out as an ordinary grid item instead of sitting in the border. */
-  legend {
-    float: left;
-    padding: 0;
   }
   .field {
     display: grid;

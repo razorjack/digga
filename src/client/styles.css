@@ -121,6 +121,33 @@ p {
   margin: 0;
 }
 
+h1,
+h2 {
+  font-family: var(--display);
+  font-weight: 400;
+}
+
+h1 {
+  font-size: var(--text-2xl);
+}
+
+h2 {
+  font-size: var(--text-lg);
+}
+
+fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* A floated legend lays out as an ordinary grid or flex item instead of sitting in the border. */
+legend {
+  float: left;
+  padding: 0;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

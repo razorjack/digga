@@ -53,9 +53,6 @@
     border-top: 1px solid var(--rule);
   }
   h2 {
-    font-family: var(--display);
-    font-weight: 400;
-    font-size: var(--text-lg);
     margin-bottom: 6px;
   }
   p {
