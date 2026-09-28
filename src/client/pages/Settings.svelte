@@ -19,6 +19,7 @@
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
   import { parseInteger } from "../../shared/integer.ts";
+  const id = $props.id();
   const filterPreview = new FilterPreview();
   const jobState = new SettingsJobs();
   const discogs = new DiscogsSettings();
@@ -286,12 +287,11 @@
         <h2>What to dig</h2>
         <p class="hint">Query-time filters: they narrow the loaded releases without reloading anything.</p>
         <div class="fields">
-          <div class="field">
-            <span class="name">Years</span>
+          <fieldset class="field">
+            <legend class="name">Years</legend>
             <div class="inline">
               <input
                 type="number"
-                inputmode="numeric"
                 aria-label="From year"
                 value={draft.filters.yearFrom ?? ""}
                 oninput={(event) => (draft!.filters.yearFrom = numberOrNull(event.currentTarget.value))}
@@ -299,7 +299,6 @@
               <span class="quiet">to</span>
               <input
                 type="number"
-                inputmode="numeric"
                 aria-label="To year"
                 value={draft.filters.yearTo ?? ""}
                 oninput={(event) => (draft!.filters.yearTo = numberOrNull(event.currentTarget.value))}
@@ -309,39 +308,49 @@
                 include releases without a year
               </label>
             </div>
-          </div>
-          <label class="field">
-            <span class="name">Formats</span>
+          </fieldset>
+          <div class="field">
+            <label class="name" for="{id}-formats">Formats</label>
             <input
+              id="{id}-formats"
+              aria-describedby="{id}-formats-hint"
               value={list(draft.filters.formats)}
               onchange={(event) => (draft!.filters.formats = parseList(event.currentTarget.value))}
               placeholder="any format"
             />
-            <span class="hint">Discogs format names, comma separated: Vinyl, CD, Cassette. Empty means any.</span>
-          </label>
-          <label class="field">
-            <span class="name">Countries</span>
+            <span class="hint" id="{id}-formats-hint">
+              Discogs format names, comma separated: Vinyl, CD, Cassette. Empty means any.
+            </span>
+          </div>
+          <div class="field">
+            <label class="name" for="{id}-countries">Countries</label>
             <input
+              id="{id}-countries"
+              aria-describedby="{id}-countries-hint"
               value={list(draft.filters.countries)}
               onchange={(event) => (draft!.filters.countries = parseList(event.currentTarget.value))}
               placeholder="any country"
             />
-            <span class="hint">As Discogs writes them: UK, Germany, US. Empty means any.</span>
-          </label>
-          <div class="field">
-            <span class="name">Videos</span>
+            <span class="hint" id="{id}-countries-hint">As Discogs writes them: UK, Germany, US. Empty means any.</span>
+          </div>
+          <fieldset class="field">
+            <legend class="name">Videos</legend>
             <label class="check">
-              <input type="checkbox" bind:checked={draft.filters.skipWithoutVideos} />
+              <input
+                type="checkbox"
+                aria-describedby="{id}-videos-hint"
+                bind:checked={draft.filters.skipWithoutVideos}
+              />
               skip releases without videos
             </label>
-            <span class="hint">
+            <span class="hint" id="{id}-videos-hint">
               Leaves out releases with no playable YouTube video on Discogs. A newer dump brings back those
               that got one since.
             </span>
-          </div>
+          </fieldset>
           {#if draft.universe.styles.length > 1}
-            <div class="field">
-              <span class="name">Styles</span>
+            <fieldset class="field">
+              <legend class="name">Styles</legend>
               <div class="inline wrap">
                 {#each draft.universe.styles as style (style)}
                   <label class="check">
@@ -361,7 +370,7 @@
                   </label>
                 {/each}
               </div>
-            </div>
+            </fieldset>
           {/if}
         </div>
         <p class="preview" aria-live="polite">
@@ -373,49 +382,85 @@
       </section>
 
       <section>
-        <h2>Order</h2>
-        <div class="options">
+        <h2 id="{id}-order">Order</h2>
+        <fieldset class="options" aria-labelledby="{id}-order">
           {#each QUEUE_STRATEGIES as strategy (strategy)}
-            <label class="option">
-              <input type="radio" name="strategy" value={strategy} bind:group={draft.queue.strategy} />
-              <span>{STRATEGY_COPY[strategy].label}</span>
-              <span class="hint">{STRATEGY_COPY[strategy].hint}</span>
-            </label>
+            <div class="option">
+              <input
+                type="radio"
+                id="{id}-{strategy}"
+                name="strategy"
+                value={strategy}
+                aria-describedby="{id}-{strategy}-hint"
+                bind:group={draft.queue.strategy}
+              />
+              <label for="{id}-{strategy}">{STRATEGY_COPY[strategy].label}</label>
+              <span class="hint" id="{id}-{strategy}-hint">{STRATEGY_COPY[strategy].hint}</span>
+            </div>
           {/each}
+        </fieldset>
+        <div class="field narrow">
+          <label class="name" for="{id}-batch">Batch</label>
+          <input
+            type="number"
+            id="{id}-batch"
+            min="1"
+            max="5000"
+            aria-describedby="{id}-batch-hint"
+            bind:value={draft.queue.limit}
+          />
+          <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
         </div>
-        <label class="field narrow">
-          <span class="name">Batch</span>
-          <input type="number" min="1" max="5000" bind:value={draft.queue.limit} />
-          <span class="hint">Releases fetched per queue request.</span>
-        </label>
       </section>
 
       <section>
         <h2>Player</h2>
         <div class="fields">
-          <label class="field">
-            <span class="name">Start at</span>
+          <div class="field">
+            <label class="name" for="{id}-start">Start at</label>
             <div class="inline">
-              <input type="range" min="0" max="0.95" step="0.05" bind:value={draft.player.startAtFraction} />
+              <input
+                type="range"
+                id="{id}-start"
+                min="0"
+                max="0.95"
+                step="0.05"
+                bind:value={draft.player.startAtFraction}
+              />
               <span>{Math.round(draft.player.startAtFraction * 100)}% into each track</span>
             </div>
-          </label>
-          <label class="field narrow">
-            <span class="name">Seek step</span>
-            <input type="number" min="1" max="120" bind:value={draft.player.seekStepSeconds} />
-            <span class="hint">Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span>
-          </label>
+          </div>
+          <div class="field narrow">
+            <label class="name" for="{id}-seek">Seek step</label>
+            <input
+              type="number"
+              id="{id}-seek"
+              min="1"
+              max="120"
+              aria-describedby="{id}-seek-hint"
+              bind:value={draft.player.seekStepSeconds}
+            />
+            <span class="hint" id="{id}-seek-hint">Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span>
+          </div>
         </div>
       </section>
 
       <section>
         <h2>Discogs</h2>
         <div class="fields">
-          <label class="field">
-            <span class="name">Username</span>
-            <input bind:value={draft.discogs.username} autocomplete="off" spellcheck="false" />
-            <span class="hint">Collection and wantlist imports read this account. The token lives in .env.</span>
-          </label>
+          <div class="field">
+            <label class="name" for="{id}-username">Username</label>
+            <input
+              id="{id}-username"
+              aria-describedby="{id}-username-hint"
+              bind:value={draft.discogs.username}
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span class="hint" id="{id}-username-hint">
+              Collection and wantlist imports read this account. The token lives in .env.
+            </span>
+          </div>
           <div class="field">
             <span class="name">Token</span>
             <p class:problem={discogs.tokenProblem !== null}>
@@ -436,18 +481,19 @@
               wantlist and reads of private lists need it.
             </span>
           </div>
-          <label class="field narrow">
-            <span class="name">Currency</span>
-            <select bind:value={draft.discogs.currency}>
+          <div class="field narrow">
+            <label class="name" for="{id}-currency">Currency</label>
+            <select id="{id}-currency" aria-describedby="{id}-currency-hint" bind:value={draft.discogs.currency}>
               {#each CURRENCIES as c (c)}<option value={c}>{c}</option>{/each}
             </select>
-            <span class="hint">For lowest prices from enrich.</span>
-          </label>
+            <span class="hint" id="{id}-currency-hint">For lowest prices from enrich.</span>
+          </div>
           <div class="field">
-            <span class="name">Maybe list</span>
+            <label class="name" for="{id}-maybe-list">Maybe list</label>
             <div class="inline wrap">
               <select
-                aria-label="Maybe list"
+                id="{id}-maybe-list"
+                aria-describedby="{id}-maybe-list-hint"
                 value={draft.discogs.maybeListId === null ? "" : String(draft.discogs.maybeListId)}
                 onchange={(event) =>
                   (draft!.discogs.maybeListId =
@@ -470,7 +516,7 @@
                 {#if discogs.listsState === "loading"}Reading lists…{:else if discogs.lists.length > 0}Reload lists{:else}Read my lists{/if}
               </button>
             </div>
-            <span class="hint">
+            <span class="hint" id="{id}-maybe-list-hint">
               {#if discogs.listsState === "error"}
                 Lists did not load: {discogs.listsError}.
               {:else}
@@ -486,20 +532,25 @@
         <h2>Universe</h2>
         <p class="hint">What the dump loader keeps. Changes apply to the next dump load.</p>
         <div class="fields">
-          <label class="field">
-            <span class="name">Styles</span>
+          <div class="field">
+            <label class="name" for="{id}-universe-styles">Styles</label>
             <input
+              id="{id}-universe-styles"
+              aria-describedby="{id}-universe-styles-hint"
               value={list(draft.universe.styles)}
               onchange={(event) => (draft!.universe.styles = parseList(event.currentTarget.value))}
             />
-            <span class="hint">Exact Discogs style names, comma separated: Drum n Bass, Jungle.</span>
-          </label>
-          <div class="field">
-            <span class="name">Load years</span>
+            <span class="hint" id="{id}-universe-styles-hint">
+              Exact Discogs style names, comma separated: Drum n Bass, Jungle.
+            </span>
+          </div>
+          <fieldset class="field">
+            <legend class="name">Load years</legend>
             <div class="inline">
               <input
                 type="number"
                 aria-label="Load from year"
+                aria-describedby="{id}-load-years-hint"
                 value={draft.universe.loadYears?.[0] ?? ""}
                 oninput={(event) => {
                   const from = numberOrNull(event.currentTarget.value);
@@ -511,6 +562,7 @@
               <input
                 type="number"
                 aria-label="Load to year"
+                aria-describedby="{id}-load-years-hint"
                 value={draft.universe.loadYears?.[1] ?? ""}
                 oninput={(event) => {
                   const to = numberOrNull(event.currentTarget.value);
@@ -518,9 +570,9 @@
                   draft!.universe.loadYears = from !== null && to !== null ? [from, to] : null;
                 }}
               />
-              <span class="hint">Leave either empty to load every year.</span>
+              <span class="hint" id="{id}-load-years-hint">Leave either empty to load every year.</span>
             </div>
-          </div>
+          </fieldset>
         </div>
       </section>
 
@@ -702,6 +754,17 @@
     display: grid;
     gap: 16px;
   }
+  fieldset {
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  /* A floated legend lays out as an ordinary grid item instead of sitting in the border. */
+  legend {
+    float: left;
+    padding: 0;
+  }
   .field {
     display: grid;
     grid-template-columns: 9em minmax(0, 1fr);
@@ -765,6 +828,9 @@
     grid-template-columns: auto 12em 1fr;
     align-items: baseline;
     gap: 12px;
+  }
+  .option label {
+    cursor: pointer;
   }
   .preview {
     min-height: 1.45em;
