@@ -31,6 +31,7 @@ export const JOB_TYPES = [
   "import_history",
   "import_list",
   "enrich",
+  "enrich_twelves",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
@@ -181,6 +182,7 @@ export interface HistoryImportProgress {
 export interface JobProgressByType {
   dump_load: DumpLoadProgress;
   enrich: EnrichProgress;
+  enrich_twelves: EnrichProgress;
   import_history: HistoryImportProgress;
   import_collection: ImportProgress;
   import_wantlist: ImportProgress;

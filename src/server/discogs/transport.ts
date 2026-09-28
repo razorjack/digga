@@ -1,4 +1,5 @@
 import type { DiscogsClientOptions, RateLimitState } from "./client.ts";
+import { DISCOGS_REQUEST_MS } from "../../shared/rate.ts";
 import { DiscogsApiError } from "./errors.ts";
 
 export const DEFAULT_USER_AGENT = "Digga/0.1 (+https://github.com/razorjack/digga)";
@@ -60,7 +61,7 @@ export class DiscogsTransport {
   }
 
   async #waitForQuota(): Promise<void> {
-    const interval = this.#options.minIntervalMs ?? 1100;
+    const interval = this.#options.minIntervalMs ?? DISCOGS_REQUEST_MS;
     const wait = this.#lastRequestAt === null ? 0 : this.#lastRequestAt + interval - this.#now();
     if (wait > 0) await this.#sleep(wait);
     if (this.#state.remaining !== null && this.#state.remaining <= 1) {

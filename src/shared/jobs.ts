@@ -9,6 +9,12 @@ const ImportProgressSchema = z.object({
   stubs: count,
   verdictsWritten: count,
 });
+const EnrichProgressSchema = z.object({
+  done: count,
+  total: count,
+  failed: count,
+  currentReleaseId: count.nullable(),
+});
 const base = {
   id: z.string(),
   status: z.enum(JOB_STATUSES),
@@ -32,17 +38,11 @@ export const JobSchema = z.discriminatedUnion("type", [
       })
       .nullable(),
   }),
+  z.object({ ...base, type: z.literal("enrich"), progress: EnrichProgressSchema.nullable() }),
   z.object({
     ...base,
-    type: z.literal("enrich"),
-    progress: z
-      .object({
-        done: count,
-        total: count,
-        failed: count,
-        currentReleaseId: count.nullable(),
-      })
-      .nullable(),
+    type: z.literal("enrich_twelves"),
+    progress: EnrichProgressSchema.nullable(),
   }),
   z.object({
     ...base,

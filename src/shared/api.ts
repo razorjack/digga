@@ -162,6 +162,16 @@ export interface ListenLogResponse {
   heardKey: string | null;
 }
 
+/** The verdicts Twelves shows on its shelves. */
+export const TWELVES_STATUSES: VerdictStatus[] = [
+  "accepted",
+  "wantlist",
+  "collection",
+  "maybe",
+  "candidate",
+  "snoozed",
+];
+
 // GET /api/twelves?status=accepted,wantlist
 export const TwelvesQuerySchema = z.object({
   status: z
@@ -207,6 +217,8 @@ export interface Stats {
   };
   verdicts: Record<VerdictStatus, number>;
   remaining: number;
+  /** Records still to dig that enrich has given market data, such as the want count. */
+  remainingEnriched: number;
   rate: {
     verdictsPerHour: number | null;
     sessions: number;
@@ -223,10 +235,16 @@ export interface Stats {
 export type SettingsResponse = Config;
 
 // POST /api/jobs/enrich
+export const ENRICH_TARGETS = ["queue", "twelves"] as const;
+export type EnrichTarget = (typeof ENRICH_TARGETS)[number];
 export const EnrichJobInputSchema = z.object({
-  ahead: z.number().int().positive().max(5000).default(200),
+  /** The next records in the queue, or the records on the Twelves shelves. */
+  target: z.enum(ENRICH_TARGETS).default("queue"),
+  /** How many records; null enriches all of them. */
+  ahead: z.number().int().positive().nullable().default(200),
 });
 export type EnrichJobInput = z.input<typeof EnrichJobInputSchema>;
+export type EnrichJobOptions = z.infer<typeof EnrichJobInputSchema>;
 
 // POST /api/jobs/dump-load
 export const DumpLoadJobInputSchema = z.object({

@@ -8,7 +8,12 @@ import {
   countVerdictsByStatus,
   triageDecisionTimes,
 } from "./db/verdicts.ts";
-import { countRemaining, countUniverseKeys, countUniverseReleases } from "./queue/query.ts";
+import {
+  countEnrichedRemaining,
+  countRemaining,
+  countUniverseKeys,
+  countUniverseReleases,
+} from "./queue/query.ts";
 
 export function computeStats(db: Db, config: Config): Stats {
   const remaining = countRemaining(db, config.filters);
@@ -21,6 +26,7 @@ export function computeStats(db: Db, config: Config): Stats {
     },
     verdicts: countVerdictsByStatus(db),
     remaining,
+    remainingEnriched: countEnrichedRemaining(db, config.filters),
     rate: rateSummary(triageDecisionTimes(db), remaining),
     dump: {
       date: getMeta(db, "dump_date") ?? null,

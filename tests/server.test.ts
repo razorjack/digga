@@ -250,6 +250,16 @@ describe("HTTP API", () => {
     expect((await get("/api/jobs/missing")).status).toBe(404);
   });
 
+  it("enriches the Twelves records as a job of its own", async () => {
+    const started = await send<Job>("POST", "/api/jobs/enrich", { target: "twelves", ahead: null });
+    expect(started.status).toBe(202);
+    expect(started.body.type).toBe("enrich_twelves");
+    const done = await waitForJob(started.body.id);
+    expect(done).toMatchObject({ status: "done", progress: { done: 0, total: 0 } });
+    expect((await send("POST", "/api/jobs/enrich", { target: "shelf" })).status).toBe(400);
+    expect((await get<Stats>("/api/stats")).body.remainingEnriched).toBe(0);
+  });
+
   it("404s unknown routes", async () => {
     expect((await get("/api/nothing")).status).toBe(404);
   });

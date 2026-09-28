@@ -7,8 +7,7 @@ import {
   ImportJobInputSchema,
   type JobsResponse,
 } from "../../shared/api.ts";
-import { enrich } from "../jobs/enrich.ts";
-import { startDumpLoad, startImport } from "../jobs/start.ts";
+import { startDumpLoad, startEnrich, startImport } from "../jobs/start.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseJson, refuseInSandbox } from "./request.ts";
 
@@ -22,23 +21,9 @@ export function registerJobsRoutes(api: Hono, context: AppContext): void {
 }
 
 async function enrichJob(request: Context, context: AppContext) {
-  const { db, logger } = context;
   const body = await parseJson(request, EnrichJobInputSchema);
   if (!body.ok) return body.response;
-  const config = context.getConfig();
-  const job = context.jobs.run("enrich", ({ signal, onProgress }) =>
-    enrich(
-      { db, discogs: context.getDiscogs(), logger },
-      {
-        ahead: body.data.ahead,
-        currency: config.discogs.currency,
-        filters: config.filters,
-        strategy: config.queue.strategy,
-        signal,
-      },
-      onProgress,
-    ),
-  );
+  const job = startEnrich(context, body.data);
   return request.json(job, 202);
 }
 

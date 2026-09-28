@@ -1,6 +1,7 @@
 import {
   dumpLoad,
   enrich,
+  enrichTwelves,
   importCollection,
   importHistory,
   importList,
@@ -12,11 +13,14 @@ import { createServer } from "../server/server.ts";
 import { computeStats } from "../server/stats.ts";
 import type { SeedImportResult } from "../server/importers/collection.ts";
 import type { ListImportResult } from "../server/importers/list.ts";
+import type { EnrichResult } from "../server/jobs/enrich.ts";
+import type { Db } from "../server/db/db.ts";
 import {
   parseDumpOptions,
   parseEnrichOptions,
   parseImportOptions,
   parseServeOptions,
+  type EnrichCommand,
   type ImportCommand,
 } from "./options.ts";
 import { showBackup, showDump, showEnrichment, showImport, showStats } from "./report.ts";
@@ -76,7 +80,7 @@ async function runImport(runtime: Runtime, command: ImportCommand): Promise<Impo
 }
 
 export async function cmdEnrich(runtime: Runtime, args: string[]): Promise<void> {
-  const options = parseEnrichOptions(args, runtime.config);
+  const command = parseEnrichOptions(args, runtime.config);
   const controller = new AbortController();
   const stop = () => {
     runtime.logger.warn("stopping after the current release");
@@ -84,17 +88,33 @@ export async function cmdEnrich(runtime: Runtime, args: string[]): Promise<void>
   };
   process.once("SIGINT", stop);
   try {
-    const { result } = await withDatabase(runtime, (db) => {
-      const jobs = createJobRunner(db, runtime.logger);
-      const deps = { db, discogs: discogsFor(runtime), logger: runtime.logger };
-      return jobs.runAndWait("enrich", ({ onProgress }) =>
-        enrich(deps, { ...options, signal: controller.signal }, onProgress),
-      );
-    });
+    const result = await withDatabase(runtime, (db) =>
+      runEnrich(runtime, db, command, controller.signal),
+    );
     showEnrichment(result);
   } finally {
     process.removeListener("SIGINT", stop);
   }
+}
+
+async function runEnrich(
+  runtime: Runtime,
+  db: Db,
+  command: EnrichCommand,
+  signal: AbortSignal,
+): Promise<EnrichResult> {
+  const jobs = createJobRunner(db, runtime.logger);
+  const deps = { db, discogs: discogsFor(runtime), logger: runtime.logger };
+  if (command.target === "twelves") {
+    const { result } = await jobs.runAndWait("enrich_twelves", ({ onProgress }) =>
+      enrichTwelves(deps, { ...command.options, signal }, onProgress),
+    );
+    return result;
+  }
+  const { result } = await jobs.runAndWait("enrich", ({ onProgress }) =>
+    enrich(deps, { ...command.options, signal }, onProgress),
+  );
+  return result;
 }
 
 export async function cmdStats(runtime: Runtime): Promise<void> {

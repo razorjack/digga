@@ -1,4 +1,5 @@
 import { prepareVideos } from "../../shared/videos.ts";
+import { TWELVES_STATUSES } from "../../shared/api.ts";
 import type { Filters, QueueStrategy } from "../../shared/config.ts";
 import type { EnrichProgress } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
@@ -7,6 +8,10 @@ import { DiscogsApiError, type DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsRelease } from "../discogs/types.ts";
 import type { Logger } from "../logger.ts";
 import { queryQueue } from "../queue/query.ts";
+import { releaseIdsToRefresh } from "../queue/twelves.ts";
+
+/** A limit larger than any queue, for enriching every record. */
+const EVERY_RECORD = Number.MAX_SAFE_INTEGER;
 
 export interface EnrichDeps {
   db: Db;
@@ -15,13 +20,16 @@ export interface EnrichDeps {
 }
 
 export interface EnrichOptions {
-  /** Enrich the next N unenriched items in current queue order. */
-  ahead: number;
+  /** How many records to enrich; null enriches every record the job selects. */
+  ahead: number | null;
   currency: string;
+  signal?: AbortSignal;
+}
+
+export interface QueueEnrichOptions extends EnrichOptions {
   filters: Filters;
   strategy: QueueStrategy;
   seed?: number | null;
-  signal?: AbortSignal;
 }
 
 export interface EnrichResult extends EnrichProgress {
@@ -63,44 +71,76 @@ export function applyEnrichment(
   })();
 }
 
+/** Enriches the next records in queue order that enrich has not touched yet. */
 export async function enrich(
   deps: EnrichDeps,
-  options: EnrichOptions,
+  options: QueueEnrichOptions,
   onProgress?: (p: EnrichProgress) => void,
 ): Promise<EnrichResult> {
   const items = queryQueue(deps.db, {
     filters: options.filters,
     strategy: options.strategy,
-    limit: options.ahead,
+    limit: options.ahead ?? EVERY_RECORD,
     seed: options.seed ?? 0,
     unenrichedOnly: true,
   });
+  const result = await enrichReleases(
+    deps,
+    items.map((item) => item.id),
+    options,
+    onProgress,
+  );
+  deps.logger.info(`enrich: ${describeResult(result)}`);
+  return result;
+}
+
+/** Refreshes the records on the Twelves shelves: never enriched first, then the oldest data. */
+export async function enrichTwelves(
+  deps: EnrichDeps,
+  options: EnrichOptions,
+  onProgress?: (p: EnrichProgress) => void,
+): Promise<EnrichResult> {
+  const releaseIds = releaseIdsToRefresh(deps.db, TWELVES_STATUSES, options.ahead ?? EVERY_RECORD);
+  const result = await enrichReleases(deps, releaseIds, options, onProgress);
+  deps.logger.info(`enrich twelves: ${describeResult(result)}`);
+  return result;
+}
+
+async function enrichReleases(
+  deps: EnrichDeps,
+  releaseIds: number[],
+  options: EnrichOptions,
+  onProgress?: (p: EnrichProgress) => void,
+): Promise<EnrichResult> {
   const progress: EnrichProgress = {
     done: 0,
-    total: items.length,
+    total: releaseIds.length,
     currentReleaseId: null,
     failed: 0,
   };
   let aborted = false;
-  for (const item of items) {
+  for (const releaseId of releaseIds) {
     if (options.signal?.aborted) {
       aborted = true;
       break;
     }
-    progress.currentReleaseId = item.id;
+    progress.currentReleaseId = releaseId;
     onProgress?.({ ...progress });
-    if (await enrichRelease(deps, item.id, options.currency)) progress.done += 1;
+    if (await enrichRelease(deps, releaseId, options.currency)) progress.done += 1;
     else progress.failed += 1;
   }
   progress.currentReleaseId = null;
   onProgress?.({ ...progress });
-  deps.logger.info(
-    `enrich: ${progress.done}/${progress.total} done, ${progress.failed} failed${aborted ? ", aborted" : ""}`,
-  );
   return { ...progress, aborted };
 }
 
-async function enrichRelease(
+function describeResult(result: EnrichResult): string {
+  const aborted = result.aborted ? ", aborted" : "";
+  return `${result.done}/${result.total} done, ${result.failed} failed${aborted}`;
+}
+
+/** Fetches one release from Discogs and stores its market data and videos. False on failure. */
+export async function enrichRelease(
   deps: EnrichDeps,
   releaseId: number,
   currency: string,

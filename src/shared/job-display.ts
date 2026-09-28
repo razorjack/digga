@@ -9,7 +9,8 @@ export function jobProgress(job: Job): { text: string; fraction: number | null }
         text: `scanned ${formatCount(job.progress.scanned)}, matched ${formatCount(job.progress.matched)}`,
         fraction: null,
       };
-    case "enrich": {
+    case "enrich":
+    case "enrich_twelves": {
       const { done, total, failed } = job.progress;
       const failures = failed > 0 ? `, ${formatCount(failed)} failed` : "";
       return {
@@ -40,6 +41,7 @@ export const JOB_LABEL: Record<JobType, string> = {
   import_history: "Import browser history",
   import_list: "Import Maybe list",
   enrich: "Enrich",
+  enrich_twelves: "Enrich Twelves",
 };
 
 export function elapsed(job: Job): string {

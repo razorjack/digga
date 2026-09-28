@@ -2,7 +2,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRelease, getVideos } from "../src/server/db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsRelease } from "../src/server/discogs/types.ts";
-import { enrich } from "../src/server/jobs/enrich.ts";
+import { upsertVerdict } from "../src/server/db/verdicts.ts";
+import { enrich, enrichTwelves } from "../src/server/jobs/enrich.ts";
+import { countEnrichedRemaining } from "../src/server/queue/query.ts";
 import { filters, fixtureDb, silentLogger } from "./helpers.ts";
 
 function fakeDiscogs(handler: (id: number) => Promise<DiscogsRelease>): DiscogsClient {
@@ -109,6 +111,44 @@ describe("enrich", () => {
         { ahead: 1, currency: "EUR", filters: filters({}), strategy: "label_sweep" },
       ),
     ).rejects.toBeInstanceOf(DiscogsApiError);
+    db.close();
+  });
+
+  it("enriches every record to dig when no count is given", async () => {
+    const db = await fixtureDb();
+    const asked: number[] = [];
+    const discogs = fakeDiscogs((id) => {
+      asked.push(id);
+      return Promise.resolve(apiRelease(id));
+    });
+    const queue = filters({ includeUnknownYear: true });
+    expect(countEnrichedRemaining(db, queue)).toBe(0);
+    const result = await enrich(
+      { db, discogs, logger: silentLogger },
+      { ahead: null, currency: "EUR", filters: queue, strategy: "label_sweep" },
+    );
+    expect(result).toMatchObject({ done: 3, total: 3 });
+    expect(asked).toEqual([1006, 1001, 1003]);
+    expect(countEnrichedRemaining(db, queue)).toBe(3);
+    db.close();
+  });
+
+  it("refreshes the Twelves records, never enriched first, then the oldest", async () => {
+    const db = await fixtureDb();
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1002 });
+    upsertVerdict(db, { key: "m:506", status: "snoozed", source: "triage" });
+    upsertVerdict(db, { key: "r:1003", status: "rejected", source: "triage" });
+    const asked: number[] = [];
+    const discogs = fakeDiscogs((id) => {
+      asked.push(id);
+      return Promise.resolve(apiRelease(id));
+    });
+    const deps = { db, discogs, logger: silentLogger };
+    await enrichTwelves(deps, { ahead: 1, currency: "EUR" });
+    await enrichTwelves(deps, { ahead: null, currency: "EUR" });
+    // The want shows the pressing it was made on; a skip is not on a shelf.
+    expect(asked).toEqual([1002, 1006, 1002]);
+    expect(getRelease(db, 1006)!.snapshot.communityWant).toBe(250);
     db.close();
   });
 });

@@ -55,7 +55,7 @@ npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
 npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
 # 3. Prices, have/want, fresh videos for the next 200 queue items
-npm run digga -- enrich --ahead 200
+npm run digga -- enrich --ahead 200                     # or --all; --twelves refreshes Twelves
 npm run digga -- stats
 npm run digga -- backup                                # copy the database into data/backups now
 ```

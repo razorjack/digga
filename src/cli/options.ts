@@ -5,6 +5,7 @@ import { BROWSERS } from "../shared/api.ts";
 import type { SeedImportOptions } from "../server/importers/collection.ts";
 import type { HistoryImportOptions } from "../server/importers/history.ts";
 import type { ListImportOptions } from "../server/importers/list.ts";
+import type { EnrichOptions, QueueEnrichOptions } from "../server/jobs/enrich.ts";
 import { integerOption } from "./args.ts";
 
 export type ImportCommand =
@@ -62,14 +63,29 @@ export function parseImportOptions(args: string[], config: Config, tempDir: stri
   return { kind, options: { username: config.discogs.username } };
 }
 
-export function parseEnrichOptions(args: string[], config: Config) {
-  const { values } = parseArgs({ args, options: { ahead: { type: "string" } } });
-  return {
-    ahead: integerOption(values.ahead, "ahead") ?? 200,
-    currency: config.discogs.currency,
-    filters: config.filters,
-    strategy: config.queue.strategy,
-  };
+export type EnrichCommand =
+  | { target: "queue"; options: QueueEnrichOptions }
+  | { target: "twelves"; options: EnrichOptions };
+
+export function parseEnrichOptions(args: string[], config: Config): EnrichCommand {
+  const { values } = parseArgs({
+    args,
+    options: {
+      ahead: { type: "string" },
+      all: { type: "boolean", default: false },
+      twelves: { type: "boolean", default: false },
+    },
+  });
+  if (values.all && values.ahead !== undefined) throw new Error("use --ahead N or --all, not both");
+  const limit = integerOption(values.ahead, "ahead", { min: 1 });
+  const currency = config.discogs.currency;
+  if (values.twelves) {
+    const ahead = values.all ? null : (limit ?? null);
+    return { target: "twelves", options: { ahead, currency } };
+  }
+  const ahead = values.all ? null : (limit ?? 200);
+  const queue = { filters: config.filters, strategy: config.queue.strategy };
+  return { target: "queue", options: { ahead, currency, ...queue } };
 }
 
 export function parseServeOptions(args: string[]) {

@@ -394,6 +394,7 @@ class SandboxApi implements Api {
       dug: Math.max(0, stats.dug + this.#dugDelta()),
       verdicts: counts,
       remaining,
+      remainingEnriched: Math.min(stats.remainingEnriched, remaining),
       rate,
       heardTracks: stats.heardTracks + this.#heard.size,
     };

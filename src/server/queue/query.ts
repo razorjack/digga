@@ -166,6 +166,19 @@ export function countRemaining(db: Db, filters: Filters): number {
   return row.n;
 }
 
+/** Records still to dig whose representative release has market data from enrich. */
+export function countEnrichedRemaining(db: Db, filters: Filters): number {
+  const where = buildFilterWhere(filters, { includeDecided: false });
+  const row = db
+    .prepare(
+      `WITH base AS (${BASE_SELECT}${where.sql}
+), ${RANKED}
+SELECT COUNT(*) AS n FROM ranked WHERE rn = 1 AND enriched_at IS NOT NULL`,
+    )
+    .get(...where.params) as { n: number };
+  return row.n;
+}
+
 /** Triage keys in the universe, optionally after the query-time filters. */
 export function countUniverseKeys(db: Db, filters: Filters | null): number {
   if (filters === null) {

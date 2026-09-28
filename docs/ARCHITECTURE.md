@@ -73,15 +73,19 @@ every listen (proof of coverage) and feeds `heard_tracks`, keyed by the normaliz
 
 ## Jobs
 
-The six jobs (`dumpLoad`, `importCollection`, `importWantlist`, `importHistory`, `importList`,
-`enrich`) are
+The jobs (`dumpLoad`, `importCollection`, `importWantlist`, `importHistory`, `importList`,
+`enrich`, `enrichTwelves`) are
 async functions in `src/server/jobs/` taking explicit dependencies and an `onProgress` callback.
 `jobs/runner.ts` creates the `jobs` row, streams progress into `progress_json` and records the
 outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits for them. The dump
 loader is the only CPU-heavy job and runs in a `worker_threads` Worker
 (`jobs/dump-load-worker.ts`) with its own database connection when started from the server. The
 CLI runs it inline. `enrich` is network-bound, sequential (Discogs allows 60 requests/minute) and
-stops at the next release when its `AbortSignal` fires.
+stops at the next release when its `AbortSignal` fires. It works through the next unenriched
+records in queue order, a given number or all of them; `enrichTwelves` refreshes the records on
+the Twelves shelves instead, those never enriched first, then the oldest data, because the queue
+skips records once they have a verdict. `Stats.remainingEnriched` counts the records still to dig
+that have market data, so Settings can say how much of the queue "most wanted first" can order.
 
 ## Backups and exports
 

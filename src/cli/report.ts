@@ -60,6 +60,9 @@ export function showStats(stats: Stats, filters: Filters): void {
   );
   console.log(`heard:     ${stats.heardTracks.toLocaleString()} tracks`);
   console.log(
+    `enriched:  ${stats.remainingEnriched.toLocaleString()} of ${stats.remaining.toLocaleString()} records to dig`,
+  );
+  console.log(
     `dump:      ${stats.dump.date ?? (stats.dump.loadedAt ? "unknown date" : "not loaded")}${stats.dump.loadedAt ? ` (loaded ${stats.dump.loadedAt})` : ""}`,
   );
   const rate =

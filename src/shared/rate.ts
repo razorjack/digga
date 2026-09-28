@@ -46,3 +46,11 @@ export function rateSummary(
     etaHours: rate === null ? null : Math.round((remaining / rate) * 10) / 10,
   };
 }
+
+/** Gap between Discogs requests; 1100 ms keeps an authenticated client under 60 a minute. */
+export const DISCOGS_REQUEST_MS = 1100;
+
+/** How long enriching this many records takes at the Discogs request rate. */
+export function enrichHours(records: number): number {
+  return (records * DISCOGS_REQUEST_MS) / 3_600_000;
+}

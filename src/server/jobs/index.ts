@@ -1,9 +1,9 @@
 /**
- * The five jobs, as plain async library functions taking explicit dependencies.
+ * The jobs, as plain async library functions taking explicit dependencies.
  * The CLI wraps them, the HTTP routes wrap them, an Electron menu will wrap them.
  */
 export { dumpLoad } from "./dump-load.ts";
-export { enrich } from "./enrich.ts";
+export { enrich, enrichTwelves } from "./enrich.ts";
 export { importCollection } from "../importers/collection.ts";
 export { importWantlist } from "../importers/wantlist.ts";
 export { importHistory } from "../importers/history.ts";

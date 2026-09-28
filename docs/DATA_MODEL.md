@@ -102,7 +102,7 @@ wantlist import turns it into a `wantlist` seed by rank.
 ## jobs
 
 `id` (uuid), `type` (`dump_load`, `import_collection`, `import_wantlist`, `import_history`,
-`import_list`, `enrich`),
+`import_list`, `enrich`, `enrich_twelves`),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`
 with error `interrupted`.

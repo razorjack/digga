@@ -31,3 +31,24 @@ export function queryTwelves(
   }
   return items;
 }
+
+/**
+ * Release ids of the records with these verdicts, for refreshing their market data: records never
+ * enriched first, then the oldest data. A verdict shows the release it was made on, else the
+ * record's main release.
+ */
+export function releaseIdsToRefresh(db: Db, statuses: VerdictStatus[], limit: number): number[] {
+  const placeholders = statuses.map(() => "?").join(", ");
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT r.id, r.enriched_at FROM verdicts v
+       JOIN releases r ON r.id = COALESCE(v.release_id, (
+         SELECT k.id FROM releases k WHERE k.triage_key = v.key
+         ORDER BY k.is_main_release DESC, k.id LIMIT 1))
+       WHERE v.status IN (${placeholders})
+       ORDER BY r.enriched_at IS NOT NULL, r.enriched_at, r.id
+       LIMIT ?`,
+    )
+    .all(...statuses, limit) as { id: number }[];
+  return rows.map((row) => row.id);
+}

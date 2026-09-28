@@ -208,3 +208,13 @@ Chronological. Each entry records a choice made without asking and why.
 65. **Exports read the database.** `decisions.json`, `verdicts.csv` and `track-marks.csv` hold what
     is saved, with release artist, title, label and catalogue number so they read without Digga.
     Sandbox verdicts stay in the browser tab and are not in them; Settings says so.
+66. **Enrich can cover the whole queue and refresh Twelves.** `ahead: null` (`enrich --all`) works
+    through every unenriched record still to dig; at the 1.1 s request gap that is about two hours
+    for 7,000 records. The queue leaves out records with a verdict, so records judged before they
+    were enriched, and imported wantlist and collection stubs, never got prices; `enrich_twelves`
+    is a job type of its own that refreshes the Twelves records, never enriched first, then the
+    oldest data. It is a separate type so the jobs table says which one ran.
+67. **Settings says how much of the queue has a want count.** "Most wanted first" sorts by
+    `community_want`, which only enrich fills, so on an unenriched queue it falls back to id
+    order. The option's hint counts the records to dig that have one, and a warning offers
+    "enrich all" with its duration.

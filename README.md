@@ -158,7 +158,8 @@ Fetch prices, have/want counts, and refreshed video links for the next 200 recor
 npm run digga -- enrich --ahead 200
 ```
 
-Enrichment is optional for listening to video links already present in the dump. These setup
+Enrichment is optional for listening to video links already present in the dump. The "most wanted
+first" order needs it: `enrich --all` fetches every record still to dig, about one a second. These setup
 jobs are also available in Settings.
 
 ### 4. Build and start
@@ -181,6 +182,8 @@ On later runs, `npm run serve` is enough. Rebuild after updating the frontend.
 | ------------------------------------- | --------------------------------------------------------- |
 | `npm run digga -- stats`              | Show catalogue size, verdicts, remaining records, and ETA |
 | `npm run digga -- enrich --ahead 200` | Refresh data for the next queue items                     |
+| `npm run digga -- enrich --all`       | Fetch data for every record still to dig                  |
+| `npm run digga -- enrich --twelves`   | Refresh prices of the records in Twelves                  |
 | `npm run digga -- import list`        | Import the Maybe list selected in Settings                |
 | `npm run digga -- backup`             | Copy the database into `data/backups` now                 |
 | `npm run digga -- serve --port 3457`  | Use a different port                                      |
