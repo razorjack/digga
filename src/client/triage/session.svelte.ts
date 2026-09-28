@@ -1,6 +1,6 @@
 import type { QueueItem, ReleaseDetail, TwelvesItem } from "../../shared/api.ts";
 import type { TrackMark, Verdict } from "../../shared/types.ts";
-import { type Api, api } from "../api.ts";
+import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
@@ -36,8 +36,10 @@ const REFILL_BELOW = 8;
 /** Release details fetched ahead of the cursor (the next one also feeds the preloading deck). */
 const PREFETCH = 3;
 const MAX_QUEUE_LIMIT = 5000;
-/** A want waits this long before the wantlist push, so a quick Z cancels it instead. */
-const PUSH_GRACE_MS = 1500;
+export interface SessionOptions {
+  /** A want waits this long before the wantlist push, so a quick Z cancels it instead. */
+  pushGraceMs?: number;
+}
 
 export class TriageSession {
   upcoming = $state.raw<QueueItem[]>([]);
@@ -59,15 +61,18 @@ export class TriageSession {
   nextDetail = $derived(this.next ? (this.details.get(this.next.id) ?? null) : null);
   finished = $derived(this.status === "ready" && this.upcoming.length === 0 && this.exhausted);
 
+  #api: AppApi;
+  #pushGraceMs: number;
   #batch = 200;
   #loading = new Set<number>();
   #refilling: Promise<void> | null = null;
   /** Bumped by start(); a refill from an older generation drops its result. */
   #generation = 0;
   /** The api mode the history and details belong to; see AppApi.generation. */
-  #apiGeneration = api.generation;
-  /** Release ids by triage key, for wants whose wantlist push went through. */
-  #pushed = new Map<string, number>();
+  #apiGeneration: number;
+  /** Release ids by triage key that this session put on the Discogs wantlist. */
+  #onWantlist = new Map<string, number>();
+  #wantlistWrites: Promise<unknown> = Promise.resolve();
   /** The queue as it was when a round started. */
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
@@ -77,9 +82,17 @@ export class TriageSession {
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
 
+  constructor(api: AppApi = appApi, opts: SessionOptions = {}) {
+    this.#api = api;
+    this.#apiGeneration = api.generation;
+    this.#pushGraceMs = opts.pushGraceMs ?? 1500;
+  }
+
   async start(batch: number): Promise<void> {
     // Undo and the details' overlays belong to the mode they were made in.
-    if (api.generation !== this.#apiGeneration) this.#forget();
+    if (this.#api.generation !== this.#apiGeneration) this.#forget();
+    // Passes made before a round still belong to the queue.
+    if (this.#queueBeforeRound) this.passed = this.#queueBeforeRound.passed;
     this.#batch = batch;
     this.#generation += 1;
     this.#refilling = null;
@@ -101,7 +114,7 @@ export class TriageSession {
   judge(status: TriageStatus): void {
     const item = this.current;
     if (!item) return;
-    const client = api.pinned();
+    const client = this.#api.pinned();
     const previous = this.#roundVerdicts.get(item.triageKey) ?? null;
     const entry: HistoryEntry = { kind: "verdict", item, status, previous };
     this.upcoming = this.upcoming.slice(1);
@@ -138,7 +151,7 @@ export class TriageSession {
       }
       stats.refreshSoon();
       // Outside the write chain: a slow Discogs push must not hold back the next verdicts.
-      if (status === "accepted") void this.#pushToWantlist(entry, id, client);
+      if (status === "accepted") void this.#pushAfterGrace(entry, id, client);
     });
   }
 
@@ -195,7 +208,13 @@ export class TriageSession {
     const judged = new Set(
       this.history.filter((h) => h.kind === "verdict").map((h) => h.item.triageKey),
     );
-    this.upcoming = saved.upcoming.filter((i) => !judged.has(i.triageKey));
+    // Queue releases that undo brought back during the round stay in front.
+    const returned = this.upcoming.filter((i) => !this.#roundVerdicts.has(i.triageKey));
+    const returnedKeys = new Set(returned.map((i) => i.triageKey));
+    this.upcoming = [
+      ...returned,
+      ...saved.upcoming.filter((i) => !judged.has(i.triageKey) && !returnedKeys.has(i.triageKey)),
+    ];
     this.passed = saved.passed;
     this.exhausted = saved.exhausted;
     this.#afterMove();
@@ -218,8 +237,12 @@ export class TriageSession {
     }
     const { item } = entry;
     this.history = this.history.slice(0, -1);
-    if (entry.kind === "pass")
-      this.passed = this.passed.filter((i) => i.triageKey !== item.triageKey);
+    if (entry.kind === "pass") {
+      const keep = (i: QueueItem) => i.triageKey !== item.triageKey;
+      this.passed = this.passed.filter(keep);
+      const saved = this.#queueBeforeRound;
+      if (saved) this.#queueBeforeRound = { ...saved, passed: saved.passed.filter(keep) };
+    }
     this.upcoming = [item, ...this.upcoming.filter((i) => i.triageKey !== item.triageKey)];
     this.slip = {
       kind: "undo",
@@ -231,12 +254,8 @@ export class TriageSession {
     if (entry.kind !== "verdict") return;
     stats.session -= 1;
     this.#bumpStats(entry.status, entry.previous, -1);
-    const client = api.pinned();
-    const pushedId = this.#pushed.get(item.triageKey);
-    if (entry.status === "accepted" && pushedId !== undefined) {
-      this.#pushed.delete(item.triageKey);
-      void this.#removeFromWantlist(pushedId, client);
-    }
+    const client = this.#api.pinned();
+    if (entry.status === "accepted") void this.#takeOffWantlist(item, client);
     const { previous } = entry;
     void this.#write(async () => {
       try {
@@ -265,7 +284,7 @@ export class TriageSession {
     const next = track.mark === mark ? null : mark;
     const tracks = detail.tracks.map((t) => (t.position === position ? { ...t, mark: next } : t));
     this.details = new Map(this.details).set(releaseId, { ...detail, tracks });
-    const client = api.pinned();
+    const client = this.#api.pinned();
     void this.#write(async () => {
       try {
         await client.postTrackVerdict({ releaseId, position, mark: next });
@@ -286,19 +305,13 @@ export class TriageSession {
     this.#flash(message);
   }
 
-  async #pushToWantlist(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, PUSH_GRACE_MS));
+  async #pushAfterGrace(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, this.#pushGraceMs));
     if (!this.history.includes(entry)) return;
-    const { item } = entry;
-    let push: "done" | "failed" = "done";
+    let push: "done" | "failed" | null;
     try {
-      await client.pushToWantlist(item.id);
-      if (!this.history.includes(entry)) {
-        // Undone while the request ran.
-        void this.#removeFromWantlist(item.id, client);
-        return;
-      }
-      this.#pushed.set(item.triageKey, item.id);
+      await this.#syncWantlist(entry.item, client);
+      push = this.#onWantlist.has(entry.item.triageKey) ? "done" : null;
     } catch (e) {
       push = "failed";
       this.#flash(
@@ -309,9 +322,9 @@ export class TriageSession {
     if (slip?.kind === "verdict" && slip.id === slipId) this.slip = { ...slip, push };
   }
 
-  async #removeFromWantlist(releaseId: number, client: Api): Promise<void> {
+  async #takeOffWantlist(item: QueueItem, client: Api): Promise<void> {
     try {
-      await client.removeFromWantlist(releaseId);
+      if ((await this.#syncWantlist(item, client)) !== "removed") return;
       this.#flash(
         client.mode === "sandbox"
           ? "Taken off your wantlist again (sandbox: nothing sent)."
@@ -322,16 +335,58 @@ export class TriageSession {
     }
   }
 
+  /** The newest verdict in the history for the key is a want. */
+  #wanted(key: string): boolean {
+    for (let i = this.history.length - 1; i >= 0; i -= 1) {
+      const h = this.history[i]!;
+      if (h.kind === "verdict" && h.item.triageKey === key) return h.status === "accepted";
+    }
+    return false;
+  }
+
+  /**
+   * Brings the Discogs wantlist in line with the history for one record. The calls run one at a
+   * time and decide when they run, not when they were asked for, so any mix of A, Z and slow
+   * requests ends with the release on the wantlist exactly when its latest verdict is a want.
+   */
+  #syncWantlist(item: QueueItem, client: Api): Promise<"added" | "removed" | null> {
+    const generation = this.#apiGeneration;
+    const current = () => generation === this.#apiGeneration;
+    const run = this.#wantlistWrites.then(async (): Promise<"added" | "removed" | null> => {
+      const key = item.triageKey;
+      const pushedId = this.#onWantlist.get(key);
+      if (!current()) return null;
+      if (this.#wanted(key) && pushedId === undefined) {
+        // Twelves may have changed the verdict during the grace period.
+        const saved = await client.getRelease(item.id);
+        if (saved.verdict?.status !== "accepted" || !this.#wanted(key) || !current()) return null;
+        await client.pushToWantlist(item.id);
+        if (current()) this.#onWantlist.set(key, item.id);
+        return "added";
+      }
+      if (!this.#wanted(key) && pushedId !== undefined) {
+        await client.removeFromWantlist(pushedId);
+        if (current()) this.#onWantlist.delete(key);
+        return "removed";
+      }
+      return null;
+    });
+    this.#wantlistWrites = run.catch(() => {});
+    return run;
+  }
+
   /** Drops what belongs to the other api mode: undo history, passes, pushes and details. */
   #forget(): void {
-    this.#apiGeneration = api.generation;
+    this.#apiGeneration = this.#api.generation;
     this.history = [];
     this.passed = [];
     this.slip = null;
     this.details = new Map();
     this.detailErrors = new Map();
-    this.#pushed.clear();
+    this.#onWantlist.clear();
     this.#roundVerdicts.clear();
+    this.round = null;
+    this.#queueBeforeRound = null;
   }
 
   /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
@@ -389,7 +444,7 @@ export class TriageSession {
           (i) => i.triageKey,
         ),
       );
-      const res = await api.getQueue({
+      const res = await this.#api.getQueue({
         limit: Math.min(MAX_QUEUE_LIMIT, this.#batch + this.upcoming.length + this.passed.length),
       });
       // A round took over meanwhile; the queue refills again when it ends.
@@ -416,10 +471,14 @@ export class TriageSession {
 
   async #loadDetail(id: number): Promise<void> {
     this.#loading.add(id);
+    const generation = this.#apiGeneration;
     try {
-      const detail = await api.getRelease(id);
+      const detail = await this.#api.getRelease(id);
+      // Fetched in the other mode: its marks and heard flags would be wrong here.
+      if (generation !== this.#apiGeneration) return;
       this.details = new Map(this.details).set(id, detail);
     } catch (e) {
+      if (generation !== this.#apiGeneration) return;
       this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(e));
     } finally {
       this.#loading.delete(id);

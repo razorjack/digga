@@ -211,13 +211,33 @@
         ? { entry: null, note: ` Not on your Discogs wantlist: ${error}; A tries again.` }
         : { entry: { releaseId, change: "added" }, note: " Added to your Discogs wantlist." };
     }
-    if (from === "accepted" && item.onWantlist) {
+    if (from === "accepted") {
+      // Sent even when the want is not marked as on the wantlist: a push from Triage may have
+      // landed after this page loaded. Discogs treats a missing want as removed.
       const error = await wantlistWrite(releaseId, false);
+      if (!item.onWantlist) return { entry: null, note: "" };
       return error
         ? { entry: null, note: ` Still on your Discogs wantlist: ${error}.` }
         : { entry: { releaseId, change: "removed" }, note: " Taken off your Discogs wantlist." };
     }
     return { entry: null, note: "" };
+  }
+
+  let changes: Promise<void> = Promise.resolve();
+
+  /**
+   * Changes run one at a time, each on the records as the one before left them, so a quick A then
+   * R, or a Z before a push returns, sees the right verdict and the right wantlist state.
+   */
+  function enqueueTask(task: () => Promise<void>): void {
+    changes = changes.then(task).catch((e: unknown) => showFlash(errorMessage(e)));
+  }
+
+  function enqueue(key: string, change: (item: TwelvesItem) => Promise<void>): void {
+    enqueueTask(async () => {
+      const item = items.find((i) => i.verdict.key === key);
+      if (item) await change(item);
+    });
   }
 
   async function write(item: TwelvesItem, next: Partial<Verdict>, message: string): Promise<void> {
@@ -303,16 +323,18 @@
       );
   }
 
-  function rejudge(item: TwelvesItem, status: VerdictStatus): void {
-    if (!TRIAGE_STATUSES.has(item.verdict.status)) {
-      showFlash("Wantlist and owned records come from Discogs; change them there.");
-      return;
-    }
-    if (item.verdict.status === status) {
-      if (notOnWantlist(item)) void addToWantlist([item]);
-      return;
-    }
-    void write(item, { status, source: "triage" }, `${nameOf(item)}: ${STATUS_COPY[status]}.`);
+  function rejudge(selectedItem: TwelvesItem, status: VerdictStatus): void {
+    enqueue(selectedItem.verdict.key, async (item) => {
+      if (!TRIAGE_STATUSES.has(item.verdict.status)) {
+        showFlash("Wantlist and owned records come from Discogs; change them there.");
+        return;
+      }
+      if (item.verdict.status === status) {
+        if (notOnWantlist(item)) await addToWantlist([item]);
+        return;
+      }
+      await write(item, { status, source: "triage" }, `${nameOf(item)}: ${STATUS_COPY[status]}.`);
+    });
   }
 
   /** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
@@ -341,7 +363,7 @@
     editingKey = null;
     const notes = noteDraft.trim() === "" ? null : noteDraft.trim();
     if (notes === item.verdict.notes) return;
-    void write(item, { notes }, notes ? "Note saved." : "Note removed.");
+    enqueue(item.verdict.key, (fresh) => write(fresh, { notes }, notes ? "Note saved." : "Note removed."));
   }
 
   function move(delta: number): void {
@@ -392,7 +414,7 @@
     else if (key === "k" || key === "ArrowUp") move(-1);
     else if (key === "s") cycleSort();
     else if (key === "/") filterInput?.focus();
-    else if (key === "z") void undo();
+    else if (key === "z") enqueueTask(undo);
     else if (key === "i") void checkList();
     else if (key === "Enter") hearAgain();
     else if (key === "o" && selected?.release) openExternal(discogsReleaseUrl(selected.release.id));
@@ -491,7 +513,7 @@
         {/if}
       </p>
       {#if wantsPending.length > 1}
-        <button type="button" class="check" disabled={pushing} onclick={() => void addToWantlist(wantsPending)}>
+        <button type="button" class="check" disabled={pushing} onclick={() => enqueueTask(() => addToWantlist(wantsPending))}>
           {pushing ? "Adding…" : `add all ${formatCount(wantsPending.length)}`}
         </button>
       {/if}

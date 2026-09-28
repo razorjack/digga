@@ -8,7 +8,7 @@ import {
   previousEntry,
   startSeconds,
 } from "../../shared/playlist.ts";
-import type { Api } from "../api.ts";
+import type { Api, AppApi } from "../api.ts";
 import { Deck, type DeckListener } from "./deck.ts";
 import { embedErrorReason, loadYouTubeApi, PlayerState } from "./youtube.ts";
 
@@ -30,6 +30,8 @@ const TICK_MS = 250;
 const BLOCKED_AFTER_MS = 3500;
 
 interface Listen {
+  /** The api of the mode the tune was heard in; a sandbox listen never reaches the server. */
+  client: Api;
   releaseId: number;
   position: string | null;
   heardKey: string | null;
@@ -71,7 +73,7 @@ export class TriagePlayer {
    */
   readonly heardKeys = new SvelteSet<string>();
 
-  #api: Api;
+  #api: AppApi;
   #fraction: () => number;
   #decks: Deck[] = [];
   #wanted: { detail: ReleaseDetail | null; next: ReleaseDetail | null } = {
@@ -89,7 +91,7 @@ export class TriagePlayer {
   /** The Triage page is hidden: load and cue, but never start sound. */
   #suspended = false;
 
-  constructor(api: Api, startAtFraction: () => number) {
+  constructor(api: AppApi, startAtFraction: () => number) {
     this.#api = api;
     this.#fraction = startAtFraction;
   }
@@ -150,7 +152,13 @@ export class TriagePlayer {
   /** While the Triage page is hidden, nothing starts playing on its own. */
   suspend(on: boolean): void {
     this.#suspended = on;
-    if (on) this.#activeDeck()?.pause();
+    if (!on) return;
+    this.#activeDeck()?.pause();
+    // Settings may switch the sandbox while the page is hidden; log what was heard until now.
+    if (this.#listen) {
+      this.#flushListen();
+      if (this.release && this.entry) this.#beginListen(this.release.release.id, this.entry);
+    }
   }
 
   nextTrack(): void {
@@ -396,6 +404,7 @@ export class TriagePlayer {
 
   #beginListen(releaseId: number, entry: PlaylistEntry): void {
     this.#listen = {
+      client: this.#api.pinned(),
       releaseId,
       position: entry.track?.position ?? null,
       heardKey: entry.track?.heardKey ?? null,
@@ -409,12 +418,13 @@ export class TriagePlayer {
   #flushListen(): void {
     const listen = this.#listen;
     this.#listen = null;
-    if (!listen || listen.seconds - listen.logged < 1) return;
+    // A tap shorter than the logging threshold is not a listen (decision 38).
+    if (!listen || listen.logged === 0 || listen.seconds - listen.logged < 1) return;
     this.#postListen(listen, listen.seconds - listen.logged);
   }
 
   #postListen(listen: Listen, seconds: number): void {
-    this.#api
+    listen.client
       .postListenLog({
         releaseId: listen.releaseId,
         position: listen.position,

@@ -168,7 +168,10 @@ Chronological. Each entry records a choice made without asking and why.
     its undo history, passes and details, and the player its heard tunes. The session sends every
     write through `api.pinned()`, so a write queued in one mode never lands in the other.
 56. **Undo after a wantlist push takes the release off the Discogs wantlist**, replacing the last
-    sentence of decision 40. An undo while the push is in flight removes it once the push returns.
+    sentence of decision 40. The session's wantlist writes run one at a time and each decides when
+    it runs, from the newest verdict in the undo history (and, before a push, the saved verdict,
+    which Twelves may have changed during the grace period). Any order of `A`, `Z` and slow
+    requests therefore ends with the release on the wantlist exactly when its verdict is a want.
     In Twelves, re-judging a record as want adds it to the wantlist, and re-judging a want as
     anything else (grail too) takes it off, so the Want shelf and the wantlist agree; `Z` reverses
     both. `A` on a want that is not on the wantlist retries the push.
@@ -189,3 +192,10 @@ Chronological. Each entry records a choice made without asking and why.
 61. **Settings shows whose `DISCOGS_TOKEN` it is** (`GET /api/discogs/account`, one identity
     request), and the Sandbox section warns before going live when a push would fail: no token, a
     token for another account, or no username.
+62. **Twelves changes run one at a time**, each on the records as the previous change left them,
+    so `A` then `R`, or `Z` before a push returns, act on the right verdict. Re-judging a want
+    always sends the wantlist removal, because a push from Triage may land after Twelves loaded.
+63. **A listen is posted through the api of the mode it was heard in**, and hiding the Triage page
+    flushes it, so seconds heard in the sandbox never reach the database after switching it off.
+    A tap shorter than the 4 s threshold is not posted at all when the track is left, as
+    decision 38 intended.

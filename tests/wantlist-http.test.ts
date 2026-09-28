@@ -114,6 +114,16 @@ describe("Discogs wantlist over HTTP", () => {
     const noToken = await send<ApiError>("POST", "/api/discogs/wantlist/1001", {});
     expect([noToken.status, noToken.body.error]).toEqual([400, "DISCOGS_TOKEN is not set in .env"]);
     expect((await send("POST", "/api/discogs/wantlist/999999", {})).status).toBe(404);
+    token = "token";
+    await send("PUT", "/api/settings", {
+      ...server.getConfig(),
+      discogs: { ...server.getConfig().discogs, username: "" },
+    });
+    const noUser = await send<ApiError>("DELETE", "/api/discogs/wantlist/1001");
+    expect([noUser.status, noUser.body.error]).toEqual([
+      400,
+      "Set your Discogs username in Settings first",
+    ]);
     expect(wantlistRows()).toEqual([]);
   });
 
