@@ -104,9 +104,14 @@
     <a class="wordmark" href="#/triage" aria-label="Digga, triage" onmousedown={keepFocus}>digga</a>
     <nav aria-label="Pages">
       {#each ROUTES as destination (destination.route)}
-        <a href="#/{destination.route}" aria-current={route === destination.route ? "page" : undefined} onmousedown={keepFocus}>
+        <a
+          href="#/{destination.route}"
+          aria-current={route === destination.route ? "page" : undefined}
+          aria-keyshortcuts={destination.key}
+          onmousedown={keepFocus}
+        >
           {destination.label}
-          <Key label={destination.key} size="sm" />
+          <Key label={destination.key} size="sm" aria-hidden="true" />
         </a>
       {/each}
     </nav>

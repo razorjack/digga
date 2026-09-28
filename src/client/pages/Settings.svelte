@@ -610,8 +610,13 @@
           {/if}
         </p>
         <button type="button" class="secondary" disabled={!dirty} onclick={revert}>Revert</button>
-        <button type="submit" class="primary" disabled={!dirty || problems.length > 0 || saving}>
-          Save settings <span class="kbd">⌘S</span>
+        <button
+          type="submit"
+          class="primary"
+          disabled={!dirty || problems.length > 0 || saving}
+          aria-keyshortcuts="Meta+S Control+S"
+        >
+          Save settings <kbd class="kbd" aria-hidden="true">⌘S</kbd>
         </button>
       </div>
     </form>
@@ -917,6 +922,7 @@
   }
   .kbd {
     margin-left: 6px;
+    font-family: inherit;
     font-weight: 400;
     opacity: 0.7;
   }

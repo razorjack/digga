@@ -1,10 +1,24 @@
 <script lang="ts">
-  /** A key cap. `primary` keys (verdicts) are filled with the accent; the rest are outlined. */
-  let { label, primary = false, size = "md" }: { label: string; primary?: boolean; size?: "sm" | "md" | "lg" } =
-    $props();
+  import type { HTMLAttributes } from "svelte/elements";
+
+  /**
+   * A key cap. `primary` keys (verdicts) are filled with the accent; the rest are outlined.
+   * Inside a control that declares `aria-keyshortcuts`, pass `aria-hidden` so the cap stays out
+   * of the control's name.
+   */
+  let {
+    label,
+    primary = false,
+    size = "md",
+    ...attributes
+  }: {
+    label: string;
+    primary?: boolean;
+    size?: "sm" | "md" | "lg";
+  } & Pick<HTMLAttributes<HTMLElement>, "aria-hidden"> = $props();
 </script>
 
-<kbd class="key {size}" class:primary>{label}</kbd>
+<kbd class="key {size}" class:primary {...attributes}>{label}</kbd>
 
 <style>
   .key {

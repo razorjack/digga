@@ -150,8 +150,15 @@
       <legend class="visually-hidden">Shelf</legend>
       {#each SHELVES as option, index (option.id)}
         <label>
-          <input type="radio" class="visually-hidden" name="shelf" value={option.id} bind:group={shelfState.shelf} />
-          <Key label={String(index + 1)} size="sm" />
+          <input
+            type="radio"
+            class="visually-hidden"
+            name="shelf"
+            value={option.id}
+            aria-keyshortcuts={String(index + 1)}
+            bind:group={shelfState.shelf}
+          />
+          <Key label={String(index + 1)} size="sm" aria-hidden="true" />
           {option.label}
           <span class="count">{formatCount(shelfState.counts[option.id])}</span>
         </label>
@@ -167,10 +174,11 @@
           onkeydown={onFilterKey}
           placeholder="artist, title, label, cat no"
           aria-label="Filter"
+          aria-keyshortcuts="/"
         />
       </label>
-      <fieldset class="sort">
-        <legend><Key label="S" size="sm" /> sort</legend>
+      <fieldset class="sort" aria-keyshortcuts="S">
+        <legend><Key label="S" size="sm" aria-hidden="true" /> sort</legend>
         {#each SORTS as option (option.id)}
           <label>
             <input type="radio" class="visually-hidden" name="sort" value={option.id} bind:group={shelfState.sort} />
@@ -196,8 +204,14 @@
             Every maybe here is on your Discogs Maybe list.
           {/if}
         </p>
-        <button type="button" class="check" disabled={shelfState.checking} onclick={() => void shelfState.checkList()}>
-          <Key label="I" />
+        <button
+          type="button"
+          class="check"
+          disabled={shelfState.checking}
+          aria-keyshortcuts="I"
+          onclick={() => void shelfState.checkList()}
+        >
+          <Key label="I" aria-hidden="true" />
           {shelfState.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
         </button>
       {/if}

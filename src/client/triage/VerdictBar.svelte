@@ -34,36 +34,38 @@
         class="verdict {v.tone}"
         tabindex="-1"
         {disabled}
+        aria-keyshortcuts={v.key}
         onmousedown={keepFocus}
         onclick={() => onjudge(v.status)}
       >
-        <Key label={v.key} primary size="lg" />
+        <Key label={v.key} primary size="lg" aria-hidden="true" />
         <span class="copy">{v.copy}</span>
         <span class="hint">{v.hint}</span>
       </button>
     {/each}
   </div>
   <div class="aside">
-    <button type="button" tabindex="-1" onmousedown={keepFocus} onclick={onpass}>
-      <Key label="N" /> next
+    <button type="button" tabindex="-1" aria-keyshortcuts="N" onmousedown={keepFocus} onclick={onpass}>
+      <Key label="N" aria-hidden="true" /> next
     </button>
     {#each deferred as v (v.status)}
       <button
         type="button"
         tabindex="-1"
         {disabled}
+        aria-keyshortcuts={v.key}
         onmousedown={keepFocus}
         onclick={() => onjudge(v.status)}
       >
-        <Key label={v.key} />
+        <Key label={v.key} aria-hidden="true" />
         {v.copy}
       </button>
     {/each}
-    <button type="button" tabindex="-1" onmousedown={keepFocus} onclick={onundo}>
-      <Key label="Z" /> undo
+    <button type="button" tabindex="-1" aria-keyshortcuts="Z" onmousedown={keepFocus} onclick={onundo}>
+      <Key label="Z" aria-hidden="true" /> undo
     </button>
-    <button type="button" tabindex="-1" onmousedown={keepFocus} onclick={onhelp}>
-      <Key label="?" /> keys
+    <button type="button" tabindex="-1" aria-keyshortcuts="?" onmousedown={keepFocus} onclick={onhelp}>
+      <Key label="?" aria-hidden="true" /> keys
     </button>
   </div>
 </div>

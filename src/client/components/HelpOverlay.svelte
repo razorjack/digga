@@ -40,7 +40,7 @@
     <div class="head">
       <h2 id="{id}-title">Keys</h2>
       <form method="dialog">
-        <button aria-keyshortcuts="Escape"><Key label="Esc" /> close</button>
+        <button aria-keyshortcuts="Escape"><Key label="Esc" aria-hidden="true" /> close</button>
       </form>
     </div>
     <div class="groups">

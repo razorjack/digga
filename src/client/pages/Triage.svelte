@@ -205,7 +205,9 @@
           Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
           {formatCount(session.round.total)} left. A verdict replaces the snooze; <Key label="N" size="sm" /> leaves it.
         </span>
-        <button type="button" onclick={() => session.endRound()}><Key label="Esc" size="sm" /> back to the queue</button>
+        <button type="button" aria-keyshortcuts="Escape" onclick={() => session.endRound()}>
+          <Key label="Esc" size="sm" aria-hidden="true" /> back to the queue
+        </button>
       </p>
     {/if}
   </div>
@@ -231,7 +233,9 @@
             years it keeps are under Universe.
           </p>
           <p class="actions">
-            <button type="button" onclick={() => navigate("settings")}><Key label="," /> settings</button>
+            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
+              <Key label="," aria-hidden="true" /> settings
+            </button>
           </p>
         </div>
       {:else if session.finished && nothingMatches}
@@ -244,7 +248,9 @@
               : ""}.
           </p>
           <p class="actions">
-            <button type="button" onclick={() => navigate("settings")}><Key label="," /> settings</button>
+            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
+              <Key label="," aria-hidden="true" /> settings
+            </button>
           </p>
         </div>
       {:else if session.finished}
@@ -257,8 +263,8 @@
           </p>
           <p class="actions">
             {#if session.passed.length > 0}
-              <button type="button" onclick={() => session.goRound()}>
-                <Key label="N" primary /> go round the {formatCount(session.passed.length)} you passed
+              <button type="button" aria-keyshortcuts="N" onclick={() => session.goRound()}>
+                <Key label="N" primary aria-hidden="true" /> go round the {formatCount(session.passed.length)} you passed
               </button>
             {/if}
             {#if snoozedCount > 0}
@@ -266,7 +272,9 @@
                 hear the {formatCount(snoozedCount)} snoozed again
               </button>
             {/if}
-            <button type="button" onclick={() => navigate("settings")}><Key label="," /> settings</button>
+            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
+              <Key label="," aria-hidden="true" /> settings
+            </button>
           </p>
         </div>
       {:else if session.current}
