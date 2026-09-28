@@ -338,7 +338,7 @@
       {/if}
       <span><Key label="Z" /> undo</span>
     </p>
-    <p class="flash" aria-live="polite">{shelfState.flash ?? ""}</p>
+    <p class="flash" role="status">{shelfState.flash ?? ""}</p>
   </footer>
 </div>
 

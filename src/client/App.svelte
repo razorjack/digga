@@ -123,7 +123,7 @@
       </a>
     {/if}
 
-    <div class="counter" aria-live="off">
+    <div class="counter">
       {#if stats.value}
         <p><b>{formatCount(stats.value.dug)}</b> dug</p>
         <p><b>{formatCount(stats.value.remaining)}</b> to go</p>

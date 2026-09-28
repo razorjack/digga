@@ -154,7 +154,7 @@
     <span><Key label="O" /> discogs</span>
   </div>
 
-  <p class="notice" aria-live="polite">{player.notice ?? ""}</p>
+  <p class="notice" role="status">{player.notice ?? ""}</p>
 </section>
 
 <style>

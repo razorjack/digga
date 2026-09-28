@@ -197,15 +197,18 @@
 <svelte:window {onkeydown} />
 
 <div class="triage">
-  {#if session.round}
-    <p class="round" aria-live="polite">
-      <span>
-        Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
-        {formatCount(session.round.total)} left. A verdict replaces the snooze; <Key label="N" size="sm" /> leaves it.
-      </span>
-      <button type="button" onclick={() => session.endRound()}><Key label="Esc" size="sm" /> back to the queue</button>
-    </p>
-  {/if}
+  <!-- The live region stays in the DOM so the banner is announced when a round starts. -->
+  <div aria-live="polite">
+    {#if session.round}
+      <p class="round">
+        <span>
+          Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
+          {formatCount(session.round.total)} left. A verdict replaces the snooze; <Key label="N" size="sm" /> leaves it.
+        </span>
+        <button type="button" onclick={() => session.endRound()}><Key label="Esc" size="sm" /> back to the queue</button>
+      </p>
+    {/if}
+  </div>
   <div class="desk">
     <div class="record">
       {#if session.status === "error"}
@@ -294,7 +297,7 @@
       <Slip slip={session.slip} next={session.next} nextReady={player.nextReady} sandbox={settings.sandbox}
         inRound={session.round !== null}
       />
-      <p class="flash" aria-live="assertive">{session.flash ?? ""}</p>
+      <p class="flash" role="status">{session.flash ?? ""}</p>
     </aside>
   </div>
 

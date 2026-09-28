@@ -598,7 +598,7 @@
       </section>
 
       <div class="savebar">
-        <p class="status" aria-live="polite">
+        <p class="status" role="status">
           {#if problems.length > 0}
             <span class="problem">{problems[0]}</span>
           {:else if flash}
