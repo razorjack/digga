@@ -1,4 +1,4 @@
-import type { QueueItem, ReleaseDetail, TwelvesItem } from "../../shared/api.ts";
+import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
 import type { TrackMark, Verdict } from "../../shared/types.ts";
 import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
@@ -65,6 +65,7 @@ export class TriageSession {
   #pushGraceMs: number;
   #batch = 200;
   #loading = new Set<number>();
+  #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
   #refilling: Promise<void> | null = null;
   /** Bumped by start(); a refill from an older generation drops its result. */
   #generation = 0;
@@ -311,22 +312,50 @@ export class TriageSession {
     const track = detail?.tracks.find((t) => t.position === position);
     if (!detail || !track) return;
     const next = track.mark === mark ? null : mark;
-    const tracks = detail.tracks.map((t) => (t.position === position ? { ...t, mark: next } : t));
-    this.details = new Map(this.details).set(releaseId, { ...detail, tracks });
+    const key = `${releaseId}:${position}`;
+    const state = this.#trackWrites.get(key) ?? { saved: track.mark, version: 0 };
+    const version = ++state.version;
+    this.#trackWrites.set(key, state);
+    this.#setTrackMark(releaseId, position, next);
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
-    const optimistic = this.details.get(releaseId);
-    void this.#write(async () => {
-      try {
-        await client.postTrackVerdict({ releaseId, position, mark: next });
-      } catch (error) {
-        if (generation !== this.#apiGeneration) return;
-        if (this.details.get(releaseId) === optimistic) {
-          this.details = new Map(this.details).set(releaseId, detail);
-        }
-        this.#flash(`The track mark was not saved: ${errorMessage(error)}`);
+    void this.#write(() =>
+      this.#saveTrackMark({ releaseId, position, mark: next }, client, {
+        key,
+        version,
+        generation,
+      }),
+    );
+  }
+
+  #setTrackMark(releaseId: number, position: string, mark: TrackMark | null): void {
+    const detail = this.details.get(releaseId);
+    if (!detail) return;
+    const tracks = detail.tracks.map((track) =>
+      track.position === position ? { ...track, mark } : track,
+    );
+    this.details = new Map(this.details).set(releaseId, { ...detail, tracks });
+  }
+
+  async #saveTrackMark(
+    input: TrackVerdictInput,
+    client: Api,
+    operation: { key: string; version: number; generation: number },
+  ): Promise<void> {
+    try {
+      await client.postTrackVerdict(input);
+      if (operation.generation !== this.#apiGeneration) return;
+      const state = this.#trackWrites.get(operation.key);
+      if (state) state.saved = input.mark;
+    } catch (error) {
+      if (operation.generation !== this.#apiGeneration) return;
+      const state = this.#trackWrites.get(operation.key);
+      // Later queued marks own their optimistic value until their own write settles.
+      if (state?.version === operation.version) {
+        this.#setTrackMark(input.releaseId, input.position, state.saved);
       }
-    });
+      this.#flash(`The track mark was not saved: ${errorMessage(error)}`);
+    }
   }
 
   retryDetail(id: number): void {
@@ -426,6 +455,7 @@ export class TriageSession {
     this.details = new Map();
     this.detailErrors = new Map();
     this.#loading = new Set();
+    this.#trackWrites.clear();
     this.flash = null;
     this.#onWantlist.clear();
     this.#roundVerdicts.clear();

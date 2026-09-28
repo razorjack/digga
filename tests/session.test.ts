@@ -2,7 +2,12 @@ import { queueItem } from "./helpers/catalog.ts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { type Api, createAppApi } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
-import type { ReleaseDetail, TwelvesItem, VerdictInput } from "../src/shared/api.ts";
+import type {
+  ReleaseDetail,
+  TwelvesItem,
+  VerdictInput,
+  TrackVerdictInput,
+} from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { ReleaseRecord, Verdict } from "../src/shared/types.ts";
 
@@ -53,6 +58,11 @@ function fakeServer(queue: number[]) {
       };
       verdicts.set(input.key, v);
       return v;
+    },
+    postTrackVerdict: async (input: TrackVerdictInput) => {
+      calls.push(`mark ${input.position} ${input.mark}`);
+      if (input.mark === null) return null;
+      return { ...input, notes: null, decidedAt: new Date().toISOString() };
     },
     deleteVerdict: async (key: string) => {
       calls.push(`forget ${key}`);
@@ -259,5 +269,67 @@ describe("session recovery", () => {
     pending.reject(new Error("old detail failed"));
     await wait();
     expect(session.detailErrors.size).toBe(0);
+  });
+});
+
+async function withTracks() {
+  const server = await started([1]);
+  await until(() => server.session.details.has(1));
+  const detail = server.session.details.get(1)!;
+  server.session.details = new Map([
+    [
+      1,
+      {
+        ...detail,
+        tracks: ["A1", "B1"].map((position, seq) => ({
+          releaseId: 1,
+          seq,
+          position,
+          title: position,
+          artists: [],
+          artistDisplay: "Artist",
+          durationSeconds: 300,
+          heardKey: position,
+          heard: false,
+          hasVideo: true,
+          mark: null,
+        })),
+      },
+    ],
+  ]);
+  return server;
+}
+
+describe("track mark recovery", () => {
+  it("restores the saved mark when several rapid changes fail", async () => {
+    const { session, http } = await withTracks();
+    const writes = vi
+      .spyOn(http, "postTrackVerdict")
+      .mockRejectedValueOnce(new Error("first failed"))
+      .mockRejectedValueOnce(new Error("second failed"));
+    session.markTrack(1, "A1", "keep");
+    session.markTrack(1, "A1", "candidate");
+    await until(() => session.flash?.includes("second failed") ?? false);
+    expect(writes).toHaveBeenCalledTimes(2);
+    expect(session.details.get(1)?.tracks[0]?.mark).toBeNull();
+  });
+
+  it("recovers one track without reverting a newer mark on another", async () => {
+    const { session, http, calls } = await withTracks();
+    vi.spyOn(http, "postTrackVerdict").mockRejectedValueOnce(new Error("first failed"));
+    session.markTrack(1, "A1", "keep");
+    session.markTrack(1, "B1", "candidate");
+    await until(() => calls.includes("mark B1 candidate"));
+    expect(session.details.get(1)?.tracks.map((track) => track.mark)).toEqual([null, "candidate"]);
+  });
+
+  it("restores the last successful mark after the next change fails", async () => {
+    const { session, http, calls } = await withTracks();
+    session.markTrack(1, "A1", "keep");
+    await until(() => calls.includes("mark A1 keep"));
+    vi.spyOn(http, "postTrackVerdict").mockRejectedValueOnce(new Error("second failed"));
+    session.markTrack(1, "A1", "candidate");
+    await until(() => session.flash?.includes("second failed") ?? false);
+    expect(session.details.get(1)?.tracks[0]?.mark).toBe("keep");
   });
 });
