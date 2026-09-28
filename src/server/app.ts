@@ -1,3 +1,4 @@
+import { parseInteger } from "../shared/integer.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { type Context, Hono } from "hono";
@@ -114,8 +115,7 @@ const SANDBOX_REFUSAL: ApiError = {
 };
 
 function parseId(raw: string): number | null {
-  const id = Number.parseInt(raw, 10);
-  return Number.isNaN(id) || id <= 0 ? null : id;
+  return parseInteger(raw, { min: 1 });
 }
 
 function parseQuery<T>(
@@ -227,8 +227,8 @@ export function createApp(ctx: AppContext): Hono {
   });
 
   api.get("/releases/:id", (c) => {
-    const id = Number.parseInt(c.req.param("id"), 10);
-    if (Number.isNaN(id)) return badRequest(c, "Invalid release id");
+    const id = parseId(c.req.param("id"));
+    if (id === null) return badRequest(c, "Invalid release id");
     const detail = buildReleaseDetail(db, id);
     if (!detail) return c.json({ error: "Release not found" } satisfies ApiError, 404);
     return c.json(detail);
@@ -441,8 +441,8 @@ export function createApp(ctx: AppContext): Hono {
   });
 
   api.get("/discogs/lists/:id", async (c) => {
-    const id = Number.parseInt(c.req.param("id"), 10);
-    if (Number.isNaN(id)) return badRequest(c, "Invalid list id");
+    const id = parseId(c.req.param("id"));
+    if (id === null) return badRequest(c, "Invalid list id");
     const list = await ctx.getDiscogs().getList(id);
     const entries = await resolveListEntries(
       { db, discogs: ctx.getDiscogs(), logger },

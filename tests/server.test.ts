@@ -61,6 +61,16 @@ async function waitForJob(id: string): Promise<Job> {
 }
 
 describe("HTTP API", () => {
+  it.each(["1001garbage", "1001.5", "0", "-1", "9007199254740992"])(
+    "rejects malformed ID %s across release, list and wantlist routes",
+    async (id) => {
+      expect((await get(`/api/releases/${id}`)).status).toBe(400);
+      expect((await get(`/api/discogs/lists/${id}`)).status).toBe(400);
+      expect((await send("POST", `/api/discogs/wantlist/${id}`, {})).status).toBe(400);
+      expect((await send("DELETE", `/api/discogs/wantlist/${id}`)).status).toBe(400);
+    },
+  );
+
   it("serves the queue with config defaults and query overrides", async () => {
     const q = await get<QueueResponse>("/api/queue");
     expect(q.status).toBe(200);

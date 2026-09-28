@@ -3,6 +3,7 @@
  * Digga command line. Every command is a thin wrapper over a job function or createServer.
  * This file (and paths.ts/secrets.ts) are the only places allowed to read process.env / process.cwd().
  */
+import { integerOption } from "./args.ts";
 import { parseArgs } from "node:util";
 import { loadConfig } from "../server/config-file.ts";
 import { openDb } from "../server/db/db.ts";
@@ -77,13 +78,6 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function intOption(value: string | undefined, name: string): number | undefined {
-  if (value === undefined) return undefined;
-  const n = Number.parseInt(value, 10);
-  if (Number.isNaN(n) || n < 0) fail(`--${name} must be a non-negative integer`);
-  return n;
-}
-
 async function cmdDumpLoad(rt: Runtime, args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
     args,
@@ -106,7 +100,7 @@ async function cmdDumpLoad(rt: Runtime, args: string[]): Promise<void> {
         file,
         styles: rt.config.universe.styles,
         loadYears: rt.config.universe.loadYears,
-        limit: intOption(values.limit, "limit"),
+        limit: integerOption(values.limit, "limit", { min: 1 }),
         dryRun: values["dry-run"],
         labelIds: values.labels ? readIdList(values.labels) : undefined,
         artistIds: values.artists ? readIdList(values.artists) : undefined,
@@ -151,7 +145,7 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
     return;
   }
   if (kind === "list") {
-    const listId = intOption(values.list, "list") ?? rt.config.discogs.maybeListId;
+    const listId = integerOption(values.list, "list", { min: 1 }) ?? rt.config.discogs.maybeListId;
     if (!listId)
       fail("set discogs.maybeListId in digga.config.json (or Settings) or pass --list ID");
     const discogs = createDiscogsClient({
@@ -198,7 +192,7 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
 
 async function cmdEnrich(rt: Runtime, args: string[]): Promise<void> {
   const { values } = parseArgs({ args, options: { ahead: { type: "string" } } });
-  const ahead = intOption(values.ahead, "ahead") ?? 200;
+  const ahead = integerOption(values.ahead, "ahead") ?? 200;
   const db = openDb(rt.paths.dbFile);
   const runner = createJobRunner(db, rt.logger);
   const discogs = createDiscogsClient({
@@ -266,7 +260,7 @@ async function cmdServe(rt: Runtime, args: string[]): Promise<void> {
     args,
     options: { port: { type: "string" }, host: { type: "string" } },
   });
-  const port = intOption(values.port, "port");
+  const port = integerOption(values.port, "port", { max: 65535 });
   const server = createServer({
     config: rt.config,
     paths: rt.paths,
