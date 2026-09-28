@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
 import { getRelease, getTracks, getVideos } from "../src/server/db/releases.ts";
+import { applyEnrichment } from "../src/server/jobs/enrich.ts";
+import { fixtureDb } from "./helpers.ts";
 import { dumpReleaseToWrite } from "../tools/dump/convert.ts";
 import { loadDump, matchesUniverse, dumpDateFromFilename } from "../tools/dump/load.ts";
 import { iterateReleases } from "../tools/dump/parse.ts";
@@ -115,6 +117,37 @@ describe("matchesUniverse", () => {
 });
 
 describe("dumpReleaseToWrite", () => {
+  it("keeps dump and API matches aligned after duplicate and invalid videos", async () => {
+    const release = (await parseAll(FIXTURE_GZ))[0]!;
+    const first = release.videos[0]!;
+    const last = release.videos[1]!;
+    release.videos = [first, { ...first, src: "invalid" }, first, last];
+    const videos = dumpReleaseToWrite(release).videos;
+    expect(videos.map((video) => [video.videoId, video.matchedPosition])).toEqual([
+      ["aaaaaaaaaa1", "A1"],
+      ["aaaaaaaaaa2", "B1"],
+    ]);
+
+    const db = await fixtureDb();
+    try {
+      applyEnrichment(db, release.id, {
+        id: release.id,
+        title: release.title,
+        videos: release.videos.map((video) => ({
+          uri: video.src,
+          title: video.title,
+          duration: video.duration ?? undefined,
+          embed: video.embed,
+        })),
+      });
+      expect(getVideos(db, release.id).map(({ releaseId: _releaseId, ...video }) => video)).toEqual(
+        videos,
+      );
+    } finally {
+      db.close();
+    }
+  });
+
   it("derives display, year, vinyl flag, triage key, heard keys and matched videos", async () => {
     const releases = await parseAll(FIXTURE_GZ);
     const w = dumpReleaseToWrite(releases[0]!);

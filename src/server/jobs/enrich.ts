@@ -1,9 +1,8 @@
-import { matchVideos } from "../../shared/match-videos.ts";
+import { prepareVideos } from "../../shared/videos.ts";
 import type { Filters, QueueStrategy } from "../../shared/config.ts";
 import type { EnrichProgress } from "../../shared/types.ts";
-import { youtubeIdFromUrl } from "../../shared/youtube.ts";
 import type { Db } from "../db/db.ts";
-import { getTracks, type VideoWrite, writeSnapshot, writeVideos } from "../db/releases.ts";
+import { getTracks, writeSnapshot, writeVideos } from "../db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsRelease } from "../discogs/types.ts";
 import type { Logger } from "../logger.ts";
@@ -30,40 +29,30 @@ export interface EnrichResult extends EnrichProgress {
 }
 
 /** Writes the API snapshot and refreshes videos (the dump can be months stale). */
-export function applyEnrichment(db: Db, releaseId: number, rel: DiscogsRelease): void {
+export function applyEnrichment(db: Db, releaseId: number, release: DiscogsRelease): void {
   db.transaction(() => {
     writeSnapshot(db, releaseId, {
-      lowestPrice: rel.lowest_price ?? null,
-      numForSale: rel.num_for_sale ?? null,
+      lowestPrice: release.lowest_price ?? null,
+      numForSale: release.num_for_sale ?? null,
       currency: null,
-      communityHave: rel.community?.have ?? null,
-      communityWant: rel.community?.want ?? null,
+      communityHave: release.community?.have ?? null,
+      communityWant: release.community?.want ?? null,
     });
-    if (Array.isArray(rel.videos)) {
+    if (Array.isArray(release.videos)) {
       const tracks = getTracks(db, releaseId);
-      const inputs = rel.videos
-        .map((v) => ({ v, videoId: youtubeIdFromUrl(v.uri) }))
-        .filter(
-          (x): x is { v: (typeof rel.videos)[number]; videoId: string } => x.videoId !== null,
-        );
-      const matches = matchVideos(
-        tracks.map((t) => ({ position: t.position, title: t.title, artist: t.artistDisplay })),
-        inputs.map((x) => ({ title: x.v.title ?? "" })),
+      const videos = prepareVideos(
+        tracks.map((track) => ({
+          position: track.position,
+          title: track.title,
+          artist: track.artistDisplay,
+        })),
+        release.videos.map((video) => ({
+          src: video.uri,
+          title: video.title ?? "",
+          durationSeconds: video.duration ?? null,
+          embeddable: video.embed !== false,
+        })),
       );
-      const seen = new Set<string>();
-      const videos: VideoWrite[] = [];
-      inputs.forEach((x, i) => {
-        if (seen.has(x.videoId)) return;
-        seen.add(x.videoId);
-        videos.push({
-          videoId: x.videoId,
-          src: x.v.uri,
-          title: x.v.title ?? "",
-          durationSeconds: x.v.duration ?? null,
-          embeddable: x.v.embed !== false,
-          matchedPosition: matches[i]?.position ?? null,
-        });
-      });
       writeVideos(db, releaseId, videos, { replace: true });
     }
   })();
@@ -97,8 +86,8 @@ export async function enrich(
     progress.currentReleaseId = item.id;
     onProgress?.({ ...progress });
     try {
-      const rel = await deps.discogs.getRelease(item.id, opts.currency);
-      applyEnrichment(deps.db, item.id, rel);
+      const release = await deps.discogs.getRelease(item.id, opts.currency);
+      applyEnrichment(deps.db, item.id, release);
       deps.db.prepare("UPDATE releases SET currency = ? WHERE id = ?").run(opts.currency, item.id);
       progress.done += 1;
     } catch (err) {
