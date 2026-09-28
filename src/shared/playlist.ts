@@ -25,8 +25,9 @@ export function buildPlaylist(
   heardElsewhere: ReadonlySet<string> = new Set(),
 ): PlaylistEntry[] {
   const byPosition = new Map<string, TrackDetail>();
-  for (const t of detail.tracks)
-    if (t.position !== "" && !byPosition.has(t.position)) byPosition.set(t.position, t);
+  for (const track of detail.tracks)
+    if (track.position !== "" && !byPosition.has(track.position))
+      byPosition.set(track.position, track);
   return detail.videos
     .filter((video) => video.embeddable)
     .map((video, order) => {
@@ -52,24 +53,28 @@ export function nextEntry(
   entries: PlaylistEntry[],
   from: number | null,
   state: PlaylistState,
-  opts: { fallback: boolean },
+  options: { fallback: boolean },
 ): number | null {
   const start = from === null ? 0 : from + 1;
   const playedPositions = new Set(
     entries
-      .filter((e) => e.track !== null && state.played.has(e.video.videoId))
-      .map((e) => e.track!.position),
+      .filter((entry) => entry.track !== null && state.played.has(entry.video.videoId))
+      .map((entry) => entry.track!.position),
   );
-  for (let i = start; i < entries.length; i += 1) {
-    const e = entries[i]!;
-    if (state.failed.has(e.video.videoId) || e.heardBefore) continue;
-    if (e.track && playedPositions.has(e.track.position) && !state.played.has(e.video.videoId))
+  for (let index = start; index < entries.length; index += 1) {
+    const entry = entries[index]!;
+    if (state.failed.has(entry.video.videoId) || entry.heardBefore) continue;
+    if (
+      entry.track &&
+      playedPositions.has(entry.track.position) &&
+      !state.played.has(entry.video.videoId)
+    )
       continue;
-    return i;
+    return index;
   }
-  if (!opts.fallback) return null;
-  for (let i = start; i < entries.length; i += 1)
-    if (!state.failed.has(entries[i]!.video.videoId)) return i;
+  if (!options.fallback) return null;
+  for (let index = start; index < entries.length; index += 1)
+    if (!state.failed.has(entries[index]!.video.videoId)) return index;
   return null;
 }
 
@@ -85,14 +90,15 @@ export function previousEntry(
   state: PlaylistState,
 ): number | null {
   const start = from === null ? entries.length - 1 : from - 1;
-  for (let i = start; i >= 0; i -= 1) if (!state.failed.has(entries[i]!.video.videoId)) return i;
+  for (let index = start; index >= 0; index -= 1)
+    if (!state.failed.has(entries[index]!.video.videoId)) return index;
   return null;
 }
 
 /** First entry playing the track at `position`, or null when no video matches it. */
 export function entryForPosition(entries: PlaylistEntry[], position: string): number | null {
-  const i = entries.findIndex((e) => e.track?.position === position);
-  return i === -1 ? null : i;
+  const index = entries.findIndex((entry) => entry.track?.position === position);
+  return index === -1 ? null : index;
 }
 
 /**

@@ -22,23 +22,23 @@ export function normalizeText(input: string): string {
 }
 
 export function tokens(input: string): string[] {
-  const n = normalizeText(input);
-  return n === "" ? [] : n.split(" ");
+  const normalized = normalizeText(input);
+  return normalized === "" ? [] : normalized.split(" ");
 }
 
 /** Discogs display form: "A & B Feat. C" using anv when present, no disambiguation suffixes. */
 export function artistDisplay(artists: ArtistRef[]): string {
-  let out = "";
-  artists.forEach((a, i) => {
-    const name = stripDisambiguation(a.anv !== "" ? a.anv : a.name);
-    out += name;
-    if (i === artists.length - 1) return;
-    const join = a.join.trim();
-    if (join === "") out += ", ";
-    else if (join === ",") out += ", ";
-    else out += ` ${join} `;
+  let display = "";
+  artists.forEach((artist, index) => {
+    const name = stripDisambiguation(artist.anv !== "" ? artist.anv : artist.name);
+    display += name;
+    if (index === artists.length - 1) return;
+    const join = artist.join.trim();
+    if (join === "") display += ", ";
+    else if (join === ",") display += ", ";
+    else display += ` ${join} `;
   });
-  return out.trim();
+  return display.trim();
 }
 
 /** Identity of a tune across releases: normalized "artist - title" (ASCII hyphen). */
@@ -49,9 +49,9 @@ export function heardKeyFor(artist: string, title: string): string {
 /** Discogs "released" is YYYY, YYYY-MM-DD, YYYY-00-00 or empty. Returns a plausible year or null. */
 export function yearFromReleased(released: string | null | undefined): number | null {
   if (!released) return null;
-  const m = /^(\d{4})/.exec(released.trim());
-  if (!m) return null;
-  const year = Number.parseInt(m[1]!, 10);
+  const match = /^(\d{4})/.exec(released.trim());
+  if (!match) return null;
+  const year = Number.parseInt(match[1]!, 10);
   if (year < 1900 || year > 2100) return null;
   return year;
 }
@@ -59,10 +59,10 @@ export function yearFromReleased(released: string | null | undefined): number | 
 /** "1:23" | "01:02:03" | "83" -> seconds, or null when empty/unparseable. */
 export function durationToSeconds(duration: string | null | undefined): number | null {
   if (!duration) return null;
-  const s = duration.trim();
-  if (s === "") return null;
-  if (/^\d+$/.test(s)) return Number.parseInt(s, 10);
-  const parts = s.split(":").map((p) => Number.parseInt(p, 10));
+  const text = duration.trim();
+  if (text === "") return null;
+  if (/^\d+$/.test(text)) return Number.parseInt(text, 10);
+  const parts = text.split(":").map((p) => Number.parseInt(p, 10));
   if (parts.some((p) => Number.isNaN(p))) return null;
   return parts.reduce((acc, p) => acc * 60 + p, 0);
 }

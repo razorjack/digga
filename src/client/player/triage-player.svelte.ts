@@ -117,10 +117,10 @@ export class TriagePlayer {
       this.#lastTick = performance.now();
       this.#timer = setInterval(() => this.#tick(), TICK_MS);
       this.#sync();
-    } catch (e) {
+    } catch (error) {
       if (this.#destroyed) return;
       this.status = "unavailable";
-      this.notice = e instanceof Error ? e.message : String(e);
+      this.notice = error instanceof Error ? error.message : String(error);
     }
   }
 
@@ -163,15 +163,15 @@ export class TriagePlayer {
   }
 
   nextTrack(): void {
-    const n = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: true });
-    if (n === null) this.#notify("That was the last track. Judge it.");
-    else this.playEntry(n);
+    const next = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: true });
+    if (next === null) this.#notify("That was the last track. Judge it.");
+    else this.playEntry(next);
   }
 
   previousTrack(): void {
-    const p = previousEntry(this.entries, this.current, this.#playlistState());
-    if (p === null) this.#notify("Already on the first track.");
-    else this.playEntry(p);
+    const previous = previousEntry(this.entries, this.current, this.#playlistState());
+    if (previous === null) this.#notify("Already on the first track.");
+    else this.playEntry(previous);
   }
 
   seekBy(seconds: number): void {
@@ -358,37 +358,37 @@ export class TriagePlayer {
     const what = entry?.track ? `${entry.track.position} ${entry.track.title}` : "This video";
     this.#notify(`${what} won't play here: ${embedErrorReason(code)}. Skipped.`);
     const state = this.#playlistState();
-    const n =
+    const next =
       nextEntry(this.entries, this.current, state, { fallback: true }) ??
       firstEntry(this.entries, state);
-    if (n === null) {
+    if (next === null) {
       this.current = null;
       this.status = "no_audio";
       return;
     }
-    this.playEntry(n);
+    this.playEntry(next);
   }
 
   #advance(): void {
-    const n = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: false });
-    if (n === null) {
+    const next = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: false });
+    if (next === null) {
       this.#flushListen();
       this.status = "ended";
       return;
     }
-    this.playEntry(n);
+    this.playEntry(next);
   }
 
   #tick(): void {
     const now = performance.now();
-    const dt = Math.min(1, (now - this.#lastTick) / 1000);
+    const elapsedSeconds = Math.min(1, (now - this.#lastTick) / 1000);
     this.#lastTick = now;
     const deck = this.#activeDeck();
     if (!deck?.ready || !deck.videoId || !this.#holdsOpenRelease(deck)) return;
     if (this.status === "playing" || this.status === "paused") {
       this.time = deck.currentTime();
-      const d = deck.duration();
-      if (d > 0) this.duration = d;
+      const duration = deck.duration();
+      if (duration > 0) this.duration = duration;
     }
     if (
       this.status === "loading" &&
@@ -399,7 +399,7 @@ export class TriagePlayer {
     }
     const listen = this.#listen;
     if (this.status !== "playing" || !listen) return;
-    listen.seconds += dt;
+    listen.seconds += elapsedSeconds;
     if (listen.logged === 0 && listen.seconds >= LOG_AFTER_SECONDS) {
       this.#postListen(listen, listen.seconds);
       listen.logged = listen.seconds;

@@ -43,25 +43,30 @@ export interface DumpLoadResult {
   dryRun: boolean;
 }
 
-export function matchesUniverse(rel: DumpRelease, c: UniverseCriteria): boolean {
-  const byIds = (c.labelIds && c.labelIds.length > 0) || (c.artistIds && c.artistIds.length > 0);
+export function matchesUniverse(release: DumpRelease, criteria: UniverseCriteria): boolean {
+  const byIds =
+    (criteria.labelIds && criteria.labelIds.length > 0) ||
+    (criteria.artistIds && criteria.artistIds.length > 0);
   if (byIds) {
-    const labelHit = rel.labels.some((l) => l.id !== null && c.labelIds?.includes(l.id));
-    const artistHit = rel.artists.some((a) => a.id !== null && c.artistIds?.includes(a.id));
+    const labelHit = release.labels.some((l) => l.id !== null && criteria.labelIds?.includes(l.id));
+    const artistHit = release.artists.some(
+      (a) => a.id !== null && criteria.artistIds?.includes(a.id),
+    );
     return labelHit || artistHit;
   }
-  if (!rel.styles.some((s) => c.styles.includes(s))) return false;
-  if (c.loadYears) {
-    const year = yearFromReleased(rel.released);
-    if (year !== null && (year < c.loadYears[0] || year > c.loadYears[1])) return false;
+  if (!release.styles.some((s) => criteria.styles.includes(s))) return false;
+  if (criteria.loadYears) {
+    const year = yearFromReleased(release.released);
+    if (year !== null && (year < criteria.loadYears[0] || year > criteria.loadYears[1]))
+      return false;
   }
   return true;
 }
 
 /** discogs_20250901_releases.xml.gz -> 2025-09-01 */
 export function dumpDateFromFilename(file: string): string | null {
-  const m = /(\d{4})(\d{2})(\d{2})/.exec(path.basename(file));
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  const match = /(\d{4})(\d{2})(\d{2})/.exec(path.basename(file));
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
 }
 
 /** One id per line; blank lines and # comments ignored. */
@@ -91,23 +96,33 @@ export function openDumpInput(file: string, stdin: Readable): Readable {
  */
 export async function loadDump(
   db: Db,
-  opts: DumpLoadOptions,
-  hooks: { onProgress?: (p: DumpLoadProgress) => void; logger?: Logger; stdin?: Readable } = {},
+  options: DumpLoadOptions,
+  hooks: {
+    onProgress?: (progress: DumpLoadProgress) => void;
+    logger?: Logger;
+    stdin?: Readable;
+  } = {},
 ): Promise<DumpLoadResult> {
   const started = Date.now();
-  const progressEvery = opts.progressEvery ?? 100_000;
-  const batchSize = opts.batchSize ?? 500;
-  const dryRun = opts.dryRun ?? false;
+  const progressEvery = options.progressEvery ?? 100_000;
+  const batchSize = options.batchSize ?? 500;
+  const dryRun = options.dryRun ?? false;
   let scanned = 0;
   let matched = 0;
   let upserted = 0;
   let batch: DumpRelease[] = [];
   const elapsed = () => (Date.now() - started) / 1000;
   const report = (phase: DumpLoadProgress["phase"]) => {
-    const p: DumpLoadProgress = { phase, scanned, matched, upserted, elapsedSeconds: elapsed() };
-    hooks.onProgress?.(p);
+    const progress: DumpLoadProgress = {
+      phase,
+      scanned,
+      matched,
+      upserted,
+      elapsedSeconds: elapsed(),
+    };
+    hooks.onProgress?.(progress);
     hooks.logger?.info(
-      `${phase}: scanned=${scanned} matched=${matched} upserted=${upserted} ${p.elapsedSeconds.toFixed(0)}s`,
+      `${phase}: scanned=${scanned} matched=${matched} upserted=${upserted} ${progress.elapsedSeconds.toFixed(0)}s`,
     );
   };
   const flush = () => {
@@ -120,16 +135,16 @@ export async function loadDump(
   };
 
   const stdin = hooks.stdin ?? (process.stdin as Readable);
-  const input = openDumpInput(opts.file, stdin);
+  const input = openDumpInput(options.file, stdin);
   try {
-    for await (const rel of iterateReleases(input)) {
+    for await (const release of iterateReleases(input)) {
       scanned += 1;
       if (scanned % progressEvery === 0) report("scanning");
-      if (!matchesUniverse(rel, opts)) continue;
+      if (!matchesUniverse(release, options)) continue;
       matched += 1;
-      batch.push(rel);
+      batch.push(release);
       if (batch.length >= batchSize) flush();
-      if (opts.limit !== undefined && matched >= opts.limit) break;
+      if (options.limit !== undefined && matched >= options.limit) break;
     }
   } finally {
     input.destroy();
@@ -141,7 +156,7 @@ export async function loadDump(
     matched,
     upserted,
     elapsedSeconds: elapsed(),
-    dumpDate: dumpDateFromFilename(opts.file),
+    dumpDate: dumpDateFromFilename(options.file),
     dryRun,
   };
 }

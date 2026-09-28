@@ -45,6 +45,6 @@ export const JOB_LABEL: Record<JobType, string> = {
 export function elapsed(job: Job): string {
   if (!job.startedAt) return "";
   const end = job.finishedAt ? Date.parse(job.finishedAt) : Date.now();
-  const s = Math.max(0, Math.round((end - Date.parse(job.startedAt)) / 1000));
-  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
+  const seconds = Math.max(0, Math.round((end - Date.parse(job.startedAt)) / 1000));
+  return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
 }

@@ -178,14 +178,14 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
 const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "range", "button", "submit", "reset"]);
 
 /** True when the key press belongs to a form field rather than to the shortcuts. */
-export function isTyping(e: KeyboardEvent): boolean {
-  const t = e.target;
-  if (!(t instanceof HTMLElement)) return false;
-  if (t instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(t.type);
-  return t.isContentEditable || ["TEXTAREA", "SELECT"].includes(t.tagName);
+export function isTyping(event: KeyboardEvent): boolean {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(target.type);
+  return target.isContentEditable || ["TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
 /** Shortcuts are single keys; anything held with Cmd, Ctrl or Alt belongs to the browser. */
-export function hasCommandModifier(e: KeyboardEvent): boolean {
-  return e.metaKey || e.ctrlKey || e.altKey;
+export function hasCommandModifier(event: KeyboardEvent): boolean {
+  return event.metaKey || event.ctrlKey || event.altKey;
 }

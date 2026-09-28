@@ -22,12 +22,12 @@ export function parseDiscogsUrl(input: string): DiscogsRef | null {
   if (host !== "discogs.com" && !host.endsWith(".discogs.com")) return null;
   if (host.startsWith("api.")) return null;
   const segments = url.pathname.split("/").filter((s) => s !== "");
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    const seg = segments[i]!.toLowerCase();
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const seg = segments[index]!.toLowerCase();
     if (seg !== "release" && seg !== "master") continue;
-    const m = /^(\d+)(?:-|$)/.exec(segments[i + 1]!);
-    if (!m) continue;
-    const id = Number.parseInt(m[1]!, 10);
+    const match = /^(\d+)(?:-|$)/.exec(segments[index + 1]!);
+    if (!match) continue;
+    const id = Number.parseInt(match[1]!, 10);
     if (id <= 0) continue;
     return { kind: seg, id };
   }

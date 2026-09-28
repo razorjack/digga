@@ -37,7 +37,7 @@
   const eta = $derived(formatEta(stats.value?.rate.etaHours ?? null));
 
   // A clicked header link must not keep focus: a later Enter would follow it again.
-  const keepFocus = (e: MouseEvent) => e.preventDefault();
+  const keepFocus = (event: MouseEvent) => event.preventDefault();
 
   onMount(() => {
     void settings.load();
@@ -48,22 +48,24 @@
     if (route) void stats.refresh();
   });
 
-  function onkeydown(e: KeyboardEvent): void {
-    if (e.defaultPrevented || isTyping(e) || hasCommandModifier(e)) return;
-    if (e.key === "?") {
+  function onkeydown(event: KeyboardEvent): void {
+    if (event.defaultPrevented || isTyping(event) || hasCommandModifier(event)) return;
+    if (event.key === "?") {
       ui.helpOpen = !ui.helpOpen;
-      e.preventDefault();
+      event.preventDefault();
       return;
     }
     if (ui.helpOpen) {
-      if (e.key === "Escape") ui.helpOpen = false;
-      e.preventDefault();
+      if (event.key === "Escape") ui.helpOpen = false;
+      event.preventDefault();
       return;
     }
-    const target = ROUTES.find((r) => r.key.toLowerCase() === e.key.toLowerCase());
-    if (target && !e.shiftKey && !e.repeat) {
+    const target = ROUTES.find(
+      (destination) => destination.key.toLowerCase() === event.key.toLowerCase(),
+    );
+    if (target && !event.shiftKey && !event.repeat) {
       navigate(target.route);
-      e.preventDefault();
+      event.preventDefault();
     }
   }
 </script>
@@ -102,10 +104,10 @@
   <header class="top">
     <a class="wordmark" href="#/triage" aria-label="Digga, triage" onmousedown={keepFocus}>digga</a>
     <nav aria-label="Pages">
-      {#each ROUTES as r (r.route)}
-        <a href="#/{r.route}" aria-current={route === r.route ? "page" : undefined} onmousedown={keepFocus}>
-          {r.label}
-          <Key label={r.key} size="sm" />
+      {#each ROUTES as destination (destination.route)}
+        <a href="#/{destination.route}" aria-current={route === destination.route ? "page" : undefined} onmousedown={keepFocus}>
+          {destination.label}
+          <Key label={destination.key} size="sm" />
         </a>
       {/each}
     </nav>

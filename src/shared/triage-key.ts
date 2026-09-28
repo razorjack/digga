@@ -17,9 +17,9 @@ export function releaseKey(releaseId: number): string {
 }
 
 export function parseTriageKey(key: string): { kind: "master" | "release"; id: number } | null {
-  const m = /^(m|r):(\d+)$/.exec(key);
-  if (!m) return null;
-  return { kind: m[1] === "m" ? "master" : "release", id: Number.parseInt(m[2]!, 10) };
+  const match = /^(m|r):(\d+)$/.exec(key);
+  if (!match) return null;
+  return { kind: match[1] === "m" ? "master" : "release", id: Number.parseInt(match[2]!, 10) };
 }
 
 export const TRIAGE_KEY_PATTERN = /^(m|r):\d+$/;

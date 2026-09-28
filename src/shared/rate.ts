@@ -8,8 +8,8 @@ export interface Session {
 export function sessionsFromTimes(times: string[], gapMinutes = 30): Session[] {
   const sessions: Session[] = [];
   const gap = gapMinutes * 60_000;
-  for (const t of times) {
-    const ms = Date.parse(t);
+  for (const time of times) {
+    const ms = Date.parse(time);
     if (Number.isNaN(ms)) continue;
     const current = sessions[sessions.length - 1];
     if (current && ms - current.end <= gap) {

@@ -10,17 +10,17 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
   const videos = getVideos(db, id);
   const heard = getHeardKeys(
     db,
-    tracks.map((t) => t.heardKey),
+    tracks.map((track) => track.heardKey),
   );
-  const marks = new Map(getTrackVerdicts(db, id).map((tv) => [tv.position, tv]));
+  const marks = new Map(getTrackVerdicts(db, id).map((mark) => [mark.position, mark]));
   const videoPositions = new Set(
-    videos.map((v) => v.matchedPosition).filter((p): p is string => p !== null),
+    videos.map((video) => video.matchedPosition).filter((p): p is string => p !== null),
   );
-  const trackDetails: TrackDetail[] = tracks.map((t) => ({
-    ...t,
-    heard: heard.has(t.heardKey),
-    hasVideo: videoPositions.has(t.position),
-    mark: marks.get(t.position)?.mark ?? null,
+  const trackDetails: TrackDetail[] = tracks.map((track) => ({
+    ...track,
+    heard: heard.has(track.heardKey),
+    hasVideo: videoPositions.has(track.position),
+    mark: marks.get(track.position)?.mark ?? null,
   }));
   return {
     release,
@@ -28,17 +28,17 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
     videos,
     verdict: getVerdict(db, release.triageKey),
     trackVerdicts: [...marks.values()],
-    siblings: getSiblings(db, release).map((s) => ({
-      id: s.id,
-      title: s.title,
-      year: s.year,
-      country: s.country,
-      formatSummary: formatSummary(s.formats),
-      labelName: s.labelName,
-      catno: s.catno,
-      isMainRelease: s.isMainRelease,
-      videoCount: countVideos(db, s.id),
-      inUniverse: s.inUniverse,
+    siblings: getSiblings(db, release).map((sibling) => ({
+      id: sibling.id,
+      title: sibling.title,
+      year: sibling.year,
+      country: sibling.country,
+      formatSummary: formatSummary(sibling.formats),
+      labelName: sibling.labelName,
+      catno: sibling.catno,
+      isMainRelease: sibling.isMainRelease,
+      videoCount: countVideos(db, sibling.id),
+      inUniverse: sibling.inUniverse,
     })),
   };
 }

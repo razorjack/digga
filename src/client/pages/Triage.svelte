@@ -62,8 +62,8 @@
     loadingSnoozed = true;
     try {
       session.startRound((await api.getTwelves({ status: ["snoozed"] })).items.toReversed());
-    } catch (e) {
-      session.showFlash(`The snoozed records did not load: ${errorMessage(e)}`);
+    } catch (event) {
+      session.showFlash(`The snoozed records did not load: ${errorMessage(event)}`);
     } finally {
       loadingSnoozed = false;
     }
@@ -72,7 +72,9 @@
   const snoozedCount = $derived(stats.value?.verdicts.snoozed ?? 0);
   const noReleases = $derived(stats.value !== null && stats.value.universe.releases === 0);
   const nothingMatches = $derived(
-    stats.value !== null && stats.value.universe.releases > 0 && stats.value.universe.filteredKeys === 0,
+    stats.value !== null &&
+      stats.value.universe.releases > 0 &&
+      stats.value.universe.filteredKeys === 0,
   );
 
   $effect(() => {
@@ -119,11 +121,11 @@
   }
 
   /** Returns true when the key was a triage shortcut. */
-  function handle(e: KeyboardEvent): boolean {
-    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  function handle(event: KeyboardEvent): boolean {
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     const item = session.current;
-    if (e.shiftKey && (key === "k" || key === "m" || key === "c")) {
-      if (!e.repeat) markPlaying(key === "k" ? "keep" : key === "m" ? "meh" : "candidate");
+    if (event.shiftKey && (key === "k" || key === "m" || key === "c")) {
+      if (!event.repeat) markPlaying(key === "k" ? "keep" : key === "m" ? "meh" : "candidate");
       return true;
     }
     switch (key) {
@@ -135,7 +137,7 @@
         return true;
     }
     // Holding a key down must not judge a run of releases.
-    if (e.repeat) return /^[ jknozs1-9radmc]$/.test(key);
+    if (event.repeat) return /^[ jknozs1-9radmc]$/.test(key);
     switch (key) {
       case " ":
         player.toggle();
@@ -177,9 +179,16 @@
     return false;
   }
 
-  function onkeydown(e: KeyboardEvent): void {
-    if (!active || ui.helpOpen || e.defaultPrevented || isTyping(e) || hasCommandModifier(e)) return;
-    if (handle(e)) e.preventDefault();
+  function onkeydown(event: KeyboardEvent): void {
+    if (
+      !active ||
+      ui.helpOpen ||
+      event.defaultPrevented ||
+      isTyping(event) ||
+      hasCommandModifier(event)
+    )
+      return;
+    if (handle(event)) event.preventDefault();
   }
 </script>
 

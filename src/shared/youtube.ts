@@ -11,10 +11,10 @@ export function youtubeIdFromUrl(src: string): string | null {
     id && /^[\w-]{11}$/.test(id) ? id : null;
   if (host === "youtu.be") return valid(url.pathname.split("/")[1]);
   if (host === "youtube.com" || host === "youtube-nocookie.com") {
-    const v = url.searchParams.get("v");
-    if (v) return valid(v);
-    const m = /^\/(?:embed|shorts|v|live)\/([\w-]{11})/.exec(url.pathname);
-    if (m) return valid(m[1]);
+    const videoId = url.searchParams.get("v");
+    if (videoId) return valid(videoId);
+    const match = /^\/(?:embed|shorts|v|live)\/([\w-]{11})/.exec(url.pathname);
+    if (match) return valid(match[1]);
   }
   return null;
 }

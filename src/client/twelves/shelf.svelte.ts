@@ -62,18 +62,20 @@ export class TwelvesShelf {
   visible = $derived(
     visibleItems(this.items, { shelf: this.shelf, sort: this.sort, query: this.query }),
   );
-  selectedIndex = $derived(this.visible.findIndex((i) => i.verdict.key === this.selectedKey));
+  selectedIndex = $derived(
+    this.visible.findIndex((index) => index.verdict.key === this.selectedKey),
+  );
   selected = $derived(this.selectedIndex === -1 ? null : this.visible[this.selectedIndex]!);
   changes: Promise<void> = Promise.resolve();
   async load(): Promise<void> {
     const version = ++this.#loadVersion;
     try {
-      const res = await this.#client.getTwelves({ status: STATUSES });
+      const response = await this.#client.getTwelves({ status: STATUSES });
       if (!this.#current() || version !== this.#loadVersion) return;
-      this.items = res.items;
+      this.items = response.items;
       this.error = null;
-    } catch (e) {
-      if (this.#current() && version === this.#loadVersion) this.error = errorMessage(e);
+    } catch (error) {
+      if (this.#current() && version === this.#loadVersion) this.error = errorMessage(error);
     } finally {
       this.loading = false;
     }
@@ -93,8 +95,8 @@ export class TwelvesShelf {
       if (add) await this.#client.pushToWantlist(releaseId);
       else await this.#client.removeFromWantlist(releaseId);
       return null;
-    } catch (e) {
-      return errorMessage(e);
+    } catch (error) {
+      return errorMessage(error);
     }
   }
 
@@ -127,12 +129,14 @@ export class TwelvesShelf {
   }
 
   enqueueTask(task: () => Promise<void>): void {
-    this.changes = this.changes.then(task).catch((e: unknown) => this.showFlash(errorMessage(e)));
+    this.changes = this.changes
+      .then(task)
+      .catch((error: unknown) => this.showFlash(errorMessage(error)));
   }
 
   enqueue(key: string, change: (item: TwelvesItem) => Promise<void>): void {
     this.enqueueTask(async () => {
-      const item = this.items.find((i) => i.verdict.key === key);
+      const item = this.items.find((index) => index.verdict.key === key);
       if (item) await change(item);
     });
   }
@@ -140,7 +144,7 @@ export class TwelvesShelf {
   async write(item: TwelvesItem, next: Partial<Verdict>, message: string): Promise<void> {
     const previous = item.verdict;
     // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
-    const index = this.visible.findIndex((i) => i.verdict.key === previous.key);
+    const index = this.visible.findIndex((index) => index.verdict.key === previous.key);
     const neighbour = (this.visible[index + 1] ?? this.visible[index - 1])?.verdict.key ?? null;
     try {
       const saved = await this.#client.postVerdict({
@@ -151,15 +155,16 @@ export class TwelvesShelf {
         releaseId: previous.releaseId,
       });
       this.#replaceVerdict(saved);
-    } catch (e) {
-      this.showFlash(`Not saved: ${errorMessage(e)}`);
+    } catch (error) {
+      this.showFlash(`Not saved: ${errorMessage(error)}`);
       return;
     }
     const wantlist = await this.syncWantlist(item, next.status ?? previous.status);
     this.undoStack = [...this.undoStack, { previous, wantlist: wantlist.entry }];
     this.showFlash(`${message}${wantlist.note} Z undoes it.`);
     await this.load();
-    if (!this.visible.some((i) => i.verdict.key === this.selectedKey)) this.selectedKey = neighbour;
+    if (!this.visible.some((index) => index.verdict.key === this.selectedKey))
+      this.selectedKey = neighbour;
     void stats.refresh();
   }
 
@@ -185,8 +190,8 @@ export class TwelvesShelf {
         releaseId: previous.releaseId,
         decidedAt: previous.decidedAt,
       });
-    } catch (e) {
-      this.showFlash(`Undo failed: ${errorMessage(e)}`);
+    } catch (error) {
+      this.showFlash(`Undo failed: ${errorMessage(error)}`);
       return;
     }
     this.undoStack = this.undoStack.slice(0, -1);
@@ -250,11 +255,11 @@ export class TwelvesShelf {
 
   move(delta: number): void {
     if (this.visible.length === 0) return;
-    const i = Math.min(
+    const index = Math.min(
       this.visible.length - 1,
       Math.max(0, (this.selectedIndex === -1 ? 0 : this.selectedIndex) + delta),
     );
-    this.selectedKey = this.visible[i]!.verdict.key;
+    this.selectedKey = this.visible[index]!.verdict.key;
   }
 
   async checkList(): Promise<void> {
@@ -276,15 +281,15 @@ export class TwelvesShelf {
       this.showFlash(
         `Your Discogs Maybe list has ${formatCount(progress.processed)} records; ${formatCount(progress.verdictsWritten)} changed here.`,
       );
-    } catch (e) {
-      this.showFlash(`The list check failed: ${errorMessage(e)}`);
+    } catch (error) {
+      this.showFlash(`The list check failed: ${errorMessage(error)}`);
     } finally {
       this.checking = false;
     }
   }
 
   cycleSort(): void {
-    const i = SORTS.findIndex((s) => s.id === this.sort);
-    this.sort = SORTS[(i + 1) % SORTS.length]!.id;
+    const index = SORTS.findIndex((s) => s.id === this.sort);
+    this.sort = SORTS[(index + 1) % SORTS.length]!.id;
   }
 }

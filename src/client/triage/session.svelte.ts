@@ -208,7 +208,7 @@ export class TriageSession {
       passed: this.passed,
       exhausted: this.exhausted,
     };
-    for (const r of records) this.#roundVerdicts.set(r.verdict.key, r.verdict);
+    for (const record of records) this.#roundVerdicts.set(record.verdict.key, record.verdict);
     this.upcoming = records.map((r) => r.release);
     this.passed = [];
     this.exhausted = true;

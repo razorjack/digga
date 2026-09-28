@@ -23,8 +23,8 @@ async function saveVerdict(request: Context, context: AppContext) {
   if (refused) return refused;
   const body = await parseJson(request, VerdictInputSchema);
   if (!body.ok) return body.response;
-  const v = upsertVerdict(db, body.data);
-  return request.json(v);
+  const verdict = upsertVerdict(db, body.data);
+  return request.json(verdict);
 }
 
 function removeVerdict(request: Context, context: AppContext) {
@@ -51,7 +51,7 @@ async function listen(request: Context, context: AppContext) {
   if (refused) return refused;
   const body = await parseJson(request, ListenLogInputSchema);
   if (!body.ok) return body.response;
-  const r = logListen(db, { ...body.data, position: body.data.position ?? null });
-  const res: ListenLogResponse = { id: r.id, heardKey: r.heardKey };
+  const listen = logListen(db, { ...body.data, position: body.data.position ?? null });
+  const res: ListenLogResponse = { id: listen.id, heardKey: listen.heardKey };
   return request.json(res);
 }

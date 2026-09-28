@@ -75,27 +75,28 @@ export class ApiRequestError extends Error {
 }
 
 function queryString(params: Record<string, string | number | boolean | undefined>): string {
-  const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined) q.set(k, String(v));
-  const s = q.toString();
-  return s === "" ? "" : `?${s}`;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params))
+    if (value !== undefined) query.set(key, String(value));
+  const encoded = query.toString();
+  return encoded === "" ? "" : `?${encoded}`;
 }
 
 export function createHttpApi(baseUrl = "/api"): Api {
   const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
-    const res = await fetch(`${baseUrl}${path}`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       method,
       headers: body === undefined ? {} : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const text = await res.text();
+    const text = await response.text();
     const data: unknown = text === "" ? null : JSON.parse(text);
-    if (!res.ok) {
-      const err = (data ?? {}) as { error?: string; issues?: unknown };
+    if (!response.ok) {
+      const error = (data ?? {}) as { error?: string; issues?: unknown };
       throw new ApiRequestError(
-        res.status,
-        err.error ?? `${method} ${path} failed with ${res.status}`,
-        err.issues,
+        response.status,
+        error.error ?? `${method} ${path} failed with ${response.status}`,
+        error.issues,
       );
     }
     return data as T;

@@ -99,60 +99,60 @@ export interface VideoRow {
   matched_position: string | null;
 }
 
-export function rowToRelease(r: ReleaseRow): ReleaseRecord {
+export function rowToRelease(row: ReleaseRow): ReleaseRecord {
   return {
-    id: r.id,
-    masterId: r.master_id,
-    isMainRelease: r.is_main_release === 1,
-    title: r.title,
-    artists: JSON.parse(r.artists_json) as ArtistRef[],
-    artistDisplay: r.artist_display,
-    labels: JSON.parse(r.labels_json) as LabelRef[],
-    labelName: r.label_name,
-    catno: r.catno,
-    year: r.year,
-    releasedRaw: r.released_raw,
-    country: r.country,
-    formats: JSON.parse(r.formats_json) as FormatRef[],
-    isVinyl: r.is_vinyl === 1,
-    genres: JSON.parse(r.genres_json) as string[],
-    styles: JSON.parse(r.styles_json) as string[],
-    inUniverse: r.in_universe === 1,
-    triageKey: r.triage_key,
+    id: row.id,
+    masterId: row.master_id,
+    isMainRelease: row.is_main_release === 1,
+    title: row.title,
+    artists: JSON.parse(row.artists_json) as ArtistRef[],
+    artistDisplay: row.artist_display,
+    labels: JSON.parse(row.labels_json) as LabelRef[],
+    labelName: row.label_name,
+    catno: row.catno,
+    year: row.year,
+    releasedRaw: row.released_raw,
+    country: row.country,
+    formats: JSON.parse(row.formats_json) as FormatRef[],
+    isVinyl: row.is_vinyl === 1,
+    genres: JSON.parse(row.genres_json) as string[],
+    styles: JSON.parse(row.styles_json) as string[],
+    inUniverse: row.in_universe === 1,
+    triageKey: row.triage_key,
     snapshot: {
-      lowestPrice: r.lowest_price,
-      numForSale: r.num_for_sale,
-      currency: r.currency,
-      communityHave: r.community_have,
-      communityWant: r.community_want,
-      enrichedAt: r.enriched_at,
+      lowestPrice: row.lowest_price,
+      numForSale: row.num_for_sale,
+      currency: row.currency,
+      communityHave: row.community_have,
+      communityWant: row.community_want,
+      enrichedAt: row.enriched_at,
     },
-    updatedAt: r.updated_at,
+    updatedAt: row.updated_at,
   };
 }
 
-export function rowToTrack(r: TrackRow): TrackRecord {
+export function rowToTrack(row: TrackRow): TrackRecord {
   return {
-    releaseId: r.release_id,
-    seq: r.seq,
-    position: r.position,
-    title: r.title,
-    artists: JSON.parse(r.artists_json) as ArtistRef[],
-    artistDisplay: r.artist_display,
-    durationSeconds: r.duration_seconds,
-    heardKey: r.heard_key,
+    releaseId: row.release_id,
+    seq: row.seq,
+    position: row.position,
+    title: row.title,
+    artists: JSON.parse(row.artists_json) as ArtistRef[],
+    artistDisplay: row.artist_display,
+    durationSeconds: row.duration_seconds,
+    heardKey: row.heard_key,
   };
 }
 
-export function rowToVideo(r: VideoRow): VideoRecord {
+export function rowToVideo(row: VideoRow): VideoRecord {
   return {
-    releaseId: r.release_id,
-    videoId: r.video_id,
-    src: r.src,
-    title: r.title,
-    durationSeconds: r.duration_seconds,
-    embeddable: r.embeddable === 1,
-    matchedPosition: r.matched_position,
+    releaseId: row.release_id,
+    videoId: row.video_id,
+    src: row.src,
+    title: row.title,
+    durationSeconds: row.duration_seconds,
+    embeddable: row.embeddable === 1,
+    matchedPosition: row.matched_position,
   };
 }
 
@@ -198,26 +198,26 @@ ON CONFLICT(release_id, video_id) DO UPDATE SET
   src = excluded.src, title = excluded.title, duration_seconds = excluded.duration_seconds,
   embeddable = excluded.embeddable, matched_position = excluded.matched_position`;
 
-function releaseParams(w: ReleaseWrite, now: string) {
+function releaseParams(release: ReleaseWrite, now: string) {
   return {
-    id: w.id,
-    master_id: w.masterId,
-    is_main_release: w.isMainRelease ? 1 : 0,
-    title: w.title,
-    artists_json: JSON.stringify(w.artists),
-    artist_display: w.artistDisplay,
-    labels_json: JSON.stringify(w.labels),
-    label_name: w.labelName,
-    catno: w.catno,
-    year: w.year,
-    released_raw: w.releasedRaw,
-    country: w.country,
-    formats_json: JSON.stringify(w.formats),
-    is_vinyl: w.isVinyl ? 1 : 0,
-    genres_json: JSON.stringify(w.genres),
-    styles_json: JSON.stringify(w.styles),
-    in_universe: w.inUniverse ? 1 : 0,
-    triage_key: w.triageKey,
+    id: release.id,
+    master_id: release.masterId,
+    is_main_release: release.isMainRelease ? 1 : 0,
+    title: release.title,
+    artists_json: JSON.stringify(release.artists),
+    artist_display: release.artistDisplay,
+    labels_json: JSON.stringify(release.labels),
+    label_name: release.labelName,
+    catno: release.catno,
+    year: release.year,
+    released_raw: release.releasedRaw,
+    country: release.country,
+    formats_json: JSON.stringify(release.formats),
+    is_vinyl: release.isVinyl ? 1 : 0,
+    genres_json: JSON.stringify(release.genres),
+    styles_json: JSON.stringify(release.styles),
+    in_universe: release.inUniverse ? 1 : 0,
+    triage_key: release.triageKey,
     updated_at: now,
   };
 }
@@ -225,16 +225,16 @@ function releaseParams(w: ReleaseWrite, now: string) {
 export function writeTracks(db: Db, releaseId: number, tracks: TrackWrite[]): void {
   db.prepare("DELETE FROM tracks WHERE release_id = ?").run(releaseId);
   const ins = db.prepare(INSERT_TRACK);
-  for (const t of tracks) {
+  for (const track of tracks) {
     ins.run({
       release_id: releaseId,
-      seq: t.seq,
-      position: t.position,
-      title: t.title,
-      artists_json: JSON.stringify(t.artists),
-      artist_display: t.artistDisplay,
-      duration_seconds: t.durationSeconds,
-      heard_key: t.heardKey,
+      seq: track.seq,
+      position: track.position,
+      title: track.title,
+      artists_json: JSON.stringify(track.artists),
+      artist_display: track.artistDisplay,
+      duration_seconds: track.durationSeconds,
+      heard_key: track.heardKey,
     });
   }
 }
@@ -243,40 +243,42 @@ export function writeVideos(
   db: Db,
   releaseId: number,
   videos: VideoWrite[],
-  opts: { replace: boolean },
+  options: { replace: boolean },
 ): void {
-  if (opts.replace) db.prepare("DELETE FROM videos WHERE release_id = ?").run(releaseId);
+  if (options.replace) db.prepare("DELETE FROM videos WHERE release_id = ?").run(releaseId);
   const ins = db.prepare(INSERT_VIDEO);
-  for (const v of videos) {
+  for (const video of videos) {
     ins.run({
       release_id: releaseId,
-      video_id: v.videoId,
-      src: v.src,
-      title: v.title,
-      duration_seconds: v.durationSeconds,
-      embeddable: v.embeddable ? 1 : 0,
-      matched_position: v.matchedPosition,
+      video_id: video.videoId,
+      src: video.src,
+      title: video.title,
+      duration_seconds: video.durationSeconds,
+      embeddable: video.embeddable ? 1 : 0,
+      matched_position: video.matchedPosition,
     });
   }
 }
 
 /** Full upsert from the dump: release columns, tracks and videos are replaced; API snapshot columns are kept. */
-export function upsertRelease(db: Db, w: ReleaseWrite): void {
+export function upsertRelease(db: Db, release: ReleaseWrite): void {
   const now = nowIso();
-  db.prepare(UPSERT_RELEASE).run(releaseParams(w, now));
-  writeTracks(db, w.id, w.tracks);
-  writeVideos(db, w.id, w.videos, { replace: true });
+  db.prepare(UPSERT_RELEASE).run(releaseParams(release, now));
+  writeTracks(db, release.id, release.tracks);
+  writeVideos(db, release.id, release.videos, { replace: true });
 }
 
 export const writeReleases = (db: Db, writes: ReleaseWrite[]): void => {
   db.transaction((rows: ReleaseWrite[]) => {
-    for (const w of rows) upsertRelease(db, w);
+    for (const release of rows) upsertRelease(db, release);
   })(writes);
 };
 
 /** Stub row for a release outside the universe (from a seed). Never overwrites an existing row. */
-export function insertStubRelease(db: Db, w: ReleaseWrite): boolean {
-  const info = db.prepare(INSERT_STUB).run(releaseParams({ ...w, inUniverse: false }, nowIso()));
+export function insertStubRelease(db: Db, release: ReleaseWrite): boolean {
+  const info = db
+    .prepare(INSERT_STUB)
+    .run(releaseParams({ ...release, inUniverse: false }, nowIso()));
   return info.changes > 0;
 }
 

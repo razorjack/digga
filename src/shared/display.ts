@@ -2,18 +2,18 @@
 
 const counts = new Intl.NumberFormat("en-GB");
 
-export function formatCount(n: number): string {
-  return counts.format(n);
+export function formatCount(count: number): string {
+  return counts.format(count);
 }
 
 /** 372 -> "6:12", 3723 -> "1:02:03". */
 export function formatDuration(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "";
-  const s = Math.floor(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const rest = String(s % 60).padStart(2, "0");
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${rest}` : `${m}:${rest}`;
+  const wholeSeconds = Math.floor(seconds);
+  const hours = Math.floor(wholeSeconds / 3600);
+  const minutes = Math.floor((wholeSeconds % 3600) / 60);
+  const rest = String(wholeSeconds % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
 /** Price in the currency Discogs reported; a plain number when the currency is unknown. */
@@ -37,10 +37,10 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 /** "27 Sep" within the given year, "27 Sep 2025" otherwise. */
 export function formatDay(iso: string, now: Date = new Date()): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const day = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  return d.getFullYear() === now.getFullYear() ? day : `${day} ${d.getFullYear()}`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
 }
 
 /**
@@ -48,7 +48,7 @@ export function formatDay(iso: string, now: Date = new Date()): string {
  * never quite straight.
  */
 export function stampTilt(id: number): number {
-  const h = Math.imul(id ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
-  const tilt = ((h % 700) - 400) / 100;
+  const hash = Math.imul(id ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
+  const tilt = ((hash % 700) - 400) / 100;
   return Math.abs(tilt) < 0.6 ? tilt + (tilt < 0 ? -0.8 : 0.8) : tilt;
 }

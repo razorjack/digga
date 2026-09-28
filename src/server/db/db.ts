@@ -20,17 +20,18 @@ export interface OpenOptions {
 
 const MIGRATIONS_DIR = fileURLToPath(new URL("./migrations/", import.meta.url));
 
-export function openDb(file: string, opts: OpenOptions = {}): Db {
-  if (file !== ":memory:" && !opts.readonly) fs.mkdirSync(path.dirname(file), { recursive: true });
+export function openDb(file: string, options: OpenOptions = {}): Db {
+  if (file !== ":memory:" && !options.readonly)
+    fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new BetterSqlite3(file, {
-    readonly: opts.readonly ?? false,
-    fileMustExist: opts.readonly ?? false,
+    readonly: options.readonly ?? false,
+    fileMustExist: options.readonly ?? false,
   });
-  if (opts.foreign) return db;
+  if (options.foreign) return db;
   if (file !== ":memory:") db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
-  if (!opts.readonly) applyMigrations(db);
+  if (!options.readonly) applyMigrations(db);
   return db;
 }
 
@@ -54,15 +55,15 @@ export function applyMigrations(db: Db, dir: string = MIGRATIONS_DIR): number[] 
   const current = getMeta(db, "schema_version");
   let version = current ? Number.parseInt(current, 10) : 0;
   const applied: number[] = [];
-  for (const m of listMigrations(dir)) {
-    if (m.version <= version) continue;
-    const sql = fs.readFileSync(m.file, "utf8");
+  for (const migration of listMigrations(dir)) {
+    if (migration.version <= version) continue;
+    const sql = fs.readFileSync(migration.file, "utf8");
     db.transaction(() => {
       db.exec(sql);
-      setMeta(db, "schema_version", String(m.version));
+      setMeta(db, "schema_version", String(migration.version));
     })();
-    version = m.version;
-    applied.push(m.version);
+    version = migration.version;
+    applied.push(migration.version);
   }
   return applied;
 }

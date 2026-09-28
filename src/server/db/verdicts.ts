@@ -35,21 +35,21 @@ interface HeardRow {
   last_heard_at: string;
 }
 
-const rowToVerdict = (r: VerdictRow): Verdict => ({
-  key: r.key,
-  status: r.status,
-  source: r.source,
-  notes: r.notes,
-  releaseId: r.release_id,
-  decidedAt: r.decided_at,
+const rowToVerdict = (row: VerdictRow): Verdict => ({
+  key: row.key,
+  status: row.status,
+  source: row.source,
+  notes: row.notes,
+  releaseId: row.release_id,
+  decidedAt: row.decided_at,
 });
 
-const rowToTrackVerdict = (r: TrackVerdictRow): TrackVerdict => ({
-  releaseId: r.release_id,
-  position: r.position,
-  mark: r.mark,
-  notes: r.notes,
-  decidedAt: r.decided_at,
+const rowToTrackVerdict = (row: TrackVerdictRow): TrackVerdict => ({
+  releaseId: row.release_id,
+  position: row.position,
+  mark: row.mark,
+  notes: row.notes,
+  decidedAt: row.decided_at,
 });
 
 export interface VerdictWrite {
@@ -68,9 +68,9 @@ export function getVerdict(db: Db, key: string): Verdict | null {
 
 export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
   const out = new Map<string, Verdict>();
-  const stmt = db.prepare("SELECT * FROM verdicts WHERE key = ?");
+  const statement = db.prepare("SELECT * FROM verdicts WHERE key = ?");
   for (const key of keys) {
-    const row = stmt.get(key) as VerdictRow | undefined;
+    const row = statement.get(key) as VerdictRow | undefined;
     if (row) out.set(key, rowToVerdict(row));
   }
   return out;
@@ -128,7 +128,7 @@ export function countVerdictsByStatus(db: Db): Record<VerdictStatus, number> {
     status: VerdictStatus;
     n: number;
   }[];
-  for (const r of rows) if (r.status in counts) counts[r.status] = r.n;
+  for (const row of rows) if (row.status in counts) counts[row.status] = row.n;
   return counts;
 }
 
@@ -157,7 +157,7 @@ export function triageDecisionTimes(db: Db, limit = 5000): string[] {
       "SELECT decided_at FROM verdicts WHERE source IN ('triage', 'manual') ORDER BY decided_at DESC LIMIT ?",
     )
     .all(limit) as { decided_at: string }[];
-  return rows.map((r) => r.decided_at).reverse();
+  return rows.map((row) => row.decided_at).reverse();
 }
 
 export function setTrackVerdict(
@@ -190,8 +190,8 @@ export function getTrackVerdicts(db: Db, releaseId: number): TrackVerdict[] {
 
 export function getHeardKeys(db: Db, heardKeys: string[]): Set<string> {
   const out = new Set<string>();
-  const stmt = db.prepare("SELECT heard_key FROM heard_tracks WHERE heard_key = ?");
-  for (const k of heardKeys) if (stmt.get(k)) out.add(k);
+  const statement = db.prepare("SELECT heard_key FROM heard_tracks WHERE heard_key = ?");
+  for (const key of heardKeys) if (statement.get(key)) out.add(key);
   return out;
 }
 

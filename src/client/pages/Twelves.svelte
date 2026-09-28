@@ -1,107 +1,108 @@
 <script lang="ts">
-import { onMount, tick } from "svelte";
-import type { TwelvesItem } from "../../shared/api.ts";
-import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
-import Key from "../components/Key.svelte";
-import Stamp from "../components/Stamp.svelte";
-import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
-import { navigate, openExternal } from "../router.svelte.ts";
-import { settings, ui } from "../stores.svelte.ts";
-import { TwelvesShelf } from '../twelves/shelf.svelte.ts';
-import { SHELVES, SORTS, EMPTY, JUDGE_KEYS, notOnList, notOnWantlist } from '../twelves/model.ts';
-const shelfState = new TwelvesShelf();
-onMount(() => { void shelfState.load(); return () => shelfState.destroy(); });
-let editingKey = $state<string | null>(null);
+  import { onMount, tick } from "svelte";
+  import type { TwelvesItem } from "../../shared/api.ts";
+  import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
+  import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+  import Key from "../components/Key.svelte";
+  import Stamp from "../components/Stamp.svelte";
+  import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
+  import { navigate, openExternal } from "../router.svelte.ts";
+  import { settings, ui } from "../stores.svelte.ts";
+  import { TwelvesShelf } from "../twelves/shelf.svelte.ts";
+  import { SHELVES, SORTS, EMPTY, JUDGE_KEYS, notOnList, notOnWantlist } from "../twelves/model.ts";
+  const shelfState = new TwelvesShelf();
+  onMount(() => {
+    void shelfState.load();
+    return () => shelfState.destroy();
+  });
+  let editingKey = $state<string | null>(null);
 
-let noteDraft = $state("");
+  let noteDraft = $state("");
 
-let filterInput = $state<HTMLInputElement | null>(null);
+  let filterInput = $state<HTMLInputElement | null>(null);
 
-let listEl = $state<HTMLOListElement | null>(null);
+  let listEl = $state<HTMLOListElement | null>(null);
 
-const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
+  const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
 
-$effect(() => {
+  $effect(() => {
     if (shelfState.selectedIndex === -1 && shelfState.visible.length > 0)
-        shelfState.selectedKey = shelfState.visible[0]!.verdict.key;
-});
+      shelfState.selectedKey = shelfState.visible[0]!.verdict.key;
+  });
 
-$effect(() => {
+  $effect(() => {
     void shelfState.selectedKey;
     listEl?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
-});
+  });
 
-/** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
-function hearAgain(): void {
+  /** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
+  function hearAgain(): void {
     if (shelfState.selected?.verdict.status !== "snoozed") {
-        shelfState.showFlash("Enter hears snoozed records again; pick one on the Snoozed shelf (7).");
-        return;
+      shelfState.showFlash("Enter hears snoozed records again; pick one on the Snoozed shelf (7).");
+      return;
     }
-    const round = shelfState.visible.slice(shelfState.selectedIndex).filter((i) => i.verdict.status === "snoozed" && i.release);
+    const round = shelfState.visible
+      .slice(shelfState.selectedIndex)
+      .filter((index) => index.verdict.status === "snoozed" && index.release);
     if (round.length === 0) {
-        shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
-        return;
+      shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+      return;
     }
     ui.snoozedRound = round;
     navigate("triage");
-}
+  }
 
-async function startEditing(item: TwelvesItem): Promise<void> {
+  async function startEditing(item: TwelvesItem): Promise<void> {
     editingKey = item.verdict.key;
     noteDraft = item.verdict.notes ?? "";
     await tick();
     document.querySelector<HTMLInputElement>(".note-input")?.focus();
-}
+  }
 
-function saveNote(item: TwelvesItem): void {
+  function saveNote(item: TwelvesItem): void {
     editingKey = null;
     const notes = noteDraft.trim() === "" ? null : noteDraft.trim();
-    if (notes === item.verdict.notes)
-        return;
-    shelfState.enqueue(item.verdict.key, (fresh) => shelfState.write(fresh, { notes }, notes ? "Note saved." : "Note removed."));
-}
+    if (notes === item.verdict.notes) return;
+    shelfState.enqueue(item.verdict.key, (fresh) =>
+      shelfState.write(fresh, { notes }, notes ? "Note saved." : "Note removed."),
+    );
+  }
 
-function onkeydown(e: KeyboardEvent): void {
-    if (ui.helpOpen || e.defaultPrevented || isTyping(e) || hasCommandModifier(e) || e.shiftKey)
-        return;
-    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  function onkeydown(event: KeyboardEvent): void {
+    if (
+      ui.helpOpen ||
+      event.defaultPrevented ||
+      isTyping(event) ||
+      hasCommandModifier(event) ||
+      event.shiftKey
+    )
+      return;
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     const shelfIndex = /^[1-7]$/.test(key) ? Number(key) - 1 : -1;
-    if (shelfIndex >= 0)
-        shelfState.shelf = SHELVES[shelfIndex]!.id;
-    else if (key === "j" || key === "ArrowDown")
-        shelfState.move(1);
-    else if (key === "k" || key === "ArrowUp")
-        shelfState.move(-1);
-    else if (key === "s")
-        shelfState.cycleSort();
-    else if (key === "/")
-        filterInput?.focus();
-    else if (key === "z")
-        shelfState.enqueueTask(() => shelfState.undo());
-    else if (key === "i")
-        void shelfState.checkList();
-    else if (key === "Enter")
-        hearAgain();
+    if (shelfIndex >= 0) shelfState.shelf = SHELVES[shelfIndex]!.id;
+    else if (key === "j" || key === "ArrowDown") shelfState.move(1);
+    else if (key === "k" || key === "ArrowUp") shelfState.move(-1);
+    else if (key === "s") shelfState.cycleSort();
+    else if (key === "/") filterInput?.focus();
+    else if (key === "z") shelfState.enqueueTask(() => shelfState.undo());
+    else if (key === "i") void shelfState.checkList();
+    else if (key === "Enter") hearAgain();
     else if (key === "o" && shelfState.selected?.release)
-        openExternal(discogsReleaseUrl(shelfState.selected.release.id));
-    else if (key === "e" && shelfState.selected)
-        void startEditing(shelfState.selected);
+      openExternal(discogsReleaseUrl(shelfState.selected.release.id));
+    else if (key === "e" && shelfState.selected) void startEditing(shelfState.selected);
     else if (JUDGE_KEYS[key] && shelfState.selected)
-        shelfState.rejudge(shelfState.selected, JUDGE_KEYS[key]);
-    else
-        return;
-    e.preventDefault();
-}
+      shelfState.rejudge(shelfState.selected, JUDGE_KEYS[key]);
+    else return;
+    event.preventDefault();
+  }
 
-function onFilterKey(e: KeyboardEvent): void {
-    if (e.key === "Escape" || e.key === "Enter") {
-        if (e.key === "Escape")
-            shelfState.query = "";
-        (e.currentTarget as HTMLInputElement).blur();
-        e.preventDefault();
+  function onFilterKey(event: KeyboardEvent): void {
+    if (event.key === "Escape" || event.key === "Enter") {
+      if (event.key === "Escape") shelfState.query = "";
+      (event.currentTarget as HTMLInputElement).blur();
+      event.preventDefault();
     }
-}
+  }
 </script>
 
 <svelte:window {onkeydown} />
@@ -116,16 +117,16 @@ function onFilterKey(e: KeyboardEvent): void {
 
   <div class="controls">
     <div class="shelves" role="tablist" aria-label="Shelves">
-      {#each SHELVES as s, i (s.id)}
+      {#each SHELVES as option, index (option.id)}
         <button
           type="button"
           role="tab"
-          aria-selected={shelfState.shelf === s.id}
-          onclick={() => (shelfState.shelf = s.id)}
+          aria-selected={shelfState.shelf === option.id}
+          onclick={() => (shelfState.shelf = option.id)}
         >
-          <Key label={String(i + 1)} size="sm" />
-          {s.label}
-          <span class="count">{formatCount(shelfState.counts[s.id])}</span>
+          <Key label={String(index + 1)} size="sm" />
+          {option.label}
+          <span class="count">{formatCount(shelfState.counts[option.id])}</span>
         </button>
       {/each}
     </div>
@@ -142,8 +143,8 @@ function onFilterKey(e: KeyboardEvent): void {
       </label>
       <div class="sort">
         <Key label="S" size="sm" /> sort
-        {#each SORTS as s (s.id)}
-          <button type="button" aria-pressed={shelfState.sort === s.id} onclick={() => (shelfState.sort = s.id)}>{s.label}</button>
+        {#each SORTS as option (option.id)}
+          <button type="button" aria-pressed={shelfState.sort === option.id} onclick={() => (shelfState.sort = option.id)}>{option.label}</button>
         {/each}
       </div>
     </div>
@@ -209,7 +210,7 @@ function onFilterKey(e: KeyboardEvent): void {
   {:else}
     <ol class="box" bind:this={listEl}>
       {#each shelfState.visible as item (item.verdict.key)}
-        {@const r = item.release}
+        {@const release = item.release}
         {@const isSelected = item.verdict.key === shelfState.selectedKey}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <li
@@ -218,12 +219,12 @@ function onFilterKey(e: KeyboardEvent): void {
           aria-current={isSelected ? "true" : undefined}
           onclick={() => (shelfState.selectedKey = item.verdict.key)}
         >
-          <span class="catno">{r?.catno ?? ""}</span>
+          <span class="catno">{release?.catno ?? ""}</span>
           <div class="who">
-            {#if r}
-              <a href={discogsReleaseUrl(r.id)} target="_blank" rel="noopener noreferrer">
-                <span class="artist">{r.artistDisplay}</span>
-                <span class="title">{r.title}</span>
+            {#if release}
+              <a href={discogsReleaseUrl(release.id)} target="_blank" rel="noopener noreferrer">
+                <span class="artist">{release.artistDisplay}</span>
+                <span class="title">{release.title}</span>
               </a>
             {:else}
               <span class="title">Not in the loaded dump ({item.verdict.key})</span>
@@ -234,10 +235,10 @@ function onFilterKey(e: KeyboardEvent): void {
                 bind:value={noteDraft}
                 maxlength="4000"
                 aria-label="Note"
-                onkeydown={(e) => {
-                  if (e.key === "Enter") saveNote(item);
-                  if (e.key === "Escape") editingKey = null;
-                  e.stopPropagation();
+                onkeydown={(event) => {
+                  if (event.key === "Enter") saveNote(item);
+                  if (event.key === "Escape") editingKey = null;
+                  event.stopPropagation();
                 }}
                 onblur={() => (editingKey = null)}
               />
@@ -251,15 +252,15 @@ function onFilterKey(e: KeyboardEvent): void {
             {/if}
           </div>
           <div class="where">
-            {#if r}
-              <span>{r.labelName ?? ""}</span>
-              <span class="quiet">{[r.year, r.country].filter(Boolean).join(" ")}</span>
+            {#if release}
+              <span>{release.labelName ?? ""}</span>
+              <span class="quiet">{[release.year, release.country].filter(Boolean).join(" ")}</span>
             {/if}
           </div>
           <div class="market">
-            {#if r?.enrichedAt}
-              <span>{r.lowestPrice !== null ? formatPrice(r.lowestPrice, r.currency) : "none for sale"}</span>
-              <span class="quiet">{formatCount(r.communityWant ?? 0)} want</span>
+            {#if release?.enrichedAt}
+              <span>{release.lowestPrice !== null ? formatPrice(release.lowestPrice, release.currency) : "none for sale"}</span>
+              <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
             {:else}
               <span class="quiet">no market data</span>
             {/if}
@@ -268,7 +269,7 @@ function onFilterKey(e: KeyboardEvent): void {
             <Stamp
               text={STATUS_COPY[item.verdict.status]}
               tone={STATUS_TONE[item.verdict.status]}
-              seed={r?.id ?? item.verdict.key.length}
+              seed={release?.id ?? item.verdict.key.length}
               size="sm"
             />
           </div>

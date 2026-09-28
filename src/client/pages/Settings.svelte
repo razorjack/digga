@@ -1,11 +1,13 @@
 <script lang="ts">
   import { jobProgress, elapsed, JOB_LABEL } from "../../shared/job-display.ts";
   import { onDestroy, onMount, untrack } from "svelte";
+  import { BROWSERS, type Browser } from "../../shared/api.ts";
   import {
-    BROWSERS,
-    type Browser,
-  } from "../../shared/api.ts";
-  import { type Config, QUEUE_STRATEGIES, type QueueStrategy, validateConfig } from "../../shared/config.ts";
+    type Config,
+    QUEUE_STRATEGIES,
+    type QueueStrategy,
+    validateConfig,
+  } from "../../shared/config.ts";
   import { formatCount, formatDay } from "../../shared/display.ts";
   import type { Job } from "../../shared/types.ts";
   import { api } from "../api.ts";
@@ -22,7 +24,20 @@
   const discogs = new DiscogsSettings();
   let flashTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const CURRENCIES = ["EUR", "USD", "GBP", "CAD", "AUD", "JPY", "CHF", "MXN", "BRL", "NZD", "SEK", "ZAR"];
+  const CURRENCIES = [
+    "EUR",
+    "USD",
+    "GBP",
+    "CAD",
+    "AUD",
+    "JPY",
+    "CHF",
+    "MXN",
+    "BRL",
+    "NZD",
+    "SEK",
+    "ZAR",
+  ];
   const STRATEGY_COPY: Record<QueueStrategy, { label: string; hint: string }> = {
     label_sweep: { label: "Label sweep", hint: "label by label, in catalogue order" },
     popular: { label: "Most wanted first", hint: "by Discogs want count; needs enrich" },
@@ -30,7 +45,6 @@
     year: { label: "By year", hint: "oldest first, then label" },
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
   };
-
 
   let draft = $state<Config | null>(null);
   let saving = $state(false);
@@ -45,7 +59,9 @@
   let modeButton = $state<HTMLButtonElement | null>(null);
 
   const saved = $derived(settings.value);
-  const dirty = $derived(draft !== null && saved !== null && JSON.stringify(draft) !== JSON.stringify(saved));
+  const dirty = $derived(
+    draft !== null && saved !== null && JSON.stringify(draft) !== JSON.stringify(saved),
+  );
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
   /** The header's sandbox link points here. */
@@ -100,8 +116,8 @@
           ? "Back in the sandbox: verdicts stay in this tab again."
           : "Sandbox off: verdicts are saved from now on.",
       );
-    } catch (e) {
-      showFlash(`The sandbox did not switch: ${errorMessage(e)}`);
+    } catch (event) {
+      showFlash(`The sandbox did not switch: ${errorMessage(event)}`);
     } finally {
       switching = false;
     }
@@ -125,8 +141,8 @@
       showFlash("Saved. The queue has reloaded.");
       void stats.refresh();
       if (settings.value?.discogs.username !== username) void discogs.loadAccount();
-    } catch (e) {
-      showFlash(`Not saved: ${errorMessage(e)}`);
+    } catch (event) {
+      showFlash(`Not saved: ${errorMessage(event)}`);
     } finally {
       saving = false;
     }
@@ -145,32 +161,32 @@
           : `${JOB_LABEL[job.type]} started.`,
       );
       await jobState.load();
-    } catch (e) {
-      showFlash(`Did not start: ${errorMessage(e)}`);
+    } catch (event) {
+      showFlash(`Did not start: ${errorMessage(event)}`);
     }
   }
 
   async function cancel(job: Job): Promise<void> {
     try {
       await jobState.cancel(job);
-    } catch (e) {
-      showFlash(`Cancel failed: ${errorMessage(e)}`);
+    } catch (event) {
+      showFlash(`Cancel failed: ${errorMessage(event)}`);
     }
   }
 
   const list = (xs: string[]) => xs.join(", ");
-  const parseList = (s: string) =>
-    s
+  const parseList = (text: string) =>
+    text
       .split(",")
       .map((x) => x.trim())
       .filter((x) => x !== "");
-  const numberOrNull = (s: string): number | null => {
-    return parseInteger(s);
+  const numberOrNull = (text: string): number | null => {
+    return parseInteger(text);
   };
 
-  function onkeydown(e: KeyboardEvent): void {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-      e.preventDefault();
+  function onkeydown(event: KeyboardEvent): void {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
       void save();
     }
   }
@@ -239,29 +255,29 @@
     <section class="library">
       <h2>Library</h2>
       {#if stats.value}
-        {@const s = stats.value}
+        {@const summary = stats.value}
         <p>
-          <b>{formatCount(s.universe.releases)}</b> releases loaded
-          {s.dump.date ? `from the ${formatDay(s.dump.date)} dump` : s.dump.loadedAt ? "from a dump of unknown date" : "(no dump loaded yet)"},
-          grouped into <b>{formatCount(s.universe.keys)}</b> records.
+          <b>{formatCount(summary.universe.releases)}</b> releases loaded
+          {summary.dump.date ? `from the ${formatDay(summary.dump.date)} dump` : summary.dump.loadedAt ? "from a dump of unknown date" : "(no dump loaded yet)"},
+          grouped into <b>{formatCount(summary.universe.keys)}</b> records.
         </p>
         <p>
-          <b>{formatCount(s.universe.filteredKeys)}</b> match your saved filters;
-          <b>{formatCount(s.remaining)}</b> are still to dig.
-          <b>{formatCount(s.heardTracks)}</b> {s.heardTracks === 1 ? "tune" : "tunes"} heard.
+          <b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters;
+          <b>{formatCount(summary.remaining)}</b> are still to dig.
+          <b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard.
         </p>
         <p class="quiet">
-          want {formatCount(s.verdicts.accepted)}, grail {formatCount(s.verdicts.candidate)}, maybe {formatCount(s.verdicts.maybe)},
-          skip {formatCount(s.verdicts.rejected)}, snooze {formatCount(s.verdicts.snoozed)}, no audio {formatCount(s.verdicts.no_audio)};
-          Discogs wantlist {formatCount(s.verdicts.wantlist)}, owned {formatCount(s.verdicts.collection)}, seen {formatCount(s.verdicts.seen)}
+          want {formatCount(summary.verdicts.accepted)}, grail {formatCount(summary.verdicts.candidate)}, maybe {formatCount(summary.verdicts.maybe)},
+          skip {formatCount(summary.verdicts.rejected)}, snooze {formatCount(summary.verdicts.snoozed)}, no audio {formatCount(summary.verdicts.no_audio)};
+          Discogs wantlist {formatCount(summary.verdicts.wantlist)}, owned {formatCount(summary.verdicts.collection)}, seen {formatCount(summary.verdicts.seen)}
         </p>
       {/if}
     </section>
 
     <form
       class="form"
-      onsubmit={(e) => {
-        e.preventDefault();
+      onsubmit={(event) => {
+        event.preventDefault();
         void save();
       }}
     >
@@ -277,7 +293,7 @@
                 inputmode="numeric"
                 aria-label="From year"
                 value={draft.filters.yearFrom ?? ""}
-                oninput={(e) => (draft!.filters.yearFrom = numberOrNull(e.currentTarget.value))}
+                oninput={(event) => (draft!.filters.yearFrom = numberOrNull(event.currentTarget.value))}
               />
               <span class="quiet">to</span>
               <input
@@ -285,7 +301,7 @@
                 inputmode="numeric"
                 aria-label="To year"
                 value={draft.filters.yearTo ?? ""}
-                oninput={(e) => (draft!.filters.yearTo = numberOrNull(e.currentTarget.value))}
+                oninput={(event) => (draft!.filters.yearTo = numberOrNull(event.currentTarget.value))}
               />
               <label class="check">
                 <input type="checkbox" bind:checked={draft.filters.includeUnknownYear} />
@@ -297,7 +313,7 @@
             <span class="name">Formats</span>
             <input
               value={list(draft.filters.formats)}
-              onchange={(e) => (draft!.filters.formats = parseList(e.currentTarget.value))}
+              onchange={(event) => (draft!.filters.formats = parseList(event.currentTarget.value))}
               placeholder="any format"
             />
             <span class="hint">Discogs format names, comma separated: Vinyl, CD, Cassette. Empty means any.</span>
@@ -306,7 +322,7 @@
             <span class="name">Countries</span>
             <input
               value={list(draft.filters.countries)}
-              onchange={(e) => (draft!.filters.countries = parseList(e.currentTarget.value))}
+              onchange={(event) => (draft!.filters.countries = parseList(event.currentTarget.value))}
               placeholder="any country"
             />
             <span class="hint">As Discogs writes them: UK, Germany, US. Empty means any.</span>
@@ -331,12 +347,12 @@
                     <input
                       type="checkbox"
                       checked={draft.filters.styles === null || draft.filters.styles.includes(style)}
-                      onchange={(e) => {
+                      onchange={(event) => {
                         const all = draft!.universe.styles;
                         const current = draft!.filters.styles ?? all;
-                        const next = e.currentTarget.checked
+                        const next = event.currentTarget.checked
                           ? [...current, style]
-                          : current.filter((s) => s !== style);
+                          : current.filter((summary) => summary !== style);
                         draft!.filters.styles = next.length === all.length ? null : next;
                       }}
                     />
@@ -432,9 +448,9 @@
               <select
                 aria-label="Maybe list"
                 value={draft.discogs.maybeListId === null ? "" : String(draft.discogs.maybeListId)}
-                onchange={(e) =>
+                onchange={(event) =>
                   (draft!.discogs.maybeListId =
-                    e.currentTarget.value === "" ? null : Number(e.currentTarget.value))}
+                    event.currentTarget.value === "" ? null : Number(event.currentTarget.value))}
               >
                 <option value="">None: no M verdict</option>
                 {#each discogs.lists as l (l.id)}
@@ -473,7 +489,7 @@
             <span class="name">Styles</span>
             <input
               value={list(draft.universe.styles)}
-              onchange={(e) => (draft!.universe.styles = parseList(e.currentTarget.value))}
+              onchange={(event) => (draft!.universe.styles = parseList(event.currentTarget.value))}
             />
             <span class="hint">Exact Discogs style names, comma separated: Drum n Bass, Jungle.</span>
           </label>
@@ -484,8 +500,8 @@
                 type="number"
                 aria-label="Load from year"
                 value={draft.universe.loadYears?.[0] ?? ""}
-                oninput={(e) => {
-                  const from = numberOrNull(e.currentTarget.value);
+                oninput={(event) => {
+                  const from = numberOrNull(event.currentTarget.value);
                   const to = draft!.universe.loadYears?.[1] ?? null;
                   draft!.universe.loadYears = from !== null && to !== null ? [from, to] : null;
                 }}
@@ -495,8 +511,8 @@
                 type="number"
                 aria-label="Load to year"
                 value={draft.universe.loadYears?.[1] ?? ""}
-                oninput={(e) => {
-                  const to = numberOrNull(e.currentTarget.value);
+                oninput={(event) => {
+                  const to = numberOrNull(event.currentTarget.value);
                   const from = draft!.universe.loadYears?.[0] ?? null;
                   draft!.universe.loadYears = from !== null && to !== null ? [from, to] : null;
                 }}
@@ -573,7 +589,7 @@
               placeholder="limit"
               aria-label="Limit"
               value={dumpLimit ?? ""}
-              oninput={(e) => (dumpLimit = numberOrNull(e.currentTarget.value))}
+              oninput={(event) => (dumpLimit = numberOrNull(event.currentTarget.value))}
             />
             <label class="check"><input type="checkbox" bind:checked={dumpDryRun} /> dry run</label>
             <button

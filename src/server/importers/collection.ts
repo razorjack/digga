@@ -22,11 +22,11 @@ export interface SeedImportResult extends ImportProgress {
 
 export async function importCollection(
   deps: SeedImportDeps,
-  opts: SeedImportOptions,
+  options: SeedImportOptions,
   onProgress?: (p: ImportProgress) => void,
 ): Promise<SeedImportResult> {
-  if (opts.username === "") throw new Error("discogs.username is not set in digga.config.json");
-  const perPage = opts.perPage ?? 100;
+  if (options.username === "") throw new Error("discogs.username is not set in digga.config.json");
+  const perPage = options.perPage ?? 100;
   const progress: ImportProgress = {
     page: 0,
     pages: null,
@@ -36,14 +36,14 @@ export async function importCollection(
   };
   let page = 1;
   for (;;) {
-    if (opts.signal?.aborted) break;
-    const data = await deps.discogs.getCollectionPage(opts.username, page, perPage);
+    if (options.signal?.aborted) break;
+    const data = await deps.discogs.getCollectionPage(options.username, page, perPage);
     progress.page = page;
     progress.pages = data.pagination.pages;
     deps.db.transaction(() => {
       for (const item of data.releases) {
         const notes = item.notes?.map((n) => n.value).join("\n") ?? null;
-        const r = applySeedItem(deps.db, {
+        const result = applySeedItem(deps.db, {
           kind: "collection",
           releaseId: item.id,
           masterId: item.basic_information.master_id ?? null,
@@ -53,8 +53,8 @@ export async function importCollection(
           basicInformation: item.basic_information,
         });
         progress.processed += 1;
-        if (r.stubCreated) progress.stubs += 1;
-        if (r.verdictWritten) progress.verdictsWritten += 1;
+        if (result.stubCreated) progress.stubs += 1;
+        if (result.verdictWritten) progress.verdictsWritten += 1;
       }
     })();
     onProgress?.({ ...progress });
