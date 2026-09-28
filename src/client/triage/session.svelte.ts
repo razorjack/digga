@@ -4,15 +4,15 @@ import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
-type HistoryEntry =
-  | {
-      kind: "verdict";
-      item: QueueItem;
-      status: TriageStatus;
-      /** The verdict this one replaced (a snoozed record heard again); undo restores it. */
-      previous: Verdict | null;
-    }
-  | { kind: "pass"; item: QueueItem };
+type VerdictEntry = {
+  kind: "verdict";
+  item: QueueItem;
+  status: TriageStatus;
+  /** The verdict this one replaced (a snoozed record heard again); undo restores it. */
+  previous: Verdict | null;
+};
+
+type HistoryEntry = VerdictEntry | { kind: "pass"; item: QueueItem };
 
 /** What the slip under the player shows: the last thing that happened to a release. */
 export type Slip =
@@ -94,7 +94,7 @@ export class TriageSession {
     // Passes made before a round still belong to the queue.
     if (this.#queueBeforeRound) this.passed = this.#queueBeforeRound.passed;
     this.#batch = batch;
-    this.#generation += 1;
+    const generation = ++this.#generation;
     this.#refilling = null;
     this.status = "loading";
     this.error = null;
@@ -104,8 +104,10 @@ export class TriageSession {
     this.#queueBeforeRound = null;
     try {
       await this.#refill();
+      if (generation !== this.#generation) return;
       this.status = "ready";
     } catch (e) {
+      if (generation !== this.#generation) return;
       this.status = "error";
       this.error = errorMessage(e);
     }
@@ -116,7 +118,7 @@ export class TriageSession {
     if (!item) return;
     const client = this.#api.pinned();
     const previous = this.#roundVerdicts.get(item.triageKey) ?? null;
-    const entry: HistoryEntry = { kind: "verdict", item, status, previous };
+    const entry: VerdictEntry = { kind: "verdict", item, status, previous };
     this.upcoming = this.upcoming.slice(1);
     this.history = [...this.history, entry];
     const id = ++this.#slipSeq;
@@ -130,29 +132,46 @@ export class TriageSession {
     stats.session += 1;
     this.#bumpStats(status, previous, 1);
     this.#afterMove();
-    void this.#write(async () => {
-      try {
-        await client.postVerdict({
-          key: item.triageKey,
-          status,
-          releaseId: item.id,
-          notes: previous?.notes ?? null,
-        });
-      } catch (e) {
-        this.#flash(`The verdict was not saved: ${errorMessage(e)}`);
-        stats.refreshSoon(0);
-        // Already undone: nothing to put back.
-        if (!this.history.includes(entry)) return;
-        this.history = this.history.filter((h) => h !== entry);
-        this.upcoming = [item, ...this.upcoming.filter((i) => i.triageKey !== item.triageKey)];
-        stats.session -= 1;
-        this.slip = null;
-        return;
-      }
-      stats.refreshSoon();
-      // Outside the write chain: a slow Discogs push must not hold back the next verdicts.
-      if (status === "accepted") void this.#pushAfterGrace(entry, id, client);
-    });
+    const generation = this.#apiGeneration;
+    void this.#write(() => this.#saveVerdict(entry, { client, generation, slipId: id }));
+  }
+
+  async #saveVerdict(
+    entry: VerdictEntry,
+    operation: { client: Api; generation: number; slipId: number },
+  ): Promise<void> {
+    const { item, status, previous } = entry;
+    const { client, generation, slipId } = operation;
+    try {
+      await client.postVerdict({
+        key: item.triageKey,
+        status,
+        releaseId: item.id,
+        notes: previous?.notes ?? null,
+      });
+    } catch (error) {
+      if (generation !== this.#apiGeneration) return;
+      this.#recoverVerdict(entry, error);
+      return;
+    }
+    if (generation !== this.#apiGeneration) return;
+    stats.refreshSoon();
+    // Discogs writes have their own chain so they cannot delay verdicts.
+    if (status === "accepted") void this.#pushAfterGrace(entry, slipId, client);
+  }
+
+  #recoverVerdict(entry: VerdictEntry, error: unknown): void {
+    this.#flash(`The verdict was not saved: ${errorMessage(error)}`);
+    stats.refreshSoon(0);
+    if (!this.history.includes(entry)) return;
+    this.history = this.history.filter((item) => item !== entry);
+    this.#returnToQueue(entry.item);
+    stats.session -= 1;
+    this.slip = null;
+  }
+
+  #returnToQueue(item: QueueItem): void {
+    this.upcoming = [item, ...this.upcoming.filter((next) => next.triageKey !== item.triageKey)];
   }
 
   /** N: leave the release undecided and move on; it comes back when the queue goes round. */
@@ -243,7 +262,7 @@ export class TriageSession {
       const saved = this.#queueBeforeRound;
       if (saved) this.#queueBeforeRound = { ...saved, passed: saved.passed.filter(keep) };
     }
-    this.upcoming = [item, ...this.upcoming.filter((i) => i.triageKey !== item.triageKey)];
+    this.#returnToQueue(item);
     this.slip = {
       kind: "undo",
       item,
@@ -255,25 +274,35 @@ export class TriageSession {
     stats.session -= 1;
     this.#bumpStats(entry.status, entry.previous, -1);
     const client = this.#api.pinned();
-    if (entry.status === "accepted") void this.#takeOffWantlist(item, client);
-    const { previous } = entry;
-    void this.#write(async () => {
-      try {
-        if (previous)
-          await client.postVerdict({
-            key: previous.key,
-            status: previous.status,
-            source: previous.source,
-            notes: previous.notes,
-            releaseId: previous.releaseId,
-            decidedAt: previous.decidedAt,
-          });
-        else await client.deleteVerdict(item.triageKey);
-      } catch (e) {
-        this.#flash(`Undo failed: ${errorMessage(e)}`);
-      }
-      stats.refreshSoon();
-    });
+    const generation = this.#apiGeneration;
+    void this.#write(() => this.#saveUndo(entry, client, generation));
+  }
+
+  async #saveUndo(entry: VerdictEntry, client: Api, generation: number): Promise<void> {
+    try {
+      if (entry.previous) await client.postVerdict(entry.previous);
+      else await client.deleteVerdict(entry.item.triageKey);
+    } catch (error) {
+      if (generation !== this.#apiGeneration) return;
+      this.#recoverUndo(entry, error);
+      return;
+    }
+    if (generation !== this.#apiGeneration) return;
+    if (entry.status === "accepted") void this.#takeOffWantlist(entry.item, client);
+    stats.refreshSoon();
+  }
+
+  #recoverUndo(entry: VerdictEntry, error: unknown): void {
+    this.#flash(`Undo failed: ${errorMessage(error)}`);
+    const key = entry.item.triageKey;
+    // A later action on this record owns its optimistic state.
+    if (!this.history.some((later) => later.item.triageKey === key)) {
+      this.history = [...this.history, entry];
+      this.upcoming = this.upcoming.filter((item) => item.triageKey !== key);
+      stats.session += 1;
+      this.slip = null;
+    }
+    stats.refreshSoon(0);
   }
 
   /** Toggles a mark on a track; the same mark again clears it. */
@@ -285,10 +314,16 @@ export class TriageSession {
     const tracks = detail.tracks.map((t) => (t.position === position ? { ...t, mark: next } : t));
     this.details = new Map(this.details).set(releaseId, { ...detail, tracks });
     const client = this.#api.pinned();
+    const generation = this.#apiGeneration;
+    const optimistic = this.details.get(releaseId);
     void this.#write(async () => {
       try {
         await client.postTrackVerdict({ releaseId, position, mark: next });
       } catch (e) {
+        if (generation !== this.#apiGeneration) return;
+        if (this.details.get(releaseId) === optimistic) {
+          this.details = new Map(this.details).set(releaseId, detail);
+        }
         this.#flash(`The track mark was not saved: ${errorMessage(e)}`);
       }
     });
@@ -306,40 +341,47 @@ export class TriageSession {
   }
 
   async #pushAfterGrace(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
+    const generation = this.#apiGeneration;
     await new Promise((resolve) => setTimeout(resolve, this.#pushGraceMs));
+    if (generation !== this.#apiGeneration) return;
     if (!this.history.includes(entry)) return;
     let push: "done" | "failed" | null;
     try {
       await this.#syncWantlist(entry.item, client);
       push = this.#onWantlist.has(entry.item.triageKey) ? "done" : null;
     } catch (e) {
+      if (generation !== this.#apiGeneration) return;
       push = "failed";
       this.#flash(
         `Not added to the Discogs wantlist: ${errorMessage(e)}. A in Twelves tries again.`,
       );
     }
+    if (generation !== this.#apiGeneration) return;
     const slip = this.slip;
     if (slip?.kind === "verdict" && slip.id === slipId) this.slip = { ...slip, push };
   }
 
   async #takeOffWantlist(item: QueueItem, client: Api): Promise<void> {
+    const generation = this.#apiGeneration;
     try {
       if ((await this.#syncWantlist(item, client)) !== "removed") return;
+      if (generation !== this.#apiGeneration) return;
       this.#flash(
         client.mode === "sandbox"
           ? "Taken off your wantlist again (sandbox: nothing sent)."
           : "Taken off your Discogs wantlist again.",
       );
     } catch (e) {
+      if (generation !== this.#apiGeneration) return;
       this.#flash(`Still on your Discogs wantlist: ${errorMessage(e)}`);
     }
   }
 
   /** The newest verdict in the history for the key is a want. */
   #wanted(key: string): boolean {
-    for (let i = this.history.length - 1; i >= 0; i -= 1) {
-      const h = this.history[i]!;
-      if (h.kind === "verdict" && h.item.triageKey === key) return h.status === "accepted";
+    for (const entry of this.history.toReversed()) {
+      if (entry.kind === "verdict" && entry.item.triageKey === key)
+        return entry.status === "accepted";
     }
     return false;
   }
@@ -383,6 +425,8 @@ export class TriageSession {
     this.slip = null;
     this.details = new Map();
     this.detailErrors = new Map();
+    this.#loading = new Set();
+    this.flash = null;
     this.#onWantlist.clear();
     this.#roundVerdicts.clear();
     this.round = null;
@@ -397,19 +441,19 @@ export class TriageSession {
   }
 
   #bumpStats(status: TriageStatus, previous: Verdict | null, delta: number): void {
-    const s = stats.value;
-    if (!s) return;
-    const verdicts = { ...s.verdicts, [status]: s.verdicts[status] + delta };
+    const current = stats.value;
+    if (!current) return;
+    const verdicts = { ...current.verdicts, [status]: current.verdicts[status] + delta };
     if (previous) {
       // A record heard again was already dug; only its status moves.
       verdicts[previous.status] -= delta;
-      stats.value = { ...s, verdicts };
+      stats.value = { ...current, verdicts };
       return;
     }
     stats.value = {
-      ...s,
-      dug: Math.max(0, s.dug + delta),
-      remaining: Math.max(0, s.remaining - delta),
+      ...current,
+      dug: Math.max(0, current.dug + delta),
+      remaining: Math.max(0, current.remaining - delta),
       verdicts,
     };
   }
@@ -422,7 +466,9 @@ export class TriageSession {
     }
     this.#prefetch();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
+      const generation = this.#generation;
       this.#refill().catch((e: unknown) => {
+        if (generation !== this.#generation) return;
         const message = `Could not fetch more of the queue: ${errorMessage(e)}`;
         this.#flash(message);
         // With nothing buffered, the page needs the error state so Enter can retry.
@@ -470,7 +516,8 @@ export class TriageSession {
   }
 
   async #loadDetail(id: number): Promise<void> {
-    this.#loading.add(id);
+    const loading = this.#loading;
+    loading.add(id);
     const generation = this.#apiGeneration;
     try {
       const detail = await this.#api.getRelease(id);
@@ -481,7 +528,7 @@ export class TriageSession {
       if (generation !== this.#apiGeneration) return;
       this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(e));
     } finally {
-      this.#loading.delete(id);
+      loading.delete(id);
     }
   }
 

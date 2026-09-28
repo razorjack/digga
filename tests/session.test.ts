@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { type Api, createAppApi } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
 import type { QueueItem, ReleaseDetail, TwelvesItem, VerdictInput } from "../src/shared/api.ts";
@@ -93,7 +93,7 @@ function fakeServer(queue: number[]) {
     },
   } as unknown as Api;
   const app = createAppApi(http, (inner) => inner);
-  return { app, calls, verdicts, state };
+  return { app, http, calls, verdicts, state };
 }
 
 async function started(queue: number[], pushGraceMs = 0) {
@@ -200,5 +200,86 @@ describe("triage session", () => {
     await wait();
     expect(session.flash).toBe("Nothing to undo.");
     expect(calls).toEqual(["verdict r:1 rejected"]);
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((accept, fail) => {
+    resolve = accept;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+describe("session recovery", () => {
+  it("ignores an older start that fails after a newer start succeeds", async () => {
+    const { app, http } = fakeServer([1]);
+    const pending = deferred<Awaited<ReturnType<Api["getQueue"]>>>();
+    vi.spyOn(http, "getQueue").mockReturnValueOnce(pending.promise);
+    const session = new TriageSession(app);
+    const older = session.start(50);
+    await session.start(50);
+    pending.reject(new Error("old request failed"));
+    await older;
+    expect(session.status).toBe("ready");
+    expect(session.current?.id).toBe(1);
+    expect(session.error).toBeNull();
+  });
+
+  it("returns a rejected verdict to the queue without pushing it", async () => {
+    const { session, http, calls } = await started([1, 2]);
+    vi.spyOn(http, "postVerdict").mockRejectedValueOnce(new Error("disk full"));
+    session.judge("accepted");
+    await until(() => session.flash !== null);
+    expect(session.current?.id).toBe(1);
+    expect(session.history).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps a failed undo available to retry and does not remove the want", async () => {
+    const { session, http, calls } = await started([1, 2]);
+    session.judge("accepted");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "done");
+    vi.spyOn(http, "deleteVerdict").mockRejectedValueOnce(new Error("disk full"));
+    session.undo();
+    await until(() => session.flash?.startsWith("Undo failed") ?? false);
+    expect(session.current?.id).toBe(2);
+    expect(session.history).toHaveLength(1);
+    expect(calls).not.toContain("remove 1");
+    session.undo();
+    await until(() => calls.includes("remove 1"));
+    expect(session.current?.id).toBe(1);
+  });
+
+  it("does not let a failed old-mode write alter a restarted session", async () => {
+    const { session, app, http } = await started([1, 2]);
+    const pending = deferred<Verdict>();
+    vi.spyOn(http, "postVerdict").mockReturnValueOnce(pending.promise);
+    session.judge("accepted");
+    await wait();
+    app.setSandbox(true);
+    await session.start(50);
+    pending.reject(new Error("old mode failed"));
+    await wait();
+    expect(session.flash).toBeNull();
+    expect(session.history).toEqual([]);
+    expect(session.upcoming.map((item) => item.id)).toEqual([1, 2]);
+  });
+
+  it("loads new-mode details while old-mode details are still pending", async () => {
+    const { app, http } = fakeServer([1]);
+    const pending = deferred<ReleaseDetail>();
+    const details = vi.spyOn(http, "getRelease").mockReturnValueOnce(pending.promise);
+    const session = new TriageSession(app);
+    await session.start(50);
+    app.setSandbox(true);
+    await session.start(50);
+    await until(() => session.details.has(1));
+    expect(details).toHaveBeenCalledTimes(2);
+    pending.reject(new Error("old detail failed"));
+    await wait();
+    expect(session.detailErrors.size).toBe(0);
   });
 });
