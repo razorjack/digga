@@ -67,15 +67,18 @@ digga.config.example.json  committed defaults; copied to digga.config.json (giti
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
-                       triage-key, youtube, formats, playlist, rate, display). Imports nothing from Node.
-src/server/            server.ts (createServer) app.ts (Hono routes) paths.ts secrets.ts logger.ts stats.ts static.ts
+                       triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs.
+                       Imports nothing from Node.
+src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
+                       context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts)
-                       discogs/ (client.ts, types.ts) importers/ (collection, wantlist, history, seeds)
-                       jobs/ (dump-load, enrich, runner, dump-load-worker, index) queue/query.ts
-src/cli/digga.ts       command entry: dump load | import collection|wantlist|history | enrich | stats | serve
+                       discogs/ (client, transport, types, lists), importers/ (collection, wantlist, history, list, seeds)
+                       jobs/ (start, dump-load, enrich, runner, dump-load-worker, index), queue/ (query, detail, twelves)
+src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
                        stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, HelpOverlay),
-                       player/ (YouTube decks), triage/ (session + triage components), pages/
+                       player/ (YouTube decks), triage/ (session + components), twelves/ (shelf + pure model),
+                       settings/ (preview, jobs, Discogs state), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 data/                  gitignored: digga.sqlite, dumps/, tmp/
@@ -151,7 +154,10 @@ to TypeScript, Svelte scripts and templates, and tests when writing or changing 
   A cohesive parser dispatch, a declarative mapping or a factory grouping short closures may
   exceed the line limit when that keeps related code understandable. Keep the exception local
   and explain the constraint. A factory containing several workflows does not qualify merely
-  because they share a closure. These thresholds are not currently configured as lint rules.
+  because they share a closure. `vite.config.ts` enforces these limits, at most four parameters
+  and three nested callbacks, no nested ternaries, and no `else` after a returning branch.
+  Tests are exempt from function length and complexity limits; the other rules still apply.
+  Svelte templates also require review because lint checks their scripts, not all markup expressions.
 
 ### State and Svelte
 
@@ -172,8 +178,8 @@ to TypeScript, Svelte scripts and templates, and tests when writing or changing 
 
 ### Canonical orchestration shape
 
-This is the target shape for the Maybe-list import. `applyListEntries` is an illustrative extracted
-helper, not an existing API: it owns the transaction that inserts stubs and applies seed verdicts.
+The Maybe-list import in `src/server/importers/list.ts` follows this shape. `applyListEntries`
+owns the transaction that inserts stubs and applies seed verdicts.
 
 ```ts
 export async function importList(
@@ -198,8 +204,8 @@ The workflow is visible: fetch the list, resolve its entries, apply them, report
 Each called operation has a specific responsibility. The transaction and seed precedence can be
 reviewed in the helper that applies entries without obscuring this sequence.
 
-Low-level code should be just as direct. For example, a nullable sort comparison has one job and
-spells out its cases without a nested ternary:
+Low-level code should be just as direct. The nullable comparison in `src/client/twelves/model.ts`
+has one job and spells out its cases without a nested ternary:
 
 ```ts
 function compareNullable(left: number | null, right: number | null, direction: 1 | -1): number {
@@ -245,7 +251,7 @@ unrelated change into a repository-wide rewrite.
 
 ## Where to go next
 
-- `docs/CODE_QUALITY_AUDIT.md` for the readability audit, confirmed defects and refactoring priorities.
+- `docs/CODE_QUALITY_AUDIT.md` for the completed readability audit, fixes and verification.
 - `docs/ROADMAP.md` for the session plan (design + triage UI next).
 - `docs/DESIGN_BRIEF.md` and `docs/KEYMAP.md` for the UI session.
 - `docs/ELECTRON_PLAN.md` for packaging.
