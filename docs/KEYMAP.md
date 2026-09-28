@@ -107,5 +107,5 @@ radio button or slider has focus; text fields and menus take the keys for themse
   searches YouTube, `D` records `no_audio`, and the verdict keys still work.
 - Browsers hold back sound until the page has had a key press or click. Until then the player
   shows "Space: start listening".
-- The embed never takes focus or clicks (`pointer-events: none`, `controls: 0`, `disablekb: 1`),
-  so keys always reach Digga.
+- The embed never takes focus or clicks (`inert` hosts, `controls: 0`, `disablekb: 1`), so keys
+  always reach Digga.

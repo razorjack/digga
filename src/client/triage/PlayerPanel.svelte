@@ -92,8 +92,9 @@
 
 <section class="player" aria-label="Player">
   <div class="frame">
-    <div class="deck" class:shown={player.active === 0} bind:this={hostA}></div>
-    <div class="deck" class:shown={player.active === 1} bind:this={hostB}></div>
+    <!-- Inert: Tab or a click would move focus into the embed, and its keys never reach Digga. -->
+    <div class="deck" class:shown={player.active === 0} inert bind:this={hostA}></div>
+    <div class="deck" class:shown={player.active === 1} inert bind:this={hostB}></div>
     {#if overlay}
       <div class="overlay" class:solid={overlay.kind !== "gesture"}>
         {#if overlay.kind === "gesture"}
@@ -172,18 +173,15 @@
     position: absolute;
     inset: 0;
     opacity: 0;
-    pointer-events: none;
   }
   .deck.shown {
     opacity: 1;
   }
-  /* The embed never takes focus or clicks: every control is a key or a button here. */
   .deck :global(iframe) {
     display: block;
     width: 100%;
     height: 100%;
     border: 0;
-    pointer-events: none;
   }
   .overlay {
     position: absolute;

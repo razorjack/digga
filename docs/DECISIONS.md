@@ -96,9 +96,9 @@ Chronological. Each entry records a choice made without asking and why.
 34. **`Z` also undoes `N`.** Undo walks back through verdicts and passes alike, so an accidental
     `N` is as cheap to take back as an accidental verdict.
 35. **The embed never takes focus.** Players are created with `controls: 0` and `disablekb: 1`
-    and the iframe has `pointer-events: none`; YouTube's own J/K/arrow/digit shortcuts would
-    otherwise swallow Digga's keys after a click on the video. Every control is a key or a
-    button outside the iframe.
+    and their host elements are `inert`, which keeps the iframes out of the tab order and away
+    from clicks; YouTube's own J/K/arrow/digit shortcuts would otherwise swallow Digga's keys
+    once focus is inside the video. Every control is a key or a button outside the iframe.
 36. **Two decks, swapped rather than moved.** Both player iframes stay in place; the hidden one
     is transparent and muted. Moving an iframe in the DOM reloads it, so a verdict swaps which
     deck is visible. Events and progress from a deck that still holds the previous release are
