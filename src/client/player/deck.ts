@@ -26,7 +26,7 @@ export class Deck {
   ready = false;
 
   #player: YTPlayer;
-  #readyPromise: Promise<void>;
+  #readiness = Promise.withResolvers<void>();
   #listener: DeckListener;
   #mode: DeckMode = "cue";
   #fraction = 0.5;
@@ -41,10 +41,6 @@ export class Deck {
     // The API replaces this element with its iframe; the host keeps its own Svelte-owned nodes.
     const slot = document.createElement("div");
     host.append(slot);
-    let resolveReady: () => void = () => {};
-    this.#readyPromise = new Promise((resolve) => {
-      resolveReady = resolve;
-    });
     this.#player = new yt.Player(slot, {
       width: "100%",
       height: "100%",
@@ -60,7 +56,7 @@ export class Deck {
       events: {
         onReady: () => {
           this.ready = true;
-          resolveReady();
+          this.#readiness.resolve();
         },
         onStateChange: (e) => this.#onState(e.data),
         onError: (e) => this.#listener.onError(this, e.data, this.#erroredVideo()),
@@ -76,7 +72,7 @@ export class Deck {
   ): Promise<void> {
     this.videoId = videoId;
     this.primed = false;
-    await this.#readyPromise;
+    await this.#readiness.promise;
     if (this.videoId !== videoId) return;
     if (this.#playRequested) mode = "play";
     this.#playRequested = false;
