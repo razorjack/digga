@@ -226,6 +226,54 @@ Test behavior at the affected boundary, including failure/order cases for asynch
 Passing lint does not waive these rules. Improve the functions the task touches without turning an
 unrelated change into a repository-wide rewrite.
 
+## Web platform and accessibility (binding)
+
+Use what the browser already provides before writing an equivalent. Native elements and APIs come
+with keyboard behavior, focus handling, accessibility semantics and form integration that
+hand-rolled code has to reproduce and often gets partly wrong. Apply these rules to Svelte markup,
+client TypeScript and CSS.
+
+### Native first
+
+- Use the native element when one fits: `<dialog>` opened with `showModal()` for modal content,
+  the `popover` attribute for non-modal overlays, `<details>`/`<summary>` for disclosure,
+  `<input type="range">` for sliders, `<progress>` and `<meter>` for progress and gauges,
+  `<output>` for computed values, radio inputs for one-of-many choices, `<fieldset>`/`<legend>`
+  for groups of controls, `<table>` for tabular data, `<time>` for dates and `<kbd>` for keys.
+- Use `<form>` submission, `<label>` association and constraint validation (`min`, `max`,
+  `required`, `setCustomValidity`, `:user-invalid`) before custom form plumbing. Shared validation
+  such as `validateConfig` still decides; the platform reports the result on the field.
+- Prefer platform APIs to helpers: `inert` to take content out of focus, pointer input and the
+  accessibility tree; the `hidden` attribute to hide content; `Intl` for formatting;
+  `AbortController` for cancellation; `Promise.withResolvers()`; `structuredClone()`.
+- Prefer CSS to script for presentation and state styling: `:focus-visible`, `:user-invalid`,
+  `:has()`, `accent-color`, container and media queries, `prefers-reduced-motion`.
+- Features that are Baseline newly available or better need no polyfill or library. A feature
+  missing from current Firefox or Safari needs a fallback that keeps the behavior correct.
+- A custom widget is the exception. When no native element fits, implement the WAI-ARIA Authoring
+  Practices pattern completely (roles, states, keyboard interaction, focus) and state in a comment
+  why the native element did not fit. A role without its keyboard behavior is worse than no role.
+
+### Accessibility
+
+- Every control has an accessible name, from visible text where possible: `<label>` first, then
+  `aria-labelledby`, then `aria-label`. A label holds the name only; help text and errors are
+  attached with `aria-describedby`, and invalid fields carry `aria-invalid`.
+- Expose state with ARIA attributes, not classes alone: `aria-current`, `aria-selected`,
+  `aria-pressed`, `aria-expanded`, `aria-busy`. Style from those attributes so the visible state
+  and the announced state cannot disagree.
+- A control that has a shortcut declares it with `aria-keyshortcuts`, using the keys in
+  `src/client/keymap.ts`.
+- Live regions are in the DOM before their text changes; a region inserted together with its
+  text is usually not announced. Routine messages use `role="status"`; `role="alert"` is for
+  errors that must interrupt.
+- Decorative glyphs are `aria-hidden`; a glyph that carries meaning has a text alternative.
+- The app stays keyboard-first. A button that duplicates a shortcut may leave the tab order
+  (`tabindex="-1"`), but nothing focusable may take the page keys away: embeds are `inert`.
+- Each route sets the document title.
+- Fix Svelte's `a11y_*` warnings instead of suppressing them. A `svelte-ignore` needs a comment
+  explaining why the warning does not apply.
+
 ## Electron-ready rules (enforced by `vp run check:portability`)
 
 1. **Server is a function.** `createServer({ config, paths, secrets, logger })` returns
