@@ -312,3 +312,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     barely changes a light surface, so the noise masks a `--grain` color: light gray on the dark
     scheme, black on paper. The stamp ink filter only cuts holes in the alpha channel and needs
     no change; the YouTube embed stays a black rectangle.
+82. **The color scheme is a setting, saved at once.** `appearance.colorScheme` (`system`, `light`
+    or `dark`) lives in `digga.config.json` rather than browser storage: the Electron shell
+    serves the app on a free port, so its origin, and localStorage with it, changes on every
+    start. Settings saves it outside the form, like the sandbox switch, but without a new
+    settings version, so it is the one save that leaves the Triage queue alone; quick changes
+    are saved in order. `App.svelte` sets `data-color-scheme` on the root and `styles.css` turns
+    it into `color-scheme`, because the build compiles `light-dark()` into variables that only a
+    `color-scheme` declaration switches, not an inline style. In the browser the page follows
+    the system until the settings load; Electron sets `nativeTheme.themeSource` from the config
+    before the window opens.

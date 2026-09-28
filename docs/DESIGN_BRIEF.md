@@ -15,8 +15,9 @@ fast and safe: every action is undoable with `Z`.
 
 ## Hard constraints
 
-- Dark and light schemes, following the system. Never pure black or pure white: the dark scheme
-  has off-black surfaces and off-white text, the light one warm paper and ink. Low glare, no
+- Dark and light schemes, following the system unless Settings picks one. Never pure black or
+  pure white: the dark scheme has off-black surfaces and off-white text, the light one warm
+  paper and ink. Low glare, no
   flashing, no autoplaying motion. Respect `prefers-reduced-motion`.
 - Built for very long sessions: comfortable sizes for the facts read at a glance, clear hierarchy
   between the one thing being judged and everything else.
@@ -52,7 +53,7 @@ that reads as a music streaming app. Ergonomics win every tie.
 - **Twelves** (`#/twelves`): what has been accepted, wanted, owned, plus maybes and candidates; a
   list that reads like a record box, sortable, with notes.
 - **Settings** (`#/settings`): universe (styles, load years), filters, strategy, Discogs account,
-  player defaults, and the jobs panel (load dump, import seeds, enrich) with progress.
+  player defaults, appearance, and the jobs panel (load dump, import seeds, enrich) with progress.
 
 ## The design as built (session 2)
 

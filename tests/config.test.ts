@@ -27,6 +27,7 @@ describe("config schema", () => {
     });
     expect(DEFAULT_CONFIG.queue.strategy).toBe("label_sweep");
     expect(DEFAULT_CONFIG.sandbox).toBe(true);
+    expect(DEFAULT_CONFIG.appearance.colorScheme).toBe("system");
   });
 
   it("accepts nullable year bounds and null loadYears", () => {
@@ -40,11 +41,16 @@ describe("config schema", () => {
   });
 
   it("reports invalid values with paths", () => {
-    const r = validateConfig({ queue: { strategy: "nope" }, server: { port: 70000 } });
+    const r = validateConfig({
+      queue: { strategy: "nope" },
+      server: { port: 70000 },
+      appearance: { colorScheme: "sepia" },
+    });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.errors.some((e) => e.startsWith("queue.strategy"))).toBe(true);
       expect(r.errors.some((e) => e.startsWith("server.port"))).toBe(true);
+      expect(r.errors.some((e) => e.startsWith("appearance.colorScheme"))).toBe(true);
     }
   });
 

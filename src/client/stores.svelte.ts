@@ -1,5 +1,5 @@
 import type { Stats, TwelvesItem } from "../shared/api.ts";
-import type { Config } from "../shared/config.ts";
+import type { ColorScheme, Config } from "../shared/config.ts";
 import { api } from "./api.ts";
 
 export function errorMessage(error: unknown): string {
@@ -35,10 +35,11 @@ class StatsStore {
 class SettingsStore {
   value = $state<Config | null>(null);
   error = $state<string | null>(null);
-  /** Increments on every save, so the triage queue knows to reload. */
+  /** Increments on every save but a color scheme change, so the triage queue knows to reload. */
   version = $state(0);
   /** True until the config says otherwise, like the api, so nothing is saved before it is known. */
   sandbox = $derived(this.value?.sandbox ?? true);
+  #colorSchemeWrites: Promise<unknown> = Promise.resolve();
 
   async load(): Promise<void> {
     try {
@@ -53,6 +54,26 @@ class SettingsStore {
     const saved = await api.putSettings(next);
     this.#apply(saved);
     this.version += 1;
+    return saved;
+  }
+
+  /**
+   * Saves the color scheme without restarting the queue. Each save waits for the one before and
+   * starts from the config it returned, so quick changes are saved in the order they were made.
+   */
+  saveColorScheme(colorScheme: ColorScheme): Promise<Config> {
+    const write = this.#colorSchemeWrites.then(() => this.#putColorScheme(colorScheme));
+    this.#colorSchemeWrites = write.catch(() => undefined);
+    return write;
+  }
+
+  async #putColorScheme(colorScheme: ColorScheme): Promise<Config> {
+    if (!this.value) throw new Error("the settings have not loaded");
+    const saved = await api.putSettings({
+      ...$state.snapshot(this.value),
+      appearance: { colorScheme },
+    });
+    this.#apply(saved);
     return saved;
   }
 

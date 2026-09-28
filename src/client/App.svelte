@@ -34,6 +34,7 @@
     return [GLOBAL_KEYS];
   });
 
+  const colorScheme = $derived(settings.value?.appearance.colorScheme ?? "system");
   const eta = $derived(formatEta(stats.value?.rate.etaHours ?? null));
   const pageTitle = $derived(`${ROUTES.find((destination) => destination.route === route)!.label} – Digga`);
 
@@ -47,6 +48,11 @@
 
   $effect(() => {
     if (route) void stats.refresh();
+  });
+
+  // styles.css picks the root's color scheme from this attribute.
+  $effect(() => {
+    document.documentElement.dataset.colorScheme = colorScheme;
   });
 
   function onkeydown(event: KeyboardEvent): void {

@@ -7,7 +7,7 @@ the shell wraps the server without changing it.
 
 ```ts
 // electron/main.ts (session 5)
-import { app, BrowserWindow, dialog, Menu, safeStorage, session } from "electron";
+import { app, BrowserWindow, dialog, Menu, nativeTheme, safeStorage, session } from "electron";
 import path from "node:path";
 import { createServer } from "../src/server/server.js";
 import { loadConfig } from "../src/server/config-file.js";
@@ -31,6 +31,7 @@ app.whenReady().then(async () => {
   const { browserUrl } = await server.start(0, "127.0.0.1"); // free port, localhost only
 
   session.defaultSession.setUserAgent(CHROME_UA); // YouTube embeds reject Electron's UA
+  nativeTheme.themeSource = config.appearance.colorScheme; // "system" | "light" | "dark"
   const win = new BrowserWindow({
     webPreferences: { autoplayPolicy: "no-user-gesture-required", contextIsolation: true },
   });
@@ -44,6 +45,9 @@ app.whenReady().then(async () => {
 - `secrets` -> `safeStorage.encryptString` / `decryptString`, stored as a file under userData; a
   small settings dialog (or the Settings page via a new API route) writes it.
 - `logger` -> file sink; `createLogger` accepts any `LogSink`.
+- `nativeTheme.themeSource` makes `prefers-color-scheme` match the saved color scheme before the
+  first paint, so the window does not show the other scheme until `/api/settings` loads. A change
+  in Settings applies in the renderer at once and reaches `nativeTheme` on the next start.
 - Menu items call the same job functions the CLI uses, or `server.jobs.runInWorker(...)` for the
   dump: `dialog.showOpenDialog({ filters: [{ name: "Discogs dump", extensions: ["gz", "xml"] }] })`,
   then `POST /api/jobs/dump-load`-equivalent code with `{ dbFile: paths.dbFile, options }`.

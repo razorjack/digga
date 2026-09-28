@@ -4,6 +4,8 @@
   import type { Attachment } from "svelte/attachments";
   import { BROWSERS, type Browser } from "../../shared/api.ts";
   import {
+    COLOR_SCHEMES,
+    type ColorScheme,
     type Config,
     QUEUE_STRATEGIES,
     type QueueStrategy,
@@ -49,6 +51,11 @@
     year: { label: "By year", hint: "oldest first, then label" },
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
   };
+  const COLOR_SCHEME_LABEL: Record<ColorScheme, string> = {
+    system: "System",
+    light: "Light",
+    dark: "Dark",
+  };
 
   let draft = $state<Config | null>(null);
   let saving = $state(false);
@@ -59,6 +66,7 @@
   let dumpLimit = $state<number | null>(null);
   let dumpDryRun = $state(false);
   let switching = $state(false);
+  let colorScheme = $state<ColorScheme>("system");
   let modeEl = $state<HTMLElement | null>(null);
   let modeButton = $state<HTMLButtonElement | null>(null);
   let form = $state<HTMLFormElement | null>(null);
@@ -93,7 +101,9 @@
   const discogsUsername = $derived(saved?.discogs.username ?? "");
 
   $effect(() => {
-    if (saved && draft === null) draft = $state.snapshot(saved);
+    if (!saved || draft !== null) return;
+    draft = $state.snapshot(saved);
+    colorScheme = saved.appearance.colorScheme;
   });
 
   $effect(() => {
@@ -145,6 +155,19 @@
       showFlash(`The sandbox did not switch: ${errorMessage(event)}`);
     } finally {
       switching = false;
+    }
+  }
+
+  /** Saved at once, outside the form, and without restarting the queue. */
+  async function saveColorScheme(): Promise<void> {
+    const chosen = colorScheme;
+    try {
+      await settings.saveColorScheme(chosen);
+      if (draft) draft.appearance.colorScheme = chosen;
+    } catch (error) {
+      // A later choice may still be saving; only a failure of the latest one resets the radios.
+      if (colorScheme === chosen) colorScheme = settings.value?.appearance.colorScheme ?? "system";
+      showFlash(`The color scheme did not change: ${errorMessage(error)}`);
     }
   }
 
@@ -293,6 +316,31 @@
           </button>
         </div>
       {/if}
+    </section>
+
+    <section class="appearance">
+      <h2 id="{id}-appearance">Appearance</h2>
+      <fieldset
+        class="inline"
+        aria-labelledby="{id}-appearance"
+        aria-describedby="{id}-appearance-hint"
+      >
+        {#each COLOR_SCHEMES as scheme (scheme)}
+          <label class="check">
+            <input
+              type="radio"
+              name="color-scheme"
+              value={scheme}
+              bind:group={colorScheme}
+              onchange={() => void saveColorScheme()}
+            />
+            {COLOR_SCHEME_LABEL[scheme]}
+          </label>
+        {/each}
+      </fieldset>
+      <p class="hint" id="{id}-appearance-hint">
+        System follows the light or dark setting of your computer. A change applies at once.
+      </p>
     </section>
 
     <section class="library">
@@ -851,6 +899,7 @@
   }
   .head,
   .mode,
+  .appearance,
   .library,
   .form > section,
   .jobs {

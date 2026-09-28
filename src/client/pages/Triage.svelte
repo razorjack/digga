@@ -47,13 +47,16 @@
   );
 
   let apiGeneration = api.generation;
+  const settingsLoaded = $derived(settings.value !== null);
 
   // (Re)start the queue once settings are known and after every save: filters may have changed.
+  // The config is read untracked, so a color scheme change, which keeps the version, does not.
   $effect(() => {
-    const config = settings.value;
     void settings.version;
-    if (!config) return;
+    if (!settingsLoaded) return;
     untrack(() => {
+      const config = settings.value;
+      if (!config) return;
       if (api.generation !== apiGeneration) {
         apiGeneration = api.generation;
         player.forgetHeard();

@@ -3,6 +3,9 @@ import { z } from "zod";
 export const QUEUE_STRATEGIES = ["label_sweep", "popular", "country", "year", "random"] as const;
 export type QueueStrategy = (typeof QUEUE_STRATEGIES)[number];
 
+export const COLOR_SCHEMES = ["system", "light", "dark"] as const;
+export type ColorScheme = (typeof COLOR_SCHEMES)[number];
+
 // Genre/style defaults for the owner's use case live here and in
 // digga.config.json only. Nothing else in the codebase may assume them.
 export const FiltersSchema = z.object({
@@ -62,6 +65,12 @@ export const ConfigSchema = z.object({
     .object({
       startAtFraction: z.number().min(0).max(1).default(0.5),
       seekStepSeconds: z.number().positive().default(10),
+    })
+    .prefault({}),
+  appearance: z
+    .object({
+      /** "system" follows the operating system's light or dark setting. */
+      colorScheme: z.enum(COLOR_SCHEMES).default("system"),
     })
     .prefault({}),
 });

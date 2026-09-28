@@ -1,8 +1,8 @@
 /*
  * Digga tokens. Dark: off-black surfaces, white-label paper text, one dayglo flyer accent.
  * Light: white-label paper surfaces and ink text. Colors are named by role; each light-dark()
- * gives the light value first and follows the system's color scheme. docs/DESIGN_BRIEF.md names
- * the palette behind them.
+ * gives the light value first and follows the root's color scheme: the system's, unless
+ * Settings > Appearance picks one. docs/DESIGN_BRIEF.md names the palette behind them.
  *
  * The accent has three roles because yellow only reads as a fill on a light background:
  * --accent fills key caps, buttons and selections under --on-accent text; --accent-mark draws
@@ -39,6 +39,19 @@
   --text-4xl: 64px;
 
   --radius: 2px;
+}
+
+/*
+ * The Appearance setting, as the root's data-color-scheme. These are rules, not an inline style:
+ * the build compiles light-dark() into variables that only color-scheme declarations in the
+ * stylesheet switch.
+ */
+:root[data-color-scheme="light"] {
+  color-scheme: light;
+}
+
+:root[data-color-scheme="dark"] {
+  color-scheme: dark;
 }
 
 *,
