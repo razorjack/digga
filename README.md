@@ -23,7 +23,8 @@ drum & bass; the styles, years, and formats are yours to change.
 ## Listen, decide, move on
 
 Triage puts the release details, tracklist, and YouTube player on one screen. Tracks start partway
-through, at a position you choose, and the next release is preloaded while you listen. Mark a
+through, at a position you choose, and the next track and the next release are preloaded while you
+listen. Mark a
 record as a want, skip it, flag a grail, or leave it for later. Undo walks back through your session.
 
 ![Triage: release details and tracklist beside the player, with verdict keys along the bottom](docs/assets/screenshots/triage.webp)

@@ -80,6 +80,12 @@ function detail(id: number): ReleaseDetail {
   };
 }
 
+/** A release with a video for each of the given ids. */
+function withVideos(id: number, videoIds: string[]): ReleaseDetail {
+  const base = detail(id);
+  return { ...base, videos: videoIds.map((videoId) => ({ ...base.videos[0]!, videoId })) };
+}
+
 async function setup() {
   const http = { mode: "live", postListenLog: vi.fn(async () => ({})) } as unknown as Api;
   const player = new TriagePlayer(
@@ -88,7 +94,7 @@ async function setup() {
   );
   players.push(player);
   player.show(detail(1), detail(2));
-  await player.mount([{}, {}] as Parameters<TriagePlayer["mount"]>[0]);
+  await player.mount([{}, {}, {}] as Parameters<TriagePlayer["mount"]>[0]);
   return player;
 }
 
@@ -154,5 +160,47 @@ describe("player deck ownership", () => {
     player.show({ ...silent, videos: [{ ...detail(3).videos[0]!, videoId: "found" }] }, null);
     expect(player.entry?.video.videoId).toBe("found");
     expect(player.status).toBe("loading");
+  });
+});
+
+describe("the track deck", () => {
+  it("buffers the next track and swaps it in on J", async () => {
+    const player = await setup();
+    player.show(withVideos(5, ["a", "b", "c"]), detail(6));
+    const [first, second, third] = fake.decks;
+    expect(first!.load).toHaveBeenLastCalledWith("a", 300, 0.5, "play");
+    expect(third!.load).toHaveBeenLastCalledWith("b", 300, 0.5, "preload");
+
+    player.nextTrack();
+    expect(player.active).toBe(2);
+    expect(player.entry?.video.videoId).toBe("b");
+    expect(third!.load).toHaveBeenCalledTimes(1);
+    expect(third!.play).toHaveBeenCalledTimes(1);
+    // The deck that played "a" now buffers "c"; the next release stays buffered.
+    expect(first!.load).toHaveBeenLastCalledWith("c", 300, 0.5, "preload");
+    expect(second!.load).toHaveBeenLastCalledWith("video-6", 300, 0.5, "preload");
+  });
+
+  it("buffers the track after one that fails to embed", async () => {
+    const player = await setup();
+    player.show(withVideos(5, ["a", "b", "c"]), null);
+    fake.decks[2]!.emitError("b");
+    expect(player.failed.has("b")).toBe(true);
+    expect(fake.decks[2]!.load).toHaveBeenLastCalledWith("c", 300, 0.5, "preload");
+    player.nextTrack();
+    expect(player.entry?.video.videoId).toBe("c");
+    expect(player.active).toBe(2);
+  });
+
+  it("keeps the three decks apart when a verdict follows J", async () => {
+    const player = await setup();
+    player.show(withVideos(5, ["a", "b"]), detail(6));
+    player.nextTrack();
+    player.show(detail(6), detail(7));
+    expect(player.active).toBe(1);
+    expect(player.entry?.video.videoId).toBe("video-6");
+    const roles = new Set(fake.decks.map((deck) => deck.videoId));
+    expect(roles.size).toBe(3);
+    expect(fake.decks.find((deck) => deck.videoId === "video-7")).toBeDefined();
   });
 });

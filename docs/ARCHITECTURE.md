@@ -43,8 +43,9 @@ answers `409` to digging writes while `sandbox` is on.
   time (`triage/enrich-ahead.ts`, `POST /api/releases/:id/enrich`), and shows the fresh data;
   a record that is already playing keeps its videos until it comes up again.
 - `src/client/player/` wraps the YouTube IFrame API: `deck.ts` is one player, and
-  `triage-player.svelte.ts` runs two of them (one audible, one preloading the next release),
-  picks tracks with `src/shared/playlist.ts`, and logs listens.
+  `triage-player.svelte.ts` runs three of them (one audible, one preloading the next release,
+  one preloading the track `J` moves to), picks tracks with `src/shared/playlist.ts`, and logs
+  listens.
 - `src/client/stores.svelte.ts` holds app-wide state: stats for the counter, settings (with a
   version that restarts the queue on save, and the api mode switch), the help overlay flag, and
   the snoozed records Twelves hands to Triage for a round.

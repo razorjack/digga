@@ -262,3 +262,11 @@ Chronological. Each entry records a choice made without asking and why.
 75. **No audio is a Twelves shelf (`9`) but not part of Everything.** Everything is what you want,
     own or put aside; the records nothing played on are leftovers to rescue with `Y` (YouTube
     search, since `S` sorts in Twelves) and `⌘V`, or to re-judge.
+76. **A third deck buffers the track `J` moves to.** Measured in Chrome on the owner's queue, `J`
+    took a median 1.2 s (0.9 to 1.5 s) from the key to playback, because the next video loaded on
+    the playing deck; over about 22,800 tracks that is roughly seven hours. The third deck loads
+    the entry `J` would pick, muted and paused at its start, and `J`, auto-advance or a click on
+    that track swaps it in the way a verdict swaps in the next release; the median dropped to
+    0.28 s, most of it the measurement's polling. The deck re-aims after every track change and
+    after an embed error, and the three roles (playing, next release, next track) rotate between
+    fixed hosts because moving an iframe reloads it (decision 36).

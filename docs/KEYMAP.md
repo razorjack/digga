@@ -101,8 +101,9 @@ radio button or slider has focus; text fields and menus take the keys for themse
 
 - Each video starts at `player.startAtFraction` (default 0.5) of `videos.duration_seconds`, or
   of the player's reported duration when the dump has none, and at least 5 s before the end.
-- The hidden second player loads the next release's first video muted and pauses at its start
-  offset, so a verdict or `N` starts the next release at once.
+- A hidden second player loads the next release's first video muted and pauses at its start
+  offset, so a verdict or `N` starts the next release at once. A third one does the same for the
+  track `J` moves to, so `J` and auto-advance start the next track at once.
 - A release opens on its first video whose tune was not heard before (on any release). `J` and
   auto-advance at the end of a video skip heard tunes, videos that failed, and second uploads of a
   track already played; `J` falls back to heard tunes when nothing else is left. `K` never skips

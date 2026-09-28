@@ -23,9 +23,10 @@
 
   let hostA = $state<HTMLDivElement | null>(null);
   let hostB = $state<HTMLDivElement | null>(null);
+  let hostC = $state<HTMLDivElement | null>(null);
 
   onMount(() => {
-    if (hostA && hostB) void player.mount([hostA, hostB]);
+    if (hostA && hostB && hostC) void player.mount([hostA, hostB, hostC]);
     return () => player.destroy();
   });
 
@@ -95,6 +96,7 @@
     <!-- Inert: Tab or a click would move focus into the embed, and its keys never reach Digga. -->
     <div class="deck" class:shown={player.active === 0} inert bind:this={hostA}></div>
     <div class="deck" class:shown={player.active === 1} inert bind:this={hostB}></div>
+    <div class="deck" class:shown={player.active === 2} inert bind:this={hostC}></div>
     {#if overlay}
       <div class="overlay" class:solid={overlay.kind !== "gesture"}>
         {#if overlay.kind === "gesture"}

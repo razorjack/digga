@@ -45,8 +45,9 @@ function hasUserActivation(): boolean {
 }
 
 /**
- * Two YouTube decks: the visible one plays the release under judgement, the hidden one buffers
- * the first video of the next release. A verdict swaps them, so the next release starts at once.
+ * Three YouTube decks: the visible one plays the release under judgement, one hidden deck buffers
+ * the first video of the next release, and the other the track J moves to. A verdict or J swaps
+ * the buffered deck in, so the next release or track starts at once.
  */
 export class TriagePlayer {
   status = $state<PlayerStatus>("starting");
@@ -59,7 +60,7 @@ export class TriagePlayer {
   notice = $state<string | null>(null);
   /** The first video of the next release is buffered. */
   nextReady = $state(false);
-  /** Index of the visible deck. */
+  /** Index of the visible deck, which plays the open release. */
   active = $state(0);
   /** Video ids that failed this session; a blocked embed stays blocked. */
   readonly failed = new SvelteSet<string>();
@@ -76,6 +77,10 @@ export class TriagePlayer {
   #api: AppApi;
   #fraction: () => number;
   #decks: Deck[] = [];
+  /** The hidden deck that buffers the next release's first video. */
+  #releaseDeck = 1;
+  /** The hidden deck that buffers the track J moves to on the open release. */
+  #trackDeck = 2;
   #wanted: { detail: ReleaseDetail | null; next: ReleaseDetail | null } = {
     detail: null,
     next: null,
@@ -105,7 +110,7 @@ export class TriagePlayer {
     return this.current === null ? null : (this.entries[this.current] ?? null);
   }
 
-  async mount(hosts: [HTMLElement, HTMLElement]): Promise<void> {
+  async mount(hosts: [HTMLElement, HTMLElement, HTMLElement]): Promise<void> {
     try {
       const yt = await loadYouTubeApi();
       if (this.#destroyed) return;
@@ -113,7 +118,7 @@ export class TriagePlayer {
         onState: (deck, state) => this.#onState(deck, state),
         onError: (deck, code, videoId) => this.#onError(deck, code, videoId),
       };
-      this.#decks = [new Deck(0, hosts[0], yt, listener), new Deck(1, hosts[1], yt, listener)];
+      this.#decks = hosts.map((host, index) => new Deck(index, host, yt, listener));
       this.#lastTick = performance.now();
       this.#timer = setInterval(() => this.#tick(), TICK_MS);
       this.#sync();
@@ -191,20 +196,57 @@ export class TriagePlayer {
 
   playEntry(index: number): void {
     const entry = this.entries[index];
-    const deck = this.#activeDeck();
     const release = this.release;
-    if (!entry || !deck || !release) return;
+    if (!entry || !this.#activeDeck() || !release) return;
     this.#flushListen();
     this.current = index;
     this.played.add(entry.video.videoId);
-    deck.tag = { releaseId: release.release.id, entry: index };
+    this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+    this.duration = entry.video.durationSeconds ?? 0;
+    if (!this.#promoteTrackDeck(entry, index)) this.#loadOnActiveDeck(entry, index);
+    this.#beginListen(release.release.id, entry);
+    this.#preloadTrack();
+  }
+
+  #loadOnActiveDeck(entry: PlaylistEntry, index: number): void {
+    const deck = this.#activeDeck();
+    if (!deck || !this.release) return;
+    deck.tag = { releaseId: this.release.release.id, entry: index };
     const mode = this.#canPlay() ? "play" : "cue";
     this.status = mode === "play" ? "loading" : this.#waitingStatus();
     this.#loadingSince = performance.now();
-    this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
-    this.duration = entry.video.durationSeconds ?? 0;
     void deck.load(entry.video.videoId, entry.video.durationSeconds, this.#fraction(), mode);
-    this.#beginListen(release.release.id, entry);
+  }
+
+  /** Swaps in the deck that buffered this track, when it did; the old deck buffers the next one. */
+  #promoteTrackDeck(entry: PlaylistEntry, index: number): boolean {
+    const deck = this.#decks[this.#trackDeck];
+    const tag = deck?.tag;
+    if (!deck || !tag || tag.releaseId !== this.#openedId) return false;
+    if (deck.videoId !== entry.video.videoId) return false;
+    this.#activeDeck()?.park();
+    this.#trackDeck = this.active;
+    this.active = deck.id;
+    deck.tag = { ...tag, entry: index };
+    this.#startPreload(deck);
+    return true;
+  }
+
+  /** Loads the track J would move to into the track deck, muted and paused at its start. */
+  #preloadTrack(): void {
+    const deck = this.#decks[this.#trackDeck];
+    if (!deck) return;
+    const release = this.release;
+    const next =
+      release && this.current !== null
+        ? nextEntry(this.entries, this.current, this.#playlistState(), { fallback: true })
+        : null;
+    const entry = next === null ? undefined : this.entries[next];
+    if (entry && this.#holdsOpenRelease(deck) && deck.videoId === entry.video.videoId) return;
+    deck.park();
+    if (!release || next === null || !entry) return;
+    deck.tag = { releaseId: release.release.id, entry: next };
+    void deck.load(entry.video.videoId, entry.video.durationSeconds, this.#fraction(), "preload");
   }
 
   #canPlay(): boolean {
@@ -220,8 +262,8 @@ export class TriagePlayer {
     return this.#decks[this.active];
   }
 
-  #hiddenDeck(): Deck | undefined {
-    return this.#decks[1 - this.active];
+  #releaseDeckNow(): Deck | undefined {
+    return this.#decks[this.#releaseDeck];
   }
 
   #playlistState() {
@@ -255,6 +297,7 @@ export class TriagePlayer {
     }
     const index = this.entries.findIndex((entry) => entry.video.videoId === playing);
     this.current = index === -1 ? null : index;
+    this.#preloadTrack();
   }
 
   #openRelease(detail: ReleaseDetail | null): void {
@@ -271,6 +314,7 @@ export class TriagePlayer {
       this.entries = [];
       this.current = null;
       active?.park();
+      this.#preloadTrack();
       this.status = "idle";
       return;
     }
@@ -281,6 +325,7 @@ export class TriagePlayer {
     if (first === null) {
       this.current = null;
       active.park();
+      this.#preloadTrack();
       this.status = "no_audio";
       return;
     }
@@ -288,13 +333,14 @@ export class TriagePlayer {
   }
 
   #adoptPreload(detail: ReleaseDetail, first: number | null): boolean {
-    const hidden = this.#hiddenDeck();
+    const hidden = this.#releaseDeckNow();
     if (!hidden?.videoId || hidden.tag?.releaseId !== detail.release.id) return false;
     const index = this.entries.findIndex((entry) => entry.video.videoId === hidden.videoId);
     const entry = this.entries[index];
     // A tune heard after preloading can change the correct starting track.
     if (!entry || index !== first) return false;
     this.#activeDeck()?.park();
+    this.#releaseDeck = this.active;
     this.active = hidden.id;
     this.nextReady = false;
     this.current = index;
@@ -303,6 +349,7 @@ export class TriagePlayer {
     this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
     this.#startPreload(hidden);
     this.#beginListen(detail.release.id, entry);
+    this.#preloadTrack();
     return true;
   }
 
@@ -318,7 +365,7 @@ export class TriagePlayer {
 
   /** Loads the next release's first video into the hidden deck, unless it already holds it. */
   #preload(next: ReleaseDetail | null): void {
-    const hidden = this.#hiddenDeck();
+    const hidden = this.#releaseDeckNow();
     if (!hidden) return;
     const entries = next ? buildPlaylist(next, this.heardKeys) : [];
     const first = firstEntry(entries, { failed: this.failed, played: new Set() });
@@ -341,7 +388,7 @@ export class TriagePlayer {
   #onState(deck: Deck, state: number): void {
     if (this.#destroyed) return;
     if (deck.id !== this.active) {
-      if (deck.primed) this.nextReady = true;
+      if (deck.id === this.#releaseDeck && deck.primed) this.nextReady = true;
       return;
     }
     if (!this.#holdsOpenRelease(deck)) return;
@@ -370,8 +417,12 @@ export class TriagePlayer {
     if (refused) this.failed.add(refused);
     // A late error for a video the deck has already left changes nothing on screen.
     if (refused !== deck.videoId) return;
-    if (deck.id !== this.active) {
+    if (deck.id === this.#releaseDeck) {
       this.#preload(this.#wanted.next);
+      return;
+    }
+    if (deck.id === this.#trackDeck) {
+      this.#preloadTrack();
       return;
     }
     if (!this.#holdsOpenRelease(deck)) return;
