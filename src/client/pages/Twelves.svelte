@@ -144,20 +144,17 @@
   </header>
 
   <div class="controls">
-    <div class="shelves" role="tablist" aria-label="Shelves">
+    <fieldset class="shelves">
+      <legend class="visually-hidden">Shelf</legend>
       {#each SHELVES as option, index (option.id)}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={shelfState.shelf === option.id}
-          onclick={() => (shelfState.shelf = option.id)}
-        >
+        <label>
+          <input type="radio" class="visually-hidden" name="shelf" value={option.id} bind:group={shelfState.shelf} />
           <Key label={String(index + 1)} size="sm" />
           {option.label}
           <span class="count">{formatCount(shelfState.counts[option.id])}</span>
-        </button>
+        </label>
       {/each}
-    </div>
+    </fieldset>
     <div class="tools">
       <label class="filter">
         <Key label="/" size="sm" />
@@ -169,12 +166,15 @@
           aria-label="Filter"
         />
       </label>
-      <div class="sort">
-        <Key label="S" size="sm" /> sort
+      <fieldset class="sort">
+        <legend><Key label="S" size="sm" /> sort</legend>
         {#each SORTS as option (option.id)}
-          <button type="button" aria-pressed={shelfState.sort === option.id} onclick={() => (shelfState.sort = option.id)}>{option.label}</button>
+          <label>
+            <input type="radio" class="visually-hidden" name="sort" value={option.id} bind:group={shelfState.sort} />
+            {option.label}
+          </label>
         {/each}
-      </div>
+      </fieldset>
     </div>
   </div>
 
@@ -353,22 +353,39 @@
     padding-bottom: 14px;
     border-bottom: 1px solid var(--groove);
   }
+  fieldset {
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  /* A floated legend lays out as an ordinary flex item instead of sitting in the border. */
+  legend {
+    float: left;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+  }
+  label:has(:focus-visible) {
+    outline: 2px solid var(--flyer);
+    outline-offset: 2px;
+  }
   .shelves {
     display: flex;
     flex-wrap: wrap;
     gap: 4px 22px;
   }
-  .shelves button {
+  .shelves label {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 6px 0;
-    border: 0;
     border-bottom: 2px solid transparent;
-    background: none;
     color: var(--faded);
+    cursor: pointer;
   }
-  .shelves button[aria-selected="true"] {
+  .shelves label:has(:checked) {
     color: var(--paper);
     border-bottom-color: var(--flyer);
   }
@@ -403,13 +420,12 @@
     align-items: center;
     gap: 10px;
   }
-  .sort button {
-    border: 0;
-    background: none;
+  .sort label {
     padding: 2px 0;
     color: var(--dust);
+    cursor: pointer;
   }
-  .sort button[aria-pressed="true"] {
+  .sort label:has(:checked) {
     color: var(--paper);
     text-decoration: underline;
     text-decoration-color: var(--flyer);
