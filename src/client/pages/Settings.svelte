@@ -68,6 +68,7 @@
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
   const issues = $derived(validation && !validation.ok ? validation.issues : []);
+  const startAtPercent = $derived(Math.round((draft?.player.startAtFraction ?? 0) * 100));
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
 
@@ -390,12 +391,12 @@
             </fieldset>
           {/if}
         </div>
-        <p class="preview" aria-live="polite">
+        <output class="preview">
           {#if filterPreview.value}
             These filters match <b>{formatCount(filterPreview.value.universe.filteredKeys)}</b> records,
             <b>{formatCount(filterPreview.value.remaining)}</b> still to dig.
           {/if}
-        </p>
+        </output>
       </section>
 
       <section>
@@ -443,9 +444,10 @@
                 min="0"
                 max="0.95"
                 step="0.05"
+                aria-valuetext="{startAtPercent}% into each track"
                 bind:value={draft.player.startAtFraction}
               />
-              <span>{Math.round(draft.player.startAtFraction * 100)}% into each track</span>
+              <span>{startAtPercent}% into each track</span>
             </div>
           </div>
           <div class="field narrow">
@@ -688,11 +690,11 @@
           {#each jobState.items as job (job.id)}
             {@const progress = jobProgress(job)}
             <li class="job-row {job.status}">
-              <span class="job-name">{JOB_LABEL[job.type]}</span>
+              <span class="job-name" id="{id}-job-{job.id}">{JOB_LABEL[job.type]}</span>
               <span class="job-status">{job.status}</span>
               <span class="job-progress">
                 {#if job.status === "running" && progress.fraction !== null}
-                  <span class="meter"><span style:width="{progress.fraction * 100}%"></span></span>
+                  <progress class="meter" value={progress.fraction} aria-labelledby="{id}-job-{job.id}"></progress>
                 {/if}
                 {progress.text}{job.error ? `: ${job.error}` : ""}
               </span>
@@ -855,6 +857,7 @@
     cursor: pointer;
   }
   .preview {
+    display: block;
     min-height: 1.45em;
     color: var(--faded);
   }
@@ -961,11 +964,17 @@
     flex: none;
     width: 80px;
     height: 4px;
+    border: 0;
+    appearance: none;
     background: var(--groove);
   }
-  .meter span {
-    display: block;
-    height: 100%;
+  .meter::-webkit-progress-bar {
+    background: var(--groove);
+  }
+  .meter::-webkit-progress-value {
+    background: var(--flyer);
+  }
+  .meter::-moz-progress-bar {
     background: var(--flyer);
   }
   button.link {
