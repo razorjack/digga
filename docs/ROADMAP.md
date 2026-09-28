@@ -31,22 +31,40 @@ query, Hono API, CLI, placeholder Svelte UI, docs, tests, portability check.
 - `filters.skipWithoutVideos`; first-run states for an empty library and filters that match
   nothing.
 
+## Session 4 (done): keep the work, spend less time per record
+
+Decisions 64 to 78 in `docs/DECISIONS.md`.
+
+- A daily database backup on server start (five kept), `digga backup`, and JSON/CSV exports of
+  verdicts and track marks.
+- Enrich for every record still to dig or for the Twelves records, want-count coverage for the
+  "most wanted" order, and enrichment of the next records while digging.
+- A Twelves Tracks shelf for tracks marked grail or keep, with notes; wants carry the marked
+  tracks and the record's note to the Discogs wantlist.
+- Notes in Triage (`E`), saved with the verdict.
+- Videos of every pressing of a master play on the record.
+- The no-audio path: pasted YouTube links (`⌘V`), a No audio shelf, and records that return to
+  the queue when a new video appears.
+- A third deck that buffers the next track, so `J` starts at once.
+- Label and format-description filters, and `X` to hide the label on screen.
+
 ## Next
 
 - Check the jobs panel against real progress shapes on a long enrich and a full dump load.
 - `addToCollection` is still a stub; nothing in the UI needs it yet.
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.
-- Twelves notes on a want could be copied to the Discogs wantlist notes.
+- Notes and marks changed after a push stay in Digga; `POST /users/{u}/wants/{id}` could update
+  the want's note on Discogs.
+- Hear records from Twelves: rounds like the snoozed ones for wants, grails and marked tracks.
 
-## Session 4: coverage pass and freshness
+## Session 5: coverage pass and freshness
 
 - Coverage pass: mis-tagged and no-year releases on labels/artists present in the accepted set,
   via the loader's `--labels` / `--artists` mode; a job that derives the id lists from `verdicts`.
 - Monthly dump diff: load a new dump, report new releases in the filtered universe.
-- YouTube-search fallback for `no_audio` releases inside the app.
 
-## Session 5: Electron shell
+## Session 6: Electron shell
 
 Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with electron-builder,
 `@electron/rebuild` for `better-sqlite3`, menu items for jobs, signing and notarization.
