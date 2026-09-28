@@ -83,10 +83,10 @@
     }[player.status],
   );
 
-  function seekFromBar(event: MouseEvent): void {
-    const bar = event.currentTarget as HTMLElement;
-    const rect = bar.getBoundingClientRect();
-    player.jumpTo(Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)));
+  const position = $derived(`${formatDuration(player.time)} of ${formatDuration(player.duration)}`);
+
+  function seek(event: Event & { currentTarget: HTMLInputElement }): void {
+    player.jumpTo(event.currentTarget.valueAsNumber / player.duration);
   }
 </script>
 
@@ -131,19 +131,19 @@
     </p>
   </div>
 
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="bar"
-    role="slider"
-    tabindex="-1"
-    aria-label="Position in the track"
-    aria-valuemin={0}
-    aria-valuemax={Math.round(player.duration)}
-    aria-valuenow={Math.round(player.time)}
-    onclick={seekFromBar}
-  >
-    <div class="fill" style:width="{progress * 100}%"></div>
-    <div class="start" style:left="{startAtFraction * 100}%" title="Start point"></div>
+  <div class="seek">
+    <input
+      type="range"
+      min="0"
+      max={Math.round(player.duration)}
+      value={Math.floor(player.time)}
+      disabled={player.duration <= 0}
+      aria-label="Position in the track"
+      aria-valuetext={position}
+      style:--progress="{progress * 100}%"
+      oninput={seek}
+    />
+    <div class="start" style:left="{startAtFraction * 100}%"></div>
   </div>
 
   <div class="keys">
@@ -252,23 +252,37 @@
   .quiet {
     color: var(--dust);
   }
-  .bar {
+  .seek {
     position: relative;
+  }
+  /* A plain bar: the played part in the accent over the groove, and no thumb. */
+  .seek input {
+    display: block;
+    width: 100%;
     height: 14px;
+    margin: 0;
+    appearance: none;
+    background:
+      linear-gradient(var(--flyer), var(--flyer)) 0 50% / var(--progress) 4px no-repeat,
+      linear-gradient(var(--groove), var(--groove)) 0 50% / 100% 4px no-repeat;
     cursor: pointer;
   }
-  .bar::before {
-    content: "";
-    position: absolute;
-    inset: 5px 0;
-    background: var(--groove);
+  .seek input:disabled {
+    cursor: default;
   }
-  .fill {
-    position: absolute;
-    left: 0;
-    top: 5px;
-    bottom: 5px;
-    background: var(--flyer);
+  .seek input::-webkit-slider-thumb {
+    appearance: none;
+    width: 0;
+    height: 14px;
+  }
+  .seek input::-moz-range-thumb {
+    width: 0;
+    height: 14px;
+    border: 0;
+    background: none;
+  }
+  .seek input::-moz-range-track {
+    background: none;
   }
   .start {
     position: absolute;
@@ -278,6 +292,7 @@
     margin-left: -1px;
     background: var(--paper);
     opacity: 0.6;
+    pointer-events: none;
   }
   .keys {
     display: flex;
