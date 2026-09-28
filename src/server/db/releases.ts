@@ -326,17 +326,17 @@ export interface SnapshotWrite {
   communityWant: number | null;
 }
 
-export function writeSnapshot(db: Db, releaseId: number, s: SnapshotWrite): void {
+export function writeSnapshot(db: Db, releaseId: number, snapshot: SnapshotWrite): void {
   db.prepare(
     `UPDATE releases SET lowest_price = @lowest_price, num_for_sale = @num_for_sale, currency = @currency,
      community_have = @community_have, community_want = @community_want, enriched_at = @enriched_at WHERE id = @id`,
   ).run({
     id: releaseId,
-    lowest_price: s.lowestPrice,
-    num_for_sale: s.numForSale,
-    currency: s.currency,
-    community_have: s.communityHave,
-    community_want: s.communityWant,
+    lowest_price: snapshot.lowestPrice,
+    num_for_sale: snapshot.numForSale,
+    currency: snapshot.currency,
+    community_have: snapshot.communityHave,
+    community_want: snapshot.communityWant,
     enriched_at: nowIso(),
   });
 }

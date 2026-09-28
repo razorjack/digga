@@ -13,11 +13,11 @@ import type {
 } from "../discogs/types.ts";
 
 export function apiArtists(list: DiscogsArtist[] | undefined): ArtistRef[] {
-  return (list ?? []).map((a) => ({
-    id: a.id ?? null,
-    name: a.name,
-    anv: a.anv ?? "",
-    join: (a.join ?? "").trim(),
+  return (list ?? []).map((artist) => ({
+    id: artist.id ?? null,
+    name: artist.name,
+    anv: artist.anv ?? "",
+    join: (artist.join ?? "").trim(),
   }));
 }
 
@@ -26,40 +26,40 @@ export function apiLabels(list: DiscogsLabel[] | undefined): LabelRef[] {
 }
 
 export function apiFormats(list: DiscogsFormat[] | undefined): FormatRef[] {
-  return (list ?? []).map((f) => ({
-    name: f.name,
-    qty: Number.parseInt(f.qty ?? "1", 10) || 1,
-    text: f.text ?? "",
-    descriptions: f.descriptions ?? [],
+  return (list ?? []).map((format) => ({
+    name: format.name,
+    qty: Number.parseInt(format.qty ?? "1", 10) || 1,
+    text: format.text ?? "",
+    descriptions: format.descriptions ?? [],
   }));
 }
 
 /** Stub release row from a collection/wantlist item; no tracks or videos until the dump or enrich fills them. */
-export function basicInformationToWrite(bi: DiscogsBasicInformation): ReleaseWrite {
-  const artists = apiArtists(bi.artists);
-  const labels = apiLabels(bi.labels);
-  const formats = apiFormats(bi.formats);
-  const masterId = bi.master_id && bi.master_id > 0 ? bi.master_id : null;
+export function basicInformationToWrite(info: DiscogsBasicInformation): ReleaseWrite {
+  const artists = apiArtists(info.artists);
+  const labels = apiLabels(info.labels);
+  const formats = apiFormats(info.formats);
+  const masterId = info.master_id && info.master_id > 0 ? info.master_id : null;
   const first = labels[0];
   return {
-    id: bi.id,
+    id: info.id,
     masterId,
     isMainRelease: false,
-    title: bi.title,
+    title: info.title,
     artists,
     artistDisplay: artistDisplay(artists),
     labels,
     labelName: first ? first.name : null,
     catno: first && first.catno !== "" ? first.catno : null,
-    year: bi.year && bi.year > 0 ? bi.year : null,
-    releasedRaw: bi.year && bi.year > 0 ? String(bi.year) : null,
+    year: info.year && info.year > 0 ? info.year : null,
+    releasedRaw: info.year && info.year > 0 ? String(info.year) : null,
     country: null,
     formats,
     isVinyl: isVinyl(formats),
-    genres: bi.genres ?? [],
-    styles: bi.styles ?? [],
+    genres: info.genres ?? [],
+    styles: info.styles ?? [],
     inUniverse: false,
-    triageKey: triageKeyFor({ id: bi.id, masterId }),
+    triageKey: triageKeyFor({ id: info.id, masterId }),
     tracks: [],
     videos: [],
   };
@@ -127,22 +127,27 @@ export function applySeedItem(
 }
 
 /** API-shaped basic information from a stored release, for seed rows Digga writes itself. */
-export function basicInformationFromRelease(r: ReleaseRecord): DiscogsBasicInformation {
+export function basicInformationFromRelease(release: ReleaseRecord): DiscogsBasicInformation {
   return {
-    id: r.id,
-    master_id: r.masterId,
-    title: r.title,
-    year: r.year ?? 0,
-    artists: r.artists.map((a) => ({ id: a.id ?? 0, name: a.name, anv: a.anv, join: a.join })),
-    labels: r.labels.map((l) => ({ id: l.id ?? 0, name: l.name, catno: l.catno })),
-    formats: r.formats.map((f) => ({
-      name: f.name,
-      qty: String(f.qty),
-      text: f.text,
-      descriptions: f.descriptions,
+    id: release.id,
+    master_id: release.masterId,
+    title: release.title,
+    year: release.year ?? 0,
+    artists: release.artists.map((artist) => ({
+      id: artist.id ?? 0,
+      name: artist.name,
+      anv: artist.anv,
+      join: artist.join,
     })),
-    genres: r.genres,
-    styles: r.styles,
+    labels: release.labels.map((l) => ({ id: l.id ?? 0, name: l.name, catno: l.catno })),
+    formats: release.formats.map((format) => ({
+      name: format.name,
+      qty: String(format.qty),
+      text: format.text,
+      descriptions: format.descriptions,
+    })),
+    genres: release.genres,
+    styles: release.styles,
   };
 }
 
@@ -174,5 +179,5 @@ export function wantlistKeys(db: Db): Set<string> {
        JOIN releases r ON r.id = s.release_id WHERE s.kind = 'wantlist'`,
     )
     .all() as { key: string }[];
-  return new Set(rows.map((r) => r.key));
+  return new Set(rows.map((release) => release.key));
 }

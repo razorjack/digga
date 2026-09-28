@@ -25,15 +25,15 @@ const CONTENT_TYPES: Record<string, string> = {
  */
 export function createStaticHandler(distDir: string) {
   const root = path.resolve(distDir);
-  return async (c: Context): Promise<Response> => {
-    const url = new URL(c.req.url);
+  return async (context: Context): Promise<Response> => {
+    const url = new URL(context.req.url);
     let rel = decodeURIComponent(url.pathname);
     if (rel === "/" || rel === "") rel = "/index.html";
     const target = path.resolve(root, `.${rel}`);
     const fallback = path.join(root, "index.html");
     const inside = target === root || target.startsWith(root + path.sep);
     let file = inside && fs.existsSync(target) && fs.statSync(target).isFile() ? target : fallback;
-    if (!fs.existsSync(file)) return c.text("dist/ not built. Run `vp build` first.", 404);
+    if (!fs.existsSync(file)) return context.text("dist/ not built. Run `vp build` first.", 404);
     if (file === fallback && !fs.existsSync(fallback)) file = fallback;
     const ext = path.extname(file).toLowerCase();
     const body = await fs.promises.readFile(file);

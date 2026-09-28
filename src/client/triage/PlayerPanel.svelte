@@ -45,9 +45,14 @@
 
   const overlay = $derived.by((): Overlay | null => {
     if (!item) return { kind: "message", title: "Nothing to play." };
-    if (detailError) return { kind: "message", title: "The release did not load.", body: detailError };
+    if (detailError)
+      return { kind: "message", title: "The release did not load.", body: detailError };
     if (player.status === "unavailable")
-      return { kind: "message", title: "The YouTube player is unavailable.", body: player.notice ?? undefined };
+      return {
+        kind: "message",
+        title: "The YouTube player is unavailable.",
+        body: player.notice ?? undefined,
+      };
     if (!detail) return { kind: "message", title: "Loading the release…" };
     if (videoCount === 0) return { kind: "no_audio", title: "No videos on this release." };
     if (failedAll || (mine && player.status === "no_audio"))
@@ -78,10 +83,10 @@
     }[player.status],
   );
 
-  function seekFromBar(e: MouseEvent): void {
-    const bar = e.currentTarget as HTMLElement;
+  function seekFromBar(event: MouseEvent): void {
+    const bar = event.currentTarget as HTMLElement;
     const rect = bar.getBoundingClientRect();
-    player.jumpTo(Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)));
+    player.jumpTo(Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)));
   }
 </script>
 

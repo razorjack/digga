@@ -212,7 +212,7 @@
         </p>
         <p class="quiet">
           Turn it off to dig for real: every verdict is saved, and <Key label="A" size="sm" /> adds the release to
-          your Discogs wantlist{discogs.tokenProblem ? "" : discogs.account?.tokenUsername ? ` (${discogs.account.tokenUsername})` : ""}.
+          your Discogs wantlist{#if !discogs.tokenProblem && discogs.account?.tokenUsername} ({discogs.account.tokenUsername}){/if}.
           What you did in the sandbox is dropped.
         </p>
         {#if discogs.tokenProblem}
@@ -258,7 +258,7 @@
         {@const summary = stats.value}
         <p>
           <b>{formatCount(summary.universe.releases)}</b> releases loaded
-          {summary.dump.date ? `from the ${formatDay(summary.dump.date)} dump` : summary.dump.loadedAt ? "from a dump of unknown date" : "(no dump loaded yet)"},
+          {#if summary.dump.date}from the {formatDay(summary.dump.date)} dump{:else if summary.dump.loadedAt}from a dump of unknown date{:else}(no dump loaded yet){/if},
           grouped into <b>{formatCount(summary.universe.keys)}</b> records.
         </p>
         <p>
@@ -466,7 +466,7 @@
                 disabled={discogs.listsState === "loading" || draft.discogs.username === ""}
                 onclick={() => void discogs.loadLists()}
               >
-                {discogs.listsState === "loading" ? "Reading lists…" : discogs.lists.length > 0 ? "Reload lists" : "Read my lists"}
+                {#if discogs.listsState === "loading"}Reading lists…{:else if discogs.lists.length > 0}Reload lists{:else}Read my lists{/if}
               </button>
             </div>
             <span class="hint">

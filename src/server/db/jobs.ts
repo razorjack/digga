@@ -14,16 +14,16 @@ interface JobRow {
   finished_at: string | null;
 }
 
-function rowToJob(r: JobRow): Job {
+function rowToJob(row: JobRow): Job {
   return JobSchema.parse({
-    id: r.id,
-    type: r.type,
-    status: r.status,
-    progress: r.progress_json ? (JSON.parse(r.progress_json) as unknown) : null,
-    error: r.error,
-    createdAt: r.created_at,
-    startedAt: r.started_at,
-    finishedAt: r.finished_at,
+    id: row.id,
+    type: row.type,
+    status: row.status,
+    progress: row.progress_json ? (JSON.parse(row.progress_json) as unknown) : null,
+    error: row.error,
+    createdAt: row.created_at,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
   });
 }
 

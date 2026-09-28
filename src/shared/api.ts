@@ -34,9 +34,9 @@ export interface ApiError {
  */
 const FiltersParamSchema = z
   .string()
-  .transform((s, ctx) => {
+  .transform((text, ctx) => {
     try {
-      return JSON.parse(s) as unknown;
+      return JSON.parse(text) as unknown;
     } catch {
       ctx.addIssue({ code: "custom", message: "filters must be a JSON object" });
       return z.NEVER;
@@ -166,14 +166,14 @@ export const TwelvesQuerySchema = z.object({
   status: z
     .string()
     .optional()
-    .transform((s) =>
-      s ? s.split(",").map((x) => x.trim()) : ["accepted", "wantlist", "collection"],
+    .transform((text) =>
+      text ? text.split(",").map((x) => x.trim()) : ["accepted", "wantlist", "collection"],
     )
     .pipe(z.array(z.enum(VERDICT_STATUSES)).min(1)),
   applyFilters: z
     .string()
     .optional()
-    .transform((s) => s === "1" || s === "true"),
+    .transform((text) => text === "1" || text === "true"),
 });
 export type TwelvesQuery = z.infer<typeof TwelvesQuerySchema>;
 export type TwelvesQueryInput = z.input<typeof TwelvesQuerySchema>;

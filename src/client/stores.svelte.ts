@@ -2,8 +2,8 @@ import type { Stats, TwelvesItem } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
 import { api } from "./api.ts";
 
-export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 class StatsStore {
@@ -17,8 +17,8 @@ class StatsStore {
     try {
       this.value = await api.getStats();
       this.error = null;
-    } catch (e) {
-      this.error = errorMessage(e);
+    } catch (error) {
+      this.error = errorMessage(error);
     }
   }
 
@@ -44,8 +44,8 @@ class SettingsStore {
     try {
       this.#apply(await api.getSettings());
       this.error = null;
-    } catch (e) {
-      this.error = errorMessage(e);
+    } catch (error) {
+      this.error = errorMessage(error);
     }
   }
 

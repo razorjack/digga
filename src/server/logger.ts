@@ -42,20 +42,20 @@ export const silentSink: LogSink = { write() {} };
  * can be plugged in later (Electron) without touching callers.
  */
 export function createLogger(
-  opts: { level?: LogLevel; sink?: LogSink; scope?: string } = {},
+  options: { level?: LogLevel; sink?: LogSink; scope?: string } = {},
 ): Logger {
-  const level = opts.level ?? "info";
-  const sink = opts.sink ?? consoleSink;
-  const scope = opts.scope ?? "digga";
-  const emit = (l: LogLevel, message: string, data?: unknown) => {
-    if (LEVEL_RANK[l] < LEVEL_RANK[level]) return;
-    sink.write(l, scope, message, data);
+  const level = options.level ?? "info";
+  const sink = options.sink ?? consoleSink;
+  const scope = options.scope ?? "digga";
+  const emit = (messageLevel: LogLevel, message: string, data?: unknown) => {
+    if (LEVEL_RANK[messageLevel] < LEVEL_RANK[level]) return;
+    sink.write(messageLevel, scope, message, data);
   };
   return {
-    debug: (m, d) => emit("debug", m, d),
-    info: (m, d) => emit("info", m, d),
-    warn: (m, d) => emit("warn", m, d),
-    error: (m, d) => emit("error", m, d),
+    debug: (message, data) => emit("debug", message, data),
+    info: (message, data) => emit("info", message, data),
+    warn: (message, data) => emit("warn", message, data),
+    error: (message, data) => emit("error", message, data),
     child: (childScope) => createLogger({ level, sink, scope: `${scope}:${childScope}` }),
   };
 }

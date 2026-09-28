@@ -106,10 +106,10 @@ export class TriageSession {
       await this.#refill();
       if (generation !== this.#generation) return;
       this.status = "ready";
-    } catch (e) {
+    } catch (error) {
       if (generation !== this.#generation) return;
       this.status = "error";
-      this.error = errorMessage(e);
+      this.error = errorMessage(error);
     }
   }
 
@@ -319,12 +319,12 @@ export class TriageSession {
     void this.#write(async () => {
       try {
         await client.postTrackVerdict({ releaseId, position, mark: next });
-      } catch (e) {
+      } catch (error) {
         if (generation !== this.#apiGeneration) return;
         if (this.details.get(releaseId) === optimistic) {
           this.details = new Map(this.details).set(releaseId, detail);
         }
-        this.#flash(`The track mark was not saved: ${errorMessage(e)}`);
+        this.#flash(`The track mark was not saved: ${errorMessage(error)}`);
       }
     });
   }
@@ -349,11 +349,11 @@ export class TriageSession {
     try {
       await this.#syncWantlist(entry.item, client);
       push = this.#onWantlist.has(entry.item.triageKey) ? "done" : null;
-    } catch (e) {
+    } catch (error) {
       if (generation !== this.#apiGeneration) return;
       push = "failed";
       this.#flash(
-        `Not added to the Discogs wantlist: ${errorMessage(e)}. A in Twelves tries again.`,
+        `Not added to the Discogs wantlist: ${errorMessage(error)}. A in Twelves tries again.`,
       );
     }
     if (generation !== this.#apiGeneration) return;
@@ -371,9 +371,9 @@ export class TriageSession {
           ? "Taken off your wantlist again (sandbox: nothing sent)."
           : "Taken off your Discogs wantlist again.",
       );
-    } catch (e) {
+    } catch (error) {
       if (generation !== this.#apiGeneration) return;
-      this.#flash(`Still on your Discogs wantlist: ${errorMessage(e)}`);
+      this.#flash(`Still on your Discogs wantlist: ${errorMessage(error)}`);
     }
   }
 
@@ -467,9 +467,9 @@ export class TriageSession {
     this.#prefetch();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
       const generation = this.#generation;
-      this.#refill().catch((e: unknown) => {
+      this.#refill().catch((error: unknown) => {
         if (generation !== this.#generation) return;
-        const message = `Could not fetch more of the queue: ${errorMessage(e)}`;
+        const message = `Could not fetch more of the queue: ${errorMessage(error)}`;
         this.#flash(message);
         // With nothing buffered, the page needs the error state so Enter can retry.
         if (this.upcoming.length === 0) {
@@ -524,9 +524,9 @@ export class TriageSession {
       // Fetched in the other mode: its marks and heard flags would be wrong here.
       if (generation !== this.#apiGeneration) return;
       this.details = new Map(this.details).set(id, detail);
-    } catch (e) {
+    } catch (error) {
       if (generation !== this.#apiGeneration) return;
-      this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(e));
+      this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(error));
     } finally {
       loading.delete(id);
     }

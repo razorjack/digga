@@ -111,46 +111,46 @@ ranked AS (
   FROM base
 )`;
 
-export function buildQueueSql(p: QueueParams): SqlFragment {
-  const where = buildFilterWhere(p.filters, {
-    includeDecided: p.includeDecided,
+export function buildQueueSql(query: QueueParams): SqlFragment {
+  const where = buildFilterWhere(query.filters, {
+    includeDecided: query.includeDecided,
   });
-  const order = orderClause(p.strategy, p.seed ?? 0);
+  const order = orderClause(query.strategy, query.seed ?? 0);
   // "Unenriched" applies to the representative release, not to every pressing of a master.
-  const outer = p.unenrichedOnly ? "rn = 1 AND enriched_at IS NULL" : "rn = 1";
+  const outer = query.unenrichedOnly ? "rn = 1 AND enriched_at IS NULL" : "rn = 1";
   const sql = `WITH base AS (${BASE_SELECT}${where.sql}
 ), ${RANKED}
 SELECT * FROM ranked WHERE ${outer}
 ORDER BY ${order.sql}
 LIMIT ? OFFSET ?`;
-  return { sql, params: [...where.params, ...order.params, p.limit, p.offset ?? 0] };
+  return { sql, params: [...where.params, ...order.params, query.limit, query.offset ?? 0] };
 }
 
-export function rowToQueueItem(r: QueueRow): QueueItem {
+export function rowToQueueItem(row: QueueRow): QueueItem {
   return {
-    id: r.id,
-    triageKey: r.triage_key,
-    masterId: r.master_id,
-    title: r.title,
-    artistDisplay: r.artist_display,
-    labelName: r.label_name,
-    catno: r.catno,
-    year: r.year,
-    country: r.country,
-    formatSummary: formatSummary(JSON.parse(r.formats_json) as FormatRef[]),
-    styles: JSON.parse(r.styles_json) as string[],
-    videoCount: r.video_count,
-    communityWant: r.community_want,
-    communityHave: r.community_have,
-    numForSale: r.num_for_sale,
-    lowestPrice: r.lowest_price,
-    currency: r.currency,
-    enrichedAt: r.enriched_at,
+    id: row.id,
+    triageKey: row.triage_key,
+    masterId: row.master_id,
+    title: row.title,
+    artistDisplay: row.artist_display,
+    labelName: row.label_name,
+    catno: row.catno,
+    year: row.year,
+    country: row.country,
+    formatSummary: formatSummary(JSON.parse(row.formats_json) as FormatRef[]),
+    styles: JSON.parse(row.styles_json) as string[],
+    videoCount: row.video_count,
+    communityWant: row.community_want,
+    communityHave: row.community_have,
+    numForSale: row.num_for_sale,
+    lowestPrice: row.lowest_price,
+    currency: row.currency,
+    enrichedAt: row.enriched_at,
   };
 }
 
-export function queryQueue(db: Db, p: QueueParams): QueueItem[] {
-  const { sql, params } = buildQueueSql(p);
+export function queryQueue(db: Db, query: QueueParams): QueueItem[] {
+  const { sql, params } = buildQueueSql(query);
   const rows = db.prepare(sql).all(...params) as QueueRow[];
   return rows.map(rowToQueueItem);
 }

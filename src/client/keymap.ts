@@ -122,12 +122,12 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
     {
       title: "Verdicts",
       keys: [
-        ...VERDICT_KEYS.map((v) => ({
-          keys: [v.key],
+        ...VERDICT_KEYS.map((verdict) => ({
+          keys: [verdict.key],
           label:
-            v.needsMaybeList && !hasMaybeList
-              ? `${v.copy}: pick your Discogs Maybe list in Settings first`
-              : `${v.copy}: ${v.hint}`,
+            verdict.needsMaybeList && !hasMaybeList
+              ? `${verdict.copy}: pick your Discogs Maybe list in Settings first`
+              : `${verdict.copy}: ${verdict.hint}`,
         })),
         { keys: ["N"], label: "next: decide later, it stays in the queue" },
         { keys: ["Z"], label: "undo the last verdict or next" },

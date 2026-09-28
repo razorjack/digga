@@ -77,38 +77,38 @@ export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
 }
 
 /** Unconditional write (triage and manual decisions). */
-export function upsertVerdict(db: Db, v: VerdictWrite): Verdict {
+export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
   db.prepare(
     `INSERT INTO verdicts (key, status, source, notes, release_id, decided_at)
      VALUES (@key, @status, @source, @notes, @release_id, @decided_at)
      ON CONFLICT(key) DO UPDATE SET status = excluded.status, source = excluded.source, notes = excluded.notes,
        release_id = excluded.release_id, decided_at = excluded.decided_at`,
   ).run({
-    key: v.key,
-    status: v.status,
-    source: v.source,
-    notes: v.notes ?? null,
-    release_id: v.releaseId ?? null,
-    decided_at: v.decidedAt ?? nowIso(),
+    key: verdict.key,
+    status: verdict.status,
+    source: verdict.source,
+    notes: verdict.notes ?? null,
+    release_id: verdict.releaseId ?? null,
+    decided_at: verdict.decidedAt ?? nowIso(),
   });
-  return getVerdict(db, v.key)!;
+  return getVerdict(db, verdict.key)!;
 }
 
 export function applySeedVerdict(
   db: Db,
-  v: VerdictWrite,
+  verdict: VerdictWrite,
 ): { written: boolean; previous: Verdict | null } {
-  const previous = getVerdict(db, v.key);
-  if (previous && seedRank(v) < seedRank(previous)) return { written: false, previous };
+  const previous = getVerdict(db, verdict.key);
+  if (previous && seedRank(verdict) < seedRank(previous)) return { written: false, previous };
   if (
     previous &&
-    previous.status === v.status &&
-    previous.source === v.source &&
-    previous.decidedAt === (v.decidedAt ?? previous.decidedAt)
+    previous.status === verdict.status &&
+    previous.source === verdict.source &&
+    previous.decidedAt === (verdict.decidedAt ?? previous.decidedAt)
   ) {
     return { written: false, previous };
   }
-  upsertVerdict(db, v);
+  upsertVerdict(db, verdict);
   return { written: true, previous };
 }
 

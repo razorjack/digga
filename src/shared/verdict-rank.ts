@@ -11,11 +11,11 @@ export function isTriageSource(source: VerdictSource): boolean {
  * 1.6 > the Discogs Maybe list 1.55 > other triage and manual decisions 1.5 > seen in browser
  * history 1.
  */
-export function seedRank(v: { status: VerdictStatus; source: VerdictSource }): number {
-  if (v.status === "collection") return 3;
-  if (v.status === "wantlist") return 2;
-  if (v.status === "seen") return 1;
-  if (v.source === "seed:list") return 1.55;
-  if (v.status === "accepted" || v.status === "candidate") return 1.6;
+export function seedRank(verdict: { status: VerdictStatus; source: VerdictSource }): number {
+  if (verdict.status === "collection") return 3;
+  if (verdict.status === "wantlist") return 2;
+  if (verdict.status === "seen") return 1;
+  if (verdict.source === "seed:list") return 1.55;
+  if (verdict.status === "accepted" || verdict.status === "candidate") return 1.6;
   return 1.5;
 }

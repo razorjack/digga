@@ -16,7 +16,7 @@
 
   const entries = $derived(buildPlaylist(detail));
   const strays = $derived(
-    entries.map((e, i) => ({ e, i })).filter(({ e }) => e.track === null),
+    entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.track === null),
   );
   const blockedPositions = $derived(
     new Set(
@@ -43,7 +43,7 @@
     const entry = entries[index]!;
     const allFailed = entries
       .filter((e) => e.track?.position === position)
-      .every((e) => player.failed.has(e.video.videoId));
+      .every((entry) => player.failed.has(entry.video.videoId));
     return allFailed || player.failed.has(entry.video.videoId) ? "failed" : "video";
   }
 
@@ -99,22 +99,22 @@
   {/each}
   {#if strays.length > 0}
     <li class="heading">Other videos</li>
-    {#each strays as { e, i } (e.video.videoId)}
-      {@const playing = i === playingIndex}
-      {@const failed = player.failed.has(e.video.videoId)}
+    {#each strays as { entry, index } (entry.video.videoId)}
+      {@const playing = index === playingIndex}
+      {@const failed = player.failed.has(entry.video.videoId)}
       <li class="row" class:playing class:failed>
         <button
           type="button"
           tabindex="-1"
           disabled={failed}
           onmousedown={(ev) => ev.preventDefault()}
-          onclick={() => onplay(i)}
+          onclick={() => onplay(index)}
         >
           <span class="pos"></span>
-          <span class="glyph">{playing ? "▶" : failed ? "×" : "●"}</span>
-          <span class="name">{e.video.title || e.video.videoId}</span>
+          <span class="glyph">{#if playing}▶{:else if failed}×{:else}●{/if}</span>
+          <span class="name">{entry.video.title || entry.video.videoId}</span>
           <span class="tags">{#if failed}<span class="note">no embed</span>{/if}</span>
-          <span class="dur">{formatDuration(e.video.durationSeconds)}</span>
+          <span class="dur">{formatDuration(entry.video.durationSeconds)}</span>
         </button>
       </li>
     {/each}
