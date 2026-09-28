@@ -233,3 +233,8 @@ Chronological. Each entry records a choice made without asking and why.
     the record's note", built from `track_verdicts` and the verdict at push time. Triage pushes
     after the verdict and the marks are saved, so both reach Discogs; the same text goes into
     `seed_items.notes`. Notes changed after the push stay in Digga.
+71. **`E` in Triage writes a note on the record, and its verdict saves it.** The record has no
+    verdict while it is being heard, and the note belongs to the moment of hearing ("the tune from
+    the Kool FM tape"). The session keeps notes by triage key, so a note survives `N` and undo
+    and is sent with the next verdict on that record; a snoozed record starts from its own note.
+    Notes not yet saved are lost on reload, like the passes.

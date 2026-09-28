@@ -152,6 +152,7 @@
     <span><Key label="←" /><Key label="→" /> {seekStepSeconds} s</span>
     <span><Key label="1–9" /> jump</span>
     <span><Key label="O" /> discogs</span>
+    <span><Key label="E" /> note</span>
   </div>
 
   <p class="notice" role="status">{player.notice ?? ""}</p>

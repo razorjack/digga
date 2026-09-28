@@ -26,6 +26,7 @@ or Alt. Holding a key down never repeats a verdict.
 | `1` … `9` | jump to 10% … 90% of the video                                       |
 | `O`       | open the release on discogs.com                                      |
 | `S`       | open a YouTube search for artist + title                             |
+| `E`       | write a note on the record; Enter keeps it, its verdict saves it     |
 | `Enter`   | retry when the queue or the release failed to load                   |
 
 ## Triage: verdicts (one per release, undoable)

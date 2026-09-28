@@ -16,6 +16,7 @@
   import { TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
   import Tracklist from "../triage/Tracklist.svelte";
+  import NoteLine from "../triage/NoteLine.svelte";
   import VerdictBar from "../triage/VerdictBar.svelte";
 
   let { active }: { active: boolean } = $props();
@@ -68,6 +69,21 @@
     } finally {
       loadingSnoozed = false;
     }
+  }
+
+  /** E opened the note on the current record. */
+  let editingNote = $state(false);
+  const note = $derived(session.current ? session.noteFor(session.current) : null);
+
+  // A verdict or N moves on; a half-written note stays with the record it was for.
+  $effect(() => {
+    void session.current;
+    editingNote = false;
+  });
+
+  function saveNote(text: string): void {
+    if (session.current) session.setNote(session.current, text);
+    editingNote = false;
   }
 
   const snoozedCount = $derived(stats.value?.verdicts.snoozed ?? 0);
@@ -131,6 +147,9 @@
     s: () => openReleaseLink("youtube"),
     n: () => session.pass(),
     z: () => session.undo(),
+    e: () => {
+      if (session.current) editingNote = true;
+    },
   };
 
   function openReleaseLink(site: "discogs" | "youtube"): void {
@@ -156,7 +175,7 @@
       return true;
     }
     // Holding a key down must not judge a run of releases.
-    if (event.repeat) return /^[ jknozs1-9radmc]$/.test(key);
+    if (event.repeat) return /^[ jknozse1-9radmc]$/.test(key);
     return runShortcut(key);
   }
 
@@ -279,11 +298,16 @@
           </p>
         </div>
       {:else if session.current}
-        <ReleaseFacts
-          item={session.current}
-          detail={session.currentDetail}
-          enriching={(settings.value?.discogs.enrichAhead ?? 0) > 0}
-        />
+        <div class="head">
+          <ReleaseFacts
+            item={session.current}
+            detail={session.currentDetail}
+            enriching={(settings.value?.discogs.enrichAhead ?? 0) > 0}
+          />
+          {#if note || editingNote}
+            <NoteLine {note} editing={editingNote} onsave={saveNote} oncancel={() => (editingNote = false)} />
+          {/if}
+        </div>
         {#if session.currentDetail}
           <Tracklist detail={session.currentDetail} {player} onplay={(i) => player.playEntry(i)} />
         {:else if detailError}
@@ -368,6 +392,11 @@
     grid-template-rows: auto minmax(0, 1fr);
     gap: 24px;
     min-height: 0;
+    min-width: 0;
+  }
+  .head {
+    display: grid;
+    gap: 12px;
     min-width: 0;
   }
   .side {

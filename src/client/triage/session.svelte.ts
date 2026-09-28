@@ -9,6 +9,8 @@ type VerdictEntry = {
   kind: "verdict";
   item: QueueItem;
   status: TriageStatus;
+  /** The note saved with the verdict. */
+  notes: string | null;
   /** The verdict this one replaced (a snoozed record heard again); undo restores it. */
   previous: Verdict | null;
 };
@@ -60,6 +62,8 @@ export class TriageSession {
   slip = $state.raw<Slip | null>(null);
   flash = $state<string | null>(null);
   round = $state.raw<Round | null>(null);
+  /** Notes written in Triage, by triage key; a record's verdict saves its note. */
+  notes = $state.raw<ReadonlyMap<string, string | null>>(new Map());
 
   current = $derived(this.upcoming[0] ?? null);
   next = $derived(this.upcoming[1] ?? null);
@@ -142,7 +146,8 @@ export class TriageSession {
     if (!item) return;
     const client = this.#api.pinned();
     const previous = this.#roundVerdicts.get(item.triageKey) ?? null;
-    const entry: VerdictEntry = { kind: "verdict", item, status, previous };
+    const notes = this.noteFor(item);
+    const entry: VerdictEntry = { kind: "verdict", item, status, notes, previous };
     this.upcoming = this.upcoming.slice(1);
     this.history = [...this.history, entry];
     const id = ++this.#slipSeq;
@@ -164,15 +169,10 @@ export class TriageSession {
     entry: VerdictEntry,
     operation: { client: Api; generation: number; slipId: number },
   ): Promise<void> {
-    const { item, status, previous } = entry;
+    const { item, status, notes } = entry;
     const { client, generation, slipId } = operation;
     try {
-      await client.postVerdict({
-        key: item.triageKey,
-        status,
-        releaseId: item.id,
-        notes: previous?.notes ?? null,
-      });
+      await client.postVerdict({ key: item.triageKey, status, releaseId: item.id, notes });
     } catch (error) {
       if (generation !== this.#apiGeneration) return;
       this.#recoverVerdict(entry, error);
@@ -196,6 +196,18 @@ export class TriageSession {
 
   #returnToQueue(item: QueueItem): void {
     this.upcoming = [item, ...this.upcoming.filter((next) => next.triageKey !== item.triageKey)];
+  }
+
+  /** The record's note: written in this session, else the one its snoozed verdict has. */
+  noteFor(item: QueueItem): string | null {
+    if (this.notes.has(item.triageKey)) return this.notes.get(item.triageKey) ?? null;
+    return this.#roundVerdicts.get(item.triageKey)?.notes ?? null;
+  }
+
+  /** Keeps a note for the record until its verdict saves it; an empty note removes it. */
+  setNote(item: QueueItem, text: string): void {
+    const note = text.trim() === "" ? null : text.trim();
+    this.notes = new Map(this.notes).set(item.triageKey, note);
   }
 
   /** N: leave the release undecided and move on; it comes back when the queue goes round. */
@@ -492,6 +504,7 @@ export class TriageSession {
     this.flash = null;
     this.#onWantlist.clear();
     this.#roundVerdicts.clear();
+    this.notes = new Map();
     this.round = null;
     this.#queueBeforeRound = null;
     this.#enrichAhead.stop();

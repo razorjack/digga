@@ -130,6 +130,7 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
               : `${verdict.copy}: ${verdict.hint}`,
         })),
         { keys: ["N"], label: "next: decide later, it stays in the queue" },
+        { keys: ["E"], label: "write a note on the record; its verdict saves it" },
         { keys: ["Z"], label: "undo the last verdict or next" },
         { keys: ["Esc"], label: "leave a round of snoozed records, back to the queue" },
       ],

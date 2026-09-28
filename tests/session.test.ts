@@ -25,6 +25,8 @@ async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> 
 /** A server stand-in that records the writes the session makes. */
 function fakeServer(queue: number[]) {
   const calls: string[] = [];
+  /** Notes sent with verdicts, as "key note". */
+  const notes: string[] = [];
   const verdicts = new Map<string, Verdict>();
   const state = { pushDelayMs: 0 };
   const http = {
@@ -48,6 +50,7 @@ function fakeServer(queue: number[]) {
       calls.push(
         `verdict ${input.key} ${input.status}${input.decidedAt ? ` ${input.decidedAt}` : ""}`,
       );
+      if (input.notes) notes.push(`${input.key} ${input.notes}`);
       const v: Verdict = {
         key: input.key,
         status: input.status,
@@ -100,7 +103,7 @@ function fakeServer(queue: number[]) {
     },
   } as unknown as Api;
   const app = createAppApi(http, (inner) => inner);
-  return { app, http, calls, verdicts, state };
+  return { app, http, calls, notes, verdicts, state };
 }
 
 async function started(queue: number[], pushGraceMs = 0) {
@@ -383,6 +386,33 @@ describe("enrich ahead", () => {
     const { session, calls } = await started([1, 2]);
     await wait(10);
     expect(calls.some((call) => call.startsWith("enrich"))).toBe(false);
+    session.destroy();
+  });
+});
+
+describe("notes in Triage", () => {
+  it("keeps a note with its record until the verdict saves it", async () => {
+    const { session, calls, notes } = await started([1, 2]);
+    session.setNote(session.current!, "  the Kool FM tune  ");
+    session.pass();
+    session.judge("rejected");
+    await until(() => calls.includes("verdict r:2 rejected"));
+    session.undo();
+    session.undo();
+    expect(session.noteFor(session.current!)).toBe("the Kool FM tune");
+    session.judge("accepted");
+    await until(() => notes.includes("r:1 the Kool FM tune"));
+    session.destroy();
+  });
+
+  it("starts from a snoozed record's note, and an empty note removes it", async () => {
+    const { session, calls, notes } = await started([1]);
+    session.startRound([snoozed(5, "2026-01-01T00:00:00.000Z")]);
+    expect(session.noteFor(session.current!)).toBe("check the flip");
+    session.setNote(session.current!, " ");
+    session.judge("rejected");
+    await until(() => calls.includes("verdict r:5 rejected"));
+    expect(notes).toEqual([]);
     session.destroy();
   });
 });

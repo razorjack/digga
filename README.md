@@ -38,6 +38,7 @@ record as a want, skip it, flag a grail, or leave it for later. Undo walks back 
 | `C`       | Grail: a top want or the tune you have been hunting     |
 | `L`       | Snooze for another listening session                    |
 | `N`       | Move on without a verdict; keep the record in the queue |
+| `E`       | Note on the record, saved with its verdict              |
 | `Z`       | Undo                                                    |
 | `?`       | Show the keys for the current page                      |
 
