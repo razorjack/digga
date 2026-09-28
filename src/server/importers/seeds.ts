@@ -116,11 +116,13 @@ export function applySeedItem(
   recordSeedItem(db, item);
   const status = item.kind === "collection" ? "collection" : "wantlist";
   const source = item.kind === "collection" ? "seed:collection" : "seed:wantlist";
+  // The note written in Digga stays: a want's Discogs note is often the shorter one Digga sent.
+  const notes = getVerdict(db, key)?.notes ?? item.notes;
   const { written } = applySeedVerdict(db, {
     key,
     status,
     source,
-    notes: item.notes,
+    notes,
     releaseId: item.releaseId,
     decidedAt: item.dateAdded ?? nowIso(),
   });

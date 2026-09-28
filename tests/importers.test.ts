@@ -3,6 +3,7 @@ import type { DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsCollectionPage, DiscogsWantlistPage } from "../src/server/discogs/types.ts";
 import { importCollection } from "../src/server/importers/collection.ts";
 import { importWantlist } from "../src/server/importers/wantlist.ts";
+import { applySeedItem } from "../src/server/importers/seeds.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import { applySeedVerdict, getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { fixtureDb, silentLogger } from "./helpers.ts";
@@ -179,6 +180,30 @@ describe("seed precedence", () => {
     expect(
       applySeedVerdict(db, { key: "m:501", status: "wantlist", source: "seed:wantlist" }).written,
     ).toBe(false);
+    db.close();
+  });
+
+  it("keeps the note written in Digga when the wantlist import takes over a want", async () => {
+    const db = await fixtureDb();
+    const note = "the Kool FM tune, ".repeat(20);
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", notes: note });
+    const seed = { releaseId: 1001, masterId: 501, dateAdded: null, rating: null };
+    applySeedItem(db, {
+      ...seed,
+      kind: "wantlist",
+      notes: "grail A1; the Kool FM tune...",
+      basicInformation: basic(1001, 501, "Wormhole"),
+    });
+    expect(getVerdict(db, "m:501")).toMatchObject({ status: "wantlist", notes: note });
+    applySeedItem(db, {
+      ...seed,
+      releaseId: 1006,
+      masterId: 506,
+      kind: "wantlist",
+      notes: "from Discogs",
+      basicInformation: basic(1006, 506, "Messiah"),
+    });
+    expect(getVerdict(db, "m:506")?.notes).toBe("from Discogs");
     db.close();
   });
 });

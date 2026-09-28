@@ -233,7 +233,9 @@ Chronological. Each entry records a choice made without asking and why.
 70. **The server writes the want's note.** A push without `notes` sends "grail B1; keep A1, A2;
     the record's note", built from `track_verdicts` and the verdict at push time. Triage pushes
     after the verdict and the marks are saved, so both reach Discogs; the same text goes into
-    `seed_items.notes`. Notes changed after the push stay in Digga.
+    `seed_items.notes`. Notes changed after the push stay in Digga. A wantlist or collection
+    import that takes over a verdict keeps the note Digga has, since the Discogs note is often
+    the shortened one Digga sent; the Discogs note fills in only when Digga has none.
 71. **`E` in Triage writes a note on the record, and its verdict saves it.** The record has no
     verdict while it is being heard, and the note belongs to the moment of hearing ("the tune from
     the Kool FM tape"). The session keeps notes by triage key, so a note survives `N` and undo

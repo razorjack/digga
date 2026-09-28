@@ -194,13 +194,15 @@ describe("the track deck", () => {
 
   it("keeps the three decks apart when a verdict follows J", async () => {
     const player = await setup();
-    player.show(withVideos(5, ["a", "b"]), detail(6));
+    player.show(withVideos(5, ["a", "b"]), withVideos(6, ["x", "y"]));
     player.nextTrack();
-    player.show(detail(6), detail(7));
-    expect(player.active).toBe(1);
-    expect(player.entry?.video.videoId).toBe("video-6");
-    const roles = new Set(fake.decks.map((deck) => deck.videoId));
-    expect(roles.size).toBe(3);
-    expect(fake.decks.find((deck) => deck.videoId === "video-7")).toBeDefined();
+    player.show(withVideos(6, ["x", "y"]), detail(7));
+    expect(player.entry?.video.videoId).toBe("x");
+    const holding = (videoId: string) => fake.decks.findIndex((deck) => deck.videoId === videoId);
+    // Playing, next track and next release each sit on a deck of their own.
+    const roles = [player.active, holding("y"), holding("video-7")];
+    expect(roles).toEqual([holding("x"), expect.any(Number), expect.any(Number)]);
+    expect(new Set(roles).size).toBe(3);
+    expect(roles).not.toContain(-1);
   });
 });

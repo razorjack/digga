@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { MarkedTrack } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatDay, formatDuration } from "../../shared/display.ts";
@@ -31,13 +32,16 @@
     table?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
   });
 
-  /** The note input appears when E is pressed, so it takes focus, with the saved note, as it mounts. */
-  function startDraft(input: HTMLInputElement, track: MarkedTrack): void {
-    const saved = track.mark.notes ?? "";
-    draft = saved;
-    input.value = saved;
-    input.focus();
-  }
+  // E starts the draft from the saved note. The shelf reloads after every save, so the draft
+  // follows the key being edited, not the track objects, and a reload leaves the typing alone.
+  $effect(() => {
+    const key = editingKey;
+    if (key === null) return;
+    draft = untrack(() => tracks.find((track) => trackKey(track) === key)?.mark.notes ?? "");
+  });
+
+  /** The note input appears when E is pressed, so it takes focus as it mounts. */
+  const focusOnMount = (input: HTMLInputElement) => input.focus();
 
   function onNoteKey(event: KeyboardEvent, track: MarkedTrack): void {
     event.stopPropagation();
@@ -82,8 +86,8 @@
           {#if editingKey === key}
             <input
               class="note-input"
-              {@attach (input) => startDraft(input, track)}
-              oninput={(event) => (draft = event.currentTarget.value)}
+              bind:value={draft}
+              {@attach focusOnMount}
               maxlength="4000"
               aria-label="Note on the track"
               onkeydown={(event) => onNoteKey(event, track)}
