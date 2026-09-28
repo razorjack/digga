@@ -283,6 +283,13 @@ class SandboxApi implements Api {
     return this.#overlayDetail(detail);
   };
 
+  /** Enrichment sets up the catalogue rather than digs, so it reaches the server. */
+  enrichRelease: Api["enrichRelease"] = async (id) => {
+    const detail = await this.#inner.enrichRelease(id);
+    this.#details.set(id, detail);
+    return this.#overlayDetail(detail);
+  };
+
   postVerdict: Api["postVerdict"] = async (input) => {
     const inputVerdict = VerdictInputSchema.parse(input);
     const verdict: Verdict = {

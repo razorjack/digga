@@ -54,7 +54,7 @@ beforeEach(async () => {
     config: {
       ...DEFAULT_CONFIG,
       sandbox: false,
-      discogs: { username: "dj", currency: "EUR", maybeListId: 77 },
+      discogs: { ...DEFAULT_CONFIG.discogs, username: "dj", maybeListId: 77 },
     },
     paths,
     secrets: { getDiscogsToken: () => "token" },

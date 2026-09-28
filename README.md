@@ -158,8 +158,10 @@ Fetch prices, have/want counts, and refreshed video links for the next 200 recor
 npm run digga -- enrich --ahead 200
 ```
 
-Enrichment is optional for listening to video links already present in the dump. The "most wanted
-first" order needs it: `enrich --all` fetches every record still to dig, about one a second. These setup
+Enrichment is optional for listening to video links already present in the dump. While you dig,
+Triage also enriches the next five records as they come up (`Enrich ahead` in Settings). The "most
+wanted first" order needs the whole queue enriched: `enrich --all` fetches every record still to
+dig, about one a second. These setup
 jobs are also available in Settings.
 
 ### 4. Build and start

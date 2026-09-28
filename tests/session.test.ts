@@ -79,6 +79,25 @@ function fakeServer(queue: number[]) {
       calls.push(`remove ${id}`);
       return { releaseId: id, ok: true };
     },
+    enrichRelease: async (id: number): Promise<ReleaseDetail> => {
+      calls.push(`enrich ${id}`);
+      const snapshot = {
+        lowestPrice: 9,
+        numForSale: 2,
+        currency: "EUR",
+        communityHave: 10,
+        communityWant: 40,
+        enrichedAt: "2026-09-28T10:00:00.000Z",
+      };
+      return {
+        release: { id, triageKey: `r:${id}`, snapshot } as ReleaseRecord,
+        tracks: [],
+        videos: [],
+        verdict: null,
+        trackVerdicts: [],
+        siblings: [],
+      };
+    },
   } as unknown as Api;
   const app = createAppApi(http, (inner) => inner);
   return { app, http, calls, verdicts, state };
@@ -342,4 +361,28 @@ it("cancels a pending grace period when the session is destroyed", async () => {
   session.destroy();
   await wait(60);
   expect(calls).toEqual(["verdict r:1 accepted"]);
+});
+
+describe("enrich ahead", () => {
+  it("enriches the records coming up and shows their market data", async () => {
+    const server = fakeServer([1, 2, 3, 4]);
+    const session = new TriageSession(server.app, { pushGraceMs: 0 });
+    const enriched = () => server.calls.filter((call) => call.startsWith("enrich"));
+    await session.start(50, { enrichAhead: 2 });
+    await until(() => enriched().length === 3);
+    expect(enriched()).toEqual(["enrich 1", "enrich 2", "enrich 3"]);
+    await until(() => session.upcoming[2]?.communityWant === 40);
+    expect(session.current).toMatchObject({ id: 1, lowestPrice: 9, communityWant: 40 });
+    session.judge("rejected");
+    await until(() => server.calls.includes("enrich 4"));
+    expect(enriched().filter((call) => call === "enrich 2")).toHaveLength(1);
+    session.destroy();
+  });
+
+  it("enriches nothing when enrich ahead is off", async () => {
+    const { session, calls } = await started([1, 2]);
+    await wait(10);
+    expect(calls.some((call) => call.startsWith("enrich"))).toBe(false);
+    session.destroy();
+  });
 });

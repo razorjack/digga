@@ -38,7 +38,10 @@ answers `409` to digging writes while `sandbox` is on.
 
 - `src/client/triage/session.svelte.ts` holds the queue buffer, prefetches release details,
   applies verdicts optimistically, keeps the undo history and passes, and serialises writes so
-  an undo never overtakes its verdict.
+  an undo never overtakes its verdict. With `discogs.enrichAhead` above 0 it also has the
+  server enrich the current record and the next few that lack market data, one request at a
+  time (`triage/enrich-ahead.ts`, `POST /api/releases/:id/enrich`), and shows the fresh data;
+  a record that is already playing keeps its videos until it comes up again.
 - `src/client/player/` wraps the YouTube IFrame API: `deck.ts` is one player, and
   `triage-player.svelte.ts` runs two of them (one audible, one preloading the next release),
   picks tracks with `src/shared/playlist.ts`, and logs listens.

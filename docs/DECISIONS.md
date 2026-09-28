@@ -218,3 +218,9 @@ Chronological. Each entry records a choice made without asking and why.
     `community_want`, which only enrich fills, so on an unenriched queue it falls back to id
     order. The option's hint counts the records to dig that have one, and a warning offers
     "enrich all" with its duration.
+68. **Triage enriches the next records as they come up** (`discogs.enrichAhead`, default 5, 0
+    turns it off). The session asks the server for one release at a time, each once, through
+    `POST /api/releases/:id/enrich`, so a long session never waits for a batch job and never
+    exceeds the Discogs rate. It is a setup write like the enrich job, so it reaches the server in
+    the sandbox too. The fresh market data replaces the queued record's; fresh videos replace the
+    details of records still waiting, never those of the record playing.

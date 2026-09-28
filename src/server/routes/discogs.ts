@@ -11,6 +11,8 @@ import { getRelease } from "../db/releases.ts";
 import { DiscogsApiError } from "../discogs/client.ts";
 import { listUserLists } from "../discogs/lists.ts";
 import { listEntriesForApi, resolveListEntries } from "../importers/list.ts";
+import { enrichRelease } from "../jobs/enrich.ts";
+import { buildReleaseDetail } from "../queue/detail.ts";
 import { forgetWantlistItem, recordWantlistPush } from "../importers/seeds.ts";
 import type { AppContext } from "../context.ts";
 import {
@@ -28,6 +30,21 @@ export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
   api.get("/discogs/account", (request) => account(request, context));
   api.post("/discogs/wantlist/:id", (request) => pushWantlist(request, context));
   api.delete("/discogs/wantlist/:id", (request) => removeWantlist(request, context));
+  api.post("/releases/:id/enrich", (request) => enrichOne(request, context));
+}
+
+/** Fetches one release from Discogs, as enrich does, and returns it as stored. */
+async function enrichOne(request: Context, context: AppContext) {
+  const { db, logger } = context;
+  const id = parseId(request.req.param("id") ?? "");
+  if (id === null) return badRequest(request, "Invalid release id");
+  if (!getRelease(db, id))
+    return request.json({ error: "Release not found" } satisfies ApiError, 404);
+  const deps = { db, discogs: context.getDiscogs(), logger };
+  const enriched = await enrichRelease(deps, id, context.getConfig().discogs.currency);
+  if (!enriched)
+    return request.json({ error: "Discogs did not return the release" } satisfies ApiError, 502);
+  return request.json(buildReleaseDetail(db, id));
 }
 
 async function discogsLists(request: Context, context: AppContext) {

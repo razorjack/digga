@@ -535,6 +535,22 @@
             </select>
             <span class="hint" id="{id}-currency-hint">For lowest prices from enrich.</span>
           </div>
+          <div class="field narrow">
+            <label class="name" for="{id}-enrich-ahead">Enrich ahead</label>
+            <input
+              type="number"
+              id="{id}-enrich-ahead"
+              min="0"
+              max="20"
+              aria-describedby="{id}-enrich-ahead-hint"
+              bind:value={draft.discogs.enrichAhead}
+              {@attach reportProblem("discogs.enrichAhead")}
+            />
+            <span class="hint" id="{id}-enrich-ahead-hint">
+              Records after the one playing that Triage fetches price, have/want and fresh videos for, one a
+              second. 0 turns it off.
+            </span>
+          </div>
           <div class="field">
             <label class="name" for="{id}-maybe-list">Maybe list</label>
             <div class="inline wrap">

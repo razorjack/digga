@@ -1,8 +1,9 @@
 import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
-import type { TrackMark, Verdict } from "../../shared/types.ts";
+import type { ReleaseSnapshot, TrackMark, Verdict } from "../../shared/types.ts";
 import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
+import { EnrichAhead } from "./enrich-ahead.ts";
 
 type VerdictEntry = {
   kind: "verdict";
@@ -41,6 +42,11 @@ export interface SessionOptions {
   pushGraceMs?: number;
 }
 
+export interface StartOptions {
+  /** Records after the current one to enrich from Discogs while they wait; 0 turns it off. */
+  enrichAhead?: number;
+}
+
 export class TriageSession {
   upcoming = $state.raw<QueueItem[]>([]);
   passed = $state.raw<QueueItem[]>([]);
@@ -64,6 +70,8 @@ export class TriageSession {
   #api: AppApi;
   #pushGraceMs: number;
   #batch = 200;
+  #enrichAheadCount = 0;
+  #enrichAhead: EnrichAhead;
   #loading = new Set<number>();
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
   #refilling: Promise<void> | null = null;
@@ -88,11 +96,13 @@ export class TriageSession {
     this.#api = api;
     this.#apiGeneration = api.generation;
     this.#pushGraceMs = opts.pushGraceMs ?? 1500;
+    this.#enrichAhead = this.#createEnrichAhead();
   }
 
   destroy(): void {
     this.#generation += 1;
     this.#apiGeneration = -1;
+    this.#enrichAhead.stop();
     if (this.#flashTimer) clearTimeout(this.#flashTimer);
     for (const [timer, resolve] of this.#graceTimers) {
       clearTimeout(timer);
@@ -101,12 +111,13 @@ export class TriageSession {
     this.#graceTimers.clear();
   }
 
-  async start(batch: number): Promise<void> {
+  async start(batch: number, options: StartOptions = {}): Promise<void> {
     // Undo and the details' overlays belong to the mode they were made in.
     if (this.#api.generation !== this.#apiGeneration) this.#forget();
     // Passes made before a round still belong to the queue.
     if (this.#queueBeforeRound) this.passed = this.#queueBeforeRound.passed;
     this.#batch = batch;
+    this.#enrichAheadCount = options.enrichAhead ?? 0;
     const generation = ++this.#generation;
     this.#refilling = null;
     this.status = "loading";
@@ -483,6 +494,8 @@ export class TriageSession {
     this.#roundVerdicts.clear();
     this.round = null;
     this.#queueBeforeRound = null;
+    this.#enrichAhead.stop();
+    this.#enrichAhead = this.#createEnrichAhead();
   }
 
   /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
@@ -516,7 +529,7 @@ export class TriageSession {
       this.#flash("That was every snoozed record in the round; back to the queue.");
       return;
     }
-    this.#prefetch();
+    this.#prepareAhead();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
       const generation = this.#generation;
       this.#refill().catch((error: unknown) => {
@@ -550,13 +563,42 @@ export class TriageSession {
       const fresh = res.items.filter((i) => !known.has(i.triageKey));
       if (fresh.length === 0) this.exhausted = true;
       this.upcoming = [...this.upcoming, ...fresh];
-      this.#prefetch();
+      this.#prepareAhead();
     })();
     const tracked: Promise<void> = run.finally(() => {
       if (this.#refilling === tracked) this.#refilling = null;
     });
     this.#refilling = tracked;
     return tracked;
+  }
+
+  /** Fetches the details of the records coming up and enriches those without market data. */
+  #prepareAhead(): void {
+    this.#prefetch();
+    if (this.#enrichAheadCount > 0)
+      this.#enrichAhead.request(this.upcoming.slice(0, 1 + this.#enrichAheadCount));
+  }
+
+  #createEnrichAhead(): EnrichAhead {
+    return new EnrichAhead({
+      enrich: async (releaseId) => {
+        const generation = this.#apiGeneration;
+        const detail = await this.#api.pinned().enrichRelease(releaseId);
+        return generation === this.#apiGeneration ? detail : null;
+      },
+      apply: (detail) => this.#applyEnrichment(detail),
+    });
+  }
+
+  /** Shows a record's fresh market data; its fresh videos too, unless it is playing already. */
+  #applyEnrichment(detail: ReleaseDetail): void {
+    const id = detail.release.id;
+    const snapshot = detail.release.snapshot;
+    this.upcoming = this.upcoming.map((item) =>
+      item.id === id ? withMarketData(item, snapshot) : item,
+    );
+    if (this.current?.id === id || !this.details.has(id)) return;
+    this.details = new Map(this.details).set(id, detail);
   }
 
   #prefetch(): void {
@@ -601,4 +643,16 @@ export class TriageSession {
       this.flash = null;
     }, 6000);
   }
+}
+
+function withMarketData(item: QueueItem, snapshot: ReleaseSnapshot): QueueItem {
+  return {
+    ...item,
+    lowestPrice: snapshot.lowestPrice,
+    numForSale: snapshot.numForSale,
+    currency: snapshot.currency,
+    communityHave: snapshot.communityHave,
+    communityWant: snapshot.communityWant,
+    enrichedAt: snapshot.enrichedAt,
+  };
 }

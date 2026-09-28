@@ -42,7 +42,7 @@
         apiGeneration = api.generation;
         player.forgetHeard();
       }
-      void session.start(config.queue.limit);
+      void session.start(config.queue.limit, { enrichAhead: config.discogs.enrichAhead });
     });
   });
 
@@ -111,7 +111,8 @@
   /** Returns false when there is nothing to retry, so Enter keeps its usual meaning. */
   function retry(): boolean {
     if (session.status === "error" && settings.value) {
-      void session.start(settings.value.queue.limit);
+      const config = settings.value;
+      void session.start(config.queue.limit, { enrichAhead: config.discogs.enrichAhead });
       return true;
     }
     if (session.current && detailError) {
@@ -278,7 +279,11 @@
           </p>
         </div>
       {:else if session.current}
-        <ReleaseFacts item={session.current} detail={session.currentDetail} />
+        <ReleaseFacts
+          item={session.current}
+          detail={session.currentDetail}
+          enriching={(settings.value?.discogs.enrichAhead ?? 0) > 0}
+        />
         {#if session.currentDetail}
           <Tracklist detail={session.currentDetail} {player} onplay={(i) => player.playEntry(i)} />
         {:else if detailError}

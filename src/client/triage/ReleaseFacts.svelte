@@ -3,7 +3,16 @@
   import { formatCount, formatPrice } from "../../shared/display.ts";
   import Stamp from "../components/Stamp.svelte";
 
-  let { item, detail }: { item: QueueItem; detail: ReleaseDetail | null } = $props();
+  let {
+    item,
+    detail,
+    enriching,
+  }: {
+    item: QueueItem;
+    detail: ReleaseDetail | null;
+    /** Triage enriches records as they come up, so the market data is on its way. */
+    enriching: boolean;
+  } = $props();
 
   const catno = $derived(
     item.catno && item.catno.trim().toLowerCase() !== "none" ? item.catno : "no cat",
@@ -49,7 +58,9 @@
   </dl>
 
   {#if !enriched}
-    <p class="unenriched">No price or have/want yet; Enrich in settings fetches them.</p>
+    <p class="unenriched">
+      No price or have/want yet; {enriching ? "Digga asks Discogs as records come up." : "Enrich in settings fetches them."}
+    </p>
   {:else}
     <p class="market">
       <span class="price">
