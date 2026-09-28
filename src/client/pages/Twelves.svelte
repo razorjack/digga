@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
@@ -53,12 +53,13 @@
     navigate("triage");
   }
 
-  async function startEditing(item: TwelvesItem): Promise<void> {
+  function startEditing(item: TwelvesItem): void {
     editingKey = item.verdict.key;
     noteDraft = item.verdict.notes ?? "";
-    await tick();
-    document.querySelector<HTMLInputElement>(".note-input")?.focus();
   }
+
+  /** The note input appears when E is pressed, so it takes focus as it mounts. */
+  const focusOnMount = (input: HTMLInputElement) => input.focus();
 
   function saveNote(item: TwelvesItem): void {
     editingKey = null;
@@ -116,7 +117,7 @@
       return true;
     }
     if (key === "e") {
-      void startEditing(selected);
+      startEditing(selected);
       return true;
     }
     const verdict = JUDGE_KEYS[key];
@@ -275,6 +276,7 @@
                 <input
                   class="note-input"
                   bind:value={noteDraft}
+                  {@attach focusOnMount}
                   maxlength="4000"
                   aria-label="Note"
                   onkeydown={(event) => {
