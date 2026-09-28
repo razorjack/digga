@@ -8,6 +8,8 @@
 
 # Digga
 
+**Dig Discogs by ear.**
+
 Digga is a local-first app for digging through Discogs records by ear. Choose the styles and years
 you care about, load the releases, then listen to a few seconds of each record and decide with one
 key. It keeps track of what you have heard, what you want, and what is still waiting.
