@@ -943,20 +943,8 @@
   .wrap {
     flex-wrap: wrap;
   }
-  input,
-  select,
-  textarea {
-    padding: 6px 9px;
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-    background: var(--bg);
-  }
   textarea {
     resize: vertical;
-  }
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--fg-faint);
   }
   input:user-invalid {
     border-color: var(--accent-mark);
@@ -966,8 +954,6 @@
   }
   input[type="range"] {
     width: 16em;
-    padding: 0;
-    border: 0;
     accent-color: var(--accent-mark);
   }
   input[type="checkbox"],

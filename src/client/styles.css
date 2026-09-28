@@ -88,6 +88,18 @@ button {
   cursor: pointer;
 }
 
+/* Text fields and selects; checkboxes, radios and ranges keep their native look. */
+:where(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea) {
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+::placeholder {
+  color: var(--fg-faint);
+}
+
 a {
   color: inherit;
 }

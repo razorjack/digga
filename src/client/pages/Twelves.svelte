@@ -525,13 +525,6 @@
   .filter input {
     appearance: textfield;
     width: 22em;
-    padding: 5px 8px;
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-    background: var(--bg);
-  }
-  .filter input::placeholder {
-    color: var(--fg-faint);
   }
   .sort {
     display: inline-flex;
@@ -672,10 +665,7 @@
   .note-input {
     width: 100%;
     margin-top: 6px;
-    padding: 4px 8px;
-    border: 1px solid var(--accent-mark);
-    border-radius: var(--radius);
-    background: var(--bg);
+    border-color: var(--accent-mark);
   }
   td.where,
   td.market {

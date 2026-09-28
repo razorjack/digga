@@ -204,10 +204,7 @@
   .note-input {
     width: 100%;
     margin-top: 6px;
-    padding: 4px 8px;
-    border: 1px solid var(--accent-mark);
-    border-radius: var(--radius);
-    background: var(--bg);
+    border-color: var(--accent-mark);
   }
   td.record {
     font-size: var(--text-sm);
