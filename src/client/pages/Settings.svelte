@@ -686,27 +686,39 @@
       {:else if jobState.items.length === 0}
         <p class="quiet">No jobs yet.</p>
       {:else}
-        <ol class="job-list">
-          {#each jobState.items as job (job.id)}
-            {@const progress = jobProgress(job)}
-            <li class="job-row {job.status}">
-              <span class="job-name" id="{id}-job-{job.id}">{JOB_LABEL[job.type]}</span>
-              <span class="job-status">{job.status}</span>
-              <span class="job-progress">
-                {#if job.status === "running" && progress.fraction !== null}
-                  <progress class="meter" value={progress.fraction} aria-labelledby="{id}-job-{job.id}"></progress>
-                {/if}
-                {progress.text}{job.error ? `: ${job.error}` : ""}
-              </span>
-              <span class="quiet">{job.createdAt ? `${formatDay(job.createdAt)}, ${elapsed(job)}` : ""}</span>
-              <span>
-                {#if job.status === "running"}
-                  <button type="button" class="link" onclick={() => cancel(job)}>Cancel</button>
-                {/if}
-              </span>
-            </li>
-          {/each}
-        </ol>
+        <table class="job-list">
+          <caption class="visually-hidden">Recent jobs</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="job-name"><span class="visually-hidden">Job</span></th>
+              <th scope="col" class="job-status"><span class="visually-hidden">Status</span></th>
+              <th scope="col"><span class="visually-hidden">Progress</span></th>
+              <th scope="col" class="job-started"><span class="visually-hidden">Started, duration</span></th>
+              <th scope="col" class="job-action"><span class="visually-hidden">Action</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each jobState.items as job (job.id)}
+              {@const progress = jobProgress(job)}
+              <tr class={job.status}>
+                <th scope="row" class="job-name" id="{id}-job-{job.id}">{JOB_LABEL[job.type]}</th>
+                <td class="job-status">{job.status}</td>
+                <td class="job-progress">
+                  {#if job.status === "running" && progress.fraction !== null}
+                    <progress class="meter" value={progress.fraction} aria-labelledby="{id}-job-{job.id}"></progress>
+                  {/if}
+                  {progress.text}{job.error ? `: ${job.error}` : ""}
+                </td>
+                <td class="quiet">{job.createdAt ? `${formatDay(job.createdAt)}, ${elapsed(job)}` : ""}</td>
+                <td>
+                  {#if job.status === "running"}
+                    <button type="button" class="link" onclick={() => cancel(job)}>Cancel</button>
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       {/if}
     </section>
   {/if}
@@ -926,19 +938,42 @@
     width: 26em;
   }
   .job-list {
-    list-style: none;
-    margin: 8px 0 0;
-    padding: 0;
-    display: grid;
-  }
-  .job-row {
-    display: grid;
-    grid-template-columns: 13em 6em minmax(0, 1fr) 11em 4em;
-    align-items: center;
-    gap: 16px;
-    padding: 8px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--groove) 60%, transparent);
+    width: 100%;
+    margin-top: 8px;
+    border-collapse: collapse;
+    table-layout: fixed;
     font-size: var(--text-sm);
+  }
+  .job-list th,
+  .job-list td {
+    padding: 8px;
+    font-weight: inherit;
+    text-align: left;
+    vertical-align: middle;
+  }
+  .job-list thead th {
+    padding: 0;
+  }
+  .job-list tbody > tr > :first-child {
+    padding-left: 0;
+  }
+  .job-list tbody > tr > :last-child {
+    padding-right: 0;
+  }
+  .job-list tbody tr {
+    border-bottom: 1px solid color-mix(in srgb, var(--groove) 60%, transparent);
+  }
+  th.job-name {
+    width: calc(13em + 8px);
+  }
+  th.job-status {
+    width: calc(6em + 16px);
+  }
+  th.job-started {
+    width: calc(11em + 16px);
+  }
+  th.job-action {
+    width: calc(4em + 8px);
   }
   .job-status {
     color: var(--faded);
@@ -951,17 +986,14 @@
     text-decoration: line-through;
   }
   .job-progress {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
     color: var(--faded);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .meter {
-    flex: none;
+    margin-right: 10px;
+    vertical-align: middle;
     width: 80px;
     height: 4px;
     border: 0;
