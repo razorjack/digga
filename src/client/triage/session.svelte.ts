@@ -82,11 +82,23 @@ export class TriageSession {
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
+  #graceTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
 
   constructor(api: AppApi = appApi, opts: SessionOptions = {}) {
     this.#api = api;
     this.#apiGeneration = api.generation;
     this.#pushGraceMs = opts.pushGraceMs ?? 1500;
+  }
+
+  destroy(): void {
+    this.#generation += 1;
+    this.#apiGeneration = -1;
+    if (this.#flashTimer) clearTimeout(this.#flashTimer);
+    for (const [timer, resolve] of this.#graceTimers) {
+      clearTimeout(timer);
+      resolve();
+    }
+    this.#graceTimers.clear();
   }
 
   async start(batch: number): Promise<void> {
@@ -369,9 +381,19 @@ export class TriageSession {
     this.#flash(message);
   }
 
+  #waitForPushGrace(): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.#graceTimers.delete(timer);
+        resolve();
+      }, this.#pushGraceMs);
+      this.#graceTimers.set(timer, resolve);
+    });
+  }
+
   async #pushAfterGrace(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
     const generation = this.#apiGeneration;
-    await new Promise((resolve) => setTimeout(resolve, this.#pushGraceMs));
+    await this.#waitForPushGrace();
     if (generation !== this.#apiGeneration) return;
     if (!this.history.includes(entry)) return;
     let push: "done" | "failed" | null;

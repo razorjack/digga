@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
   import type { TrackMark } from "../../shared/types.ts";
@@ -21,6 +21,7 @@
   let { active }: { active: boolean } = $props();
 
   const session = new TriageSession();
+  onDestroy(() => session.destroy());
   const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5);
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
   const startAt = $derived(settings.value?.player.startAtFraction ?? 0.5);

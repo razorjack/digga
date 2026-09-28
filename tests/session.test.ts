@@ -333,3 +333,13 @@ describe("track mark recovery", () => {
     expect(session.details.get(1)?.tracks[0]?.mark).toBe("keep");
   });
 });
+
+it("cancels a pending grace period when the session is destroyed", async () => {
+  const { session, calls } = await started([1, 2], 40);
+  session.judge("accepted");
+  await wait(5);
+  session.showFlash("Closing");
+  session.destroy();
+  await wait(60);
+  expect(calls).toEqual(["verdict r:1 accepted"]);
+});
