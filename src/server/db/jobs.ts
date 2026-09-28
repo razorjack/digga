@@ -1,3 +1,4 @@
+import { JobSchema } from "../../shared/jobs.ts";
 import { randomUUID } from "node:crypto";
 import type { Job, JobStatus, JobType } from "../../shared/types.ts";
 import { type Db, nowIso } from "./db.ts";
@@ -14,7 +15,7 @@ interface JobRow {
 }
 
 function rowToJob(r: JobRow): Job {
-  return {
+  return JobSchema.parse({
     id: r.id,
     type: r.type,
     status: r.status,
@@ -23,7 +24,7 @@ function rowToJob(r: JobRow): Job {
     createdAt: r.created_at,
     startedAt: r.started_at,
     finishedAt: r.finished_at,
-  };
+  });
 }
 
 export function createJob(db: Db, type: JobType): Job {

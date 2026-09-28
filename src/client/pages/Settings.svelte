@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { jobProgress } from "../../shared/job-display.ts";
   import { onDestroy, onMount } from "svelte";
   import {
     BROWSERS,
@@ -233,33 +234,6 @@
     const n = Number.parseInt(s, 10);
     return Number.isNaN(n) ? null : n;
   };
-
-  function jobProgress(job: Job): { text: string; fraction: number | null } {
-    const p = (job.progress ?? {}) as Record<string, number | null | string>;
-    const n = (k: string) => (typeof p[k] === "number" ? (p[k] as number) : 0);
-    switch (job.type) {
-      case "dump_load":
-        return {
-          text: `scanned ${formatCount(n("scanned"))}, matched ${formatCount(n("matched"))}`,
-          fraction: null,
-        };
-      case "enrich":
-        return {
-          text: `${formatCount(n("done"))} of ${formatCount(n("total"))}${n("failed") ? `, ${n("failed")} failed` : ""}`,
-          fraction: n("total") > 0 ? n("done") / n("total") : null,
-        };
-      case "import_history":
-        return {
-          text: `${formatCount(n("discogsUrls"))} Discogs links, ${formatCount(n("keys"))} releases`,
-          fraction: null,
-        };
-      default:
-        return {
-          text: `page ${n("page")}${p.pages ? ` of ${n("pages")}` : ""}, ${formatCount(n("processed"))} items`,
-          fraction: p.pages ? n("page") / n("pages") : null,
-        };
-    }
-  }
 
   function elapsed(job: Job): string {
     if (!job.startedAt) return "";

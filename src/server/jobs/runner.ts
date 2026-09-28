@@ -1,5 +1,5 @@
 import { Worker } from "node:worker_threads";
-import type { Job, JobType } from "../../shared/types.ts";
+import type { Job, JobType, JobProgress } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import {
   createJob,
@@ -13,17 +13,15 @@ import type { Logger } from "../logger.ts";
 
 export interface JobContext {
   signal: AbortSignal;
-  onProgress: (progress: unknown) => void;
+  onProgress: (progress: JobProgress) => void;
 }
 
-export type JobFn = (ctx: JobContext) => Promise<unknown>;
+export type JobFn<Result = unknown> = (context: JobContext) => Promise<Result>;
 
-export interface WorkerMessage {
-  type: "progress" | "done" | "error";
-  progress?: unknown;
-  result?: unknown;
-  message?: string;
-}
+export type WorkerMessage =
+  | { type: "progress"; progress: JobProgress }
+  | { type: "done"; result: unknown }
+  | { type: "error"; message: string };
 
 export interface JobRunner {
   /** Runs an async job function on this thread (fine for network-bound work). Returns immediately. */
@@ -31,7 +29,7 @@ export interface JobRunner {
   /** Runs a worker script that posts WorkerMessage objects. workerData must be serialisable. */
   runInWorker(type: JobType, script: URL, workerData: unknown): Job;
   /** Runs a job function and waits for it (CLI). */
-  runAndWait(type: JobType, fn: JobFn): Promise<{ job: Job; result: unknown }>;
+  runAndWait<Result>(type: JobType, fn: JobFn<Result>): Promise<{ job: Job; result: Result }>;
   cancel(id: string): boolean;
   get(id: string): Job | null;
   list(limit?: number): Job[];
@@ -46,7 +44,7 @@ export function createJobRunner(db: Db, logger: Logger): JobRunner {
     controllers.delete(id);
   };
 
-  const execute = async (job: Job, fn: JobFn): Promise<unknown> => {
+  const execute = async <Result>(job: Job, fn: JobFn<Result>): Promise<Result> => {
     const controller = new AbortController();
     controllers.set(job.id, { abort: () => controller.abort() });
     markJobStarted(db, job.id);
@@ -86,7 +84,6 @@ export function createJobRunner(db: Db, logger: Logger): JobRunner {
       worker.on("message", (msg: WorkerMessage) => {
         if (msg.type === "progress") updateJobProgress(db, job.id, msg.progress);
         else if (msg.type === "done") {
-          updateJobProgress(db, job.id, msg.result);
           finish(job.id, "done");
         } else if (msg.type === "error") finish(job.id, "failed", msg.message);
       });

@@ -138,11 +138,9 @@ export interface HeardTrack {
   lastHeardAt: string;
 }
 
-export interface Job {
+interface JobRecord {
   id: string;
-  type: JobType;
   status: JobStatus;
-  progress: unknown;
   error: string | null;
   createdAt: string;
   startedAt: string | null;
@@ -171,3 +169,25 @@ export interface EnrichProgress {
   currentReleaseId: number | null;
   failed: number;
 }
+
+export interface HistoryImportProgress {
+  files: number;
+  urls: number;
+  discogsUrls: number;
+  keys: number;
+  verdictsWritten: number;
+}
+
+export interface JobProgressByType {
+  dump_load: DumpLoadProgress;
+  enrich: EnrichProgress;
+  import_history: HistoryImportProgress;
+  import_collection: ImportProgress;
+  import_wantlist: ImportProgress;
+  import_list: ImportProgress;
+}
+
+export type JobProgress = JobProgressByType[JobType];
+export type Job = {
+  [Kind in JobType]: JobRecord & { type: Kind; progress: JobProgressByType[Kind] | null };
+}[JobType];

@@ -171,6 +171,7 @@ export function createSandboxApi(inner: Api, opts: SandboxOptions = {}): Api {
     job.job = {
       ...job.job,
       status: "done",
+      type: "import_list",
       progress: {
         page: 1,
         pages: 1,

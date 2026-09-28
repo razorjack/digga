@@ -3,7 +3,7 @@
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
-  import type { ImportProgress, Verdict, VerdictStatus } from "../../shared/types.ts";
+  import type { Verdict, VerdictStatus } from "../../shared/types.ts";
   import { isTriageSource } from "../../shared/verdict-rank.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
@@ -387,11 +387,12 @@
         job = await api.getJob(job.id);
       }
       if (job.status !== "done") throw new Error(job.error ?? `the check ended as ${job.status}`);
-      const p = job.progress as ImportProgress;
+      if (job.type !== "import_list" || !job.progress) throw new Error("Missing list import progress");
+      const progress = job.progress;
       await load();
       void stats.refresh();
       showFlash(
-        `Your Discogs Maybe list has ${formatCount(p.processed)} records; ${formatCount(p.verdictsWritten)} changed here.`,
+        `Your Discogs Maybe list has ${formatCount(progress.processed)} records; ${formatCount(progress.verdictsWritten)} changed here.`,
       );
     } catch (e) {
       showFlash(`The list check failed: ${errorMessage(e)}`);

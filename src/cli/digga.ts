@@ -109,7 +109,7 @@ async function cmdDumpLoad(rt: Runtime, args: string[]): Promise<void> {
     ),
   );
   db.close();
-  const r = result as Awaited<ReturnType<typeof dumpLoad>>;
+  const r = result;
   console.log(
     `dump load: scanned ${r.scanned.toLocaleString()} releases, matched ${r.matched.toLocaleString()}, ` +
       `${r.dryRun ? "dry run, nothing written" : `upserted ${r.upserted.toLocaleString()}`} in ${r.elapsedSeconds.toFixed(0)}s` +
@@ -138,7 +138,7 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
       ),
     );
     db.close();
-    const r = result as Awaited<ReturnType<typeof importHistory>>;
+    const r = result;
     console.log(
       `import history: ${r.files} file(s), ${r.discogsUrls} Discogs URLs, ${r.keys} releases/masters marked seen (${r.verdictsWritten} new)`,
     );
@@ -160,7 +160,7 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
       ),
     );
     db.close();
-    const r = result as Awaited<ReturnType<typeof importList>>;
+    const r = result;
     console.log(
       `import list "${r.listName}": ${r.processed} items, ${r.stubs} stub releases, ${r.verdictsWritten} verdicts written`,
     );
@@ -184,7 +184,7 @@ async function cmdImport(rt: Runtime, args: string[]): Promise<void> {
         : importWantlist(deps, { ...opts, signal }, onProgress),
   );
   db.close();
-  const r = result as Awaited<ReturnType<typeof importCollection>>;
+  const r = result;
   console.log(
     `import ${kind}: ${r.processed} items over ${r.pages ?? 0} page(s), ${r.stubs} stub releases, ${r.verdictsWritten} verdicts written`,
   );
@@ -218,7 +218,7 @@ async function cmdEnrich(rt: Runtime, args: string[]): Promise<void> {
     ),
   );
   db.close();
-  const r = result as Awaited<ReturnType<typeof enrich>>;
+  const r = result;
   console.log(
     `enrich: ${r.done}/${r.total} releases enriched, ${r.failed} failed${r.aborted ? ", aborted" : ""}`,
   );

@@ -1,3 +1,4 @@
+import type { HistoryImportProgress } from "../../shared/types.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -35,14 +36,6 @@ export interface HistoryImportOptions {
   homeDir?: string;
   platform?: NodeJS.Platform;
   signal?: AbortSignal;
-}
-
-export interface HistoryImportProgress {
-  files: number;
-  urls: number;
-  discogsUrls: number;
-  keys: number;
-  verdictsWritten: number;
 }
 
 const WEBKIT_EPOCH_OFFSET_MS = 11_644_473_600_000;
