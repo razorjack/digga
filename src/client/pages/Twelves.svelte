@@ -156,10 +156,11 @@
         </label>
       {/each}
     </fieldset>
-    <div class="tools">
+    <search class="tools">
       <label class="filter">
         <Key label="/" size="sm" />
         <input
+          type="search"
           bind:this={filterInput}
           bind:value={shelfState.query}
           onkeydown={onFilterKey}
@@ -176,7 +177,7 @@
           </label>
         {/each}
       </fieldset>
-    </div>
+    </search>
   </div>
 
   {#if shelfState.shelf === "maybe" || (shelfState.shelf === "all" && shelfState.pending > 0)}
@@ -422,6 +423,7 @@
     gap: 8px;
   }
   .filter input {
+    appearance: textfield;
     width: 22em;
     padding: 5px 8px;
     border: 1px solid var(--groove);
