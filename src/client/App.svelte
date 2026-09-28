@@ -142,7 +142,7 @@
   {/if}
 
   <main>
-    <div class="page" class:hidden={route !== "triage"}>
+    <div class="page" hidden={route !== "triage"}>
       <Triage active={route === "triage"} />
     </div>
     {#if route === "twelves"}
@@ -254,9 +254,6 @@
   }
   .page {
     height: 100%;
-  }
-  .page.hidden {
-    display: none;
   }
   .scroll {
     overflow-y: auto;
