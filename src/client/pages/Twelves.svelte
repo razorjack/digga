@@ -314,7 +314,9 @@
                 size="sm"
               />
             </td>
-            <td class="day quiet">{formatDay(item.verdict.decidedAt)}</td>
+            <td class="day quiet">
+              <time datetime={item.verdict.decidedAt}>{formatDay(item.verdict.decidedAt)}</time>
+            </td>
           </tr>
         {/each}
       </tbody>

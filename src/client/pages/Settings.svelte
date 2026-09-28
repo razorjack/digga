@@ -277,7 +277,7 @@
         {@const summary = stats.value}
         <p>
           <b>{formatCount(summary.universe.releases)}</b> releases loaded
-          {#if summary.dump.date}from the {formatDay(summary.dump.date)} dump{:else if summary.dump.loadedAt}from a dump of unknown date{:else}(no dump loaded yet){/if},
+          {#if summary.dump.date}from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump{:else if summary.dump.loadedAt}from a dump of unknown date{:else}(no dump loaded yet){/if},
           grouped into <b>{formatCount(summary.universe.keys)}</b> records.
         </p>
         <p>
@@ -709,7 +709,11 @@
                   {/if}
                   {progress.text}{job.error ? `: ${job.error}` : ""}
                 </td>
-                <td class="quiet">{job.createdAt ? `${formatDay(job.createdAt)}, ${elapsed(job)}` : ""}</td>
+                <td class="quiet">
+                  {#if job.createdAt}
+                    <time datetime={job.createdAt}>{formatDay(job.createdAt)}</time>, {elapsed(job)}
+                  {/if}
+                </td>
                 <td>
                   {#if job.status === "running"}
                     <button type="button" class="link" onclick={() => cancel(job)}>Cancel</button>
