@@ -206,7 +206,7 @@
   }
   nav a[aria-current="page"] {
     color: var(--fg);
-    border-bottom-color: var(--accent);
+    border-bottom-color: var(--accent-mark);
   }
   .sandbox {
     white-space: nowrap;
@@ -239,10 +239,10 @@
     margin-right: 0.3em;
   }
   .counter .session {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .error {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .origin-warning {
     padding: 8px 40px;

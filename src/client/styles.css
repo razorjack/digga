@@ -1,7 +1,10 @@
 /*
- * Digga tokens. Dark only: off-black surfaces, white-label paper text, one dayglo flyer accent
- * used as paper (filled key tags, stamps), never as glowing text. Colors are named by role;
- * docs/DESIGN_BRIEF.md names the palette behind them.
+ * Digga tokens. Dark only: off-black surfaces, white-label paper text, one dayglo flyer accent.
+ * Colors are named by role; docs/DESIGN_BRIEF.md names the palette behind them.
+ *
+ * The accent has three roles because yellow only reads as a fill on a light background:
+ * --accent fills key caps, buttons and selections under --on-accent text; --accent-mark draws
+ * bars, underlines, outlines and progress; --fg-accent sets text.
  */
 :root {
   color-scheme: dark;
@@ -15,6 +18,8 @@
   --fg-faint: #6b675e;
   --accent: #ffd21a;
   --on-accent: #17150d;
+  --accent-mark: #ffd21a;
+  --fg-accent: #ffd21a;
 
   --display: "Michroma", "Eurostile Extended", "Microgramma", sans-serif;
   --mono: "Martian Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
@@ -86,7 +91,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-mark);
   outline-offset: 2px;
 }
 

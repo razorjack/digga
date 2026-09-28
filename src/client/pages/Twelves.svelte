@@ -485,7 +485,7 @@
     padding: 0;
   }
   label:has(:focus-visible) {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-mark);
     outline-offset: 2px;
   }
   .shelves {
@@ -504,7 +504,7 @@
   }
   .shelves label:has(:checked) {
     color: var(--fg);
-    border-bottom-color: var(--accent);
+    border-bottom-color: var(--accent-mark);
   }
   .count {
     color: var(--fg-faint);
@@ -546,7 +546,7 @@
   .sort label:has(:checked) {
     color: var(--fg);
     text-decoration: underline;
-    text-decoration-color: var(--accent);
+    text-decoration-color: var(--accent-mark);
     text-underline-offset: 4px;
   }
   .box {
@@ -588,7 +588,7 @@
     background: var(--surface);
   }
   .selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
   }
   .catno {
     font-weight: 600;
@@ -623,7 +623,7 @@
   }
   .note {
     margin-top: 4px;
-    color: var(--accent);
+    color: var(--fg-accent);
     font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -636,7 +636,7 @@
   }
   .pending::before {
     content: "○ " / "";
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .handoff {
     display: flex;
@@ -673,7 +673,7 @@
     width: 100%;
     margin-top: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--accent);
+    border: 1px solid var(--accent-mark);
     border-radius: var(--radius);
     background: var(--bg);
   }
@@ -725,7 +725,7 @@
     gap: 4px;
   }
   .flash {
-    color: var(--accent);
+    color: var(--fg-accent);
     font-size: var(--text-sm);
     text-align: right;
   }

@@ -54,7 +54,7 @@
     flex: 1;
     min-width: 0;
     padding: 5px 9px;
-    border: 1px solid var(--accent);
+    border: 1px solid var(--accent-mark);
     border-radius: var(--radius);
     background: var(--bg);
   }
@@ -74,7 +74,7 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .note span {
     overflow: hidden;

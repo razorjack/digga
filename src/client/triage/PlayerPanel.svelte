@@ -242,7 +242,7 @@
     font-weight: 600;
   }
   .pos {
-    color: var(--accent);
+    color: var(--fg-accent);
     margin-right: 0.8em;
   }
   .time {
@@ -267,7 +267,7 @@
     margin: 0;
     appearance: none;
     background:
-      linear-gradient(var(--accent), var(--accent)) 0 50% / var(--progress) 4px no-repeat,
+      linear-gradient(var(--accent-mark), var(--accent-mark)) 0 50% / var(--progress) 4px no-repeat,
       linear-gradient(var(--rule), var(--rule)) 0 50% / 100% 4px no-repeat;
     cursor: pointer;
   }
@@ -307,7 +307,7 @@
   }
   .notice {
     min-height: 1.4em;
-    color: var(--accent);
+    color: var(--fg-accent);
     font-size: var(--text-sm);
   }
 </style>

@@ -290,3 +290,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     gives it, which saves the settings; the save restarts the queue as any settings change does.
     Hiding is a settings write, so it is real in the sandbox too, and Settings lists the hidden
     labels one per line (names can contain commas).
+79. **Color tokens are named by role, and the accent has three roles.** `--bg`, `--surface`,
+    `--rule`, `--fg`, `--fg-muted` and `--fg-faint` replace ground, sleeve, groove, paper, faded
+    and dust, names that described the dark palette; in a light scheme the page is the paper.
+    The accent fills key caps, the primary button and selections (`--accent`, with
+    `--on-accent` text), draws bars, underlines, outlines, focus rings and progress
+    (`--accent-mark`), and sets text (`--fg-accent`). Decision 31 kept it off text, but notes,
+    flash messages and the playing position had taken it anyway; `--fg-accent` names that use.
+    Yellow only reads as a fill on a light background, so the three can differ per scheme.

@@ -864,7 +864,7 @@
     padding-left: 20px;
     padding-right: 20px;
     background: var(--surface);
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
   }
   .head {
     display: grid;
@@ -959,7 +959,7 @@
     color: var(--fg-faint);
   }
   input:user-invalid {
-    border-color: var(--accent);
+    border-color: var(--accent-mark);
   }
   input[type="number"] {
     width: 7em;
@@ -968,11 +968,11 @@
     width: 16em;
     padding: 0;
     border: 0;
-    accent-color: var(--accent);
+    accent-color: var(--accent-mark);
   }
   input[type="checkbox"],
   input[type="radio"] {
-    accent-color: var(--accent);
+    accent-color: var(--accent-mark);
   }
   .check {
     display: inline-flex;
@@ -1015,7 +1015,7 @@
   }
   .problem,
   .flash {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   button.primary,
   button.secondary {
@@ -1105,7 +1105,7 @@
     color: var(--fg-muted);
   }
   .running .job-status {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .failed .job-status {
     color: var(--fg);
@@ -1130,10 +1130,10 @@
     background: var(--rule);
   }
   .meter::-webkit-progress-value {
-    background: var(--accent);
+    background: var(--accent-mark);
   }
   .meter::-moz-progress-bar {
-    background: var(--accent);
+    background: var(--accent-mark);
   }
   button.link {
     border: 0;

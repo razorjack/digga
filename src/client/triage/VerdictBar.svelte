@@ -140,7 +140,7 @@
     line-height: 1.1;
   }
   .accent .copy {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .hint {
     color: var(--fg-faint);

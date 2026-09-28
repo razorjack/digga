@@ -394,7 +394,7 @@
     padding: 10px 40px;
     border-bottom: 1px solid var(--rule);
     background: var(--surface);
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
     color: var(--fg-muted);
     font-size: var(--text-sm);
   }
@@ -483,7 +483,7 @@
   }
   .flash {
     min-height: 1.4em;
-    color: var(--accent);
+    color: var(--fg-accent);
     font-size: var(--text-sm);
   }
   @media (max-width: 980px) {

@@ -216,13 +216,13 @@
     color: var(--fg-faint);
   }
   .playing button {
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
   }
   .playing .pos {
     padding-left: 12px;
   }
   .playing .glyph {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .playing .name {
     color: var(--fg);

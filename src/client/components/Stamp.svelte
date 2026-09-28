@@ -57,7 +57,7 @@
     color: var(--fg);
   }
   .accent {
-    color: var(--accent);
+    color: var(--fg-accent);
   }
   .muted {
     color: var(--fg-muted);

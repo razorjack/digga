@@ -164,7 +164,7 @@
     background: var(--surface);
   }
   .selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
   }
   .catno,
   .pos {
@@ -195,7 +195,7 @@
   }
   .note {
     margin-top: 4px;
-    color: var(--accent);
+    color: var(--fg-accent);
     font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -205,7 +205,7 @@
     width: 100%;
     margin-top: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--accent);
+    border: 1px solid var(--accent-mark);
     border-radius: var(--radius);
     background: var(--bg);
   }
