@@ -55,11 +55,8 @@
       event.preventDefault();
       return;
     }
-    if (ui.helpOpen) {
-      if (event.key === "Escape") ui.helpOpen = false;
-      event.preventDefault();
-      return;
-    }
+    // The open dialog handles its own keys, Esc included.
+    if (ui.helpOpen) return;
     const target = ROUTES.find(
       (destination) => destination.key.toLowerCase() === event.key.toLowerCase(),
     );
@@ -159,9 +156,7 @@
   </main>
 </div>
 
-{#if ui.helpOpen}
-  <HelpOverlay groups={helpGroups} onclose={() => (ui.helpOpen = false)} />
-{/if}
+<HelpOverlay open={ui.helpOpen} groups={helpGroups} onclose={() => (ui.helpOpen = false)} />
 
 <style>
   .defs {

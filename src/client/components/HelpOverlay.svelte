@@ -2,28 +2,46 @@
   import Key from "./Key.svelte";
   import type { KeyGroup } from "../keymap.ts";
 
-  let { groups, onclose }: { groups: KeyGroup[]; onclose: () => void } = $props();
+  let { open, groups, onclose }: { open: boolean; groups: KeyGroup[]; onclose: () => void } =
+    $props();
 
-  let panel = $state<HTMLDivElement | null>(null);
-  $effect(() => {
-    panel?.focus();
-  });
+  const id = $props.id();
+
+  /** The native modal traps focus, closes on Esc and returns focus to where it was. */
+  function syncOpen(dialog: HTMLDialogElement): void {
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }
+
+  /**
+   * The browser returns focus to the element focused before the dialog opened. Opened from a
+   * shortcut, nothing was, so focus would stay on the hidden close button.
+   */
+  function releaseFocus(event: Event & { currentTarget: HTMLDialogElement }): void {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && event.currentTarget.contains(focused)) focused.blur();
+    onclose();
+  }
+
+  /** For browsers without `closedby`: a click on the backdrop targets the dialog itself. */
+  function closeOnBackdrop(event: MouseEvent & { currentTarget: HTMLDialogElement }): void {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="backdrop" onclick={onclose}>
-  <div
-    class="panel"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Keys"
-    tabindex="-1"
-    bind:this={panel}
-    onclick={(e) => e.stopPropagation()}
-  >
+<dialog
+  aria-labelledby="{id}-title"
+  closedby="any"
+  {@attach syncOpen}
+  onclose={releaseFocus}
+  onclick={closeOnBackdrop}
+>
+  <div class="panel">
     <div class="head">
-      <h2>Keys</h2>
-      <button type="button" onclick={onclose}><Key label="Esc" /> close</button>
+      <h2 id="{id}-title">Keys</h2>
+      <form method="dialog">
+        <button aria-keyshortcuts="Escape"><Key label="Esc" /> close</button>
+      </form>
     </div>
     <div class="groups">
       {#each groups as group (group.title)}
@@ -45,28 +63,23 @@
       {/each}
     </div>
   </div>
-</div>
+</dialog>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: grid;
-    place-items: center;
-    padding: 24px;
+  dialog {
+    width: min(1120px, calc(100% - 48px));
+    max-width: none;
+    max-height: calc(100% - 48px);
+    padding: 0;
+    border: 1px solid var(--groove);
+    background: var(--sleeve);
+    color: inherit;
+  }
+  dialog::backdrop {
     background: color-mix(in srgb, var(--ground) 82%, transparent);
   }
   .panel {
-    width: min(1120px, 100%);
-    max-height: 100%;
-    overflow-y: auto;
     padding: 28px 32px 32px;
-    border: 1px solid var(--groove);
-    background: var(--sleeve);
-  }
-  .panel:focus {
-    outline: none;
   }
   .head {
     display: flex;
