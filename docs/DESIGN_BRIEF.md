@@ -15,8 +15,9 @@ fast and safe: every action is undoable with `Z`.
 
 ## Hard constraints
 
-- Dark mode only. Off-black surfaces, never pure black; off-white text, never pure white. Low
-  glare, no flashing, no autoplaying motion. Respect `prefers-reduced-motion`.
+- Dark and light schemes, following the system. Never pure black or pure white: the dark scheme
+  has off-black surfaces and off-white text, the light one warm paper and ink. Low glare, no
+  flashing, no autoplaying motion. Respect `prefers-reduced-motion`.
 - Built for very long sessions: comfortable sizes for the facts read at a glance, clear hierarchy
   between the one thing being judged and everything else.
 - Keyboard-first: every action shows its key. The mouse is optional. See `docs/KEYMAP.md`.
@@ -57,12 +58,16 @@ that reads as a music streaming app. Ergonomics win every tie.
 
 Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (30 to 38).
 
-- **Palette** (the token for each role in brackets): ground `#161618` (`--bg`), sleeve `#1d1d20`
+- **Palette** (dark; the token for each role in brackets): ground `#161618` (`--bg`), sleeve `#1d1d20`
   (`--surface`, raised bars), groove `#323238` (`--rule`), dust `#8e897d` (`--fg-faint`, heard,
   disabled), faded `#a8a294` (`--fg-muted`, secondary text), paper `#ebe5d4` (`--fg`, primary
   text), flyer `#ffd21a` (`--accent`, used as a fill) on flyer-ink `#17150d` (`--on-accent`).
   The flyer also draws bars, underlines, outlines and progress (`--accent-mark`) and sets
   accented text (`--fg-accent`). A static photocopy grain covers the page at low opacity.
+- **Light palette:** paper `#eee9dc` ground, a darker sleeve `#e4dece`, rules `#cbc4b2`, ink
+  `#1c1a15` text with `#4f4b42` for secondary and `#605c53` for faint text. The flyer stays the
+  fill under flyer-ink; marks and accented text turn dark amber `#855000`, since yellow is 1.2:1
+  on paper. The grain darkens paper where it lightens the dark ground.
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
   Mono (87.5% width) for everything else. Sizes run 10 / 11 / 12.5 / 14 / 17 / 22 / 30 / 40 /
   64 px.

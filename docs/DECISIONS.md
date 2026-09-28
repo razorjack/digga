@@ -303,3 +303,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     placeholders, counts and heard tracks. `#8e897d` reaches 5.0:1 and 4.6:1, measured on
     screenshots because the grain lightens both surfaces by a few levels, and stays a visible
     step below faded.
+81. **A light scheme follows the system.** The brief started dark only, for long sessions without
+    glare; a light scheme now sits beside it. Every color token is a `light-dark()` pair under
+    `color-scheme: light dark`, so the system preference picks the scheme without script and no
+    component has scheme-specific rules. Light is warm paper, not white, with the dark scheme's
+    text steps (about 14:1, 7:1 and 5:1, measured under the grain). Yellow is 1.2:1 on paper, so
+    it stays a fill, and marks and accented text turn dark amber `#855000`. Soft-light grain
+    barely changes a light surface, so the noise masks a `--grain` color: light gray on the dark
+    scheme, black on paper. The stamp ink filter only cuts holes in the alpha channel and needs
+    no change; the YouTube embed stays a black rectangle.
