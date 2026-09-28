@@ -26,7 +26,7 @@ afterEach(() => {
   for (const shelf of shelves.splice(0)) shelf.destroy();
 });
 
-async function setup() {
+async function setup(sandboxMode = false) {
   let item = record(1);
   const calls: string[] = [];
   const http = {
@@ -46,12 +46,23 @@ async function setup() {
       item = { ...item, onWantlist: false };
     }),
   };
-  const app = createAppApi(http as unknown as Api, (inner) => ({ ...inner, mode: "sandbox" }));
-  app.setSandbox(false);
+  const sandboxWrites = {
+    postVerdict: vi.fn(async (input: VerdictInput): Promise<Verdict> => ({
+      ...item.verdict,
+      ...input,
+    })),
+    pushToWantlist: vi.fn(async () => ({ releaseId: 1, ok: true })),
+  };
+  const app = createAppApi(http as unknown as Api, (inner) => ({
+    ...inner,
+    ...sandboxWrites,
+    mode: "sandbox",
+  }));
+  app.setSandbox(sandboxMode);
   const shelf = new TwelvesShelf(app);
   shelves.push(shelf);
   await shelf.load();
-  return { shelf, http, app, calls };
+  return { shelf, http, app, calls, sandboxWrites };
 }
 
 describe("Twelves changes", () => {
@@ -90,13 +101,26 @@ describe("Twelves changes", () => {
   });
 
   it("pins queued writes to their original API mode", async () => {
-    const { shelf, app, http } = await setup();
+    const { shelf, app, http, sandboxWrites } = await setup();
     shelf.rejudge(shelf.items[0]!, "accepted");
     app.setSandbox(true);
     await shelf.changes;
     expect(http.postVerdict).toHaveBeenCalledTimes(1);
     expect(http.pushToWantlist).toHaveBeenCalledTimes(1);
+    expect(sandboxWrites.postVerdict).not.toHaveBeenCalled();
+    expect(sandboxWrites.pushToWantlist).not.toHaveBeenCalled();
     expect(shelf.flash).toBeNull();
+  });
+
+  it("never sends queued sandbox writes to the live API after switching modes", async () => {
+    const { shelf, app, http, sandboxWrites } = await setup(true);
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    app.setSandbox(false);
+    await shelf.changes;
+    expect(sandboxWrites.postVerdict).toHaveBeenCalledTimes(1);
+    expect(sandboxWrites.pushToWantlist).toHaveBeenCalledTimes(1);
+    expect(http.postVerdict).not.toHaveBeenCalled();
+    expect(http.pushToWantlist).not.toHaveBeenCalled();
   });
 });
 
