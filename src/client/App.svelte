@@ -35,6 +35,7 @@
   });
 
   const eta = $derived(formatEta(stats.value?.rate.etaHours ?? null));
+  const pageTitle = $derived(`${ROUTES.find((destination) => destination.route === route)!.label} – Digga`);
 
   // A clicked header link must not keep focus: a later Enter would follow it again.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
@@ -68,6 +69,7 @@
 </script>
 
 <svelte:window {onkeydown} />
+<svelte:head><title>{pageTitle}</title></svelte:head>
 
 <!-- Rubber-stamp ink for .stamp elements: speckled voids plus wobbly edges; finer for small stamps. -->
 <svg class="defs" aria-hidden="true" width="0" height="0">
