@@ -1,5 +1,5 @@
 import { type ReleaseDetail, type TrackDetail } from "../../shared/api.ts";
-import type { VideoRecord } from "../../shared/types.ts";
+import type { ReleaseRecord, TrackRecord, VideoRecord } from "../../shared/types.ts";
 import { formatSummary } from "../../shared/formats.ts";
 import type { Db } from "../db/db.ts";
 import { poolVideos } from "../../shared/videos.ts";
@@ -17,9 +17,7 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
   const release = getRelease(db, id);
   if (!release) return null;
   const tracks = getTracks(db, id);
-  // Other pressings of the master often carry videos for tunes this one has none for.
-  const own = withUserVideos(getVideos(db, id), getUserVideos(db, id));
-  const videos = poolVideos(tracks, own, getPressingVideos(db, release));
+  const videos = releaseVideos(db, release, tracks);
   const heard = getHeardKeys(
     db,
     tracks.map((track) => track.heardKey),
@@ -53,6 +51,19 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
       inUniverse: sibling.inUniverse,
     })),
   };
+}
+
+/**
+ * The videos the player gets for a release: its own from Discogs, the ones the user attached,
+ * then those of other pressings of the master for tunes on this release.
+ */
+export function releaseVideos(
+  db: Db,
+  release: ReleaseRecord,
+  tracks: TrackRecord[] = getTracks(db, release.id),
+): VideoRecord[] {
+  const own = withUserVideos(getVideos(db, release.id), getUserVideos(db, release.id));
+  return poolVideos(tracks, own, getPressingVideos(db, release));
 }
 
 /** The release's videos from Discogs, then the ones the user attached that Discogs lacks. */

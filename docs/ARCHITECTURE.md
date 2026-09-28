@@ -71,12 +71,15 @@ A record plays the videos of all its pressings. `buildReleaseDetail()` returns t
 videos, then those of other releases on the same master whose matched track is a tune on this
 release (same heard key), placed at this release's position for it (`poolVideos()` in
 `src/shared/videos.ts`). Unmatched videos of other pressings are left out, since they may be bonus
-tracks or full sides. `filters.skipWithoutVideos` counts a video on any pressing of the record.
+tracks or full sides. Attached links of other pressings are pooled the same way.
+`filters.skipWithoutVideos` asks the same of each release in SQL, so a record passes only when the
+player would have something to play.
 
 Records with nothing to play have a way back. `D` stores `no_audio` together with the video ids
-the record had (`no_audio_videos`); a dump load, an enrich or a pasted link that brings a video
-outside that list deletes the verdict, so the record is in the queue again, while videos that
-were there and refused to play keep it out. A YouTube link pasted in Triage, or on a record in
+the player had for the release (`no_audio_videos`, from `releaseVideos()`); a dump load, an
+enrich or a pasted link that brings a video outside that list deletes the verdict, so the record
+is in the queue again, while videos that were there and refused to play keep it out. In the
+sandbox a pasted link does not delete a saved verdict; the next dump load or enrich does. A YouTube link pasted in Triage, or on a record in
 Twelves, is stored in `user_videos` through `POST /api/releases/:id/videos`, matched to a track
 by the title YouTube's oEmbed endpoint gives (`src/server/youtube.ts`, no API key), and played at
 once; the player rebuilds the open release's playlist when its videos change.

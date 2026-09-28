@@ -44,8 +44,9 @@ export function buildFilterWhere(
     descriptionClause(filters.excludeDescriptions, "NOT EXISTS"),
     countryClause(filters),
     labelClause(filters),
-    filters.skipWithoutVideos ? { sql: HAS_VIDEO, params: [] } : null,
     opts.includeDecided ? null : { sql: UNDECIDED, params: [] },
+    // Last: SQLite tests the cheaper conditions first.
+    filters.skipWithoutVideos ? { sql: HAS_VIDEO, params: [] } : null,
   ].filter((fragment) => fragment !== null);
   return {
     sql: fragments.map((fragment) => fragment.sql).join("\n    AND "),
@@ -53,11 +54,22 @@ export function buildFilterWhere(
   };
 }
 
-// A record plays videos of every pressing of its master, so any of them counts.
-const HAS_VIDEO = `(EXISTS (SELECT 1 FROM videos vf JOIN releases rv ON rv.id = vf.release_id
-         WHERE rv.triage_key = r.triage_key AND vf.embeddable = 1)
-       OR EXISTS (SELECT 1 FROM user_videos uf JOIN releases ru ON ru.id = uf.release_id
-         WHERE ru.triage_key = r.triage_key))`;
+const SHARES_TUNE = `EXISTS (SELECT 1 FROM tracks tr
+           WHERE tr.release_id = r.id AND tr.heard_key = tp.heard_key AND tr.position <> '')`;
+
+// What the player gets (releaseVideos): the release's own videos and attached links, and those of
+// other pressings whose matched track is a tune of this release. CROSS JOIN keeps SQLite starting
+// from the master's pressings; starting from a tune's heard key visits every release that has it.
+const HAS_VIDEO = `(EXISTS (SELECT 1 FROM videos vf WHERE vf.release_id = r.id AND vf.embeddable = 1)
+       OR EXISTS (SELECT 1 FROM user_videos uf WHERE uf.release_id = r.id)
+       OR EXISTS (SELECT 1 FROM releases rp
+         CROSS JOIN videos vp ON vp.release_id = rp.id AND vp.embeddable = 1
+         CROSS JOIN tracks tp ON tp.release_id = rp.id AND tp.position = vp.matched_position
+         WHERE rp.master_id = r.master_id AND rp.id <> r.id AND ${SHARES_TUNE})
+       OR EXISTS (SELECT 1 FROM releases rp
+         CROSS JOIN user_videos up ON up.release_id = rp.id
+         CROSS JOIN tracks tp ON tp.release_id = rp.id AND tp.position = up.matched_position
+         WHERE rp.master_id = r.master_id AND rp.id <> r.id AND ${SHARES_TUNE}))`;
 
 const UNDECIDED = "NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)";
 

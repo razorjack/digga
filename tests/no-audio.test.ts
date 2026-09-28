@@ -3,9 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import type { Db } from "../src/server/db/db.ts";
-import { requeueNoAudio } from "../src/server/db/no-audio.ts";
+import { requeueNoAudio } from "../src/server/queue/no-audio.ts";
 import { getVideos, writeVideos } from "../src/server/db/releases.ts";
-import { getVerdict } from "../src/server/db/verdicts.ts";
+import { applyMigrations, listMigrations, openDb } from "../src/server/db/db.ts";
+import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { countRemaining } from "../src/server/queue/query.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
@@ -69,6 +70,50 @@ describe("records without audio", () => {
     writeVideos(db, 1006, [...known, fresh], { replace: true });
     expect(requeueNoAudio(db)).toEqual(["m:506"]);
     expect(getVerdict(db, "m:506")).toBeNull();
+  });
+
+  it("marked before the snapshot existed count their current videos as known", async () => {
+    upsertVerdict(db, { key: "m:506", status: "no_audio", source: "triage", releaseId: 1006 });
+    expect(requeueNoAudio(db)).toEqual([]);
+    expect(getVerdict(db, "m:506")?.status).toBe("no_audio");
+    await post("/api/releases/1006/videos", { url: "https://youtu.be/gggggggggg1" });
+    expect(getVerdict(db, "m:506")).toBeNull();
+  });
+
+  it("are back-filled with their videos when the snapshot table is created", () => {
+    const early = fs.mkdtempSync(path.join(os.tmpdir(), "digga-migrations-"));
+    for (const migration of listMigrations().slice(0, 1))
+      fs.copyFileSync(migration.file, path.join(early, migration.name));
+    const old = openDb(":memory:", { foreign: true });
+    applyMigrations(old, early);
+    old.exec(`INSERT INTO releases (id, triage_key, updated_at) VALUES (7, 'r:7', '2026-01-01');
+      INSERT INTO videos (release_id, video_id, src) VALUES (7, 'kkkkkkkkkk1', 'x');
+      INSERT INTO verdicts (key, status, source, release_id, decided_at)
+        VALUES ('r:7', 'no_audio', 'triage', 7, '2026-01-01');`);
+    applyMigrations(old);
+    expect(old.prepare("SELECT * FROM no_audio_videos").all()).toEqual([
+      { key: "r:7", video_ids_json: '["kkkkkkkkkk1"]' },
+    ]);
+    expect(requeueNoAudio(old)).toEqual([]);
+    old.close();
+    fs.rmSync(early, { recursive: true, force: true });
+  });
+
+  it("stay marked when a link is pasted in the sandbox", async () => {
+    await markNoAudio();
+    const config = server.getConfig();
+    await server.app.request("/api/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...config, sandbox: true }),
+    });
+    const attached = await post<ReleaseDetail>("/api/releases/1006/videos", {
+      url: "https://youtu.be/gggggggggg1",
+    });
+    expect(attached.status).toBe(200);
+    expect(getVerdict(db, "m:506")?.status).toBe("no_audio");
+    // Out of the sandbox, the next check sends the record back for the new link.
+    expect(requeueNoAudio(db)).toEqual(["m:506"]);
   });
 
   it("attach a pasted link, matched to a track by YouTube's title, and come back", async () => {

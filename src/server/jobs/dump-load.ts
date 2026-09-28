@@ -1,7 +1,7 @@
 import { type DumpLoadOptions, type DumpLoadResult, loadDump } from "../../../tools/dump/load.ts";
 import type { DumpLoadProgress } from "../../shared/types.ts";
 import { type Db, setMeta } from "../db/db.ts";
-import { requeueNoAudio } from "../db/no-audio.ts";
+import { requeueNoAudio } from "../queue/no-audio.ts";
 import type { Logger } from "../logger.ts";
 
 export interface DumpLoadDeps {

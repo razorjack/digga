@@ -16,3 +16,11 @@ CREATE TABLE no_audio_videos (
   key TEXT PRIMARY KEY,
   video_ids_json TEXT NOT NULL DEFAULT '[]'
 );
+
+-- Records marked no_audio before this table existed count every video they have now as known.
+INSERT INTO no_audio_videos (key, video_ids_json)
+SELECT v.key, (
+  SELECT json_group_array(DISTINCT vd.video_id) FROM videos vd
+  JOIN releases r ON r.id = vd.release_id
+  WHERE r.triage_key = v.key AND vd.embeddable = 1)
+FROM verdicts v WHERE v.status = 'no_audio';

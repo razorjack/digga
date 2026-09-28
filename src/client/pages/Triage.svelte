@@ -355,7 +355,12 @@
         startAtFraction={startAt}
         seekStepSeconds={seekStep}
       />
-      <Slip slip={session.slip} next={session.next} nextReady={player.nextReady} sandbox={settings.sandbox}
+      <Slip
+        slip={session.slip}
+        next={session.next}
+        nextVideos={session.nextDetail?.videos.length ?? null}
+        nextReady={player.nextReady}
+        sandbox={settings.sandbox}
         inRound={session.round !== null}
       />
       <p class="flash" role="status">{session.flash ?? ""}</p>

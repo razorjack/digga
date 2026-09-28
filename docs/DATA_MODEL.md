@@ -66,8 +66,10 @@ after the ones from Discogs.
 
 ## no_audio_videos
 
-`key` PK, `video_ids_json`: the playable video ids of every release of a record (from `videos`
-and `user_videos`) when it was marked `no_audio`. After a dump load, an enrich or an attached
+`key` PK, `video_ids_json`: the embeddable video ids the player had for the release (its own,
+attached and pooled from other pressings) when the record was marked `no_audio`. Migration 2
+fills it for earlier `no_audio` verdicts, and a verdict without a row counts its current videos
+as known. After a dump load, an enrich or an attached
 link, a `no_audio` record with a playable video outside this list loses its verdict and is back
 in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
 

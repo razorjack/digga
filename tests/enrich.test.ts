@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { getRelease, getVideos } from "../src/server/db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsRelease } from "../src/server/discogs/types.ts";
-import { recordNoAudioVideos } from "../src/server/db/no-audio.ts";
+import { recordNoAudioVideos } from "../src/server/queue/no-audio.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { enrich, enrichTwelves } from "../src/server/jobs/enrich.ts";
 import { countEnrichedRemaining } from "../src/server/queue/query.ts";
@@ -155,8 +155,13 @@ describe("enrich", () => {
 
   it("sends a no-audio record back to the queue when enrich finds a new video", async () => {
     const db = await fixtureDb();
-    upsertVerdict(db, { key: "m:501", status: "no_audio", source: "triage", releaseId: 1001 });
-    recordNoAudioVideos(db, "m:501");
+    const verdict = upsertVerdict(db, {
+      key: "m:501",
+      status: "no_audio",
+      source: "triage",
+      releaseId: 1001,
+    });
+    recordNoAudioVideos(db, verdict);
     const discogs = fakeDiscogs((id) => Promise.resolve(apiRelease(id)));
     await enrichTwelves({ db, discogs, logger: silentLogger }, { ahead: null, currency: "EUR" });
     expect(getVerdict(db, "m:501")).toBeNull();

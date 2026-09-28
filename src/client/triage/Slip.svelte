@@ -8,12 +8,15 @@
   let {
     slip,
     next,
+    nextVideos,
     nextReady,
     sandbox,
     inRound,
   }: {
     slip: Slip | null;
     next: QueueItem | null;
+    /** Videos the next record plays, other pressings' included; null until its details load. */
+    nextVideos: number | null;
     nextReady: boolean;
     sandbox: boolean;
     /** The slip's release is the last of a snoozed round, so the queue comes next. */
@@ -83,7 +86,7 @@
         {name(next)}
       </p>
       <p class="quiet">
-        {#if next.videoCount === 0}
+        {#if (nextVideos ?? next.videoCount) === 0}
           no videos
         {:else if nextReady}
           buffered, starts at once

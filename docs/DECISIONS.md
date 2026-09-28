@@ -245,7 +245,10 @@ Chronological. Each entry records a choice made without asking and why.
     pressing's video joins the detail only when its matched track is a tune of this release, by
     heard key, and it takes this release's position, so heard tracking, marks and listens stay on
     the release being judged. Decision 59's per-release filter becomes per record for the same
-    reason.
+    reason, and asks the same as the player: a video on another pressing counts only when its
+    matched track is a tune of the release. The SQL starts from the master's pressings (`CROSS
+JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's data, 0.1 s this
+    way.
 73. **Pasted YouTube links live in `user_videos`, not `videos`.** Dump loads and enrich replace a
     release's `videos`, which would drop them. `⌘V` anywhere in Triage (outside text fields)
     attaches the link to the release on screen and plays it; in Twelves it goes on the selected
@@ -255,9 +258,11 @@ Chronological. Each entry records a choice made without asking and why.
     link plays as an unmatched video.
 74. **A no-audio record comes back only for a video it did not have.** `D` is also the answer to
     "none of its videos will play here", so bringing records back whenever they have an
-    embeddable video would return them after every dump load. The verdict route records the
-    record's playable video ids; `requeueNoAudio()` runs after a dump load, after each enriched
-    release and after an attached link, and deletes the verdict of records with a new one.
+    embeddable video would return them after every dump load. The verdict route records the video
+    ids the player had for the release; `requeueNoAudio()` runs after a dump load, after each
+    enriched release and after an attached link, and deletes the verdict of records with a new
+    one. Verdicts from before the snapshot count their current videos as known, and a link pasted
+    in the sandbox leaves the saved verdict for the next dump load or enrich to reconsider.
     `enrich_twelves` covers the No audio shelf, so "Refresh Twelves" looks for fresh videos.
 75. **No audio is a Twelves shelf (`9`) but not part of Everything.** Everything is what you want,
     own or put aside; the records nothing played on are leftovers to rescue with `Y` (YouTube

@@ -3,7 +3,7 @@ import { TWELVES_STATUSES } from "../../shared/api.ts";
 import type { Filters, QueueStrategy } from "../../shared/config.ts";
 import type { EnrichProgress } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
-import { requeueNoAudio } from "../db/no-audio.ts";
+import { requeueNoAudio } from "../queue/no-audio.ts";
 import { getRelease, getTracks, writeSnapshot, writeVideos } from "../db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsRelease } from "../discogs/types.ts";

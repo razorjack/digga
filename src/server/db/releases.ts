@@ -331,31 +331,27 @@ export function getUserVideos(db: Db, releaseId: number): VideoRecord[] {
   return rows.map(rowToVideo);
 }
 
-/** Ids of the playable videos on every release of a record: from Discogs and attached. */
-export function playableVideoIds(db: Db, key: string): string[] {
-  const rows = db
-    .prepare(
-      `SELECT v.video_id FROM videos v JOIN releases r ON r.id = v.release_id
-       WHERE r.triage_key = ? AND v.embeddable = 1
-       UNION
-       SELECT u.video_id FROM user_videos u JOIN releases r ON r.id = u.release_id
-       WHERE r.triage_key = ?`,
-    )
-    .all(key, key) as { video_id: string }[];
-  return rows.map((row) => row.video_id);
-}
-
-/** Videos of the master's other pressings, main release first, with their matched tunes. */
+/**
+ * Videos of the master's other pressings, from Discogs and attached by the user, main release
+ * first, with the tunes their matched tracks carry.
+ */
 export function getPressingVideos(db: Db, release: ReleaseRecord): PressingVideo[] {
   if (release.masterId === null) return [];
   const rows = db
     .prepare(
-      `SELECT v.*, t.heard_key FROM videos v
-       JOIN releases r ON r.id = v.release_id
-       LEFT JOIN tracks t ON t.release_id = v.release_id AND t.seq = (
-         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = v.release_id AND s.position = v.matched_position)
+      `SELECT p.*, t.heard_key FROM (
+         SELECT v.release_id, v.video_id, v.src, v.title, v.duration_seconds, v.embeddable,
+           v.matched_position, 0 AS attached, v.rowid AS added
+         FROM videos v
+         UNION ALL
+         SELECT u.release_id, u.video_id, u.src, u.title, NULL, 1, u.matched_position, 1, u.rowid
+         FROM user_videos u
+       ) p
+       JOIN releases r ON r.id = p.release_id
+       LEFT JOIN tracks t ON t.release_id = p.release_id AND t.seq = (
+         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = p.release_id AND s.position = p.matched_position)
        WHERE r.master_id = ? AND r.id != ?
-       ORDER BY r.is_main_release DESC, r.id, v.rowid`,
+       ORDER BY r.is_main_release DESC, r.id, p.attached, p.added`,
     )
     .all(release.masterId, release.id) as (VideoRow & { heard_key: string | null })[];
   return rows.map((row) => ({ video: rowToVideo(row), heardKey: row.heard_key }));

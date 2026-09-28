@@ -124,6 +124,11 @@ describe("queue query", () => {
     expect(queryQueue(db, { filters: repress, strategy: "label_sweep", limit: 10 })).toEqual([
       expect.objectContaining({ id: 1002, videoCount: 0 }),
     ]);
+    // Videos the repress cannot use, full sides of another tune, do not count.
+    db.prepare("UPDATE videos SET matched_position = NULL WHERE release_id = 1001").run();
+    expect(countRemaining(db, repress)).toBe(0);
+    db.prepare("UPDATE videos SET matched_position = 'A1' WHERE release_id = 1001").run();
+    expect(countRemaining(db, repress)).toBe(1);
     db.prepare("UPDATE videos SET embeddable = 0 WHERE release_id = 1001").run();
     expect(countRemaining(db, repress)).toBe(0);
     db.close();
