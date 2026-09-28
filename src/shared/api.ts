@@ -260,8 +260,8 @@ export type EnrichTarget = (typeof ENRICH_TARGETS)[number];
 export const EnrichJobInputSchema = z.object({
   /** The next records in the queue, or the records on the Twelves shelves. */
   target: z.enum(ENRICH_TARGETS).default("queue"),
-  /** How many records; null enriches all of them. */
-  ahead: z.number().int().positive().nullable().default(200),
+  /** How many records, or "all" of them. */
+  ahead: z.union([z.number().int().positive(), z.literal("all")]).default(200),
 });
 export type EnrichJobInput = z.input<typeof EnrichJobInputSchema>;
 export type EnrichJobOptions = z.infer<typeof EnrichJobInputSchema>;

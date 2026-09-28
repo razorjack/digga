@@ -61,7 +61,8 @@ function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoad
 }
 
 export function startEnrich(context: AppContext, options: EnrichJobOptions): Job {
-  const { target, ahead } = options;
+  const { target } = options;
+  const ahead = options.ahead === "all" ? null : options.ahead;
   const config = context.getConfig();
   const deps = { db: context.db, discogs: context.getDiscogs(), logger: context.logger };
   const currency = config.discogs.currency;

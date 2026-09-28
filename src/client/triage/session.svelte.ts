@@ -83,6 +83,8 @@ export class TriageSession {
   #batch = 200;
   #enrichAheadCount = 0;
   #enrichAhead: EnrichAhead;
+  /** Market data enriched this session, by release id, for records that moved on before it came. */
+  #marketData = new Map<number, ReleaseSnapshot>();
   #loading = new Set<number>();
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
   #refilling: Promise<void> | null = null;
@@ -203,7 +205,12 @@ export class TriageSession {
   }
 
   #returnToQueue(item: QueueItem): void {
-    this.upcoming = [item, ...this.upcoming.filter((next) => next.triageKey !== item.triageKey)];
+    const snapshot = this.#marketData.get(item.id);
+    const returned = snapshot ? withMarketData(item, snapshot) : item;
+    this.upcoming = [
+      returned,
+      ...this.upcoming.filter((next) => next.triageKey !== item.triageKey),
+    ];
   }
 
   /** The record's note: written in this session, else the one its snoozed verdict has. */
@@ -569,6 +576,7 @@ export class TriageSession {
     this.#queueBeforeRound = null;
     this.#enrichAhead.stop();
     this.#enrichAhead = this.#createEnrichAhead();
+    this.#marketData.clear();
   }
 
   /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
@@ -667,9 +675,10 @@ export class TriageSession {
   #applyEnrichment(detail: ReleaseDetail): void {
     const id = detail.release.id;
     const snapshot = detail.release.snapshot;
-    this.upcoming = this.upcoming.map((item) =>
-      item.id === id ? withMarketData(item, snapshot) : item,
-    );
+    this.#marketData.set(id, snapshot);
+    const refresh = (item: QueueItem) => (item.id === id ? withMarketData(item, snapshot) : item);
+    this.upcoming = this.upcoming.map(refresh);
+    this.passed = this.passed.map(refresh);
     if (this.current?.id === id || !this.details.has(id)) return;
     this.details = new Map(this.details).set(id, detail);
   }

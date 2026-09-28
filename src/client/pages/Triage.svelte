@@ -89,9 +89,11 @@
   let editingNote = $state(false);
   const note = $derived(session.current ? session.noteFor(session.current) : null);
 
-  // A verdict or N moves on; a half-written note stays with the record it was for.
+  // A verdict or N moves on; a half-written note stays with the record it was for. The key, not
+  // the item, decides: enrichment replaces the item with fresh market data.
+  const currentKey = $derived(session.current?.triageKey ?? null);
   $effect(() => {
-    void session.current;
+    void currentKey;
     editingNote = false;
   });
 

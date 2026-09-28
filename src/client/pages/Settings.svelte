@@ -53,7 +53,7 @@
   let draft = $state<Config | null>(null);
   let saving = $state(false);
   let flash = $state<string | null>(null);
-  let enrichAhead = $state(200);
+  let enrichCount = $state(200);
   let historyBrowser = $state<Browser>("brave");
   let dumpFile = $state("");
   let dumpLimit = $state<number | null>(null);
@@ -82,6 +82,8 @@
       ? `by Discogs want count; ${formatCount(wantCounts.enriched)} of ${formatCount(wantCounts.remaining)} records to dig have one`
       : STRATEGY_COPY.popular.hint,
   );
+  /** A cleared number field binds null, whatever its declared type. */
+  const validEnrichCount = $derived(Number.isInteger(enrichCount) && enrichCount > 0);
   /** Records to dig under the saved filters that enrich has not reached. */
   const unenriched = $derived(stats.value ? stats.value.remaining - stats.value.remainingEnriched : 0);
   const unenrichedEta = $derived(formatEta(enrichHours(unenriched)));
@@ -720,22 +722,27 @@
             for the next records in the queue, for every record still to dig, or to refresh the records in Twelves.
           </p>
           <div class="inline wrap">
-            <input type="number" min="1" max="5000" bind:value={enrichAhead} aria-label="Records to enrich" />
-            <button type="button" class="secondary" onclick={() => startJob(() => api.startEnrich({ ahead: enrichAhead }))}>
-              Enrich next {formatCount(enrichAhead || 0)}
+            <input type="number" min="1" max="5000" bind:value={enrichCount} aria-label="Records to enrich" />
+            <button
+              type="button"
+              class="secondary"
+              disabled={!validEnrichCount}
+              onclick={() => startJob(() => api.startEnrich({ ahead: enrichCount }))}
+            >
+              Enrich next {formatCount(enrichCount || 0)}
             </button>
             <button
               type="button"
               class="secondary"
               disabled={unenriched === 0}
-              onclick={() => startJob(() => api.startEnrich({ ahead: null }))}
+              onclick={() => startJob(() => api.startEnrich({ ahead: "all" }))}
             >
               Enrich all {formatCount(unenriched)} to dig{unenrichedEta ? ` (${unenrichedEta})` : ""}
             </button>
             <button
               type="button"
               class="secondary"
-              onclick={() => startJob(() => api.startEnrich({ target: "twelves", ahead: null }))}
+              onclick={() => startJob(() => api.startEnrich({ target: "twelves", ahead: "all" }))}
             >
               Refresh Twelves
             </button>

@@ -28,7 +28,7 @@ function fakeServer(queue: number[], labelName: string | null = null) {
   /** Notes sent with verdicts, as "key note". */
   const notes: string[] = [];
   const verdicts = new Map<string, Verdict>();
-  const state = { pushDelayMs: 0 };
+  const state = { pushDelayMs: 0, enrichDelayMs: 0 };
   const http = {
     mode: "live",
     getQueue: async () => ({
@@ -86,6 +86,7 @@ function fakeServer(queue: number[], labelName: string | null = null) {
     },
     enrichRelease: async (id: number): Promise<ReleaseDetail> => {
       calls.push(`enrich ${id}`);
+      await wait(state.enrichDelayMs);
       const snapshot = {
         lowestPrice: 9,
         numForSale: 2,
@@ -381,6 +382,18 @@ describe("enrich ahead", () => {
     session.judge("rejected");
     await until(() => server.calls.includes("enrich 4"));
     expect(enriched().filter((call) => call === "enrich 2")).toHaveLength(1);
+    session.destroy();
+  });
+
+  it("keeps the market data of a record judged before it arrived", async () => {
+    const server = fakeServer([1, 2, 3]);
+    server.state.enrichDelayMs = 20;
+    const session = new TriageSession(server.app, { pushGraceMs: 0 });
+    await session.start(50, { enrichAhead: 1 });
+    session.judge("rejected");
+    await until(() => server.calls.includes("enrich 2"));
+    session.undo();
+    expect(session.current).toMatchObject({ id: 1, communityWant: 40 });
     session.destroy();
   });
 
