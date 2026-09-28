@@ -27,9 +27,9 @@
     min-width: 1.9em;
     height: 1.9em;
     padding: 0 0.4em;
-    border: 1px solid var(--groove);
+    border: 1px solid var(--rule);
     border-radius: var(--radius);
-    color: var(--faded);
+    color: var(--fg-muted);
     font-family: var(--mono);
     font-size: var(--text-xs);
     font-stretch: 100%;
@@ -46,8 +46,8 @@
     height: 2em;
   }
   .primary {
-    border-color: var(--flyer);
-    background: var(--flyer);
-    color: var(--flyer-ink);
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
   }
 </style>

@@ -71,12 +71,12 @@
     max-width: none;
     max-height: calc(100% - 48px);
     padding: 0;
-    border: 1px solid var(--groove);
-    background: var(--sleeve);
+    border: 1px solid var(--rule);
+    background: var(--surface);
     color: inherit;
   }
   dialog::backdrop {
-    background: color-mix(in srgb, var(--ground) 82%, transparent);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
   }
   .panel {
     padding: 28px 32px 32px;
@@ -98,7 +98,7 @@
     gap: 8px;
     border: 0;
     background: none;
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .groups {
     display: grid;
@@ -107,7 +107,7 @@
   }
   h3 {
     margin-bottom: 10px;
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
     font-weight: 600;
   }
@@ -132,6 +132,6 @@
     font-size: var(--text-sm);
   }
   .ellipsis {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
 </style>

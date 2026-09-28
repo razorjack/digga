@@ -53,13 +53,13 @@
     padding: 0.12em 0.4em 0.06em;
   }
   .paper {
-    color: var(--paper);
+    color: var(--fg);
   }
   .flyer {
-    color: var(--flyer);
+    color: var(--accent);
   }
   .dust {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .slam {
     animation: slam 150ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;

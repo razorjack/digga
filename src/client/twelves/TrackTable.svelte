@@ -150,7 +150,7 @@
   }
   td {
     padding: 12px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--groove) 60%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
     vertical-align: middle;
     cursor: default;
   }
@@ -161,22 +161,22 @@
     padding-right: 16px;
   }
   .selected {
-    background: var(--sleeve);
+    background: var(--surface);
   }
   .selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--flyer);
+    box-shadow: inset 3px 0 0 var(--accent);
   }
   .catno,
   .pos {
     font-weight: 600;
-    color: var(--faded);
+    color: var(--fg-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .selected .catno,
   .selected .pos {
-    color: var(--paper);
+    color: var(--fg);
   }
   .title {
     display: block;
@@ -186,16 +186,16 @@
     white-space: nowrap;
   }
   .by {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-weight: 400;
   }
   .quiet {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-weight: 400;
   }
   .note {
     margin-top: 4px;
-    color: var(--flyer);
+    color: var(--accent);
     font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -205,9 +205,9 @@
     width: 100%;
     margin-top: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--flyer);
+    border: 1px solid var(--accent);
     border-radius: var(--radius);
-    background: var(--ground);
+    background: var(--bg);
   }
   td.record {
     font-size: var(--text-sm);
@@ -223,11 +223,11 @@
   }
   .record a:hover .artist {
     text-decoration: underline;
-    text-decoration-color: var(--dust);
+    text-decoration-color: var(--fg-faint);
     text-underline-offset: 3px;
   }
   .verdict {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   td.day {
     text-align: right;

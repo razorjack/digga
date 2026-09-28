@@ -103,14 +103,14 @@
     margin-bottom: 6px;
   }
   .label {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-md);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .also {
-    color: var(--dust);
+    color: var(--fg-faint);
     margin-left: 0.6em;
   }
   .artist {
@@ -146,27 +146,27 @@
     column-gap: 28px;
     row-gap: 2px;
     margin: 6px 0 0;
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .meta dd {
     margin: 0;
   }
   .strong {
-    color: var(--paper);
+    color: var(--fg);
     font-weight: 600;
   }
   .market {
     display: flex;
     flex-wrap: wrap;
     column-gap: 28px;
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .unenriched {
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-sm);
   }
   .versions {
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;

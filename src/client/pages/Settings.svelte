@@ -863,8 +863,8 @@
     margin-left: -23px;
     padding-left: 20px;
     padding-right: 20px;
-    background: var(--sleeve);
-    box-shadow: inset 3px 0 0 var(--flyer);
+    background: var(--surface);
+    box-shadow: inset 3px 0 0 var(--accent);
   }
   .head {
     display: grid;
@@ -884,23 +884,23 @@
   }
   .lede,
   .quiet {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   section {
     display: grid;
     gap: 12px;
     padding: 24px 0;
-    border-top: 1px solid var(--groove);
+    border-top: 1px solid var(--rule);
   }
   .library p {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   b {
-    color: var(--paper);
+    color: var(--fg);
     font-weight: 600;
   }
   .hint {
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-sm);
   }
   .fields {
@@ -933,7 +933,7 @@
     width: 8em;
   }
   .name {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .inline {
     display: flex;
@@ -947,19 +947,19 @@
   select,
   textarea {
     padding: 6px 9px;
-    border: 1px solid var(--groove);
+    border: 1px solid var(--rule);
     border-radius: var(--radius);
-    background: var(--ground);
+    background: var(--bg);
   }
   textarea {
     resize: vertical;
   }
   input::placeholder,
   textarea::placeholder {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   input:user-invalid {
-    border-color: var(--flyer);
+    border-color: var(--accent);
   }
   input[type="number"] {
     width: 7em;
@@ -968,17 +968,17 @@
     width: 16em;
     padding: 0;
     border: 0;
-    accent-color: var(--flyer);
+    accent-color: var(--accent);
   }
   input[type="checkbox"],
   input[type="radio"] {
-    accent-color: var(--flyer);
+    accent-color: var(--accent);
   }
   .check {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .options {
     display: grid;
@@ -996,7 +996,7 @@
   .preview {
     display: block;
     min-height: 1.45em;
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .savebar {
     position: sticky;
@@ -1007,15 +1007,15 @@
     gap: 14px;
     margin: 0 -40px;
     padding: 12px 40px;
-    border-top: 1px solid var(--groove);
-    background: var(--sleeve);
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
   }
   .status {
     margin-right: auto;
   }
   .problem,
   .flash {
-    color: var(--flyer);
+    color: var(--accent);
   }
   button.primary,
   button.secondary {
@@ -1024,13 +1024,13 @@
     font-weight: 600;
   }
   button.primary {
-    border: 1px solid var(--flyer);
-    background: var(--flyer);
-    color: var(--flyer-ink);
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
   }
   button.secondary {
-    border: 1px solid var(--groove);
-    background: var(--ground);
+    border: 1px solid var(--rule);
+    background: var(--bg);
   }
   button:disabled {
     opacity: 0.4;
@@ -1054,11 +1054,11 @@
     gap: 8px;
   }
   .job p {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   code {
     font-family: inherit;
-    color: var(--paper);
+    color: var(--fg);
   }
   .file {
     width: 26em;
@@ -1087,7 +1087,7 @@
     padding-right: 0;
   }
   .job-list tbody tr {
-    border-bottom: 1px solid color-mix(in srgb, var(--groove) 60%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
   }
   th.job-name {
     width: calc(13em + 8px);
@@ -1102,17 +1102,17 @@
     width: calc(4em + 8px);
   }
   .job-status {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .running .job-status {
-    color: var(--flyer);
+    color: var(--accent);
   }
   .failed .job-status {
-    color: var(--paper);
+    color: var(--fg);
     text-decoration: line-through;
   }
   .job-progress {
-    color: var(--faded);
+    color: var(--fg-muted);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -1124,22 +1124,22 @@
     height: 4px;
     border: 0;
     appearance: none;
-    background: var(--groove);
+    background: var(--rule);
   }
   .meter::-webkit-progress-bar {
-    background: var(--groove);
+    background: var(--rule);
   }
   .meter::-webkit-progress-value {
-    background: var(--flyer);
+    background: var(--accent);
   }
   .meter::-moz-progress-bar {
-    background: var(--flyer);
+    background: var(--accent);
   }
   button.link {
     border: 0;
     background: none;
     padding: 0;
-    color: var(--paper);
+    color: var(--fg);
     text-decoration: underline;
     text-underline-offset: 3px;
   }

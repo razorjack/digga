@@ -1,18 +1,19 @@
 /*
  * Digga tokens. Dark only: off-black surfaces, white-label paper text, one dayglo flyer accent
- * used as paper (filled key tags, stamps), never as glowing text.
+ * used as paper (filled key tags, stamps), never as glowing text. Colors are named by role;
+ * docs/DESIGN_BRIEF.md names the palette behind them.
  */
 :root {
   color-scheme: dark;
 
-  --ground: #161618;
-  --sleeve: #1d1d20;
-  --groove: #323238;
-  --dust: #6b675e;
-  --faded: #a8a294;
-  --paper: #ebe5d4;
-  --flyer: #ffd21a;
-  --flyer-ink: #17150d;
+  --bg: #161618;
+  --surface: #1d1d20;
+  --rule: #323238;
+  --fg: #ebe5d4;
+  --fg-muted: #a8a294;
+  --fg-faint: #6b675e;
+  --accent: #ffd21a;
+  --on-accent: #17150d;
 
   --display: "Michroma", "Eurostile Extended", "Microgramma", sans-serif;
   --mono: "Martian Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
@@ -41,8 +42,8 @@ body {
 
 body {
   margin: 0;
-  background: var(--ground);
-  color: var(--paper);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--mono);
   font-size: var(--text-md);
   font-stretch: 87.5%;
@@ -84,13 +85,13 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--flyer);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--flyer);
-  color: var(--flyer-ink);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 h1,

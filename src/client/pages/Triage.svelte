@@ -392,14 +392,14 @@
     justify-content: space-between;
     gap: 24px;
     padding: 10px 40px;
-    border-bottom: 1px solid var(--groove);
-    background: var(--sleeve);
-    box-shadow: inset 3px 0 0 var(--flyer);
-    color: var(--faded);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface);
+    box-shadow: inset 3px 0 0 var(--accent);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .round b {
-    color: var(--paper);
+    color: var(--fg);
     font-weight: 600;
   }
   .round button {
@@ -458,12 +458,12 @@
     max-width: 24em;
   }
   .quiet {
-    color: var(--faded);
+    color: var(--fg-muted);
     max-width: 60ch;
   }
   code {
     font-family: inherit;
-    color: var(--paper);
+    color: var(--fg);
   }
   .actions {
     display: flex;
@@ -483,7 +483,7 @@
   }
   .flash {
     min-height: 1.4em;
-    color: var(--flyer);
+    color: var(--accent);
     font-size: var(--text-sm);
   }
   @media (max-width: 980px) {

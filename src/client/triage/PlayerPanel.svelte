@@ -169,8 +169,8 @@
   .frame {
     position: relative;
     aspect-ratio: 16 / 9;
-    background: var(--sleeve);
-    border: 1px solid var(--groove);
+    background: var(--surface);
+    border: 1px solid var(--rule);
     overflow: hidden;
   }
   .deck {
@@ -195,10 +195,10 @@
     justify-items: start;
     gap: 12px;
     padding: 28px;
-    background: color-mix(in srgb, var(--ground) 70%, transparent);
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
   }
   .overlay.solid {
-    background: var(--sleeve);
+    background: var(--surface);
   }
   .title {
     font-family: var(--display);
@@ -213,7 +213,7 @@
     font-size: var(--text-xl);
   }
   .small {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .options {
@@ -242,24 +242,24 @@
     font-weight: 600;
   }
   .pos {
-    color: var(--flyer);
+    color: var(--accent);
     margin-right: 0.8em;
   }
   .time {
     flex: none;
-    color: var(--paper);
+    color: var(--fg);
   }
   .state {
-    color: var(--faded);
+    color: var(--fg-muted);
     margin-right: 1em;
   }
   .quiet {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   .seek {
     position: relative;
   }
-  /* A plain bar: the played part in the accent over the groove, and no thumb. */
+  /* A plain bar: the played part in the accent over the rule color, and no thumb. */
   .seek input {
     display: block;
     width: 100%;
@@ -267,8 +267,8 @@
     margin: 0;
     appearance: none;
     background:
-      linear-gradient(var(--flyer), var(--flyer)) 0 50% / var(--progress) 4px no-repeat,
-      linear-gradient(var(--groove), var(--groove)) 0 50% / 100% 4px no-repeat;
+      linear-gradient(var(--accent), var(--accent)) 0 50% / var(--progress) 4px no-repeat,
+      linear-gradient(var(--rule), var(--rule)) 0 50% / 100% 4px no-repeat;
     cursor: pointer;
   }
   .seek input:disabled {
@@ -294,7 +294,7 @@
     bottom: 0;
     width: 2px;
     margin-left: -1px;
-    background: var(--paper);
+    background: var(--fg);
     opacity: 0.6;
     pointer-events: none;
   }
@@ -302,12 +302,12 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px 18px;
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .notice {
     min-height: 1.4em;
-    color: var(--flyer);
+    color: var(--accent);
     font-size: var(--text-sm);
   }
 </style>

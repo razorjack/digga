@@ -459,7 +459,7 @@
     font-size: var(--text-2xl);
   }
   .lede {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .controls {
     display: flex;
@@ -468,7 +468,7 @@
     align-items: end;
     gap: 16px 32px;
     padding-bottom: 14px;
-    border-bottom: 1px solid var(--groove);
+    border-bottom: 1px solid var(--rule);
   }
   fieldset {
     min-inline-size: 0;
@@ -485,7 +485,7 @@
     padding: 0;
   }
   label:has(:focus-visible) {
-    outline: 2px solid var(--flyer);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
   .shelves {
@@ -499,15 +499,15 @@
     gap: 8px;
     padding: 6px 0;
     border-bottom: 2px solid transparent;
-    color: var(--faded);
+    color: var(--fg-muted);
     cursor: pointer;
   }
   .shelves label:has(:checked) {
-    color: var(--paper);
-    border-bottom-color: var(--flyer);
+    color: var(--fg);
+    border-bottom-color: var(--accent);
   }
   .count {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   .tools {
     display: flex;
@@ -515,7 +515,7 @@
     align-items: center;
     gap: 12px 28px;
     font-size: var(--text-sm);
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .filter {
     display: inline-flex;
@@ -526,12 +526,12 @@
     appearance: textfield;
     width: 22em;
     padding: 5px 8px;
-    border: 1px solid var(--groove);
+    border: 1px solid var(--rule);
     border-radius: var(--radius);
-    background: var(--ground);
+    background: var(--bg);
   }
   .filter input::placeholder {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   .sort {
     display: inline-flex;
@@ -540,13 +540,13 @@
   }
   .sort label {
     padding: 2px 0;
-    color: var(--dust);
+    color: var(--fg-faint);
     cursor: pointer;
   }
   .sort label:has(:checked) {
-    color: var(--paper);
+    color: var(--fg);
     text-decoration: underline;
-    text-decoration-color: var(--flyer);
+    text-decoration-color: var(--accent);
     text-underline-offset: 4px;
   }
   .box {
@@ -574,7 +574,7 @@
   }
   td {
     padding: 12px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--groove) 60%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
     vertical-align: middle;
     cursor: default;
   }
@@ -585,20 +585,20 @@
     padding-right: 16px;
   }
   .selected {
-    background: var(--sleeve);
+    background: var(--surface);
   }
   .selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--flyer);
+    box-shadow: inset 3px 0 0 var(--accent);
   }
   .catno {
     font-weight: 600;
-    color: var(--faded);
+    color: var(--fg-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .selected .catno {
-    color: var(--paper);
+    color: var(--fg);
   }
   .who a {
     display: grid;
@@ -614,16 +614,16 @@
     font-weight: 600;
   }
   .title {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .who a:hover .artist {
     text-decoration: underline;
-    text-decoration-color: var(--dust);
+    text-decoration-color: var(--fg-faint);
     text-underline-offset: 3px;
   }
   .note {
     margin-top: 4px;
-    color: var(--flyer);
+    color: var(--accent);
     font-size: var(--text-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -631,12 +631,12 @@
   }
   .pending {
     margin-top: 4px;
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .pending::before {
     content: "○ " / "";
-    color: var(--flyer);
+    color: var(--accent);
   }
   .handoff {
     display: flex;
@@ -646,15 +646,15 @@
     gap: 10px 28px;
     padding: 12px 16px;
     margin-top: 12px;
-    border: 1px dashed var(--groove);
-    color: var(--faded);
+    border: 1px dashed var(--rule);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .handoff p {
     max-width: 90ch;
   }
   .handoff b {
-    color: var(--paper);
+    color: var(--fg);
   }
   .check {
     display: inline-flex;
@@ -662,20 +662,20 @@
     gap: 8px;
     border: 0;
     background: none;
-    color: var(--paper);
+    color: var(--fg);
     padding: 0;
   }
   .check:disabled {
-    color: var(--faded);
+    color: var(--fg-muted);
     cursor: default;
   }
   .note-input {
     width: 100%;
     margin-top: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--flyer);
+    border: 1px solid var(--accent);
     border-radius: var(--radius);
-    background: var(--ground);
+    background: var(--bg);
   }
   td.where,
   td.market {
@@ -693,11 +693,11 @@
     font-size: var(--text-sm);
   }
   .quiet {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .empty {
     padding: 40px 0;
-    color: var(--faded);
+    color: var(--fg-muted);
     max-width: 60ch;
   }
   .foot {
@@ -709,14 +709,14 @@
     gap: 20px;
     margin: auto -40px 0;
     padding: 12px 40px 14px;
-    border-top: 1px solid var(--groove);
-    background: var(--sleeve);
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
   }
   .hints {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 20px;
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .hints span {
@@ -725,7 +725,7 @@
     gap: 4px;
   }
   .flash {
-    color: var(--flyer);
+    color: var(--accent);
     font-size: var(--text-sm);
     text-align: right;
   }

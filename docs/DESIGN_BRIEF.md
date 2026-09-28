@@ -57,10 +57,11 @@ that reads as a music streaming app. Ergonomics win every tie.
 
 Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (30 to 38).
 
-- **Palette:** ground `#161618`, sleeve `#1d1d20` (raised bars), groove `#323238` (rules),
-  dust `#6b675e` (heard, disabled), faded `#a8a294` (secondary text), paper `#ebe5d4` (primary
-  text), flyer `#ffd21a` (the accent, used as a fill) on flyer-ink `#17150d`. A static
-  photocopy grain covers the page at low opacity.
+- **Palette** (the token for each role in brackets): ground `#161618` (`--bg`), sleeve `#1d1d20`
+  (`--surface`, raised bars), groove `#323238` (`--rule`), dust `#6b675e` (`--fg-faint`, heard,
+  disabled), faded `#a8a294` (`--fg-muted`, secondary text), paper `#ebe5d4` (`--fg`, primary
+  text), flyer `#ffd21a` (`--accent`, used as a fill) on flyer-ink `#17150d` (`--on-accent`). A
+  static photocopy grain covers the page at low opacity.
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
   Mono (87.5% width) for everything else. Sizes run 11 / 12.5 / 14 / 17 / 22 / 30 / 40 px.
 - **Triage layout:** top bar (wordmark, pages with keys, the sandbox stamp linking to the

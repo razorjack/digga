@@ -108,7 +108,7 @@
   .slip {
     min-width: 0;
     padding-top: 12px;
-    border-top: 1px dashed var(--groove);
+    border-top: 1px dashed var(--rule);
   }
   .last {
     display: flex;
@@ -132,7 +132,7 @@
     white-space: nowrap;
   }
   .quiet {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .undo {
@@ -140,15 +140,15 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .label {
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-sm);
   }
   .catno {
-    color: var(--faded);
+    color: var(--fg-muted);
     margin-right: 0.6em;
   }
 </style>

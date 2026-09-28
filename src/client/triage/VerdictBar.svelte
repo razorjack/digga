@@ -93,8 +93,8 @@
     justify-content: space-between;
     gap: 24px;
     padding: 14px 40px 16px;
-    border-top: 1px solid var(--groove);
-    background: var(--sleeve);
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
   }
   .verdicts {
     display: flex;
@@ -108,7 +108,7 @@
     gap: 8px;
     border: 0;
     background: none;
-    color: var(--faded);
+    color: var(--fg-muted);
     padding: 6px 4px;
   }
   button:disabled {
@@ -122,17 +122,17 @@
     column-gap: 12px;
     align-items: center;
     padding: 8px 18px 8px 8px;
-    border: 1px solid var(--groove);
+    border: 1px solid var(--rule);
     border-radius: var(--radius);
-    background: var(--ground);
-    color: var(--paper);
+    background: var(--bg);
+    color: var(--fg);
     text-align: left;
   }
   .verdict :global(.key) {
     grid-row: 1 / span 2;
   }
   .verdict:not(:disabled):hover {
-    border-color: var(--faded);
+    border-color: var(--fg-muted);
   }
   .copy {
     font-family: var(--display);
@@ -140,10 +140,10 @@
     line-height: 1.1;
   }
   .flyer .copy {
-    color: var(--flyer);
+    color: var(--accent);
   }
   .hint {
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-xs);
   }
   .aside {
@@ -154,7 +154,7 @@
     font-size: var(--text-sm);
   }
   .aside button:not(:disabled):hover {
-    color: var(--paper);
+    color: var(--fg);
   }
   @media (max-width: 1180px) {
     .hint {

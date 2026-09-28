@@ -50,7 +50,7 @@
     gap: 12px;
     max-width: 940px;
     padding: 24px 0;
-    border-top: 1px solid var(--groove);
+    border-top: 1px solid var(--rule);
   }
   h2 {
     font-family: var(--display);
@@ -59,16 +59,16 @@
     margin-bottom: 6px;
   }
   p {
-    color: var(--faded);
+    color: var(--fg-muted);
     max-width: 80ch;
   }
   code {
     font-family: inherit;
-    color: var(--paper);
+    color: var(--fg);
     overflow-wrap: anywhere;
   }
   a {
-    color: var(--paper);
+    color: var(--fg);
     text-underline-offset: 3px;
   }
 </style>

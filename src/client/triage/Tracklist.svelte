@@ -140,13 +140,13 @@
     padding: 0 8px 0 0;
     overflow-y: auto;
     min-height: 0;
-    border-top: 1px solid var(--groove);
+    border-top: 1px solid var(--rule);
     scrollbar-width: thin;
-    scrollbar-color: var(--groove) transparent;
+    scrollbar-color: var(--rule) transparent;
   }
   .heading {
     padding: 14px 0 4px 3.9em;
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-sm);
   }
   .row button {
@@ -156,7 +156,7 @@
     width: 100%;
     padding: 7px 0;
     border: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--groove) 55%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
     background: none;
     text-align: left;
     line-height: 1.35;
@@ -166,20 +166,20 @@
   }
   .row button:not(:disabled):hover .name {
     text-decoration: underline;
-    text-decoration-color: var(--dust);
+    text-decoration-color: var(--fg-faint);
     text-underline-offset: 3px;
   }
   .pos {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-weight: 600;
   }
   .glyph {
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: 0.8em;
   }
   .none .glyph,
   .none .name {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .name {
     min-width: 0;
@@ -188,7 +188,7 @@
     white-space: nowrap;
   }
   .by {
-    color: var(--faded);
+    color: var(--fg-muted);
   }
   .tags {
     display: flex;
@@ -197,11 +197,11 @@
     padding-left: 12px;
   }
   .note {
-    color: var(--dust);
+    color: var(--fg-faint);
     font-size: var(--text-sm);
   }
   .dur {
-    color: var(--faded);
+    color: var(--fg-muted);
     text-align: right;
   }
   .heard .pos,
@@ -209,23 +209,23 @@
   .heard .by,
   .heard .glyph,
   .heard .dur {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   .failed .glyph,
   .blocked .glyph {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   .playing button {
-    box-shadow: inset 3px 0 0 var(--flyer);
+    box-shadow: inset 3px 0 0 var(--accent);
   }
   .playing .pos {
     padding-left: 12px;
   }
   .playing .glyph {
-    color: var(--flyer);
+    color: var(--accent);
   }
   .playing .name {
-    color: var(--paper);
+    color: var(--fg);
     font-weight: 600;
   }
 </style>

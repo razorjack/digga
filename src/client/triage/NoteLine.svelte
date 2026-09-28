@@ -54,19 +54,19 @@
     flex: 1;
     min-width: 0;
     padding: 5px 9px;
-    border: 1px solid var(--flyer);
+    border: 1px solid var(--accent);
     border-radius: var(--radius);
-    background: var(--ground);
+    background: var(--bg);
   }
   input::placeholder {
-    color: var(--dust);
+    color: var(--fg-faint);
   }
   .hint {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     flex: none;
-    color: var(--faded);
+    color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   .note {
@@ -74,7 +74,7 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
-    color: var(--flyer);
+    color: var(--accent);
   }
   .note span {
     overflow: hidden;
