@@ -380,8 +380,8 @@
               skip releases without videos
             </label>
             <span class="hint" id="{id}-videos-hint">
-              Leaves out releases with no playable YouTube video on Discogs. A newer dump brings back those
-              that got one since.
+              Leaves out records with no playable YouTube video on any of their pressings. A newer dump brings
+              back those that got one since.
             </span>
           </fieldset>
           {#if draft.universe.styles.length > 1}

@@ -64,9 +64,11 @@ export function buildFilterWhere(
     clauses.push(`r.country IN (${placeholders(filters.countries.length)})`);
     params.push(...filters.countries);
   }
+  // A record plays videos of every pressing of its master, so any of them counts.
   if (filters.skipWithoutVideos)
     clauses.push(
-      "EXISTS (SELECT 1 FROM videos vf WHERE vf.release_id = r.id AND vf.embeddable = 1)",
+      `EXISTS (SELECT 1 FROM videos vf JOIN releases rv ON rv.id = vf.release_id
+        WHERE rv.triage_key = r.triage_key AND vf.embeddable = 1)`,
     );
   if (!opts.includeDecided)
     clauses.push("NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)");

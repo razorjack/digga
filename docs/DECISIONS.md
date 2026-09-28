@@ -238,3 +238,11 @@ Chronological. Each entry records a choice made without asking and why.
     the Kool FM tape"). The session keeps notes by triage key, so a note survives `N` and undo
     and is sent with the next verdict on that record; a snoozed record starts from its own note.
     Notes not yet saved are lost on reload, like the passes.
+72. **A record plays the videos of every pressing of its master.** The representative release is
+    chosen by main release first, so a record whose original has no video could land on "no
+    audio" while a repress or the CD has one: about 160 records of the owner's 7,139 had a video
+    on another in-filter pressing, and 198 only on a pressing outside the filter. Another
+    pressing's video joins the detail only when its matched track is a tune of this release, by
+    heard key, and it takes this release's position, so heard tracking, marks and listens stay on
+    the release being judged. Decision 59's per-release filter becomes per record for the same
+    reason.

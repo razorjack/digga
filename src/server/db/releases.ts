@@ -6,6 +6,7 @@ import type {
   TrackRecord,
   VideoRecord,
 } from "../../shared/types.ts";
+import type { PressingVideo } from "../../shared/videos.ts";
 import { type Db, nowIso } from "./db.ts";
 
 export interface TrackWrite {
@@ -299,6 +300,22 @@ export function getVideos(db: Db, releaseId: number): VideoRecord[] {
     .prepare("SELECT * FROM videos WHERE release_id = ? ORDER BY rowid")
     .all(releaseId) as VideoRow[];
   return rows.map(rowToVideo);
+}
+
+/** Videos of the master's other pressings, main release first, with their matched tunes. */
+export function getPressingVideos(db: Db, release: ReleaseRecord): PressingVideo[] {
+  if (release.masterId === null) return [];
+  const rows = db
+    .prepare(
+      `SELECT v.*, t.heard_key FROM videos v
+       JOIN releases r ON r.id = v.release_id
+       LEFT JOIN tracks t ON t.release_id = v.release_id AND t.seq = (
+         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = v.release_id AND s.position = v.matched_position)
+       WHERE r.master_id = ? AND r.id != ?
+       ORDER BY r.is_main_release DESC, r.id, v.rowid`,
+    )
+    .all(release.masterId, release.id) as (VideoRow & { heard_key: string | null })[];
+  return rows.map((row) => ({ video: rowToVideo(row), heardKey: row.heard_key }));
 }
 
 export function getSiblings(db: Db, release: ReleaseRecord): ReleaseRecord[] {

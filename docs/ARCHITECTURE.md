@@ -65,6 +65,12 @@ verdict, applies the query-time filters (`filters.*` in config: styles subset, y
 year, formats, countries), picks one representative release per key (main release, then most
 videos), orders by strategy and limits. Changing filters or strategy never requires a reload.
 
+A record plays the videos of all its pressings. `buildReleaseDetail()` returns the release's own
+videos, then those of other releases on the same master whose matched track is a tune on this
+release (same heard key), placed at this release's position for it (`poolVideos()` in
+`src/shared/videos.ts`). Unmatched videos of other pressings are left out, since they may be bonus
+tracks or full sides. `filters.skipWithoutVideos` counts a video on any pressing of the record.
+
 ## Verdicts and coverage
 
 `verdicts` holds one row per triage key. Seeds (`import collection|wantlist|history|list`) write

@@ -86,6 +86,18 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("counts videos of other pressings when skipping records without one", async () => {
+    const db = await fixtureDb();
+    // Only the German repress passes; it has no videos, the UK original has two.
+    const repress = filters({ skipWithoutVideos: true, countries: ["Germany"] });
+    expect(queryQueue(db, { filters: repress, strategy: "label_sweep", limit: 10 })).toEqual([
+      expect.objectContaining({ id: 1002, videoCount: 0 }),
+    ]);
+    db.prepare("UPDATE videos SET embeddable = 0 WHERE release_id = 1001").run();
+    expect(countRemaining(db, repress)).toBe(0);
+    db.close();
+  });
+
   it("excludes keys with a verdict and honours the other strategies", async () => {
     const db = await fixtureDb();
     upsertVerdict(db, { key: "m:506", status: "rejected", source: "triage" });
