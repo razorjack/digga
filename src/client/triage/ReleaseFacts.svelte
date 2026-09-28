@@ -114,6 +114,8 @@
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    /* Michroma's descenders reach about 0.08em below a 1.15 line box; the clamp would clip them. */
+    padding-bottom: 0.12em;
   }
   .title {
     font-size: clamp(18px, 1.6vw, var(--text-xl));

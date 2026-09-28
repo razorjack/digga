@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/digga-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/digga-logo-light.png">
+    <img src="docs/assets/digga-logo-light.png" alt="Digga logo: a spade in a cutaway of ground whose layers are records, with one yellow-label record found in the bottom layer" width="420">
+  </picture>
+</p>
+
 # Digga
 
 Local-first app for exhaustively digging Discogs vinyl by ear. Load the Discogs releases dump for
