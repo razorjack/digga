@@ -537,7 +537,7 @@
     font-size: var(--text-sm);
   }
   .pending::before {
-    content: "○ ";
+    content: "○ " / "";
     color: var(--flyer);
   }
   .handoff {

@@ -47,6 +47,11 @@
     return allFailed || player.failed.has(entry.video.videoId) ? "failed" : "video";
   }
 
+  function strayState(playing: boolean, failed: boolean): "playing" | "failed" | "video" {
+    if (playing) return "playing";
+    return failed ? "failed" : "video";
+  }
+
   const GLYPH = { playing: "▶", video: "●", failed: "×", blocked: "×", none: "" } as const;
   const HINT = {
     playing: "playing",
@@ -75,11 +80,14 @@
           type="button"
           tabindex="-1"
           disabled={index === null || state === "failed"}
+          aria-current={state === "playing" ? "true" : undefined}
           onmousedown={(e) => e.preventDefault()}
           onclick={() => index !== null && onplay(index)}
         >
           <span class="pos">{track.position}</span>
-          <span class="glyph" title={HINT[state]}>{GLYPH[state]}<span class="visually-hidden">{HINT[state]}</span></span>
+          <span class="glyph" title={HINT[state]}>
+            <span aria-hidden="true">{GLYPH[state]}</span><span class="visually-hidden">{HINT[state]}</span>
+          </span>
           <span class="name">
             {#if track.artistDisplay && track.artistDisplay !== releaseArtist}
               <span class="by">{track.artistDisplay} –</span>
@@ -102,16 +110,20 @@
     {#each strays as { entry, index } (entry.video.videoId)}
       {@const playing = index === playingIndex}
       {@const failed = player.failed.has(entry.video.videoId)}
+      {@const stray = strayState(playing, failed)}
       <li class="row" class:playing class:failed>
         <button
           type="button"
           tabindex="-1"
           disabled={failed}
+          aria-current={playing ? "true" : undefined}
           onmousedown={(ev) => ev.preventDefault()}
           onclick={() => onplay(index)}
         >
           <span class="pos"></span>
-          <span class="glyph">{#if playing}▶{:else if failed}×{:else}●{/if}</span>
+          <span class="glyph" title={HINT[stray]}>
+            <span aria-hidden="true">{GLYPH[stray]}</span><span class="visually-hidden">{HINT[stray]}</span>
+          </span>
           <span class="name">{entry.video.title || entry.video.videoId}</span>
           <span class="tags">{#if failed}<span class="note">no embed</span>{/if}</span>
           <span class="dur">{formatDuration(entry.video.durationSeconds)}</span>
