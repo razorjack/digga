@@ -44,6 +44,18 @@ describe("config schema", () => {
       expect(r.errors.some((e) => e.startsWith("server.port"))).toBe(true);
     }
   });
+
+  it("reports each invalid value as an issue at its path", () => {
+    const r = validateConfig({ queue: { limit: 0 }, player: { seekStepSeconds: null } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.issues.map((issue) => issue.path)).toEqual([
+        "queue.limit",
+        "player.seekStepSeconds",
+      ]);
+      expect(r.issues.every((issue) => issue.message !== "")).toBe(true);
+    }
+  });
 });
 
 describe("digga.config.example.json", () => {

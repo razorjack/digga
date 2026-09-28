@@ -1,6 +1,7 @@
 <script lang="ts">
   import { jobProgress, elapsed, JOB_LABEL } from "../../shared/job-display.ts";
   import { onDestroy, onMount, untrack } from "svelte";
+  import type { Attachment } from "svelte/attachments";
   import { BROWSERS, type Browser } from "../../shared/api.ts";
   import {
     type Config,
@@ -58,6 +59,7 @@
   let switching = $state(false);
   let modeEl = $state<HTMLElement | null>(null);
   let modeButton = $state<HTMLButtonElement | null>(null);
+  let form = $state<HTMLFormElement | null>(null);
 
   const saved = $derived(settings.value);
   const dirty = $derived(
@@ -65,6 +67,7 @@
   );
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
+  const issues = $derived(validation && !validation.ok ? validation.issues : []);
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
 
@@ -176,6 +179,19 @@
     }
   }
 
+  /**
+   * Reports the config problem at `path` on its field: the constraint validation API drives
+   * `:user-invalid` and blocks submission, `aria-invalid` tells assistive technology.
+   */
+  function reportProblem(path: string): Attachment<HTMLInputElement> {
+    return (input) => {
+      const message = issues.find((issue) => issue.path === path)?.message ?? "";
+      input.setCustomValidity(message);
+      if (message) input.setAttribute("aria-invalid", "true");
+      else input.removeAttribute("aria-invalid");
+    };
+  }
+
   const list = (xs: string[]) => xs.join(", ");
   const parseList = (text: string) =>
     text
@@ -189,7 +205,7 @@
   function onkeydown(event: KeyboardEvent): void {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
       event.preventDefault();
-      void save();
+      form?.requestSubmit();
     }
   }
 </script>
@@ -278,6 +294,7 @@
 
     <form
       class="form"
+      bind:this={form}
       onsubmit={(event) => {
         event.preventDefault();
         void save();
@@ -408,6 +425,7 @@
             max="5000"
             aria-describedby="{id}-batch-hint"
             bind:value={draft.queue.limit}
+            {@attach reportProblem("queue.limit")}
           />
           <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
         </div>
@@ -439,6 +457,7 @@
               max="120"
               aria-describedby="{id}-seek-hint"
               bind:value={draft.player.seekStepSeconds}
+              {@attach reportProblem("player.seekStepSeconds")}
             />
             <span class="hint" id="{id}-seek-hint">Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span>
           </div>
@@ -799,6 +818,9 @@
   }
   input::placeholder {
     color: var(--dust);
+  }
+  input:user-invalid {
+    border-color: var(--flyer);
   }
   input[type="number"] {
     width: 7em;

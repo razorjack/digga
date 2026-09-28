@@ -68,14 +68,22 @@ export function parseConfig(input: unknown): Config {
   return ConfigSchema.parse(input);
 }
 
-/** Returns the parsed config or a list of human-readable problems. */
+export interface ConfigIssue {
+  /** Dotted path of the invalid value, such as "queue.limit"; empty for the whole config. */
+  path: string;
+  message: string;
+}
+
+/** Returns the parsed config, or the problems as issues and as human-readable lines. */
 export function validateConfig(
   input: unknown,
-): { ok: true; config: Config } | { ok: false; errors: string[] } {
+): { ok: true; config: Config } | { ok: false; errors: string[]; issues: ConfigIssue[] } {
   const result = ConfigSchema.safeParse(input);
   if (result.success) return { ok: true, config: result.data };
-  const errors = result.error.issues.map(
-    (issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`,
-  );
-  return { ok: false, errors };
+  const issues = result.error.issues.map((issue) => ({
+    path: issue.path.join("."),
+    message: issue.message,
+  }));
+  const errors = issues.map((issue) => `${issue.path || "<root>"}: ${issue.message}`);
+  return { ok: false, errors, issues };
 }
