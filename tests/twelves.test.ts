@@ -1,0 +1,126 @@
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { createAppApi, type Api } from "../src/client/api.ts";
+import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
+import { visibleItems, compareNullable } from "../src/client/twelves/model.ts";
+import type { TwelvesItem, VerdictInput } from "../src/shared/api.ts";
+import type { Verdict } from "../src/shared/types.ts";
+import { queueItem } from "./helpers/catalog.ts";
+
+function record(id: number): TwelvesItem {
+  return {
+    release: queueItem(id),
+    onWantlist: false,
+    verdict: {
+      key: `r:${id}`,
+      status: "maybe",
+      source: "triage",
+      releaseId: id,
+      notes: null,
+      decidedAt: "2026-01-01T00:00:00.000Z",
+    },
+  };
+}
+
+const shelves: TwelvesShelf[] = [];
+afterEach(() => {
+  for (const shelf of shelves.splice(0)) shelf.destroy();
+});
+
+async function setup() {
+  let item = record(1);
+  const calls: string[] = [];
+  const http = {
+    mode: "live",
+    getTwelves: vi.fn(async () => ({ items: [item] })),
+    postVerdict: vi.fn(async (input: VerdictInput): Promise<Verdict> => {
+      calls.push(input.status);
+      item = { ...item, verdict: { ...item.verdict, ...input } };
+      return item.verdict;
+    }),
+    pushToWantlist: vi.fn(async () => {
+      calls.push("push");
+      item = { ...item, onWantlist: true };
+    }),
+    removeFromWantlist: vi.fn(async () => {
+      calls.push("remove");
+      item = { ...item, onWantlist: false };
+    }),
+  };
+  const app = createAppApi(http as unknown as Api, (inner) => ({ ...inner, mode: "sandbox" }));
+  app.setSandbox(false);
+  const shelf = new TwelvesShelf(app);
+  shelves.push(shelf);
+  await shelf.load();
+  return { shelf, http, app, calls };
+}
+
+describe("Twelves changes", () => {
+  it("serializes rejudging and undo with their wantlist writes", async () => {
+    const { shelf, calls } = await setup();
+    const item = shelf.items[0]!;
+    shelf.rejudge(item, "accepted");
+    shelf.rejudge(item, "rejected");
+    shelf.enqueueTask(() => shelf.undo());
+    await shelf.changes;
+    expect(calls).toEqual(["accepted", "push", "rejected", "remove", "accepted", "push"]);
+    expect(shelf.items[0]).toMatchObject({ verdict: { status: "accepted" }, onWantlist: true });
+  });
+
+  it("preserves undo history when saving an undo fails", async () => {
+    const { shelf, http } = await setup();
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.changes;
+    http.postVerdict.mockRejectedValueOnce(new Error("disk full"));
+    await shelf.undo();
+    expect(shelf.undoStack).toHaveLength(1);
+    expect(shelf.items[0]?.verdict.status).toBe("accepted");
+    expect(http.removeFromWantlist).not.toHaveBeenCalled();
+    await shelf.undo();
+    expect(shelf.undoStack).toHaveLength(0);
+    expect(shelf.items[0]?.verdict.status).toBe("maybe");
+  });
+
+  it("keeps a successful write locally when its reload fails", async () => {
+    const { shelf, http } = await setup();
+    http.getTwelves.mockRejectedValueOnce(new Error("reload failed"));
+    shelf.rejudge(shelf.items[0]!, "snoozed");
+    await shelf.changes;
+    expect(shelf.items[0]?.verdict.status).toBe("snoozed");
+    expect(shelf.error).toBe("reload failed");
+  });
+
+  it("pins queued writes to their original API mode", async () => {
+    const { shelf, app, http } = await setup();
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    app.setSandbox(true);
+    await shelf.changes;
+    expect(http.postVerdict).toHaveBeenCalledTimes(1);
+    expect(http.pushToWantlist).toHaveBeenCalledTimes(1);
+    expect(shelf.flash).toBeNull();
+  });
+});
+
+describe("Twelves filtering and ordering", () => {
+  it("combines shelf and case-insensitive note matching without changing input order", () => {
+    const items = [record(1), record(2)];
+    items[0]!.verdict.notes = "Radio recording";
+    items[1]!.verdict.status = "snoozed";
+    const visible = visibleItems(items, { shelf: "maybe", query: " RADIO ", sort: "newest" });
+    expect(visible.map((item) => item.verdict.key)).toEqual(["r:1"]);
+    expect(items.map((item) => item.verdict.key)).toEqual(["r:1", "r:2"]);
+  });
+
+  it("keeps missing numbers last in either sort direction", () => {
+    expect(compareNullable(null, 1, -1)).toBe(1);
+    expect(compareNullable(1, null, 1)).toBe(-1);
+    expect(compareNullable(null, null, 1)).toBe(0);
+    const items = [record(1), record(2), record(3)];
+    items[1]!.release!.communityWant = 10;
+    items[2]!.release!.communityWant = 20;
+    expect(
+      visibleItems(items, { shelf: "all", query: "", sort: "want" }).map(
+        (item) => item.verdict.key,
+      ),
+    ).toEqual(["r:3", "r:2", "r:1"]);
+  });
+});

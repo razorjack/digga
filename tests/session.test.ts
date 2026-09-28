@@ -1,7 +1,8 @@
+import { queueItem } from "./helpers/catalog.ts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { type Api, createAppApi } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
-import type { QueueItem, ReleaseDetail, TwelvesItem, VerdictInput } from "../src/shared/api.ts";
+import type { ReleaseDetail, TwelvesItem, VerdictInput } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { ReleaseRecord, Verdict } from "../src/shared/types.ts";
 
@@ -14,29 +15,6 @@ async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> 
     if (Date.now() > end) throw new Error("condition not met in time");
     await wait(2);
   }
-}
-
-function queueItem(id: number): QueueItem {
-  return {
-    id,
-    triageKey: `r:${id}`,
-    masterId: null,
-    title: `Title ${id}`,
-    artistDisplay: `Artist ${id}`,
-    labelName: null,
-    catno: null,
-    year: 2000,
-    country: null,
-    formatSummary: "Vinyl",
-    styles: [],
-    videoCount: 0,
-    communityWant: null,
-    communityHave: null,
-    numForSale: null,
-    lowestPrice: null,
-    currency: null,
-    enrichedAt: null,
-  };
 }
 
 /** A server stand-in that records the writes the session makes. */

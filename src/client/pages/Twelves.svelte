@@ -1,437 +1,107 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
-  import type { TwelvesItem } from "../../shared/api.ts";
-  import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-  import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
-  import type { Verdict, VerdictStatus } from "../../shared/types.ts";
-  import { isTriageSource } from "../../shared/verdict-rank.ts";
-  import { api } from "../api.ts";
-  import Key from "../components/Key.svelte";
-  import Stamp from "../components/Stamp.svelte";
-  import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
-  import { navigate, openExternal } from "../router.svelte.ts";
-  import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
+import { onMount, tick } from "svelte";
+import type { TwelvesItem } from "../../shared/api.ts";
+import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
+import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+import Key from "../components/Key.svelte";
+import Stamp from "../components/Stamp.svelte";
+import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
+import { navigate, openExternal } from "../router.svelte.ts";
+import { settings, ui } from "../stores.svelte.ts";
+import { TwelvesShelf } from '../twelves/shelf.svelte.ts';
+import { SHELVES, SORTS, EMPTY, JUDGE_KEYS, notOnList, notOnWantlist } from '../twelves/model.ts';
+const shelfState = new TwelvesShelf();
+onMount(() => { void shelfState.load(); return () => shelfState.destroy(); });
+let editingKey = $state<string | null>(null);
 
-  type ShelfId =
-    | "all"
-    | "accepted"
-    | "wantlist"
-    | "collection"
-    | "maybe"
-    | "candidate"
-    | "snoozed";
-  type SortId = "newest" | "label" | "artist" | "year" | "price" | "want";
+let noteDraft = $state("");
 
-  const SHELVES: { id: ShelfId; label: string }[] = [
-    { id: "all", label: "Everything" },
-    { id: "accepted", label: "Want" },
-    { id: "wantlist", label: "Discogs wantlist" },
-    { id: "collection", label: "Owned" },
-    { id: "maybe", label: "Maybe" },
-    { id: "candidate", label: "Grail" },
-    { id: "snoozed", label: "Snoozed" },
-  ];
-  const STATUSES: VerdictStatus[] = [
-    "accepted",
-    "wantlist",
-    "collection",
-    "maybe",
-    "candidate",
-    "snoozed",
-  ];
-  const SORTS: { id: SortId; label: string }[] = [
-    { id: "newest", label: "newest" },
-    { id: "label", label: "label" },
-    { id: "artist", label: "artist" },
-    { id: "year", label: "year" },
-    { id: "price", label: "price" },
-    { id: "want", label: "most wanted" },
-  ];
-  const EMPTY: Record<ShelfId, string> = {
-    all: "Nothing here yet. Press A on a release in Triage, or import your Discogs wantlist and collection.",
-    accepted: "Nothing wanted yet. Press A on a release in Triage.",
-    wantlist: "No wantlist imported. Run npm run digga -- import wantlist.",
-    collection: "No collection imported. Run npm run digga -- import collection.",
-    maybe: "No maybes. Press M in Triage for a release that belongs on your Discogs Maybe list.",
-    candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
-    snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",
-  };
+let filterInput = $state<HTMLInputElement | null>(null);
 
-  /** A change in Twelves and what it did to the Discogs wantlist, so Z can reverse both. */
-  interface UndoEntry {
-    previous: Verdict;
-    wantlist: { releaseId: number; change: "added" | "removed" } | null;
-  }
-  /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
-  const JUDGE_KEYS: Record<string, VerdictStatus> = {
-    a: "accepted",
-    m: "maybe",
-    c: "candidate",
-    r: "rejected",
-    l: "snoozed",
-  };
-  const TRIAGE_STATUSES = new Set<VerdictStatus>([
-    "accepted",
-    "maybe",
-    "candidate",
-    "rejected",
-    "snoozed",
-  ]);
+let listEl = $state<HTMLOListElement | null>(null);
 
-  let items = $state.raw<TwelvesItem[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
-  let shelf = $state<ShelfId>("all");
-  let sort = $state<SortId>("newest");
-  let query = $state("");
-  let selectedKey = $state<string | null>(null);
-  let editingKey = $state<string | null>(null);
-  let noteDraft = $state("");
-  let flash = $state<string | null>(null);
-  let undoStack = $state.raw<UndoEntry[]>([]);
-  let filterInput = $state<HTMLInputElement | null>(null);
-  let listEl = $state<HTMLOListElement | null>(null);
-  let checking = $state(false);
-  let pushing = $state(false);
+const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
 
-  const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
-  /** A maybe decided in Digga that has not shown up on the Discogs list yet. */
-  const notOnList = (i: TwelvesItem) =>
-    i.verdict.status === "maybe" && isTriageSource(i.verdict.source);
-  const pending = $derived(items.filter(notOnList).length);
-  /** A want that did not reach the Discogs wantlist (a failed push). */
-  const notOnWantlist = (i: TwelvesItem) => i.verdict.status === "accepted" && !i.onWantlist;
-  const wantsPending = $derived(items.filter(notOnWantlist));
-  const releaseIdOf = (i: TwelvesItem) => i.verdict.releaseId ?? i.release?.id ?? null;
-  const nameOf = (i: TwelvesItem) =>
-    i.release ? `${i.release.artistDisplay} – ${i.release.title}` : i.verdict.key;
+$effect(() => {
+    if (shelfState.selectedIndex === -1 && shelfState.visible.length > 0)
+        shelfState.selectedKey = shelfState.visible[0]!.verdict.key;
+});
 
-  const counts = $derived(
-    Object.fromEntries(
-      SHELVES.map((s) => [
-        s.id,
-        s.id === "all" ? items.length : items.filter((i) => i.verdict.status === s.id).length,
-      ]),
-    ) as Record<ShelfId, number>,
-  );
-
-  const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
-  const nullsLast = (a: number | null, b: number | null, dir: 1 | -1) =>
-    a === null ? (b === null ? 0 : 1) : b === null ? -1 : (a - b) * dir;
-
-  const visible = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    const list = items.filter((i) => {
-      if (shelf !== "all" && i.verdict.status !== shelf) return false;
-      if (q === "") return true;
-      const r = i.release;
-      return [r?.artistDisplay, r?.title, r?.labelName, r?.catno, i.verdict.notes]
-        .filter(Boolean)
-        .some((s) => s!.toLowerCase().includes(q));
-    });
-    const by = (i: TwelvesItem) => i.release;
-    return list.toSorted((a, b) => {
-      switch (sort) {
-        case "newest":
-          return b.verdict.decidedAt.localeCompare(a.verdict.decidedAt);
-        case "label":
-          return (
-            collator.compare(by(a)?.labelName ?? "~", by(b)?.labelName ?? "~") ||
-            collator.compare(by(a)?.catno ?? "", by(b)?.catno ?? "")
-          );
-        case "artist":
-          return collator.compare(by(a)?.artistDisplay ?? "~", by(b)?.artistDisplay ?? "~");
-        case "year":
-          return nullsLast(by(a)?.year ?? null, by(b)?.year ?? null, 1);
-        case "price":
-          return nullsLast(by(a)?.lowestPrice ?? null, by(b)?.lowestPrice ?? null, 1);
-        case "want":
-          return nullsLast(by(a)?.communityWant ?? null, by(b)?.communityWant ?? null, -1);
-      }
-    });
-  });
-
-  const selectedIndex = $derived(visible.findIndex((i) => i.verdict.key === selectedKey));
-  const selected = $derived(selectedIndex === -1 ? null : visible[selectedIndex]!);
-
-  async function load(): Promise<void> {
-    try {
-      const res = await api.getTwelves({ status: STATUSES });
-      items = res.items;
-      error = null;
-    } catch (e) {
-      error = errorMessage(e);
-    } finally {
-      loading = false;
-    }
-  }
-
-  onMount(() => {
-    void load();
-  });
-
-  $effect(() => {
-    if (selectedIndex === -1 && visible.length > 0) selectedKey = visible[0]!.verdict.key;
-  });
-
-  $effect(() => {
-    void selectedKey;
+$effect(() => {
+    void shelfState.selectedKey;
     listEl?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
-  });
+});
 
-  function showFlash(message: string): void {
-    flash = message;
-    setTimeout(() => {
-      if (flash === message) flash = null;
-    }, 5000);
-  }
-
-  /** Returns null when Discogs took the change, else what went wrong. */
-  async function wantlistWrite(releaseId: number, add: boolean): Promise<string | null> {
-    try {
-      if (add) await api.pushToWantlist(releaseId);
-      else await api.removeFromWantlist(releaseId);
-      return null;
-    } catch (e) {
-      return errorMessage(e);
-    }
-  }
-
-  /** Keeps the Discogs wantlist in step when a record becomes a want or stops being one. */
-  async function syncWantlist(
-    item: TwelvesItem,
-    status: VerdictStatus,
-  ): Promise<{ entry: UndoEntry["wantlist"]; note: string }> {
-    const releaseId = releaseIdOf(item);
-    const from = item.verdict.status;
-    if (releaseId === null || status === from) return { entry: null, note: "" };
-    if (status === "accepted" && !item.onWantlist) {
-      const error = await wantlistWrite(releaseId, true);
-      return error
-        ? { entry: null, note: ` Not on your Discogs wantlist: ${error}; A tries again.` }
-        : { entry: { releaseId, change: "added" }, note: " Added to your Discogs wantlist." };
-    }
-    if (from === "accepted") {
-      // Sent even when the want is not marked as on the wantlist: a push from Triage may have
-      // landed after this page loaded. Discogs treats a missing want as removed.
-      const error = await wantlistWrite(releaseId, false);
-      if (!item.onWantlist) return { entry: null, note: "" };
-      return error
-        ? { entry: null, note: ` Still on your Discogs wantlist: ${error}.` }
-        : { entry: { releaseId, change: "removed" }, note: " Taken off your Discogs wantlist." };
-    }
-    return { entry: null, note: "" };
-  }
-
-  let changes: Promise<void> = Promise.resolve();
-
-  /**
-   * Changes run one at a time, each on the records as the one before left them, so a quick A then
-   * R, or a Z before a push returns, sees the right verdict and the right wantlist state.
-   */
-  function enqueueTask(task: () => Promise<void>): void {
-    changes = changes.then(task).catch((e: unknown) => showFlash(errorMessage(e)));
-  }
-
-  function enqueue(key: string, change: (item: TwelvesItem) => Promise<void>): void {
-    enqueueTask(async () => {
-      const item = items.find((i) => i.verdict.key === key);
-      if (item) await change(item);
-    });
-  }
-
-  async function write(item: TwelvesItem, next: Partial<Verdict>, message: string): Promise<void> {
-    const previous = item.verdict;
-    // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
-    const index = visible.findIndex((i) => i.verdict.key === previous.key);
-    const neighbour = (visible[index + 1] ?? visible[index - 1])?.verdict.key ?? null;
-    try {
-      await api.postVerdict({
-        key: previous.key,
-        status: next.status ?? previous.status,
-        source: next.source ?? previous.source,
-        notes: next.notes === undefined ? previous.notes : next.notes,
-        releaseId: previous.releaseId,
-      });
-    } catch (e) {
-      showFlash(`Not saved: ${errorMessage(e)}`);
-      return;
-    }
-    const wantlist = await syncWantlist(item, next.status ?? previous.status);
-    undoStack = [...undoStack, { previous, wantlist: wantlist.entry }];
-    showFlash(`${message}${wantlist.note} Z undoes it.`);
-    await load();
-    if (!visible.some((i) => i.verdict.key === selectedKey)) selectedKey = neighbour;
-    void stats.refresh();
-  }
-
-  async function undo(): Promise<void> {
-    const entry = undoStack.at(-1);
-    if (!entry) {
-      showFlash("Nothing to undo.");
-      return;
-    }
-    undoStack = undoStack.slice(0, -1);
-    const { previous, wantlist } = entry;
-    try {
-      await api.postVerdict({
-        key: previous.key,
-        status: previous.status,
-        source: previous.source,
-        notes: previous.notes,
-        releaseId: previous.releaseId,
-        decidedAt: previous.decidedAt,
-      });
-    } catch (e) {
-      showFlash(`Undo failed: ${errorMessage(e)}`);
-      return;
-    }
-    const error = wantlist ? await wantlistWrite(wantlist.releaseId, wantlist.change === "removed") : null;
-    selectedKey = previous.key;
-    showFlash(error ? `Undone, but the Discogs wantlist did not follow: ${error}` : "Undone.");
-    await load();
-    void stats.refresh();
-  }
-
-  /** Pushes wants that are not on the Discogs wantlist yet, one request at a time. */
-  async function addToWantlist(list: TwelvesItem[]): Promise<void> {
-    if (pushing || list.length === 0) return;
-    pushing = true;
-    let added = 0;
-    let error: string | null = null;
-    for (const item of list) {
-      const releaseId = releaseIdOf(item);
-      if (releaseId === null) continue;
-      if (list.length > 1) flash = `Adding to your Discogs wantlist: ${added + 1} of ${list.length}…`;
-      error = await wantlistWrite(releaseId, true);
-      if (error) break;
-      added += 1;
-    }
-    pushing = false;
-    await load();
-    if (error)
-      showFlash(
-        added > 0
-          ? `${formatCount(added)} added, then Discogs refused: ${error}`
-          : `Not added to your Discogs wantlist: ${error}`,
-      );
-    else
-      showFlash(
-        list.length === 1
-          ? `${nameOf(list[0]!)}: added to your Discogs wantlist.`
-          : `${formatCount(added)} added to your Discogs wantlist.`,
-      );
-  }
-
-  function rejudge(selectedItem: TwelvesItem, status: VerdictStatus): void {
-    enqueue(selectedItem.verdict.key, async (item) => {
-      if (!TRIAGE_STATUSES.has(item.verdict.status)) {
-        showFlash("Wantlist and owned records come from Discogs; change them there.");
+/** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
+function hearAgain(): void {
+    if (shelfState.selected?.verdict.status !== "snoozed") {
+        shelfState.showFlash("Enter hears snoozed records again; pick one on the Snoozed shelf (7).");
         return;
-      }
-      if (item.verdict.status === status) {
-        if (notOnWantlist(item)) await addToWantlist([item]);
-        return;
-      }
-      await write(item, { status, source: "triage" }, `${nameOf(item)}: ${STATUS_COPY[status]}.`);
-    });
-  }
-
-  /** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
-  function hearAgain(): void {
-    if (selected?.verdict.status !== "snoozed") {
-      showFlash("Enter hears snoozed records again; pick one on the Snoozed shelf (7).");
-      return;
     }
-    const round = visible.slice(selectedIndex).filter((i) => i.verdict.status === "snoozed" && i.release);
+    const round = shelfState.visible.slice(shelfState.selectedIndex).filter((i) => i.verdict.status === "snoozed" && i.release);
     if (round.length === 0) {
-      showFlash("This record is not in the loaded dump, so Triage cannot play it.");
-      return;
+        shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+        return;
     }
     ui.snoozedRound = round;
     navigate("triage");
-  }
+}
 
-  async function startEditing(item: TwelvesItem): Promise<void> {
+async function startEditing(item: TwelvesItem): Promise<void> {
     editingKey = item.verdict.key;
     noteDraft = item.verdict.notes ?? "";
     await tick();
     document.querySelector<HTMLInputElement>(".note-input")?.focus();
-  }
+}
 
-  function saveNote(item: TwelvesItem): void {
+function saveNote(item: TwelvesItem): void {
     editingKey = null;
     const notes = noteDraft.trim() === "" ? null : noteDraft.trim();
-    if (notes === item.verdict.notes) return;
-    enqueue(item.verdict.key, (fresh) => write(fresh, { notes }, notes ? "Note saved." : "Note removed."));
-  }
+    if (notes === item.verdict.notes)
+        return;
+    shelfState.enqueue(item.verdict.key, (fresh) => shelfState.write(fresh, { notes }, notes ? "Note saved." : "Note removed."));
+}
 
-  function move(delta: number): void {
-    if (visible.length === 0) return;
-    const i = Math.min(visible.length - 1, Math.max(0, (selectedIndex === -1 ? 0 : selectedIndex) + delta));
-    selectedKey = visible[i]!.verdict.key;
-  }
-
-  /** Reads the Discogs Maybe list again, so maybes added there by hand lose their marker. */
-  async function checkList(): Promise<void> {
-    if (checking) return;
-    if (!hasMaybeList) {
-      showFlash("Pick your Discogs Maybe list in Settings first.");
-      return;
-    }
-    checking = true;
-    try {
-      let job = await api.startImport("list");
-      while (job.status === "running" || job.status === "queued") {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        job = await api.getJob(job.id);
-      }
-      if (job.status !== "done") throw new Error(job.error ?? `the check ended as ${job.status}`);
-      if (job.type !== "import_list" || !job.progress) throw new Error("Missing list import progress");
-      const progress = job.progress;
-      await load();
-      void stats.refresh();
-      showFlash(
-        `Your Discogs Maybe list has ${formatCount(progress.processed)} records; ${formatCount(progress.verdictsWritten)} changed here.`,
-      );
-    } catch (e) {
-      showFlash(`The list check failed: ${errorMessage(e)}`);
-    } finally {
-      checking = false;
-    }
-  }
-
-  function cycleSort(): void {
-    const i = SORTS.findIndex((s) => s.id === sort);
-    sort = SORTS[(i + 1) % SORTS.length]!.id;
-  }
-
-  function onkeydown(e: KeyboardEvent): void {
-    if (ui.helpOpen || e.defaultPrevented || isTyping(e) || hasCommandModifier(e) || e.shiftKey) return;
+function onkeydown(e: KeyboardEvent): void {
+    if (ui.helpOpen || e.defaultPrevented || isTyping(e) || hasCommandModifier(e) || e.shiftKey)
+        return;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     const shelfIndex = /^[1-7]$/.test(key) ? Number(key) - 1 : -1;
-    if (shelfIndex >= 0) shelf = SHELVES[shelfIndex]!.id;
-    else if (key === "j" || key === "ArrowDown") move(1);
-    else if (key === "k" || key === "ArrowUp") move(-1);
-    else if (key === "s") cycleSort();
-    else if (key === "/") filterInput?.focus();
-    else if (key === "z") enqueueTask(undo);
-    else if (key === "i") void checkList();
-    else if (key === "Enter") hearAgain();
-    else if (key === "o" && selected?.release) openExternal(discogsReleaseUrl(selected.release.id));
-    else if (key === "e" && selected) void startEditing(selected);
-    else if (JUDGE_KEYS[key] && selected) rejudge(selected, JUDGE_KEYS[key]);
-    else return;
+    if (shelfIndex >= 0)
+        shelfState.shelf = SHELVES[shelfIndex]!.id;
+    else if (key === "j" || key === "ArrowDown")
+        shelfState.move(1);
+    else if (key === "k" || key === "ArrowUp")
+        shelfState.move(-1);
+    else if (key === "s")
+        shelfState.cycleSort();
+    else if (key === "/")
+        filterInput?.focus();
+    else if (key === "z")
+        shelfState.enqueueTask(() => shelfState.undo());
+    else if (key === "i")
+        void shelfState.checkList();
+    else if (key === "Enter")
+        hearAgain();
+    else if (key === "o" && shelfState.selected?.release)
+        openExternal(discogsReleaseUrl(shelfState.selected.release.id));
+    else if (key === "e" && shelfState.selected)
+        void startEditing(shelfState.selected);
+    else if (JUDGE_KEYS[key] && shelfState.selected)
+        shelfState.rejudge(shelfState.selected, JUDGE_KEYS[key]);
+    else
+        return;
     e.preventDefault();
-  }
+}
 
-  function onFilterKey(e: KeyboardEvent): void {
+function onFilterKey(e: KeyboardEvent): void {
     if (e.key === "Escape" || e.key === "Enter") {
-      if (e.key === "Escape") query = "";
-      (e.currentTarget as HTMLInputElement).blur();
-      e.preventDefault();
+        if (e.key === "Escape")
+            shelfState.query = "";
+        (e.currentTarget as HTMLInputElement).blur();
+        e.preventDefault();
     }
-  }
+}
 </script>
 
 <svelte:window {onkeydown} />
@@ -440,7 +110,7 @@
   <header class="head">
     <h1>Twelves</h1>
     <p class="lede">
-      {formatCount(counts.all)} records you want, own, or put aside.
+      {formatCount(shelfState.counts.all)} records you want, own, or put aside.
     </p>
   </header>
 
@@ -450,12 +120,12 @@
         <button
           type="button"
           role="tab"
-          aria-selected={shelf === s.id}
-          onclick={() => (shelf = s.id)}
+          aria-selected={shelfState.shelf === s.id}
+          onclick={() => (shelfState.shelf = s.id)}
         >
           <Key label={String(i + 1)} size="sm" />
           {s.label}
-          <span class="count">{formatCount(counts[s.id])}</span>
+          <span class="count">{formatCount(shelfState.counts[s.id])}</span>
         </button>
       {/each}
     </div>
@@ -464,7 +134,7 @@
         <Key label="/" size="sm" />
         <input
           bind:this={filterInput}
-          bind:value={query}
+          bind:value={shelfState.query}
           onkeydown={onFilterKey}
           placeholder="artist, title, label, cat no"
           aria-label="Filter"
@@ -473,55 +143,55 @@
       <div class="sort">
         <Key label="S" size="sm" /> sort
         {#each SORTS as s (s.id)}
-          <button type="button" aria-pressed={sort === s.id} onclick={() => (sort = s.id)}>{s.label}</button>
+          <button type="button" aria-pressed={shelfState.sort === s.id} onclick={() => (shelfState.sort = s.id)}>{s.label}</button>
         {/each}
       </div>
     </div>
   </div>
 
-  {#if shelf === "maybe" || (shelf === "all" && pending > 0)}
+  {#if shelfState.shelf === "maybe" || (shelfState.shelf === "all" && shelfState.pending > 0)}
     <div class="handoff">
       {#if !hasMaybeList}
         <p>Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step with it.</p>
       {:else}
         <p>
-          {#if pending > 0}
-            <b>{formatCount(pending)}</b>
-            {pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet. The Discogs
+          {#if shelfState.pending > 0}
+            <b>{formatCount(shelfState.pending)}</b>
+            {shelfState.pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet. The Discogs
             API cannot add to lists: <Key label="O" /> opens the release, where "Add to list" is one
             click.
           {:else}
             Every maybe here is on your Discogs Maybe list.
           {/if}
         </p>
-        <button type="button" class="check" disabled={checking} onclick={() => void checkList()}>
+        <button type="button" class="check" disabled={shelfState.checking} onclick={() => void shelfState.checkList()}>
           <Key label="I" />
-          {checking ? "Reading your Discogs Maybe list…" : "check the list again"}
+          {shelfState.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
         </button>
       {/if}
     </div>
   {/if}
 
-  {#if shelf === "accepted" || (shelf === "all" && wantsPending.length > 0)}
+  {#if shelfState.shelf === "accepted" || (shelfState.shelf === "all" && shelfState.wantsPending.length > 0)}
     <div class="handoff">
       <p>
-        {#if wantsPending.length > 0}
-          <b>{formatCount(wantsPending.length)}</b>
-          {wantsPending.length === 1 ? "want is" : "wants are"} not on your Discogs wantlist: the push
+        {#if shelfState.wantsPending.length > 0}
+          <b>{formatCount(shelfState.wantsPending.length)}</b>
+          {shelfState.wantsPending.length === 1 ? "want is" : "wants are"} not on your Discogs wantlist: the push
           failed or was undone. <Key label="A" /> on one tries again.
         {:else}
           Every want here is on your Discogs wantlist.
         {/if}
       </p>
-      {#if wantsPending.length > 1}
-        <button type="button" class="check" disabled={pushing} onclick={() => enqueueTask(() => addToWantlist(wantsPending))}>
-          {pushing ? "Adding…" : `add all ${formatCount(wantsPending.length)}`}
+      {#if shelfState.wantsPending.length > 1}
+        <button type="button" class="check" disabled={shelfState.pushing} onclick={() => shelfState.enqueueTask(() => shelfState.addToWantlist(shelfState.wantsPending))}>
+          {shelfState.pushing ? "Adding…" : `add all ${formatCount(shelfState.wantsPending.length)}`}
         </button>
       {/if}
     </div>
   {/if}
 
-  {#if shelf === "snoozed" && counts.snoozed > 0}
+  {#if shelfState.shelf === "snoozed" && shelfState.counts.snoozed > 0}
     <div class="handoff">
       <p>
         <Key label="Enter" /> hears the snoozed records again in Triage, from the selected one. A verdict
@@ -530,23 +200,23 @@
     </div>
   {/if}
 
-  {#if loading}
+  {#if shelfState.loading}
     <p class="empty">Loading…</p>
-  {:else if error}
-    <p class="empty">Twelves did not load: {error}</p>
-  {:else if visible.length === 0}
-    <p class="empty">{query ? `Nothing matches “${query}”.` : EMPTY[shelf]}</p>
+  {:else if shelfState.error}
+    <p class="empty">Twelves did not load: {shelfState.error}</p>
+  {:else if shelfState.visible.length === 0}
+    <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY[shelfState.shelf]}</p>
   {:else}
     <ol class="box" bind:this={listEl}>
-      {#each visible as item (item.verdict.key)}
+      {#each shelfState.visible as item (item.verdict.key)}
         {@const r = item.release}
-        {@const isSelected = item.verdict.key === selectedKey}
+        {@const isSelected = item.verdict.key === shelfState.selectedKey}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <li
           class="card"
           class:selected={isSelected}
           aria-current={isSelected ? "true" : undefined}
-          onclick={() => (selectedKey = item.verdict.key)}
+          onclick={() => (shelfState.selectedKey = item.verdict.key)}
         >
           <span class="catno">{r?.catno ?? ""}</span>
           <div class="who">
@@ -615,12 +285,12 @@
       <span><Key label="E" /> note</span>
       <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
       <span><Key label="I" /> check Maybe list</span>
-      {#if shelf === "snoozed" || selected?.verdict.status === "snoozed"}
+      {#if shelfState.shelf === "snoozed" || shelfState.selected?.verdict.status === "snoozed"}
         <span><Key label="Enter" /> hear again</span>
       {/if}
       <span><Key label="Z" /> undo</span>
     </p>
-    <p class="flash" aria-live="polite">{flash ?? ""}</p>
+    <p class="flash" aria-live="polite">{shelfState.flash ?? ""}</p>
   </footer>
 </div>
 
