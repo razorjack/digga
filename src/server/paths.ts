@@ -52,3 +52,8 @@ export function resolvePaths(opts: PathOptions): Paths {
     envFile: path.resolve(opts.envFile ?? path.join(opts.baseDir, ".env")),
   };
 }
+
+export function resolveDumpFile(paths: Paths, file: string): string {
+  if (file === "-" || path.isAbsolute(file)) return file;
+  return path.resolve(paths.dumpsDir, file);
+}

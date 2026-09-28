@@ -1,0 +1,86 @@
+import { type Context, Hono } from "hono";
+import {
+  type ApiError,
+  QueueQuerySchema,
+  type QueueResponse,
+  StatsQuerySchema,
+  TwelvesQuerySchema,
+  type TwelvesResponse,
+} from "../../shared/api.ts";
+import { countRemaining, queryQueue } from "../queue/query.ts";
+import { queryTwelves } from "../queue/twelves.ts";
+import { computeStats } from "../stats.ts";
+import type { AppContext } from "../context.ts";
+import { badRequest, parseId, parseQuery } from "./request.ts";
+import { buildReleaseDetail } from "../queue/detail.ts";
+
+export function registerCatalogRoutes(api: Hono, context: AppContext): void {
+  api.get("/health", (request) => health(request));
+  api.get("/queue", (request) => queue(request, context));
+  api.get("/releases/:id", (request) => release(request, context));
+  api.get("/twelves", (request) => twelves(request, context));
+  api.get("/stats", (request) => stats(request, context));
+}
+
+function health(request: Context) {
+  return request.json({ ok: true, name: "digga" });
+}
+
+function queue(request: Context, context: AppContext) {
+  const { db } = context;
+  const query = parseQuery(request, QueueQuerySchema);
+  if (!query.ok) return query.response;
+  const config = context.getConfig();
+  const strategy = query.data.strategy ?? config.queue.strategy;
+  const filters = query.data.filters ?? config.filters;
+  const seed = strategy === "random" ? (query.data.seed ?? daySeed()) : null;
+  const items = queryQueue(db, {
+    filters,
+    strategy,
+    limit: query.data.limit ?? config.queue.limit,
+    offset: query.data.offset,
+    seed,
+  });
+  const body: QueueResponse = {
+    items,
+    remaining: countRemaining(db, filters),
+    strategy,
+    seed,
+    filters,
+  };
+  return request.json(body);
+}
+
+function release(request: Context, context: AppContext) {
+  const { db } = context;
+  const id = parseId(request.req.param("id") ?? "");
+  if (id === null) return badRequest(request, "Invalid release id");
+  const detail = buildReleaseDetail(db, id);
+  if (!detail) return request.json({ error: "Release not found" } satisfies ApiError, 404);
+  return request.json(detail);
+}
+
+function twelves(request: Context, context: AppContext) {
+  const { db } = context;
+  const query = parseQuery(request, TwelvesQuerySchema);
+  if (!query.ok) return query.response;
+  const config = context.getConfig();
+  const filters = query.data.applyFilters ? config.filters : null;
+  const items = queryTwelves(db, query.data.status, filters);
+  const body: TwelvesResponse = { items, statuses: query.data.status };
+  return request.json(body);
+}
+
+function stats(request: Context, context: AppContext) {
+  const { db } = context;
+  const query = parseQuery(request, StatsQuerySchema);
+  if (!query.ok) return query.response;
+  const config = context.getConfig();
+  return request.json(
+    computeStats(db, { ...config, filters: query.data.filters ?? config.filters }),
+  );
+}
+
+function daySeed(): number {
+  return Math.floor(Date.now() / 86400000);
+}
