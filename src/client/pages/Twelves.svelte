@@ -68,6 +68,18 @@
     );
   }
 
+  const ACTIONS: Record<string, () => void> = {
+    j: () => shelfState.move(1),
+    ArrowDown: () => shelfState.move(1),
+    k: () => shelfState.move(-1),
+    ArrowUp: () => shelfState.move(-1),
+    s: () => shelfState.cycleSort(),
+    "/": () => filterInput?.focus(),
+    z: () => shelfState.enqueueTask(() => shelfState.undo()),
+    i: () => void shelfState.checkList(),
+    Enter: hearAgain,
+  };
+
   function onkeydown(event: KeyboardEvent): void {
     if (
       ui.helpOpen ||
@@ -78,22 +90,38 @@
     )
       return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (runShortcut(key)) event.preventDefault();
+  }
+
+  function runShortcut(key: string): boolean {
     const shelfIndex = /^[1-7]$/.test(key) ? Number(key) - 1 : -1;
-    if (shelfIndex >= 0) shelfState.shelf = SHELVES[shelfIndex]!.id;
-    else if (key === "j" || key === "ArrowDown") shelfState.move(1);
-    else if (key === "k" || key === "ArrowUp") shelfState.move(-1);
-    else if (key === "s") shelfState.cycleSort();
-    else if (key === "/") filterInput?.focus();
-    else if (key === "z") shelfState.enqueueTask(() => shelfState.undo());
-    else if (key === "i") void shelfState.checkList();
-    else if (key === "Enter") hearAgain();
-    else if (key === "o" && shelfState.selected?.release)
-      openExternal(discogsReleaseUrl(shelfState.selected.release.id));
-    else if (key === "e" && shelfState.selected) void startEditing(shelfState.selected);
-    else if (JUDGE_KEYS[key] && shelfState.selected)
-      shelfState.rejudge(shelfState.selected, JUDGE_KEYS[key]);
-    else return;
-    event.preventDefault();
+    if (shelfIndex >= 0) {
+      shelfState.shelf = SHELVES[shelfIndex]!.id;
+      return true;
+    }
+    const action = ACTIONS[key];
+    if (action) {
+      action();
+      return true;
+    }
+    return selectedShortcut(key);
+  }
+
+  function selectedShortcut(key: string): boolean {
+    const selected = shelfState.selected;
+    if (!selected) return false;
+    if (key === "o" && selected.release) {
+      openExternal(discogsReleaseUrl(selected.release.id));
+      return true;
+    }
+    if (key === "e") {
+      void startEditing(selected);
+      return true;
+    }
+    const verdict = JUDGE_KEYS[key];
+    if (!verdict) return false;
+    shelfState.rejudge(selected, verdict);
+    return true;
   }
 
   function onFilterKey(event: KeyboardEvent): void {

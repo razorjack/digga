@@ -397,6 +397,10 @@ export class TriagePlayer {
     ) {
       this.status = "needs_gesture";
     }
+    this.#countListen(elapsedSeconds);
+  }
+
+  #countListen(elapsedSeconds: number): void {
     const listen = this.#listen;
     if (this.status !== "playing" || !listen) return;
     listen.seconds += elapsedSeconds;

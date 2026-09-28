@@ -20,19 +20,19 @@
   const route = $derived(getRoute());
   const localhostUrl = localhostAlternative();
 
-  const helpGroups = $derived(
-    route === "triage"
-      ? [
-          ...triageKeyGroups(
-            settings.value?.player.seekStepSeconds ?? 10,
-            (settings.value?.discogs.maybeListId ?? null) !== null,
-          ),
-          GLOBAL_KEYS,
-        ]
-      : route === "twelves"
-        ? [...TWELVES_KEY_GROUPS, GLOBAL_KEYS]
-        : [GLOBAL_KEYS],
-  );
+  const helpGroups = $derived.by(() => {
+    if (route === "triage") {
+      return [
+        ...triageKeyGroups(
+          settings.value?.player.seekStepSeconds ?? 10,
+          (settings.value?.discogs.maybeListId ?? null) !== null,
+        ),
+        GLOBAL_KEYS,
+      ];
+    }
+    if (route === "twelves") return [...TWELVES_KEY_GROUPS, GLOBAL_KEYS];
+    return [GLOBAL_KEYS];
+  });
 
   const eta = $derived(formatEta(stats.value?.rate.etaHours ?? null));
 

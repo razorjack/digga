@@ -213,8 +213,7 @@ class SandboxApi implements Api {
       releaseId: entry.release?.id ?? null,
       decidedAt: this.#now().toISOString(),
     };
-    if (previous?.status === "maybe" && previous.source === "seed:list") return false;
-    if (previous && seedRank(seed) < seedRank(previous)) return false;
+    if (!shouldApplyListSeed(seed, previous)) return false;
     const existing = this.#verdicts.get(entry.key);
     this.#verdicts.set(entry.key, {
       verdict: seed,
@@ -449,4 +448,9 @@ class SandboxApi implements Api {
 
   removeFromWantlist: Api["removeFromWantlist"] = (releaseId) =>
     this.#fakeWantlistWrite(releaseId, false);
+}
+
+function shouldApplyListSeed(seed: Verdict, previous: Verdict | null): boolean {
+  if (previous?.status === "maybe" && previous.source === "seed:list") return false;
+  return previous === null || seedRank(seed) >= seedRank(previous);
 }

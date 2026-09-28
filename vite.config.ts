@@ -21,7 +21,23 @@ export default defineConfig({
   lint: {
     ignorePatterns: ["dist/**", "data/**"],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    rules: { "vite-plus/prefer-vite-plus-imports": "error" },
+    rules: {
+      "vite-plus/prefer-vite-plus-imports": "error",
+      complexity: ["error", { max: 15 }],
+      "max-depth": ["error", { max: 3 }],
+      "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],
+      "max-nested-callbacks": ["error", { max: 3 }],
+      "max-params": ["error", { max: 4 }],
+      "no-else-return": ["error", { allowElseIf: false }],
+      "no-nested-ternary": "error",
+      "typescript/no-explicit-any": "error",
+    },
+    overrides: [
+      {
+        files: ["**/*.test.ts"],
+        rules: { complexity: "off", "max-lines-per-function": "off" },
+      },
+    ],
     options: { typeAware: true, typeCheck: true },
   },
 });

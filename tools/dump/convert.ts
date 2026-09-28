@@ -7,25 +7,14 @@ import {
   yearFromReleased,
 } from "../../src/shared/normalize.ts";
 import { triageKeyFor } from "../../src/shared/triage-key.ts";
-import type { ReleaseWrite } from "../../src/server/db/releases.ts";
-import type { DumpRelease } from "./types.ts";
+import type { ReleaseWrite, TrackWrite } from "../../src/server/db/releases.ts";
+import type { DumpRelease, DumpTrack } from "./types.ts";
 
 /** Pure conversion of a parsed dump release into the row set the database layer writes. */
 export function dumpReleaseToWrite(release: DumpRelease): ReleaseWrite {
   const display = artistDisplay(release.artists);
   const firstLabel = release.labels[0];
-  const tracks = release.tracklist.map((track, seq) => {
-    const trackArtist = track.artists.length > 0 ? artistDisplay(track.artists) : display;
-    return {
-      seq,
-      position: track.position,
-      title: track.title,
-      artists: track.artists,
-      artistDisplay: trackArtist,
-      durationSeconds: durationToSeconds(track.duration),
-      heardKey: heardKeyFor(trackArtist, track.title),
-    };
-  });
+  const tracks = prepareTracks(release.tracklist, display);
   const videos = prepareVideos(
     tracks.map((track) => ({
       position: track.position,
@@ -61,4 +50,19 @@ export function dumpReleaseToWrite(release: DumpRelease): ReleaseWrite {
     tracks,
     videos,
   };
+}
+
+function prepareTracks(tracklist: DumpTrack[], display: string): TrackWrite[] {
+  return tracklist.map((track, seq) => {
+    const trackArtist = track.artists.length > 0 ? artistDisplay(track.artists) : display;
+    return {
+      seq,
+      position: track.position,
+      title: track.title,
+      artists: track.artists,
+      artistDisplay: trackArtist,
+      durationSeconds: durationToSeconds(track.duration),
+      heardKey: heardKeyFor(trackArtist, track.title),
+    };
+  });
 }

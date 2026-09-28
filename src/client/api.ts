@@ -83,24 +83,7 @@ function queryString(params: Record<string, string | number | boolean | undefine
 }
 
 export function createHttpApi(baseUrl = "/api"): Api {
-  const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
-    const response = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers: body === undefined ? {} : { "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await response.text();
-    const data: unknown = text === "" ? null : JSON.parse(text);
-    if (!response.ok) {
-      const error = (data ?? {}) as { error?: string; issues?: unknown };
-      throw new ApiRequestError(
-        response.status,
-        error.error ?? `${method} ${path} failed with ${response.status}`,
-        error.issues,
-      );
-    }
-    return data as T;
-  };
+  const call = httpCaller(baseUrl);
   return {
     mode: "live",
     getQueue: ({ filters, ...rest } = {}) =>
@@ -192,3 +175,24 @@ export function createAppApi(
  * then switches to the mode `sandbox` in digga.config.json asks for.
  */
 export const api: AppApi = createAppApi(createHttpApi());
+
+function httpCaller(baseUrl: string) {
+  return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: body === undefined ? {} : { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await response.text();
+    const data: unknown = text === "" ? null : JSON.parse(text);
+    if (!response.ok) {
+      const error = (data ?? {}) as { error?: string; issues?: unknown };
+      throw new ApiRequestError(
+        response.status,
+        error.error ?? `${method} ${path} failed with ${response.status}`,
+        error.issues,
+      );
+    }
+    return data as T;
+  };
+}

@@ -120,63 +120,64 @@
     return false;
   }
 
+  const TRACK_MARK_KEYS: Record<string, TrackMark> = { k: "keep", m: "meh", c: "candidate" };
+  const ACTIONS: Record<string, () => void> = {
+    " ": () => player.toggle(),
+    j: () => player.nextTrack(),
+    k: () => player.previousTrack(),
+    o: () => openReleaseLink("discogs"),
+    s: () => openReleaseLink("youtube"),
+    n: () => session.pass(),
+    z: () => session.undo(),
+  };
+
+  function openReleaseLink(site: "discogs" | "youtube"): void {
+    const item = session.current;
+    if (!item) return;
+    const url =
+      site === "discogs"
+        ? discogsReleaseUrl(item.id)
+        : youtubeSearchUrl(`${item.artistDisplay} ${item.title}`);
+    openExternal(url);
+  }
+
   /** Returns true when the key was a triage shortcut. */
   function handle(event: KeyboardEvent): boolean {
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    const item = session.current;
-    if (event.shiftKey && (key === "k" || key === "m" || key === "c")) {
-      if (!event.repeat) markPlaying(key === "k" ? "keep" : key === "m" ? "meh" : "candidate");
+    const mark = event.shiftKey ? TRACK_MARK_KEYS[key] : undefined;
+    if (mark) {
+      if (!event.repeat) markPlaying(mark);
       return true;
     }
-    switch (key) {
-      case "ArrowLeft":
-        player.seekBy(-seekStep);
-        return true;
-      case "ArrowRight":
-        player.seekBy(seekStep);
-        return true;
+    if (key === "ArrowLeft" || key === "ArrowRight") {
+      player.seekBy(key === "ArrowLeft" ? -seekStep : seekStep);
+      return true;
     }
     // Holding a key down must not judge a run of releases.
     if (event.repeat) return /^[ jknozs1-9radmc]$/.test(key);
-    switch (key) {
-      case " ":
-        player.toggle();
-        return true;
-      case "j":
-        player.nextTrack();
-        return true;
-      case "k":
-        player.previousTrack();
-        return true;
-      case "o":
-        if (item) openExternal(discogsReleaseUrl(item.id));
-        return true;
-      case "s":
-        if (item) openExternal(youtubeSearchUrl(`${item.artistDisplay} ${item.title}`));
-        return true;
-      case "n":
-        session.pass();
-        return true;
-      case "z":
-        session.undo();
-        return true;
-      case "Enter":
-        return retry();
-      case "Escape":
-        if (!session.round) return false;
-        session.endRound();
-        return true;
+    return runShortcut(key);
+  }
+
+  function runShortcut(key: string): boolean {
+    const action = ACTIONS[key];
+    if (action) {
+      action();
+      return true;
+    }
+    if (key === "Enter") return retry();
+    if (key === "Escape") {
+      if (!session.round) return false;
+      session.endRound();
+      return true;
     }
     if (/^[1-9]$/.test(key)) {
       player.jumpTo(Number(key) / 10);
       return true;
     }
-    const verdict = VERDICT_KEYS.find((v) => v.key.toLowerCase() === key);
-    if (verdict) {
-      judge(verdict.status);
-      return true;
-    }
-    return false;
+    const verdict = VERDICT_KEYS.find((verdict) => verdict.key.toLowerCase() === key);
+    if (!verdict) return false;
+    judge(verdict.status);
+    return true;
   }
 
   function onkeydown(event: KeyboardEvent): void {

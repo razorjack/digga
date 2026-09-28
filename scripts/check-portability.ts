@@ -1,5 +1,5 @@
 /**
- * Enforces the Electron-ready rules from CLAUDE.md. Run with `vp run check:portability`.
+ * Enforces the Electron-ready rules from AGENTS.md. Run with `vp run check:portability`.
  * Fails on:
  *   - fetch( in src/client outside src/client/api.ts
  *   - process.env outside src/server/paths.ts, src/server/secrets.ts, src/cli/
@@ -23,71 +23,73 @@ interface Violation {
   text: string;
 }
 
-const BUILTINS = new Set(builtinModules.flatMap((m) => [m, `node:${m}`]));
+const BUILTINS = new Set(builtinModules.flatMap((match) => [match, `node:${match}`]));
 
 function listFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
-  const out: string[] = [];
+  const output: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "node_modules") continue;
-      out.push(...listFiles(full));
+      output.push(...listFiles(full));
     } else if (EXTENSIONS.has(path.extname(entry.name))) {
-      out.push(full);
+      output.push(full);
     }
   }
-  return out;
+  return output;
 }
 
 /** Strips line and block comments so that documentation does not trip the rules. */
+const QUOTES = new Set(['"', "'", "`"]);
+
 function stripComments(source: string): string {
-  let out = "";
-  let i = 0;
+  let output = "";
+  let index = 0;
   let quote: string | null = null;
-  while (i < source.length) {
-    const ch = source[i]!;
-    const next = source[i + 1];
+  while (index < source.length) {
+    const character = source[index]!;
+    const next = source[index + 1];
     if (quote) {
-      out += ch;
-      if (ch === "\\" && next !== undefined) {
-        out += next;
-        i += 2;
+      output += character;
+      if (character === "\\" && next !== undefined) {
+        output += next;
+        index += 2;
         continue;
       }
-      if (ch === quote) quote = null;
-      i += 1;
+      if (character === quote) quote = null;
+      index += 1;
       continue;
     }
-    if (ch === '"' || ch === "'" || ch === "`") {
-      quote = ch;
-      out += ch;
-      i += 1;
+    if (QUOTES.has(character)) {
+      quote = character;
+      output += character;
+      index += 1;
       continue;
     }
-    if (ch === "/" && next === "/") {
-      while (i < source.length && source[i] !== "\n") i += 1;
+    if (character === "/" && next === "/") {
+      while (index < source.length && source[index] !== "\n") index += 1;
       continue;
     }
-    if (ch === "/" && next === "*") {
-      const end = source.indexOf("*/", i + 2);
+    if (character === "/" && next === "*") {
+      const end = source.indexOf("*/", index + 2);
       const stop = end === -1 ? source.length : end + 2;
       // Preserve line count so reported line numbers stay accurate.
-      out += source.slice(i, stop).replace(/[^\n]/g, "");
-      i = stop;
+      output += source.slice(index, stop).replace(/[^\n]/g, "");
+      index = stop;
       continue;
     }
-    out += ch;
-    i += 1;
+    output += character;
+    index += 1;
   }
-  return out;
+  return output;
 }
 
 const IMPORT_RE = /(?:from\s*|import\s*\(?\s*|require\s*\(\s*)["']([^"']+)["']/g;
 
 function importSpecifiers(line: string): string[] {
   const specs: string[] = [];
-  for (const m of line.matchAll(IMPORT_RE)) specs.push(m[1]!);
+  for (const match of line.matchAll(IMPORT_RE)) specs.push(match[1]!);
   return specs;
 }
 
@@ -96,34 +98,38 @@ function rel(file: string): string {
 }
 
 function check(file: string): Violation[] {
-  const r = rel(file);
+  const relative = rel(file);
   const lines = stripComments(fs.readFileSync(file, "utf8")).split("\n");
-  const violations: Violation[] = [];
-  const inClient = r.startsWith("src/client/");
-  const inShared = r.startsWith("src/shared/");
-  const inCli = r.startsWith("src/cli/");
-  const isApi = r === "src/client/api.ts";
-  const isPaths = r === "src/server/paths.ts";
-  const isSecrets = r === "src/server/secrets.ts";
-  const isDb = r === "src/server/db/db.ts";
-  const isThisScript = r === "scripts/check-portability.ts";
-
-  lines.forEach((text, idx) => {
-    const line = idx + 1;
-    const add = (rule: string) => violations.push({ file: r, line, rule, text: text.trim() });
-    if (inClient && !isApi && /\bfetch\s*\(/.test(text)) add("fetch( outside src/client/api.ts");
-    if (/\bprocess\.env\b/.test(text) && !(isPaths || isSecrets || inCli || isThisScript)) {
-      add("process.env outside paths.ts, secrets.ts, src/cli/");
-    }
-    if (/\bprocess\.cwd\s*\(/.test(text) && !(inCli || isThisScript))
-      add("process.cwd() outside src/cli/");
-    for (const spec of importSpecifiers(text)) {
-      if ((inShared || inClient) && BUILTINS.has(spec))
-        add(`Node builtin import "${spec}" in src/shared or src/client`);
-      if (spec === "better-sqlite3" && !isDb)
-        add("better-sqlite3 imported outside src/server/db/db.ts");
-    }
+  return lines.flatMap((text, index) => {
+    const rules = [...runtimeViolations(relative, text), ...importViolations(relative, text)];
+    return rules.map((rule) => ({ file: relative, line: index + 1, rule, text: text.trim() }));
   });
+}
+
+function runtimeViolations(file: string, text: string): string[] {
+  const violations: string[] = [];
+  const cli = file.startsWith("src/cli/");
+  const checker = file === "scripts/check-portability.ts";
+  const environmentOwner =
+    cli || checker || file === "src/server/paths.ts" || file === "src/server/secrets.ts";
+  if (file.startsWith("src/client/") && file !== "src/client/api.ts" && /\bfetch\s*\(/.test(text))
+    violations.push("fetch( outside src/client/api.ts");
+  if (/\bprocess\.env\b/.test(text) && !environmentOwner)
+    violations.push("process.env outside paths.ts, secrets.ts, src/cli/");
+  if (/\bprocess\.cwd\s*\(/.test(text) && !(cli || checker))
+    violations.push("process.cwd() outside src/cli/");
+  return violations;
+}
+
+function importViolations(file: string, text: string): string[] {
+  const violations: string[] = [];
+  const browserCode = file.startsWith("src/shared/") || file.startsWith("src/client/");
+  for (const specifier of importSpecifiers(text)) {
+    if (browserCode && BUILTINS.has(specifier))
+      violations.push(`Node builtin import "${specifier}" in src/shared or src/client`);
+    if (specifier === "better-sqlite3" && file !== "src/server/db/db.ts")
+      violations.push("better-sqlite3 imported outside src/server/db/db.ts");
+  }
   return violations;
 }
 
@@ -132,7 +138,10 @@ const violations = files.flatMap(check);
 
 if (violations.length > 0) {
   console.error(`check-portability: ${violations.length} violation(s)`);
-  for (const v of violations) console.error(`  ${v.file}:${v.line}  ${v.rule}\n      ${v.text}`);
+  for (const violation of violations)
+    console.error(
+      `  ${violation.file}:${violation.line}  ${violation.rule}\n      ${violation.text}`,
+    );
   process.exit(1);
 }
 console.log(`check-portability: OK (${files.length} files scanned)`);

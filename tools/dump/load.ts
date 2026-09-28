@@ -89,6 +89,20 @@ export function openDumpInput(file: string, stdin: Readable): Readable {
   return gunzip;
 }
 
+interface DumpLoadHooks {
+  onProgress?: (progress: DumpLoadProgress) => void;
+  logger?: Logger;
+  stdin?: Readable;
+}
+
+function reportProgress(progress: DumpLoadProgress, hooks: DumpLoadHooks): void {
+  hooks.onProgress?.(progress);
+  const { phase, scanned, matched, upserted, elapsedSeconds } = progress;
+  hooks.logger?.info(
+    `${phase}: scanned=${scanned} matched=${matched} upserted=${upserted} ${elapsedSeconds.toFixed(0)}s`,
+  );
+}
+
 /**
  * Streams the dump, keeps the releases matching the universe criteria and upserts
  * them with their tracks and videos. Safe to run in a worker thread: it only needs
@@ -97,66 +111,47 @@ export function openDumpInput(file: string, stdin: Readable): Readable {
 export async function loadDump(
   db: Db,
   options: DumpLoadOptions,
-  hooks: {
-    onProgress?: (progress: DumpLoadProgress) => void;
-    logger?: Logger;
-    stdin?: Readable;
-  } = {},
+  hooks: DumpLoadHooks = {},
 ): Promise<DumpLoadResult> {
   const started = Date.now();
   const progressEvery = options.progressEvery ?? 100_000;
   const batchSize = options.batchSize ?? 500;
   const dryRun = options.dryRun ?? false;
-  let scanned = 0;
-  let matched = 0;
-  let upserted = 0;
-  let batch: DumpRelease[] = [];
+  const counts = { scanned: 0, matched: 0, upserted: 0 };
+  const batch: DumpRelease[] = [];
   const elapsed = () => (Date.now() - started) / 1000;
-  const report = (phase: DumpLoadProgress["phase"]) => {
-    const progress: DumpLoadProgress = {
-      phase,
-      scanned,
-      matched,
-      upserted,
-      elapsedSeconds: elapsed(),
-    };
-    hooks.onProgress?.(progress);
-    hooks.logger?.info(
-      `${phase}: scanned=${scanned} matched=${matched} upserted=${upserted} ${progress.elapsedSeconds.toFixed(0)}s`,
-    );
-  };
-  const flush = () => {
-    if (batch.length === 0) return;
-    if (!dryRun) {
-      writeReleases(db, batch.map(dumpReleaseToWrite));
-      upserted += batch.length;
-    }
-    batch = [];
-  };
+  const report = (phase: DumpLoadProgress["phase"]) =>
+    reportProgress({ ...counts, phase, elapsedSeconds: elapsed() }, hooks);
 
   const stdin = hooks.stdin ?? (process.stdin as Readable);
   const input = openDumpInput(options.file, stdin);
   try {
     for await (const release of iterateReleases(input)) {
-      scanned += 1;
-      if (scanned % progressEvery === 0) report("scanning");
+      counts.scanned += 1;
+      if (counts.scanned % progressEvery === 0) report("scanning");
       if (!matchesUniverse(release, options)) continue;
-      matched += 1;
+      counts.matched += 1;
       batch.push(release);
-      if (batch.length >= batchSize) flush();
-      if (options.limit !== undefined && matched >= options.limit) break;
+      if (batch.length >= batchSize) counts.upserted += flushBatch(db, batch, dryRun);
+      if (options.limit !== undefined && counts.matched >= options.limit) break;
     }
   } finally {
     input.destroy();
   }
-  flush();
+  counts.upserted += flushBatch(db, batch, dryRun);
   report("done");
   return {
-    scanned,
-    matched,
-    upserted,
+    ...counts,
     elapsedSeconds: elapsed(),
     dumpDate: dumpDateFromFilename(options.file),
     dryRun,
   };
+}
+
+function flushBatch(db: Db, batch: DumpRelease[], dryRun: boolean): number {
+  if (batch.length === 0) return 0;
+  if (!dryRun) writeReleases(db, batch.map(dumpReleaseToWrite));
+  const written = dryRun ? 0 : batch.length;
+  batch.length = 0;
+  return written;
 }
