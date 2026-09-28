@@ -18,6 +18,7 @@ Commands:
       --list ID             Another list than discogs.maybeListId
   enrich [--ahead N]        Fetch price, have/want and fresh videos for the next N queue items (default 200)
   stats                     Print universe size, verdict counts, remaining and ETA
+  backup                    Copy the database into data/backups now (serve does it once a day)
   serve [--port N] [--host H]
                             Start the local server (default 127.0.0.1:3456; --port 0 picks a free port)
   help                      Show this help

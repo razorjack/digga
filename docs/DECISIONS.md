@@ -199,3 +199,12 @@ Chronological. Each entry records a choice made without asking and why.
     flushes it, so seconds heard in the sandbox never reach the database after switching it off.
     A tap shorter than the 4 s threshold is not posted at all when the track is left, as
     decision 38 intended.
+64. **The server backs up the whole database once a day and keeps five copies.** Skips, grails,
+    track marks and notes exist nowhere else; wants are the only decisions Discogs mirrors. A full
+    copy restores by copying a file back, with no import code to trust. It includes the release
+    rows (most of its size) because a partial copy would need a restore path of its own. The copy
+    uses better-sqlite3's `backup()`, which works in steps beside requests, and is written under a
+    `.partial` name first so an interrupted copy never counts as the day's backup.
+65. **Exports read the database.** `decisions.json`, `verdicts.csv` and `track-marks.csv` hold what
+    is saved, with release artist, title, label and catalogue number so they read without Digga.
+    Sandbox verdicts stay in the browser tab and are not in them; Settings says so.

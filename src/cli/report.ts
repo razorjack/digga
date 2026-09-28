@@ -1,4 +1,6 @@
 import type { Stats } from "../shared/api.ts";
+import { formatBytes } from "../shared/display.ts";
+import type { BackupFile } from "../server/db/backup.ts";
 import type { Filters } from "../shared/config.ts";
 import type { DumpLoadResult } from "../../tools/dump/load.ts";
 import type { EnrichResult } from "../server/jobs/enrich.ts";
@@ -37,6 +39,10 @@ export function showEnrichment(result: EnrichResult): void {
   console.log(
     `enrich: ${result.done}/${result.total} releases enriched, ${result.failed} failed${aborted}`,
   );
+}
+
+export function showBackup(backup: BackupFile): void {
+  console.log(`backup: ${backup.file} (${formatBytes(backup.bytes)})`);
 }
 
 export function showStats(stats: Stats, filters: Filters): void {

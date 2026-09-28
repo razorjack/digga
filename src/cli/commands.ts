@@ -6,6 +6,7 @@ import {
   importList,
   importWantlist,
 } from "../server/jobs/index.ts";
+import { localDay, writeBackup } from "../server/db/backup.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
 import { createServer } from "../server/server.ts";
 import { computeStats } from "../server/stats.ts";
@@ -18,7 +19,7 @@ import {
   parseServeOptions,
   type ImportCommand,
 } from "./options.ts";
-import { showDump, showEnrichment, showImport, showStats } from "./report.ts";
+import { showBackup, showDump, showEnrichment, showImport, showStats } from "./report.ts";
 import { type Runtime, discogsFor, withDatabase } from "./runtime.ts";
 
 export type ImportResult =
@@ -99,6 +100,13 @@ export async function cmdEnrich(runtime: Runtime, args: string[]): Promise<void>
 export async function cmdStats(runtime: Runtime): Promise<void> {
   const stats = await withDatabase(runtime, (db) => computeStats(db, runtime.config));
   showStats(stats, runtime.config.filters);
+}
+
+export async function cmdBackup(runtime: Runtime): Promise<void> {
+  const backup = await withDatabase(runtime, (db) =>
+    writeBackup(db, { dir: runtime.paths.backupsDir, day: localDay(new Date()) }),
+  );
+  showBackup(backup);
 }
 
 export async function cmdServe(runtime: Runtime, args: string[]): Promise<void> {

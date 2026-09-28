@@ -9,6 +9,8 @@ export interface Paths {
   /** Committed template used to create configFile on first run when present. */
   configExampleFile: string;
   dumpsDir: string;
+  /** Daily copies of the database, written when the server starts. */
+  backupsDir: string;
   tempDir: string;
   /** Built frontend bundle served by Hono in production. */
   distDir: string;
@@ -47,6 +49,7 @@ export function resolvePaths(opts: PathOptions): Paths {
     configFile,
     configExampleFile: path.join(path.dirname(configFile), "digga.config.example.json"),
     dumpsDir: path.join(dataDir, "dumps"),
+    backupsDir: path.join(dataDir, "backups"),
     tempDir: path.join(dataDir, "tmp"),
     distDir: path.resolve(opts.distDir ?? DEFAULT_DIST_DIR),
     envFile: path.resolve(opts.envFile ?? path.join(opts.baseDir, ".env")),

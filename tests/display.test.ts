@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  formatBytes,
   formatCount,
   formatDay,
   formatDuration,
@@ -17,6 +18,12 @@ describe("display formatting", () => {
     expect(formatPrice(12.5, "EUR")).toBe("€12.50");
     expect(formatPrice(12.5, "GBP")).toBe("£12.50");
     expect(formatPrice(12.5, null)).toBe("12.50");
+  });
+
+  it("formats sizes in binary units", () => {
+    expect(formatBytes(950)).toBe("950 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(129_000_000)).toBe("123 MB");
   });
 
   it("formats ETAs and days", () => {

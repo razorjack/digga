@@ -19,6 +19,7 @@
   import { FilterPreview } from "../settings/preview.svelte.ts";
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
+  import Backups from "../settings/Backups.svelte";
   import { parseInteger } from "../../shared/integer.ts";
   const id = $props.id();
   const filterPreview = new FilterPreview();
@@ -292,6 +293,8 @@
         </p>
       {/if}
     </section>
+
+    <Backups />
 
     <form
       class="form"

@@ -83,6 +83,18 @@ loader is the only CPU-heavy job and runs in a `worker_threads` Worker
 CLI runs it inline. `enrich` is network-bound, sequential (Discogs allows 60 requests/minute) and
 stops at the next release when its `AbortSignal` fires.
 
+## Backups and exports
+
+`createServer()` copies the database it opens into `paths.backupsDir` (`data/backups/`) once a
+day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest five (`src/server/db/backup.ts`). The copy
+uses SQLite's online backup, so it runs in steps beside requests and reads a consistent snapshot;
+`stop()` waits for it before closing the database. `digga backup` writes the day's copy on demand.
+Restoring is copying a backup over `digga.sqlite` while the server is stopped.
+
+`GET /api/export/decisions.json`, `verdicts.csv` and `track-marks.csv` download every saved
+verdict and track mark with the release they belong to (`src/server/export.ts`). They read the
+database, so sandbox verdicts, which live in the browser tab, are not in them.
+
 ## Discogs API
 
 `src/server/discogs/client.ts` wraps the handful of endpoints used: release detail (with

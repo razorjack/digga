@@ -182,10 +182,12 @@ On later runs, `npm run serve` is enough. Rebuild after updating the frontend.
 | `npm run digga -- stats`              | Show catalogue size, verdicts, remaining records, and ETA |
 | `npm run digga -- enrich --ahead 200` | Refresh data for the next queue items                     |
 | `npm run digga -- import list`        | Import the Maybe list selected in Settings                |
+| `npm run digga -- backup`             | Copy the database into `data/backups` now                 |
 | `npm run digga -- serve --port 3457`  | Use a different port                                      |
 | `npm run digga -- help`               | Show every CLI command and option                         |
 
-The database is stored in `data/digga.sqlite`. Set `DIGGA_DATA_DIR` or `DIGGA_CONFIG_FILE`
+The database is stored in `data/digga.sqlite`. The server copies it into `data/backups` once a day
+and keeps the last five; Settings also exports your verdicts and track marks as JSON or CSV. Set `DIGGA_DATA_DIR` or `DIGGA_CONFIG_FILE`
 to use a different data directory or config file.
 
 ## Development

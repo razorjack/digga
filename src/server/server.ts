@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import type { Config } from "../shared/config.ts";
 import { createApp } from "./app.ts";
 import { saveConfig } from "./config-file.ts";
+import { backupDaily, localDay } from "./db/backup.ts";
 import { type Db, openDb } from "./db/db.ts";
 import { failStaleJobs } from "./db/jobs.ts";
 import { createDiscogsClient, type DiscogsClient } from "./discogs/client.ts";
@@ -48,6 +49,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   const logger = options.logger;
   const stale = failStaleJobs(db);
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
+  const backup = ownsDb ? startDailyBackup(db, options) : Promise.resolve();
   const jobs = createJobRunner(db, logger.child("jobs"));
 
   const app = createApp({
@@ -73,8 +75,19 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     jobs,
     getConfig: () => config,
     start: (port, host) => listener.start(port ?? config.server.port, host ?? config.server.host),
-    stop: () => (stopping ??= stopServer({ listener, jobs, db, ownsDb, logger })),
+    stop: () => (stopping ??= stopServer({ listener, jobs, backup, db, ownsDb, logger })),
   };
+}
+
+/** Copies the database once a day in the background; the copy reads a consistent snapshot. */
+function startDailyBackup(db: Db, options: CreateServerOptions): Promise<void> {
+  const { paths, logger } = options;
+  if (paths.dbFile === ":memory:") return Promise.resolve();
+  return backupDaily(db, { dir: paths.backupsDir, day: localDay(new Date()) })
+    .then((backup) => {
+      if (backup) logger.info(`backed up the database to ${backup.file}`);
+    })
+    .catch((error: unknown) => logger.warn("the daily database backup failed", error));
 }
 
 function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
@@ -104,12 +117,14 @@ function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
 async function stopServer(context: {
   listener: HttpListener;
   jobs: JobRunner;
+  backup: Promise<void>;
   db: Db;
   ownsDb: boolean;
   logger: Logger;
 }): Promise<void> {
   await context.listener.stop();
   await context.jobs.stop();
+  await context.backup;
   if (context.ownsDb) context.db.close();
   context.logger.info("stopped");
 }

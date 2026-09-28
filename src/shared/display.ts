@@ -24,6 +24,19 @@ export function formatPrice(amount: number, currency: string | null): string {
   return amount.toFixed(2);
 }
 
+/** 950 -> "950 B", 129_000_000 -> "123 MB" (binary units, whole numbers above 10). */
+export function formatBytes(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const digits = unit === 0 || value >= 10 ? 0 : 1;
+  return `${value.toFixed(digits)} ${units[unit]}`;
+}
+
 /** "~40 min", "~31 h", "~6 days". */
 export function formatEta(hours: number | null): string | null {
   if (hours === null || !Number.isFinite(hours) || hours < 0) return null;

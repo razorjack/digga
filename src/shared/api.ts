@@ -17,6 +17,7 @@ import {
   type TrackRecord,
   type TrackVerdict,
   type Verdict,
+  type VerdictSource,
   type VerdictStatus,
   type VideoRecord,
 } from "./types.ts";
@@ -302,4 +303,58 @@ export interface DiscogsListResponse {
   id: number;
   name: string;
   entries: DiscogsListEntry[];
+}
+
+// GET /api/backups
+export interface BackupSummary {
+  /** Local day of the copy, YYYY-MM-DD. */
+  day: string;
+  bytes: number;
+}
+export interface BackupsResponse {
+  directory: string;
+  /** How many daily copies are kept. */
+  kept: number;
+  /** Newest first. */
+  backups: BackupSummary[];
+}
+
+// GET /api/export/:file
+export const EXPORT_FILES = ["decisions.json", "verdicts.csv", "track-marks.csv"] as const;
+export type ExportFile = (typeof EXPORT_FILES)[number];
+
+/** A release as exports describe it, for reading without the database. */
+export interface ExportedRelease {
+  releaseId: number | null;
+  artist: string | null;
+  title: string | null;
+  label: string | null;
+  catno: string | null;
+  year: number | null;
+  country: string | null;
+}
+
+export interface VerdictExport extends ExportedRelease {
+  key: string;
+  status: VerdictStatus;
+  source: VerdictSource;
+  notes: string | null;
+  decidedAt: string;
+}
+
+export interface TrackMarkExport extends ExportedRelease {
+  releaseId: number;
+  position: string;
+  mark: TrackMark;
+  notes: string | null;
+  decidedAt: string;
+  trackArtist: string | null;
+  trackTitle: string | null;
+}
+
+export interface DecisionsExport {
+  app: "digga";
+  exportedAt: string;
+  verdicts: VerdictExport[];
+  trackMarks: TrackMarkExport[];
 }

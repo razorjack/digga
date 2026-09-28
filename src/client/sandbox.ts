@@ -441,6 +441,10 @@ class SandboxApi implements Api {
 
   getDiscogsList: Api["getDiscogsList"] = (id) => this.#inner.getDiscogsList(id);
 
+  getBackups: Api["getBackups"] = () => this.#inner.getBackups();
+
+  exportUrl: Api["exportUrl"] = (file) => this.#inner.exportUrl(file);
+
   pushToWantlist: Api["pushToWantlist"] = async (releaseId, input = {}) => {
     WantlistPushInputSchema.parse(input);
     return this.#fakeWantlistWrite(releaseId, true);

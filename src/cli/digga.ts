@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cmdDumpLoad, cmdEnrich, cmdImport, cmdServe, cmdStats } from "./commands.ts";
+import { cmdBackup, cmdDumpLoad, cmdEnrich, cmdImport, cmdServe, cmdStats } from "./commands.ts";
 import { HELP } from "./help.ts";
 import { boot } from "./runtime.ts";
 
@@ -20,6 +20,8 @@ async function main(argv: string[]): Promise<void> {
       return cmdEnrich(runtime, args);
     case "stats":
       return cmdStats(runtime);
+    case "backup":
+      return cmdBackup(runtime);
     case "serve":
       return cmdServe(runtime, args);
     default:

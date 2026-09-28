@@ -1,11 +1,13 @@
 import {
   filtersParam,
+  type BackupsResponse,
   type DeleteVerdictResponse,
   type DiscogsAccountResponse,
   type DiscogsListResponse,
   type DiscogsListsResponse,
   type DumpLoadJobInput,
   type EnrichJobInput,
+  type ExportFile,
   type ImportJobInput,
   type ImportKind,
   type JobsResponse,
@@ -61,6 +63,9 @@ export interface Api {
   getDiscogsLists(): Promise<DiscogsListsResponse>;
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
+  getBackups(): Promise<BackupsResponse>;
+  /** Where the browser downloads an export of the saved decisions. */
+  exportUrl(file: ExportFile): string;
 }
 
 export class ApiRequestError extends Error {
@@ -114,6 +119,8 @@ export function createHttpApi(baseUrl = "/api"): Api {
     getDiscogsAccount: () => call("GET", "/discogs/account"),
     getDiscogsLists: () => call("GET", "/discogs/lists"),
     getDiscogsList: (id) => call("GET", `/discogs/lists/${id}`),
+    getBackups: () => call("GET", "/backups"),
+    exportUrl: (file) => `${baseUrl}/export/${file}`,
   };
 }
 
@@ -167,6 +174,8 @@ export function createAppApi(
     getDiscogsAccount: () => current.getDiscogsAccount(),
     getDiscogsLists: () => current.getDiscogsLists(),
     getDiscogsList: (id) => current.getDiscogsList(id),
+    getBackups: () => current.getBackups(),
+    exportUrl: (file) => current.exportUrl(file),
   };
 }
 
