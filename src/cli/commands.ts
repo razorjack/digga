@@ -1,0 +1,116 @@
+import {
+  dumpLoad,
+  enrich,
+  importCollection,
+  importHistory,
+  importList,
+  importWantlist,
+} from "../server/jobs/index.ts";
+import { createJobRunner } from "../server/jobs/runner.ts";
+import { createServer } from "../server/server.ts";
+import { computeStats } from "../server/stats.ts";
+import type { SeedImportResult } from "../server/importers/collection.ts";
+import type { ListImportResult } from "../server/importers/list.ts";
+import {
+  parseDumpOptions,
+  parseEnrichOptions,
+  parseImportOptions,
+  parseServeOptions,
+  type ImportCommand,
+} from "./options.ts";
+import { showDump, showEnrichment, showImport, showStats } from "./report.ts";
+import { type Runtime, discogsFor, withDatabase } from "./runtime.ts";
+
+export type ImportResult =
+  | SeedImportResult
+  | ListImportResult
+  | ({ kind: "history" } & Awaited<ReturnType<typeof importHistory>>);
+
+export async function cmdDumpLoad(runtime: Runtime, args: string[]): Promise<void> {
+  const options = parseDumpOptions(args, runtime.config);
+  const { result } = await withDatabase(runtime, (db) => {
+    const jobs = createJobRunner(db, runtime.logger);
+    return jobs.runAndWait("dump_load", ({ onProgress }) =>
+      dumpLoad({ db, logger: runtime.logger }, options, onProgress),
+    );
+  });
+  showDump(result);
+}
+
+export async function cmdImport(runtime: Runtime, args: string[]): Promise<void> {
+  const command = parseImportOptions(args, runtime.config, runtime.paths.tempDir);
+  const result = await runImport(runtime, command);
+  showImport(result);
+}
+
+async function runImport(runtime: Runtime, command: ImportCommand): Promise<ImportResult> {
+  return withDatabase(runtime, async (db) => {
+    const jobs = createJobRunner(db, runtime.logger);
+    const { kind, options } = command;
+    if (kind === "history") {
+      const { result } = await jobs.runAndWait("import_history", ({ signal, onProgress }) =>
+        importHistory({ db, logger: runtime.logger }, { ...options, signal }, onProgress),
+      );
+      return { kind, ...result };
+    }
+    const discogs = discogsFor(runtime);
+    const deps = { db, discogs, logger: runtime.logger };
+    if (kind === "list") {
+      const { result } = await jobs.runAndWait("import_list", ({ signal, onProgress }) =>
+        importList(deps, { ...options, signal }, onProgress),
+      );
+      return result;
+    }
+    if (!discogs.hasToken())
+      runtime.logger.warn(
+        "DISCOGS_TOKEN not set; collection/wantlist of private profiles will fail",
+      );
+    const jobType = kind === "collection" ? "import_collection" : "import_wantlist";
+    const importSeeds = kind === "collection" ? importCollection : importWantlist;
+    const { result } = await jobs.runAndWait(jobType, ({ signal, onProgress }) =>
+      importSeeds(deps, { ...options, signal }, onProgress),
+    );
+    return result;
+  });
+}
+
+export async function cmdEnrich(runtime: Runtime, args: string[]): Promise<void> {
+  const options = parseEnrichOptions(args, runtime.config);
+  const controller = new AbortController();
+  const stop = () => {
+    runtime.logger.warn("stopping after the current release");
+    controller.abort();
+  };
+  process.once("SIGINT", stop);
+  try {
+    const { result } = await withDatabase(runtime, (db) => {
+      const jobs = createJobRunner(db, runtime.logger);
+      const deps = { db, discogs: discogsFor(runtime), logger: runtime.logger };
+      return jobs.runAndWait("enrich", ({ onProgress }) =>
+        enrich(deps, { ...options, signal: controller.signal }, onProgress),
+      );
+    });
+    showEnrichment(result);
+  } finally {
+    process.removeListener("SIGINT", stop);
+  }
+}
+
+export async function cmdStats(runtime: Runtime): Promise<void> {
+  const stats = await withDatabase(runtime, (db) => computeStats(db, runtime.config));
+  showStats(stats, runtime.config.filters);
+}
+
+export async function cmdServe(runtime: Runtime, args: string[]): Promise<void> {
+  const options = parseServeOptions(args);
+  const server = createServer(runtime);
+  const info = await server.start(options.port, options.host);
+  console.log(`digga serving on ${info.browserUrl} (data: ${runtime.paths.dataDir})`);
+  if (server.getConfig().sandbox)
+    console.log("sandbox mode: verdicts stay in the browser; turn it off in Settings to save them");
+  const shutdown = () => {
+    void server.stop().then(() => process.exit(0));
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+}
