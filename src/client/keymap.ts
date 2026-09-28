@@ -1,4 +1,5 @@
 import type { VerdictStatus } from "../shared/types.ts";
+import { youtubeIdFromUrl } from "../shared/youtube.ts";
 
 /** Verdicts the triage keys write. */
 export type TriageStatus = Extract<
@@ -144,6 +145,7 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
         { keys: ["1", "…", "9"], label: "jump to 10% … 90%" },
         { keys: ["O"], label: "open the release on discogs.com" },
         { keys: ["S"], label: "search YouTube for the release" },
+        { keys: ["⌘V"], label: "attach a copied YouTube link to the release, and play it" },
       ],
     },
     {
@@ -161,12 +163,14 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
   {
     title: "Twelves",
     keys: [
-      { keys: ["1", "…", "8"], label: "switch shelf; 8 is the tracks you marked" },
+      { keys: ["1", "…", "9"], label: "switch shelf; 8 is the tracks you marked, 9 no audio" },
       { keys: ["J", "K"], label: "move down / up (also ↓ ↑)" },
       { keys: ["S"], label: "change the sort" },
       { keys: ["O"], label: "open the release on discogs.com" },
       { keys: ["E"], label: "edit the note, on a record or a marked track" },
-      { keys: ["A", "M", "C", "R", "L"], label: "re-judge a triage verdict" },
+      { keys: ["A", "M", "C", "R", "L", "D"], label: "re-judge a triage verdict" },
+      { keys: ["Y"], label: "search YouTube for the record" },
+      { keys: ["⌘V"], label: "attach a copied YouTube link to the record" },
       { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
       { keys: ["Enter"], label: "hear snoozed records again in Triage, from the selected one" },
       { keys: ["I"], label: "check your Discogs Maybe list again" },
@@ -178,12 +182,19 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
 /** Inputs that take no typed text, so a focused one (after a click) keeps the shortcuts working. */
 const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "range", "button", "submit", "reset"]);
 
-/** True when the key press belongs to a form field rather than to the shortcuts. */
-export function isTyping(event: KeyboardEvent): boolean {
+/** True when the key press or paste belongs to a form field rather than to the shortcuts. */
+export function isTyping(event: Event): boolean {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return false;
   if (target instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(target.type);
   return target.isContentEditable || ["TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
+/** A YouTube link pasted outside a form field, which Digga attaches to a release; else null. */
+export function pastedVideoLink(event: ClipboardEvent): string | null {
+  if (isTyping(event)) return null;
+  const text = event.clipboardData?.getData("text").trim() ?? "";
+  return youtubeIdFromUrl(text) === null ? null : text;
 }
 
 /** Shortcuts are single keys; anything held with Cmd, Ctrl or Alt belongs to the browser. */

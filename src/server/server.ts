@@ -11,6 +11,7 @@ import { createJobRunner, type JobRunner } from "./jobs/runner.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
 import type { Secrets } from "./secrets.ts";
+import { createVideoTitleLookup } from "./youtube.ts";
 
 export interface CreateServerOptions {
   config: Config;
@@ -64,6 +65,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       logger.info(`settings updated (${options.paths.configFile})`);
     },
     getDiscogs: discogsProvider(options),
+    lookupVideoTitle: createVideoTitleLookup(options.fetchImpl, logger.child("youtube")),
     serveStatic: options.serveStatic ?? true,
   });
 

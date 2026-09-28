@@ -246,3 +246,19 @@ Chronological. Each entry records a choice made without asking and why.
     heard key, and it takes this release's position, so heard tracking, marks and listens stay on
     the release being judged. Decision 59's per-release filter becomes per record for the same
     reason.
+73. **Pasted YouTube links live in `user_videos`, not `videos`.** Dump loads and enrich replace a
+    release's `videos`, which would drop them. `⌘V` anywhere in Triage (outside text fields)
+    attaches the link to the release on screen and plays it; in Twelves it goes on the selected
+    record. Attaching is catalogue data like enrich, so it reaches the server in the sandbox too.
+    The title comes from YouTube's oEmbed endpoint, which needs no API key (search would need a
+    Data API key at 100 quota units a query); it lets the link match a track, and without it the
+    link plays as an unmatched video.
+74. **A no-audio record comes back only for a video it did not have.** `D` is also the answer to
+    "none of its videos will play here", so bringing records back whenever they have an
+    embeddable video would return them after every dump load. The verdict route records the
+    record's playable video ids; `requeueNoAudio()` runs after a dump load, after each enriched
+    release and after an attached link, and deletes the verdict of records with a new one.
+    `enrich_twelves` covers the No audio shelf, so "Refresh Twelves" looks for fresh videos.
+75. **No audio is a Twelves shelf (`9`) but not part of Everything.** Everything is what you want,
+    own or put aside; the records nothing played on are leftovers to rescue with `Y` (YouTube
+    search, since `S` sorts in Twelves) and `⌘V`, or to re-judge.

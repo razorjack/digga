@@ -5,7 +5,14 @@
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
-  import { hasCommandModifier, isTyping, STATUS_COPY, STATUS_TONE } from "../keymap.ts";
+  import {
+    hasCommandModifier,
+    isTyping,
+    pastedVideoLink,
+    STATUS_COPY,
+    STATUS_TONE,
+  } from "../keymap.ts";
+  import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
   import { settings, ui } from "../stores.svelte.ts";
   import { TwelvesShelf } from "../twelves/shelf.svelte.ts";
@@ -112,7 +119,7 @@
   }
 
   function runShortcut(key: string): boolean {
-    const shelfIndex = /^[1-8]$/.test(key) ? Number(key) - 1 : -1;
+    const shelfIndex = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
     if (shelfIndex >= 0) {
       shelfState.shelf = SHELVES[shelfIndex]!.id;
       return true;
@@ -131,6 +138,10 @@
     if (!selected) return false;
     if (key === "o" && selected.release) {
       openExternal(discogsReleaseUrl(selected.release.id));
+      return true;
+    }
+    if (key === "y" && selected.release) {
+      openExternal(youtubeSearchUrl(`${selected.release.artistDisplay} ${selected.release.title}`));
       return true;
     }
     if (key === "e") {
@@ -159,6 +170,16 @@
     return true;
   }
 
+  /** A copied YouTube link goes on the selected record's release. */
+  function onpaste(event: ClipboardEvent): void {
+    const selected = shelfState.selected;
+    if (ui.helpOpen || onTracks || !selected) return;
+    const link = pastedVideoLink(event);
+    if (link === null) return;
+    event.preventDefault();
+    shelfState.attachVideo(selected, link);
+  }
+
   function onFilterKey(event: KeyboardEvent): void {
     if (event.key === "Escape" || event.key === "Enter") {
       if (event.key === "Escape") shelfState.query = "";
@@ -168,7 +189,7 @@
   }
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} {onpaste} />
 
 <div class="twelves">
   <header class="head">
@@ -267,6 +288,16 @@
           {shelfState.pushing ? "Adding…" : `add all ${formatCount(shelfState.wantsPending.length)}`}
         </button>
       {/if}
+    </div>
+  {/if}
+
+  {#if shelfState.shelf === "no_audio" && shelfState.counts.no_audio > 0}
+    <div class="handoff">
+      <p>
+        None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy a video's
+        link there and press <Key label="⌘V" /> here to attach it, and the record goes back to the queue. A newer
+        dump, or Refresh Twelves under Jobs in Settings, brings back the records Discogs has a video for since.
+      </p>
     </div>
   {/if}
 
@@ -395,6 +426,10 @@
       {#if !onTracks}
         <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
         <span><Key label="I" /> check Maybe list</span>
+      {/if}
+      {#if shelfState.shelf === "no_audio"}
+        <span><Key label="Y" /> youtube</span>
+        <span><Key label="⌘V" /> attach a link</span>
       {/if}
       {#if shelfState.shelf === "snoozed" || shelfState.selected?.verdict.status === "snoozed"}
         <span><Key label="Enter" /> hear again</span>

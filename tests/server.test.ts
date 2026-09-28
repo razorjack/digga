@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { type Db, openDb } from "../src/server/db/db.ts";
+import { type Db, listMigrations, openDb } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
@@ -334,8 +334,9 @@ describe("createServer with its own database file", () => {
     expect(res.status).toBe(200);
     await own.stop();
     const check = openDb(paths.dbFile, { readonly: true });
+    const latest = listMigrations().at(-1)!.version;
     expect(check.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get()).toEqual({
-      value: "1",
+      value: String(latest),
     });
     check.close();
     fs.rmSync(dir, { recursive: true, force: true });

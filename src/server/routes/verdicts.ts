@@ -7,6 +7,7 @@ import {
   VerdictInputSchema,
 } from "../../shared/api.ts";
 import { deleteVerdict, logListen, setTrackVerdict, upsertVerdict } from "../db/verdicts.ts";
+import { recordNoAudioVideos } from "../db/no-audio.ts";
 import type { AppContext } from "../context.ts";
 import { parseJson, refuseInSandbox } from "./request.ts";
 
@@ -24,6 +25,8 @@ async function saveVerdict(request: Context, context: AppContext) {
   const body = await parseJson(request, VerdictInputSchema);
   if (!body.ok) return body.response;
   const verdict = upsertVerdict(db, body.data);
+  // A later video that was not there now sends the record back to the queue.
+  if (verdict.status === "no_audio") recordNoAudioVideos(db, verdict.key);
   return request.json(verdict);
 }
 

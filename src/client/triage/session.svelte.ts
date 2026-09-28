@@ -393,6 +393,22 @@ export class TriageSession {
     }
   }
 
+  /** Attaches a YouTube link to the record on screen; the player picks the video up. */
+  async attachVideo(url: string): Promise<void> {
+    const item = this.current;
+    if (!item) return;
+    const generation = this.#apiGeneration;
+    try {
+      const detail = await this.#api.pinned().attachVideo(item.id, url);
+      if (generation !== this.#apiGeneration) return;
+      this.details = new Map(this.details).set(item.id, detail);
+      this.#flash("Attached to this release; it plays here from now on.");
+    } catch (error) {
+      if (generation === this.#apiGeneration)
+        this.#flash(`The link was not attached: ${errorMessage(error)}`);
+    }
+  }
+
   retryDetail(id: number): void {
     const errors = new Map(this.detailErrors);
     errors.delete(id);

@@ -302,6 +302,49 @@ export function getVideos(db: Db, releaseId: number): VideoRecord[] {
   return rows.map(rowToVideo);
 }
 
+export interface UserVideoWrite {
+  videoId: string;
+  src: string;
+  title: string;
+  matchedPosition: string | null;
+}
+
+/** A video the user attached; attaching the same one again updates its title and match. */
+export function addUserVideo(db: Db, releaseId: number, video: UserVideoWrite): void {
+  db.prepare(
+    `INSERT INTO user_videos (release_id, video_id, src, title, matched_position, added_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(release_id, video_id) DO UPDATE SET
+       src = excluded.src, title = excluded.title, matched_position = excluded.matched_position`,
+  ).run(releaseId, video.videoId, video.src, video.title, video.matchedPosition, nowIso());
+}
+
+/** Videos the user attached to the release, oldest first. */
+export function getUserVideos(db: Db, releaseId: number): VideoRecord[] {
+  const rows = db
+    .prepare(
+      `SELECT release_id, video_id, src, title, NULL AS duration_seconds, 1 AS embeddable,
+         matched_position
+       FROM user_videos WHERE release_id = ? ORDER BY added_at, rowid`,
+    )
+    .all(releaseId) as VideoRow[];
+  return rows.map(rowToVideo);
+}
+
+/** Ids of the playable videos on every release of a record: from Discogs and attached. */
+export function playableVideoIds(db: Db, key: string): string[] {
+  const rows = db
+    .prepare(
+      `SELECT v.video_id FROM videos v JOIN releases r ON r.id = v.release_id
+       WHERE r.triage_key = ? AND v.embeddable = 1
+       UNION
+       SELECT u.video_id FROM user_videos u JOIN releases r ON r.id = u.release_id
+       WHERE r.triage_key = ?`,
+    )
+    .all(key, key) as { video_id: string }[];
+  return rows.map((row) => row.video_id);
+}
+
 /** Videos of the master's other pressings, main release first, with their matched tunes. */
 export function getPressingVideos(db: Db, release: ReleaseRecord): PressingVideo[] {
   if (release.masterId === null) return [];

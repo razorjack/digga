@@ -138,4 +138,21 @@ describe("player deck ownership", () => {
     expect(player.status).toBe(before);
     expect(player.failed.size).toBe(0);
   });
+
+  it("plays a video attached to the open release, and starts a release that had none", async () => {
+    const player = await setup();
+    const active = fake.decks[0]!;
+    const attached = detail(1);
+    attached.videos.push({ ...attached.videos[0]!, videoId: "pasted" });
+    player.show(attached, detail(2));
+    expect(active.load).toHaveBeenLastCalledWith("pasted", 300, 0.5, "play");
+    expect(player.entry?.video.videoId).toBe("pasted");
+
+    const silent = { ...detail(3), videos: [] };
+    player.show(silent, null);
+    expect(player.status).toBe("no_audio");
+    player.show({ ...silent, videos: [{ ...detail(3).videos[0]!, videoId: "found" }] }, null);
+    expect(player.entry?.video.videoId).toBe("found");
+    expect(player.status).toBe("loading");
+  });
 });

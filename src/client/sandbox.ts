@@ -291,6 +291,16 @@ class SandboxApi implements Api {
     return this.#overlayDetail(detail);
   };
 
+  /** An attached video improves the catalogue, like enrichment, so it reaches the server. */
+  attachVideo: Api["attachVideo"] = async (releaseId, url) => {
+    const detail = await this.#inner.attachVideo(releaseId, url);
+    this.#details.set(releaseId, detail);
+    // As on the server, a new video sends a record marked no audio back to the queue.
+    const key = detail.release.triageKey;
+    if (this.#verdicts.get(key)?.verdict.status === "no_audio") this.#verdicts.delete(key);
+    return this.#overlayDetail(detail);
+  };
+
   postVerdict: Api["postVerdict"] = async (input) => {
     const inputVerdict = VerdictInputSchema.parse(input);
     const verdict: Verdict = {

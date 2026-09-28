@@ -27,6 +27,7 @@ or Alt. Holding a key down never repeats a verdict.
 | `O`       | open the release on discogs.com                                      |
 | `S`       | open a YouTube search for artist + title                             |
 | `E`       | write a note on the record; Enter keeps it, its verdict saves it     |
+| `⌘V`      | attach a copied YouTube link to the release and play it              |
 | `Enter`   | retry when the queue or the release failed to load                   |
 
 ## Triage: verdicts (one per release, undoable)
@@ -69,19 +70,21 @@ Pressing the same mark again clears it.
 
 ## Twelves
 
-| key                  | action                                                                          |
-| -------------------- | ------------------------------------------------------------------------------- |
-| `1` … `8`            | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks |
-| `J` / `K`, `↓` / `↑` | move the selection                                                              |
-| `S`                  | next sort order (newest, label, artist, year, price, want)                      |
-| `/`                  | focus the filter; Enter or Esc leaves it                                        |
-| `O`                  | open the release on discogs.com                                                 |
-| `E`                  | edit the note (of the record, or of the track on Tracks); Enter saves           |
-| `A` `M` `C` `R` `L`  | re-judge a triage verdict (`R` takes it off the shelves)                        |
-| `A` on a want        | add it to the Discogs wantlist when it is not there (a failed push)             |
-| `Enter`              | hear the selected snoozed record, and those after it, in Triage                 |
-| `I`                  | read the Discogs Maybe list again                                               |
-| `Z`                  | undo the last change, including what it did to the Discogs wantlist             |
+| key                     | action                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `1` … `9`               | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks, no audio |
+| `J` / `K`, `↓` / `↑`    | move the selection                                                                        |
+| `S`                     | next sort order (newest, label, artist, year, price, want)                                |
+| `/`                     | focus the filter; Enter or Esc leaves it                                                  |
+| `O`                     | open the release on discogs.com                                                           |
+| `E`                     | edit the note (of the record, or of the track on Tracks); Enter saves                     |
+| `A` `M` `C` `R` `L` `D` | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)              |
+| `Y`                     | search YouTube for the record                                                             |
+| `⌘V`                    | attach a copied YouTube link to the record; no audio goes back to the queue               |
+| `A` on a want           | add it to the Discogs wantlist when it is not there (a failed push)                       |
+| `Enter`                 | hear the selected snoozed record, and those after it, in Triage                           |
+| `I`                     | read the Discogs Maybe list again                                                         |
+| `Z`                     | undo the last change, including what it did to the Discogs wantlist                       |
 
 The Tracks shelf lists the tracks marked grail or keep in Triage, with their release and the
 record's verdict; `J`/`K`, `O`, `E`, `/` and `S` work there too. Marks themselves change in Triage.
@@ -108,7 +111,9 @@ radio button or slider has focus; text fields and menus take the keys for themse
   when the listener leaves the track. The track then counts as heard everywhere it appears.
 - Videos with `embeddable = 0`, and videos YouTube refuses (error 100, 101, 150), are skipped
   with a notice. When nothing on a release plays, the player shows the `no_audio` state: `S`
-  searches YouTube, `D` records `no_audio`, and the verdict keys still work.
+  searches YouTube, `⌘V` with a copied video link attaches it and plays it, `D` records
+  `no_audio`, and the verdict keys still work. A pasted link works on any release, not only in
+  that state.
 - Browsers hold back sound until the page has had a key press or click. Until then the player
   shows "Space: start listening".
 - The embed never takes focus or clicks (`inert` hosts, `controls: 0`, `disablekb: 1`), so keys

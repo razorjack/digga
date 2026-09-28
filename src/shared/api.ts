@@ -171,7 +171,12 @@ export const TWELVES_STATUSES: VerdictStatus[] = [
   "maybe",
   "candidate",
   "snoozed",
+  "no_audio",
 ];
+
+// POST /api/releases/:id/videos attaches a YouTube video the user found; answers ReleaseDetail
+export const AttachVideoInputSchema = z.object({ url: z.string().min(1).max(2000) });
+export type AttachVideoInput = z.infer<typeof AttachVideoInputSchema>;
 
 // GET /api/twelves?status=accepted,wantlist
 export const TwelvesQuerySchema = z.object({

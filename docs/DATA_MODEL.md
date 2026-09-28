@@ -57,6 +57,20 @@ insert never overwrites an existing row.
 
 Non-YouTube videos are dropped at load time.
 
+## user_videos
+
+YouTube videos the user attached by pasting a link: `(release_id, video_id)` PK, `src`, `title`
+(from YouTube's oEmbed, empty when it gave none), `matched_position`, `added_at`. Dump loads and
+enrich replace `videos` per release and never touch this table; release details add these videos
+after the ones from Discogs.
+
+## no_audio_videos
+
+`key` PK, `video_ids_json`: the playable video ids of every release of a record (from `videos`
+and `user_videos`) when it was marked `no_audio`. After a dump load, an enrich or an attached
+link, a `no_audio` record with a playable video outside this list loses its verdict and is back
+in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
+
 ## verdicts
 
 | column       | notes                                                                                                 |

@@ -184,3 +184,15 @@ describe("the Tracks shelf", () => {
     expect(byArtist.map((track) => track.mark.releaseId)).toEqual([1, 2]);
   });
 });
+
+describe("the No audio shelf", () => {
+  const silent = { ...record(2), verdict: { ...record(2).verdict, status: "no_audio" as const } };
+
+  it("keeps records without audio off Everything", () => {
+    const counts = countShelves([record(1), silent], []);
+    expect([counts.all, counts.no_audio]).toEqual([1, 1]);
+    const options = { sort: "newest" as const, query: "" };
+    expect(visibleItems([record(1), silent], { ...options, shelf: "all" })).toHaveLength(1);
+    expect(visibleItems([record(1), silent], { ...options, shelf: "no_audio" })).toEqual([silent]);
+  });
+});

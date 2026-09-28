@@ -42,6 +42,8 @@ export interface Api {
   getRelease(id: number): Promise<ReleaseDetail>;
   /** Fetches the release's market data and videos from Discogs; the server stores them. */
   enrichRelease(id: number): Promise<ReleaseDetail>;
+  /** Attaches a YouTube link the user found to the release; answers the release with it. */
+  attachVideo(releaseId: number, url: string): Promise<ReleaseDetail>;
   postVerdict(input: VerdictInput): Promise<Verdict>;
   deleteVerdict(key: string): Promise<DeleteVerdictResponse>;
   postTrackVerdict(input: TrackVerdictInput): Promise<TrackVerdictResponse>;
@@ -100,6 +102,7 @@ export function createHttpApi(baseUrl = "/api"): Api {
       call("GET", `/queue${queryString({ ...rest, filters: filtersParam(filters) })}`),
     getRelease: (id) => call("GET", `/releases/${id}`),
     enrichRelease: (id) => call("POST", `/releases/${id}/enrich`),
+    attachVideo: (releaseId, url) => call("POST", `/releases/${releaseId}/videos`, { url }),
     postVerdict: (input) => call("POST", "/verdicts", input),
     deleteVerdict: (key) => call("DELETE", `/verdicts/${encodeURIComponent(key)}`),
     postTrackVerdict: (input) => call("POST", "/track-verdicts", input),
@@ -163,6 +166,7 @@ export function createAppApi(
     getQueue: (query) => current.getQueue(query),
     getRelease: (id) => current.getRelease(id),
     enrichRelease: (id) => current.enrichRelease(id),
+    attachVideo: (releaseId, url) => current.attachVideo(releaseId, url),
     postVerdict: (input) => current.postVerdict(input),
     deleteVerdict: (key) => current.deleteVerdict(key),
     postTrackVerdict: (input) => current.postTrackVerdict(input),

@@ -71,9 +71,10 @@ src/shared/            types, config schema, API contracts, pure logic (normaliz
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs.
                        Imports nothing from Node.
 src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
-                       context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts
+                       context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts,
+                       attach-video.ts, youtube.ts (oEmbed titles)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
-                       export.ts)
+                       export.ts, no-audio.ts)
                        discogs/ (client, transport, types, lists), importers/ (collection, wantlist, history, list, seeds)
                        jobs/ (start, dump-load, enrich, runner, dump-load-worker, index), queue/ (query, detail, twelves)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts

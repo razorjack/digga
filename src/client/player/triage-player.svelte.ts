@@ -232,7 +232,29 @@ export class TriagePlayer {
     if (this.#decks.length === 0) return;
     const { detail, next } = this.#wanted;
     if ((detail?.release.id ?? null) !== this.#openedId) this.#openRelease(detail);
+    else if (detail && this.release && videosChanged(this.release, detail))
+      this.#refreshRelease(detail);
     this.#preload(next);
+  }
+
+  /** The open release gained a video (a pasted link): play it, keeping what was heard. */
+  #refreshRelease(detail: ReleaseDetail): void {
+    const heardBefore = new Map(
+      this.entries.map((entry) => [entry.video.videoId, entry.heardBefore]),
+    );
+    const playing = this.entry?.video.videoId ?? null;
+    this.release = detail;
+    this.entries = buildPlaylist(detail, this.heardKeys).map((entry) => ({
+      ...entry,
+      heardBefore: heardBefore.get(entry.video.videoId) ?? entry.heardBefore,
+    }));
+    const added = this.entries.findIndex((entry) => !heardBefore.has(entry.video.videoId));
+    if (added !== -1) {
+      this.playEntry(added);
+      return;
+    }
+    const index = this.entries.findIndex((entry) => entry.video.videoId === playing);
+    this.current = index === -1 ? null : index;
   }
 
   #openRelease(detail: ReleaseDetail | null): void {
@@ -456,4 +478,9 @@ export class TriagePlayer {
       this.notice = null;
     }, 5000);
   }
+}
+
+function videosChanged(before: ReleaseDetail, after: ReleaseDetail): boolean {
+  const ids = (detail: ReleaseDetail) => detail.videos.map((video) => video.videoId).join(" ");
+  return ids(before) !== ids(after);
 }

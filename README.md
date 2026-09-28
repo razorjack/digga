@@ -43,7 +43,8 @@ record as a want, skip it, flag a grail, or leave it for later. Undo walks back 
 | `?`       | Show the keys for the current page                      |
 
 You can also mark individual tracks, jump to a percentage of a video, and open the release on
-Discogs. See the [full keymap](docs/KEYMAP.md).
+Discogs. Records play the videos of all their pressings. When nothing plays, `S` searches
+YouTube; copy a video's link, press `⌘V` in Digga, and it is attached to the release and plays. See the [full keymap](docs/KEYMAP.md).
 
 ## Keep your finds in Twelves
 

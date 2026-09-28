@@ -71,6 +71,14 @@ release (same heard key), placed at this release's position for it (`poolVideos(
 `src/shared/videos.ts`). Unmatched videos of other pressings are left out, since they may be bonus
 tracks or full sides. `filters.skipWithoutVideos` counts a video on any pressing of the record.
 
+Records with nothing to play have a way back. `D` stores `no_audio` together with the video ids
+the record had (`no_audio_videos`); a dump load, an enrich or a pasted link that brings a video
+outside that list deletes the verdict, so the record is in the queue again, while videos that
+were there and refused to play keep it out. A YouTube link pasted in Triage, or on a record in
+Twelves, is stored in `user_videos` through `POST /api/releases/:id/videos`, matched to a track
+by the title YouTube's oEmbed endpoint gives (`src/server/youtube.ts`, no API key), and played at
+once; the player rebuilds the open release's playlist when its videos change.
+
 ## Verdicts and coverage
 
 `verdicts` holds one row per triage key. Seeds (`import collection|wantlist|history|list`) write

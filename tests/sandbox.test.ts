@@ -49,6 +49,8 @@ beforeEach(async () => {
     logger: silentLogger,
     db,
     serveStatic: false,
+    // Nothing leaves the machine: YouTube title lookups find nothing.
+    fetchImpl: async () => new Response("", { status: 404 }),
   });
   const info = await server.start(0);
   apiUrl = `${info.url}/api`;
@@ -137,6 +139,16 @@ describe("sandbox api", () => {
     expect((await sandbox.getRelease(1001)).tracks[2]!.mark).toBeNull();
     expect((await sandbox.getTrackMarks()).items).toEqual([]);
     expect(tableCounts()).toMatchObject({ listen_log: 0, heard_tracks: 0, track_verdicts: 0 });
+  });
+
+  it("brings a sandbox no-audio record back when a link is attached", async () => {
+    await sandbox.getQueue();
+    await sandbox.postVerdict({ key: "m:506", status: "no_audio", releaseId: 1006 });
+    expect((await sandbox.getQueue()).items.map((i) => i.id)).toEqual([1001]);
+    const detail = await sandbox.attachVideo(1006, "https://youtu.be/hhhhhhhhhh1");
+    expect(detail.videos.map((video) => video.videoId)).toContain("hhhhhhhhhh1");
+    expect(detail.verdict).toBeNull();
+    expect((await sandbox.getQueue()).items.map((i) => i.id)).toEqual([1006, 1001]);
   });
 
   it("shows fake decisions in Twelves and pretends to push to the wantlist", async () => {

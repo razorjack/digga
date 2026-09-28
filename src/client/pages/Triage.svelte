@@ -7,7 +7,13 @@
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
-  import { hasCommandModifier, isTyping, type TriageStatus, VERDICT_KEYS } from "../keymap.ts";
+  import {
+    hasCommandModifier,
+    isTyping,
+    pastedVideoLink,
+    type TriageStatus,
+    VERDICT_KEYS,
+  } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
   import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
@@ -201,6 +207,15 @@
     return true;
   }
 
+  /** A YouTube link pasted anywhere on the page belongs to the release on screen. */
+  function onpaste(event: ClipboardEvent): void {
+    if (!active || ui.helpOpen || !session.current) return;
+    const link = pastedVideoLink(event);
+    if (link === null) return;
+    event.preventDefault();
+    void session.attachVideo(link);
+  }
+
   function onkeydown(event: KeyboardEvent): void {
     if (
       !active ||
@@ -214,7 +229,7 @@
   }
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} {onpaste} />
 
 <div class="triage">
   <!-- The live region stays in the DOM so the banner is announced when a round starts. -->

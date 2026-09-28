@@ -14,7 +14,8 @@ export type ShelfId =
   | "maybe"
   | "candidate"
   | "snoozed"
-  | "tracks";
+  | "tracks"
+  | "no_audio";
 
 export type SortId = "newest" | "label" | "artist" | "year" | "price" | "want";
 
@@ -30,6 +31,7 @@ export const SHELVES: {
   { id: "candidate", label: "Grail" },
   { id: "snoozed", label: "Snoozed" },
   { id: "tracks", label: "Tracks" },
+  { id: "no_audio", label: "No audio" },
 ];
 
 /** The verdicts the record shelves load. */
@@ -57,6 +59,7 @@ export const EMPTY: Record<ShelfId, string> = {
   snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",
   tracks:
     "No marked tracks yet. In Triage, Shift+C marks the playing track as a grail and Shift+K as a keeper.",
+  no_audio: "Nothing here. D in Triage puts a record here when none of its videos plays.",
 };
 
 /** The marks the Tracks shelf lists: the finds, not the tracks marked meh. */
@@ -77,6 +80,7 @@ export const JUDGE_KEYS: Record<string, VerdictStatus> = {
   c: "candidate",
   r: "rejected",
   l: "snoozed",
+  d: "no_audio",
 };
 
 export const TRIAGE_STATUSES = new Set<VerdictStatus>([
@@ -85,6 +89,7 @@ export const TRIAGE_STATUSES = new Set<VerdictStatus>([
   "candidate",
   "rejected",
   "snoozed",
+  "no_audio",
 ]);
 
 /** A maybe decided in Digga that has not shown up on the Discogs list yet. */
@@ -101,7 +106,7 @@ export const nameOf = (i: TwelvesItem) =>
 
 export function countShelves(items: TwelvesItem[], tracks: MarkedTrack[]): Record<ShelfId, number> {
   return {
-    all: items.length,
+    all: items.filter((item) => matchesShelf(item, "all")).length,
     accepted: items.filter((item) => item.verdict.status === "accepted").length,
     wantlist: items.filter((item) => item.verdict.status === "wantlist").length,
     collection: items.filter((item) => item.verdict.status === "collection").length,
@@ -109,6 +114,7 @@ export function countShelves(items: TwelvesItem[], tracks: MarkedTrack[]): Recor
     candidate: items.filter((item) => item.verdict.status === "candidate").length,
     snoozed: items.filter((item) => item.verdict.status === "snoozed").length,
     tracks: tracks.filter((track) => SHELF_MARKS.has(track.mark.mark)).length,
+    no_audio: items.filter((item) => item.verdict.status === "no_audio").length,
   };
 }
 
@@ -179,8 +185,10 @@ const trackSortable = (track: MarkedTrack): Sortable => ({
   release: track.release,
 });
 
+/** Everything is what you want, own or put aside; records without audio have a shelf only. */
 function matchesShelf(item: TwelvesItem, shelf: ShelfId): boolean {
-  return shelf === "all" || item.verdict.status === shelf;
+  if (shelf === "all") return item.verdict.status !== "no_audio";
+  return item.verdict.status === shelf;
 }
 
 function matchesQuery(item: TwelvesItem, query: string): boolean {

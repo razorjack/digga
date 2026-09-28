@@ -3,7 +3,8 @@ import { TWELVES_STATUSES } from "../../shared/api.ts";
 import type { Filters, QueueStrategy } from "../../shared/config.ts";
 import type { EnrichProgress } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
-import { getTracks, writeSnapshot, writeVideos } from "../db/releases.ts";
+import { requeueNoAudio } from "../db/no-audio.ts";
+import { getRelease, getTracks, writeSnapshot, writeVideos } from "../db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsRelease } from "../discogs/types.ts";
 import type { Logger } from "../logger.ts";
@@ -148,6 +149,7 @@ export async function enrichRelease(
   try {
     const release = await deps.discogs.getRelease(releaseId, currency);
     applyEnrichment(deps.db, releaseId, release, currency);
+    requeueWithNewVideos(deps, releaseId);
     return true;
   } catch (error) {
     if (error instanceof DiscogsApiError && (error.status === 401 || error.status === 403))
@@ -159,6 +161,14 @@ export async function enrichRelease(
     );
     return false;
   }
+}
+
+/** Fresh videos may give a record marked no_audio something to play. */
+function requeueWithNewVideos(deps: EnrichDeps, releaseId: number): void {
+  const key = getRelease(deps.db, releaseId)?.triageKey;
+  if (!key) return;
+  for (const requeued of requeueNoAudio(deps.db, [key]))
+    deps.logger.info(`${requeued} has a new video; back in the queue`);
 }
 
 function markUnavailable(db: Db, releaseId: number): void {

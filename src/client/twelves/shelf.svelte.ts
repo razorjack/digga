@@ -269,6 +269,28 @@ export class TwelvesShelf {
     });
   }
 
+  /** Attaches a YouTube link to the record's release; a record without audio goes back to the queue. */
+  attachVideo(selectedItem: TwelvesItem, url: string): void {
+    this.enqueue(selectedItem.verdict.key, async (item) => {
+      const releaseId = releaseIdOf(item);
+      if (releaseId === null) {
+        this.showFlash("This record is not in the loaded dump, so a link cannot go on it.");
+        return;
+      }
+      let requeued: boolean;
+      try {
+        const detail = await this.#client.attachVideo(releaseId, url);
+        requeued = item.verdict.status === "no_audio" && detail.verdict === null;
+      } catch (error) {
+        this.showFlash(`The link was not attached: ${errorMessage(error)}`);
+        return;
+      }
+      await this.load();
+      void stats.refresh();
+      this.showFlash(`${nameOf(item)}: link attached${requeued ? ", and back in the queue" : ""}.`);
+    });
+  }
+
   /** Saves the note on a marked track, keeping its mark. */
   saveTrackNote(track: MarkedTrack, notes: string | null): void {
     this.enqueueTask(async () => {
