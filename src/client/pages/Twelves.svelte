@@ -21,9 +21,10 @@
 
   let filterInput = $state<HTMLInputElement | null>(null);
 
-  let listEl = $state<HTMLOListElement | null>(null);
+  let table = $state<HTMLTableElement | null>(null);
 
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
+  const shelfLabel = $derived(SHELVES.find((option) => option.id === shelfState.shelf)!.label);
 
   $effect(() => {
     if (shelfState.selectedIndex === -1 && shelfState.visible.length > 0)
@@ -32,7 +33,7 @@
 
   $effect(() => {
     void shelfState.selectedKey;
-    listEl?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
+    table?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
   });
 
   /** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
@@ -236,75 +237,88 @@
   {:else if shelfState.visible.length === 0}
     <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY[shelfState.shelf]}</p>
   {:else}
-    <ol class="box" bind:this={listEl}>
-      {#each shelfState.visible as item (item.verdict.key)}
-        {@const release = item.release}
-        {@const isSelected = item.verdict.key === shelfState.selectedKey}
-        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-        <li
-          class="card"
-          class:selected={isSelected}
-          aria-current={isSelected ? "true" : undefined}
-          onclick={() => (shelfState.selectedKey = item.verdict.key)}
-        >
-          <span class="catno">{release?.catno ?? ""}</span>
-          <div class="who">
-            {#if release}
-              <a href={discogsReleaseUrl(release.id)} target="_blank" rel="noopener noreferrer">
-                <span class="artist">{release.artistDisplay}</span>
-                <span class="title">{release.title}</span>
-              </a>
-            {:else}
-              <span class="title">Not in the loaded dump ({item.verdict.key})</span>
-            {/if}
-            {#if editingKey === item.verdict.key}
-              <input
-                class="note-input"
-                bind:value={noteDraft}
-                maxlength="4000"
-                aria-label="Note"
-                onkeydown={(event) => {
-                  if (event.key === "Enter") saveNote(item);
-                  if (event.key === "Escape") editingKey = null;
-                  event.stopPropagation();
-                }}
-                onblur={() => (editingKey = null)}
+    <table class="box" bind:this={table}>
+      <caption class="visually-hidden">{shelfLabel}</caption>
+      <thead>
+        <tr>
+          <th scope="col" class="catno"><span class="visually-hidden">Cat no</span></th>
+          <th scope="col" class="who"><span class="visually-hidden">Record</span></th>
+          <th scope="col" class="where"><span class="visually-hidden">Label, year and country</span></th>
+          <th scope="col" class="market"><span class="visually-hidden">Market</span></th>
+          <th scope="col" class="verdict"><span class="visually-hidden">Verdict</span></th>
+          <th scope="col" class="day"><span class="visually-hidden">Decided</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each shelfState.visible as item (item.verdict.key)}
+          {@const release = item.release}
+          {@const isSelected = item.verdict.key === shelfState.selectedKey}
+          <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+          <tr
+            class:selected={isSelected}
+            aria-current={isSelected ? "true" : undefined}
+            onclick={() => (shelfState.selectedKey = item.verdict.key)}
+          >
+            <td class="catno">{release?.catno ?? ""}</td>
+            <td class="who">
+              {#if release}
+                <a href={discogsReleaseUrl(release.id)} target="_blank" rel="noopener noreferrer">
+                  <span class="artist">{release.artistDisplay}</span>
+                  <span class="title">{release.title}</span>
+                </a>
+              {:else}
+                <span class="title">Not in the loaded dump ({item.verdict.key})</span>
+              {/if}
+              {#if editingKey === item.verdict.key}
+                <input
+                  class="note-input"
+                  bind:value={noteDraft}
+                  maxlength="4000"
+                  aria-label="Note"
+                  onkeydown={(event) => {
+                    if (event.key === "Enter") saveNote(item);
+                    if (event.key === "Escape") editingKey = null;
+                    event.stopPropagation();
+                  }}
+                  onblur={() => (editingKey = null)}
+                />
+              {:else if item.verdict.notes}
+                <p class="note">{item.verdict.notes}</p>
+              {/if}
+              {#if notOnList(item)}
+                <p class="pending">not on your Discogs Maybe list yet</p>
+              {:else if notOnWantlist(item)}
+                <p class="pending">not on your Discogs wantlist</p>
+              {/if}
+            </td>
+            <td class="where">
+              {#if release}
+                <span>{release.labelName ?? ""}</span>
+                <span class="quiet">{[release.year, release.country].filter(Boolean).join(" ")}</span>
+              {/if}
+            </td>
+            <td class="market">
+              {#if release?.enrichedAt}
+                <span>{release.lowestPrice !== null ? formatPrice(release.lowestPrice, release.currency) : "none for sale"}</span>
+                <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
+              {:else}
+                <span class="quiet">no market data</span>
+              {/if}
+            </td>
+            <td class="verdict">
+              <Stamp
+                text={STATUS_COPY[item.verdict.status]}
+                tone={STATUS_TONE[item.verdict.status]}
+                seed={release?.id ?? item.verdict.key.length}
+                size="sm"
               />
-            {:else if item.verdict.notes}
-              <p class="note">{item.verdict.notes}</p>
-            {/if}
-            {#if notOnList(item)}
-              <p class="pending">not on your Discogs Maybe list yet</p>
-            {:else if notOnWantlist(item)}
-              <p class="pending">not on your Discogs wantlist</p>
-            {/if}
-          </div>
-          <div class="where">
-            {#if release}
-              <span>{release.labelName ?? ""}</span>
-              <span class="quiet">{[release.year, release.country].filter(Boolean).join(" ")}</span>
-            {/if}
-          </div>
-          <div class="market">
-            {#if release?.enrichedAt}
-              <span>{release.lowestPrice !== null ? formatPrice(release.lowestPrice, release.currency) : "none for sale"}</span>
-              <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
-            {:else}
-              <span class="quiet">no market data</span>
-            {/if}
-          </div>
-          <div class="verdict">
-            <Stamp
-              text={STATUS_COPY[item.verdict.status]}
-              tone={STATUS_TONE[item.verdict.status]}
-              seed={release?.id ?? item.verdict.key.length}
-              size="sm"
-            />
-          </div>
-          <span class="day quiet">{formatDay(item.verdict.decidedAt)}</span>
-        </li>
-      {/each}
-    </ol>
+            </td>
+            <td class="day quiet">{formatDay(item.verdict.decidedAt)}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
   {/if}
 
   <footer class="foot">
@@ -432,21 +446,44 @@
     text-underline-offset: 4px;
   }
   .box {
-    list-style: none;
-    margin: 0;
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  th {
     padding: 0;
   }
-  .card {
-    display: grid;
-    grid-template-columns: 9.5em minmax(0, 1fr) minmax(0, 15em) 8.5em 7.5em 5em;
-    align-items: center;
-    gap: 20px;
-    padding: 12px 16px;
+  th.catno {
+    width: calc(9.5em + 26px);
+  }
+  th.where {
+    width: calc(15em + 20px);
+  }
+  th.market {
+    width: calc(8.5em + 20px);
+  }
+  th.verdict {
+    width: calc(7.5em + 20px);
+  }
+  th.day {
+    width: calc(5em + 26px);
+  }
+  td {
+    padding: 12px 10px;
     border-bottom: 1px solid color-mix(in srgb, var(--groove) 60%, transparent);
+    vertical-align: middle;
     cursor: default;
   }
-  .card.selected {
+  td:first-child {
+    padding-left: 16px;
+  }
+  td:last-child {
+    padding-right: 16px;
+  }
+  .selected {
     background: var(--sleeve);
+  }
+  .selected td:first-child {
     box-shadow: inset 3px 0 0 var(--flyer);
   }
   .catno {
@@ -458,9 +495,6 @@
   }
   .selected .catno {
     color: var(--paper);
-  }
-  .who {
-    min-width: 0;
   }
   .who a {
     display: grid;
@@ -539,23 +573,18 @@
     border-radius: var(--radius);
     background: var(--ground);
   }
-  .where,
-  .market {
-    display: grid;
-    min-width: 0;
+  td.where,
+  td.market {
     font-size: var(--text-sm);
   }
   .where span,
   .market span {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .verdict {
-    display: grid;
-    justify-items: start;
-  }
-  .day {
+  td.day {
     text-align: right;
     font-size: var(--text-sm);
   }
@@ -597,8 +626,8 @@
     text-align: right;
   }
   @media (max-width: 1100px) {
-    .card {
-      grid-template-columns: 8em minmax(0, 1fr) 7.5em 5em;
+    th.catno {
+      width: calc(8em + 26px);
     }
     .where,
     .market {
