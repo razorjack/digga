@@ -98,7 +98,7 @@
             {#if heard && !heardNow}<span class="note">heard</span>{/if}
             {#if heardNow && state !== "playing"}<span class="note">played</span>{/if}
             {#if state === "failed" || state === "blocked"}<span class="note">no embed</span>{/if}
-            {#if track.mark}<Stamp text={MARK_COPY[track.mark]} tone={track.mark === "meh" ? "dust" : "flyer"} size="sm" seed={track.seq + detail.release.id} />{/if}
+            {#if track.mark}<Stamp text={MARK_COPY[track.mark]} tone={track.mark === "meh" ? "muted" : "accent"} size="sm" seed={track.seq + detail.release.id} />{/if}
           </span>
           <span class="dur">{formatDuration(track.durationSeconds)}</span>
         </button>

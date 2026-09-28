@@ -4,16 +4,17 @@
    * stays the same for the same seed. `slam` animates it in once, for stamps the user just applied.
    */
   import { stampTilt } from "../../shared/display.ts";
+  import type { StampTone } from "../keymap.ts";
 
   let {
     text,
-    tone = "paper",
+    tone = "plain",
     seed = 0,
     size = "md",
     slam = false,
   }: {
     text: string;
-    tone?: "paper" | "flyer" | "dust";
+    tone?: StampTone;
     seed?: number;
     size?: "sm" | "md" | "lg" | "xl";
     slam?: boolean;
@@ -52,13 +53,13 @@
     border-width: 6px;
     padding: 0.12em 0.4em 0.06em;
   }
-  .paper {
+  .plain {
     color: var(--fg);
   }
-  .flyer {
+  .accent {
     color: var(--accent);
   }
-  .dust {
+  .muted {
     color: var(--fg-muted);
   }
   .slam {

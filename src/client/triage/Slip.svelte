@@ -42,11 +42,11 @@
           {#if slip.kind === "verdict"}
             <Stamp text={STATUS_COPY[slip.status]} tone={STATUS_TONE[slip.status]} seed={slip.item.id} slam />
           {:else if slip.kind === "pass"}
-            <Stamp text="later" tone="dust" seed={slip.item.id} slam />
+            <Stamp text="later" tone="muted" seed={slip.item.id} slam />
           {:else if slip.kind === "label"}
-            <Stamp text="label hidden" tone="dust" seed={slip.item.id} slam />
+            <Stamp text="label hidden" tone="muted" seed={slip.item.id} slam />
           {:else}
-            <Stamp text="undone" tone="dust" seed={slip.item.id} slam />
+            <Stamp text="undone" tone="muted" seed={slip.item.id} slam />
           {/if}
         </div>
       {/key}

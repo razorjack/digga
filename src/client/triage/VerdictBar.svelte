@@ -139,7 +139,7 @@
     font-size: var(--text-lg);
     line-height: 1.1;
   }
-  .flyer .copy {
+  .accent .copy {
     color: var(--accent);
   }
   .hint {

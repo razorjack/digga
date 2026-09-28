@@ -111,7 +111,7 @@
         <td class="mark">
           <Stamp
             text={MARK_COPY[track.mark.mark]}
-            tone={track.mark.mark === "candidate" ? "flyer" : "paper"}
+            tone={track.mark.mark === "candidate" ? "accent" : "plain"}
             seed={track.mark.releaseId + track.mark.position.length}
             size="sm"
           />

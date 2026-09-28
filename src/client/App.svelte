@@ -123,7 +123,7 @@
         title="Verdicts, notes, track marks and heard tunes stay in this tab, and nothing goes to Discogs. Click to change."
         onmousedown={keepFocus}
       >
-        <Stamp text="sandbox" tone="flyer" size="sm" seed={3} />
+        <Stamp text="sandbox" tone="accent" size="sm" seed={3} />
         <span>verdicts are not saved</span>
       </a>
     {/if}

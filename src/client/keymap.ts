@@ -7,7 +7,7 @@ export type TriageStatus = Extract<
   "rejected" | "accepted" | "maybe" | "candidate" | "snoozed" | "no_audio"
 >;
 
-export type StampTone = "paper" | "flyer" | "dust";
+export type StampTone = "plain" | "accent" | "muted";
 
 export interface VerdictKey {
   status: TriageStatus;
@@ -27,7 +27,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
     key: "R",
     copy: "skip",
     hint: "not for the box",
-    tone: "paper",
+    tone: "plain",
     group: "judge",
   },
   {
@@ -35,7 +35,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
     key: "A",
     copy: "want",
     hint: "onto the wantlist",
-    tone: "flyer",
+    tone: "accent",
     group: "judge",
   },
   {
@@ -43,7 +43,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
     key: "M",
     copy: "maybe",
     hint: "for your Maybe list",
-    tone: "paper",
+    tone: "plain",
     group: "judge",
     needsMaybeList: true,
   },
@@ -52,7 +52,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
     key: "C",
     copy: "grail",
     hint: "the one you've been hunting",
-    tone: "flyer",
+    tone: "accent",
     group: "judge",
   },
   {
@@ -60,7 +60,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
     key: "L",
     copy: "snooze",
     hint: "hear it again later",
-    tone: "dust",
+    tone: "muted",
     group: "defer",
   },
   {
@@ -68,7 +68,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
     key: "D",
     copy: "no audio",
     hint: "off the queue, unjudged",
-    tone: "dust",
+    tone: "muted",
     group: "defer",
   },
 ];
@@ -87,15 +87,15 @@ export const STATUS_COPY: Record<VerdictStatus, string> = {
 };
 
 export const STATUS_TONE: Record<VerdictStatus, StampTone> = {
-  rejected: "paper",
-  accepted: "flyer",
-  maybe: "paper",
-  candidate: "flyer",
-  no_audio: "dust",
-  snoozed: "dust",
-  wantlist: "paper",
-  collection: "paper",
-  seen: "dust",
+  rejected: "plain",
+  accepted: "accent",
+  maybe: "plain",
+  candidate: "accent",
+  no_audio: "muted",
+  snoozed: "muted",
+  wantlist: "plain",
+  collection: "plain",
+  seen: "muted",
 };
 
 export interface KeyHelp {

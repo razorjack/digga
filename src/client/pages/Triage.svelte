@@ -301,7 +301,7 @@
         </div>
       {:else if session.finished}
         <div class="state finished">
-          <Stamp text="all dug" tone="flyer" size="xl" seed={1} slam />
+          <Stamp text="all dug" tone="accent" size="xl" seed={1} slam />
           <p class="headline">Every release under your filters has a verdict.</p>
           <p class="quiet">
             {stats.value ? `${formatCount(stats.value.dug)} dug so far.` : ""}
