@@ -36,3 +36,66 @@ describe("job contracts", () => {
     }
   });
 });
+
+it("waits for cancelled async work before releasing its database", async () => {
+  const db = openDb(":memory:");
+  const runner = createJobRunner(db, silentLogger);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const job = runner.run("enrich", async ({ signal, onProgress }) => {
+    await pending;
+    expect(signal.aborted).toBe(true);
+    onProgress({ done: 0, total: 1, failed: 0, currentReleaseId: null });
+  });
+  let stopped = false;
+  const stopping = runner.stop().then(() => {
+    stopped = true;
+  });
+  await Promise.resolve();
+  expect(stopped).toBe(false);
+  expect(runner.active()).toEqual([job.id]);
+  release();
+  await stopping;
+  expect(runner.get(job.id)?.status).toBe("cancelled");
+  expect(runner.active()).toEqual([]);
+  expect(() => runner.run("enrich", async () => {})).toThrow("stopping");
+  db.close();
+});
+
+it("tracks a worker until exit even after its done message", async () => {
+  const db = openDb(":memory:");
+  const runner = createJobRunner(db, silentLogger);
+  const script = new URL(
+    `data:text/javascript,${encodeURIComponent(`
+    import { parentPort } from 'node:worker_threads';
+    parentPort.postMessage({ type: 'done', result: null });
+    setInterval(() => {}, 1000);
+  `)}`,
+  );
+  const job = runner.runInWorker("dump_load", script, {});
+  try {
+    await expect.poll(() => runner.get(job.id)?.status).toBe("done");
+    expect(runner.active()).toEqual([job.id]);
+    await runner.stop();
+    expect(runner.active()).toEqual([]);
+    expect(runner.get(job.id)?.status).toBe("done");
+  } finally {
+    await runner.stop();
+    db.close();
+  }
+});
+
+it("reports an unexpected worker exit as failure", async () => {
+  const db = openDb(":memory:");
+  const runner = createJobRunner(db, silentLogger);
+  const job = runner.runInWorker("dump_load", new URL("data:text/javascript,process.exit(2)"), {});
+  try {
+    await expect.poll(() => runner.get(job.id)?.status).toBe("failed");
+    expect(runner.get(job.id)?.error).toBe("Worker exited with code 2");
+  } finally {
+    await runner.stop();
+    db.close();
+  }
+});

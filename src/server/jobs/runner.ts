@@ -34,75 +34,165 @@ export interface JobRunner {
   get(id: string): Job | null;
   list(limit?: number): Job[];
   active(): string[];
+  /** Cancels active work and waits until it no longer uses the database. */
+  stop(): Promise<void>;
+}
+
+interface ActiveJob {
+  abort(): void;
+  finished: Promise<unknown>;
 }
 
 export function createJobRunner(db: Db, logger: Logger): JobRunner {
-  const controllers = new Map<string, { abort: () => void }>();
+  return new Runner(db, logger);
+}
 
-  const finish = (id: string, status: "done" | "failed" | "cancelled", error?: string) => {
-    markJobFinished(db, id, status, error);
-    controllers.delete(id);
-  };
+class Runner implements JobRunner {
+  #db: Db;
+  #logger: Logger;
+  #active = new Map<string, ActiveJob>();
+  #stopping = false;
 
-  const execute = async <Result>(job: Job, fn: JobFn<Result>): Promise<Result> => {
+  constructor(db: Db, logger: Logger) {
+    this.#db = db;
+    this.#logger = logger;
+  }
+
+  run(type: JobType, fn: JobFn): Job {
+    const { job, result } = this.#startAsync(type, fn);
+    void result.catch(() => {});
+    return job;
+  }
+
+  async runAndWait<Result>(
+    type: JobType,
+    fn: JobFn<Result>,
+  ): Promise<{ job: Job; result: Result }> {
+    const started = this.#startAsync(type, fn);
+    const result = await started.result;
+    return { job: getJob(this.#db, started.job.id)!, result };
+  }
+
+  #create(type: JobType): Job {
+    if (this.#stopping) throw new Error("Job runner is stopping");
+    const job = createJob(this.#db, type);
+    markJobStarted(this.#db, job.id);
+    return job;
+  }
+
+  #startAsync<Result>(type: JobType, fn: JobFn<Result>): { job: Job; result: Promise<Result> } {
+    const job = this.#create(type);
     const controller = new AbortController();
-    controllers.set(job.id, { abort: () => controller.abort() });
-    markJobStarted(db, job.id);
-    const log = logger.child(job.type);
+    const result = this.#execute(job, fn, controller).finally(() => this.#active.delete(job.id));
+    this.#active.set(job.id, { abort: () => controller.abort(), finished: result });
+    return { job, result };
+  }
+
+  async #execute<Result>(
+    job: Job,
+    fn: JobFn<Result>,
+    controller: AbortController,
+  ): Promise<Result> {
+    const log = this.#logger.child(job.type);
     try {
       const result = await fn({
         signal: controller.signal,
-        onProgress: (progress) => updateJobProgress(db, job.id, progress),
+        onProgress: (progress) => updateJobProgress(this.#db, job.id, progress),
       });
-      finish(job.id, controller.signal.aborted ? "cancelled" : "done");
-      log.info(`job ${job.id} ${controller.signal.aborted ? "cancelled" : "done"}`);
+      const status = controller.signal.aborted ? "cancelled" : "done";
+      markJobFinished(this.#db, job.id, status);
+      log.info(`job ${job.id} ${status}`);
       return result;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      finish(job.id, controller.signal.aborted ? "cancelled" : "failed", message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      markJobFinished(
+        this.#db,
+        job.id,
+        controller.signal.aborted ? "cancelled" : "failed",
+        message,
+      );
       log.error(`job ${job.id} failed: ${message}`);
-      throw err;
+      throw error;
     }
-  };
+  }
 
-  return {
-    run(type, fn) {
-      const job = createJob(db, type);
-      void execute(job, fn).catch(() => {});
-      return job;
-    },
-    async runAndWait(type, fn) {
-      const job = createJob(db, type);
-      const result = await execute(job, fn);
-      return { job: getJob(db, job.id)!, result };
-    },
-    runInWorker(type, script, workerData) {
-      const job = createJob(db, type);
-      markJobStarted(db, job.id);
-      const worker = new Worker(script, { workerData });
-      controllers.set(job.id, { abort: () => void worker.terminate() });
-      worker.on("message", (msg: WorkerMessage) => {
-        if (msg.type === "progress") updateJobProgress(db, job.id, msg.progress);
-        else if (msg.type === "done") {
-          finish(job.id, "done");
-        } else if (msg.type === "error") finish(job.id, "failed", msg.message);
-      });
-      worker.on("error", (err) => finish(job.id, "failed", err.message));
+  runInWorker(type: JobType, script: URL, workerData: unknown): Job {
+    const job = this.#create(type);
+    try {
+      this.#watchWorker(job, new Worker(script, { workerData }));
+    } catch (error) {
+      markJobFinished(
+        this.#db,
+        job.id,
+        "failed",
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+    return job;
+  }
+
+  #watchWorker(job: Job, worker: Worker): void {
+    let cancelled = false;
+    const finished = new Promise<void>((resolve) => {
+      worker.on("message", (message: WorkerMessage) => this.#workerMessage(job.id, message));
+      worker.on("error", (error) => markJobFinished(this.#db, job.id, "failed", error.message));
       worker.on("exit", (code) => {
-        const current = getJob(db, job.id);
-        if (current && current.status === "running")
-          finish(job.id, code === 0 ? "done" : "cancelled");
+        this.#workerExited(job.id, code, cancelled);
+        this.#active.delete(job.id);
+        resolve();
       });
-      return job;
-    },
-    cancel(id) {
-      const c = controllers.get(id);
-      if (!c) return false;
-      c.abort();
-      return true;
-    },
-    get: (id) => getJob(db, id),
-    list: (limit) => listJobs(db, limit),
-    active: () => [...controllers.keys()],
-  };
+    });
+    this.#active.set(job.id, {
+      finished,
+      abort: () => {
+        cancelled = true;
+        void worker.terminate();
+      },
+    });
+  }
+
+  #workerMessage(id: string, message: WorkerMessage): void {
+    if (message.type === "progress") updateJobProgress(this.#db, id, message.progress);
+    if (message.type === "done") markJobFinished(this.#db, id, "done");
+    if (message.type === "error") markJobFinished(this.#db, id, "failed", message.message);
+  }
+
+  #workerExited(id: string, code: number, cancelled: boolean): void {
+    const job = getJob(this.#db, id);
+    if (job?.status !== "running") return;
+    if (cancelled) {
+      markJobFinished(this.#db, id, "cancelled");
+      return;
+    }
+    if (code === 0) {
+      markJobFinished(this.#db, id, "done");
+      return;
+    }
+    markJobFinished(this.#db, id, "failed", `Worker exited with code ${code}`);
+  }
+
+  cancel(id: string): boolean {
+    const active = this.#active.get(id);
+    if (!active) return false;
+    active.abort();
+    return true;
+  }
+
+  async stop(): Promise<void> {
+    this.#stopping = true;
+    const active = [...this.#active.values()];
+    for (const job of active) job.abort();
+    await Promise.allSettled(active.map((job) => job.finished));
+  }
+
+  get(id: string): Job | null {
+    return getJob(this.#db, id);
+  }
+  list(limit?: number): Job[] {
+    return listJobs(this.#db, limit);
+  }
+  active(): string[] {
+    return [...this.#active.keys()];
+  }
 }

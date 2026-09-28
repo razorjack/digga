@@ -1,5 +1,4 @@
-import type { Server as HttpServer } from "node:http";
-import { serve, type ServerType } from "@hono/node-server";
+import { HttpListener } from "./http.ts";
 import type { Hono } from "hono";
 import type { Config } from "../shared/config.ts";
 import { createApp } from "./app.ts";
@@ -26,18 +25,8 @@ export interface CreateServerOptions {
   fetchImpl?: typeof fetch;
 }
 
-export interface StartInfo {
-  host: string;
-  port: number;
-  url: string;
-  /**
-   * The URL to open the app at. YouTube refuses some embeds (error 150) on IP-address origins
-   * such as 127.0.0.1, so a loopback server is opened as localhost.
-   */
-  browserUrl: string;
-}
-
-const LOOPBACK = new Set(["127.0.0.1", "::1"]);
+import type { StartInfo } from "./http.ts";
+export type { StartInfo } from "./http.ts";
 
 export interface DiggaServer {
   app: Hono;
@@ -52,24 +41,53 @@ export interface DiggaServer {
  * The whole backend as a function. The CLI's `serve` command calls it; Electron's
  * main process will call it too and open a BrowserWindow at the returned URL.
  */
-export function createServer(opts: CreateServerOptions): DiggaServer {
-  let config = opts.config;
-  const ownsDb = opts.db === undefined;
-  const db = opts.db ?? openDb(opts.paths.dbFile);
-  const logger = opts.logger;
+export function createServer(options: CreateServerOptions): DiggaServer {
+  let config = options.config;
+  const ownsDb = options.db === undefined;
+  const db = options.db ?? openDb(options.paths.dbFile);
+  const logger = options.logger;
   const stale = failStaleJobs(db);
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
   const jobs = createJobRunner(db, logger.child("jobs"));
 
+  const app = createApp({
+    db,
+    paths: options.paths,
+    logger,
+    jobs,
+    getConfig: () => config,
+    setConfig: (next) => {
+      if (options.persistConfig !== false) saveConfig(options.paths.configFile, next);
+      config = next;
+      logger.info(`settings updated (${options.paths.configFile})`);
+    },
+    getDiscogs: discogsProvider(options),
+    serveStatic: options.serveStatic ?? true,
+  });
+
+  const listener = new HttpListener(app, logger);
+  let stopping: Promise<void> | null = null;
+  return {
+    app,
+    db,
+    jobs,
+    getConfig: () => config,
+    start: (port, host) => listener.start(port ?? config.server.port, host ?? config.server.host),
+    stop: () => (stopping ??= stopServer({ listener, jobs, db, ownsDb, logger })),
+  };
+}
+
+function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
+  const logger = options.logger;
   let discogs: DiscogsClient | null = null;
   let discogsToken: string | undefined;
   const getDiscogs = () => {
-    const token = opts.secrets.getDiscogsToken();
+    const token = options.secrets.getDiscogsToken();
     if (!discogs || token !== discogsToken) {
       discogsToken = token;
       discogs = createDiscogsClient({
         token,
-        fetchImpl: opts.fetchImpl,
+        fetchImpl: options.fetchImpl,
         logger: logger.child("discogs"),
       });
       if (!token)
@@ -80,52 +98,18 @@ export function createServer(opts: CreateServerOptions): DiggaServer {
     return discogs;
   };
 
-  const app = createApp({
-    db,
-    paths: opts.paths,
-    logger,
-    jobs,
-    getConfig: () => config,
-    setConfig: (next) => {
-      if (opts.persistConfig !== false) saveConfig(opts.paths.configFile, next);
-      config = next;
-      logger.info(`settings updated (${opts.paths.configFile})`);
-    },
-    getDiscogs,
-    serveStatic: opts.serveStatic ?? true,
-  });
+  return getDiscogs;
+}
 
-  let httpServer: ServerType | null = null;
-
-  return {
-    app,
-    db,
-    jobs,
-    getConfig: () => config,
-    start(port, host) {
-      const hostname = host ?? config.server.host;
-      const requested = port ?? config.server.port;
-      return new Promise<StartInfo>((resolve, reject) => {
-        const server = serve({ fetch: app.fetch, port: requested, hostname }, (info) => {
-          const url = `http://${info.address.includes(":") ? `[${info.address}]` : info.address}:${info.port}`;
-          const browserUrl = LOOPBACK.has(info.address) ? `http://localhost:${info.port}` : url;
-          logger.info(`listening on ${url}`);
-          resolve({ host: info.address, port: info.port, url, browserUrl });
-        });
-        server.on("error", reject);
-        httpServer = server;
-      });
-    },
-    async stop() {
-      const server = httpServer;
-      httpServer = null;
-      if (server) {
-        (server as HttpServer).closeAllConnections?.();
-        await new Promise<void>((resolve) => server.close(() => resolve()));
-      }
-      for (const id of jobs.active()) jobs.cancel(id);
-      if (ownsDb) db.close();
-      logger.info("stopped");
-    },
-  };
+async function stopServer(context: {
+  listener: HttpListener;
+  jobs: JobRunner;
+  db: Db;
+  ownsDb: boolean;
+  logger: Logger;
+}): Promise<void> {
+  await context.listener.stop();
+  await context.jobs.stop();
+  if (context.ownsDb) context.db.close();
+  context.logger.info("stopped");
 }
