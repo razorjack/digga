@@ -64,7 +64,8 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   The flyer also draws bars, underlines, outlines and progress (`--accent-mark`) and sets
   accented text (`--fg-accent`). A static photocopy grain covers the page at low opacity.
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
-  Mono (87.5% width) for everything else. Sizes run 11 / 12.5 / 14 / 17 / 22 / 30 / 40 px.
+  Mono (87.5% width) for everything else. Sizes run 10 / 11 / 12.5 / 14 / 17 / 22 / 30 / 40 /
+  64 px.
 - **Triage layout:** top bar (wordmark, pages with keys, the sandbox stamp linking to the
   setting, dug / to go / ETA / session count); left column with the catalogue-number stamp, label, artist, title, facts,
   market line, other versions and the scrolling tracklist; right column with the player, the

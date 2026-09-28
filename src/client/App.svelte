@@ -186,7 +186,7 @@
   }
   .wordmark {
     font-family: var(--display);
-    font-size: 19px;
+    font-size: var(--text-lg);
     letter-spacing: 0.02em;
     text-decoration: none;
     color: var(--fg);

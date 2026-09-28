@@ -38,7 +38,7 @@
     white-space: nowrap;
   }
   .sm {
-    font-size: 10px;
+    font-size: var(--text-2xs);
   }
   .lg {
     font-size: var(--text-md);

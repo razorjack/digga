@@ -41,7 +41,7 @@
     filter: url(#ink);
   }
   .sm {
-    font-size: 10px;
+    font-size: var(--text-2xs);
     border-width: 1.5px;
     filter: url(#ink-fine);
   }
@@ -49,7 +49,7 @@
     font-size: var(--text-lg);
   }
   .xl {
-    font-size: 64px;
+    font-size: var(--text-4xl);
     border-width: 6px;
     padding: 0.12em 0.4em 0.06em;
   }
