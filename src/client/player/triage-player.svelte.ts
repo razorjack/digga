@@ -118,6 +118,7 @@ export class TriagePlayer {
       this.#timer = setInterval(() => this.#tick(), TICK_MS);
       this.#sync();
     } catch (e) {
+      if (this.#destroyed) return;
       this.status = "unavailable";
       this.notice = e instanceof Error ? e.message : String(e);
     }
@@ -254,30 +255,7 @@ export class TriagePlayer {
     const entries = buildPlaylist(detail, this.heardKeys);
     this.entries = entries;
     const first = firstEntry(entries, this.#playlistState());
-    const hidden = this.#hiddenDeck();
-    if (hidden && hidden.tag?.releaseId === detail.release.id && hidden.videoId) {
-      const index = entries.findIndex((e) => e.video.videoId === hidden.videoId);
-      const entry = entries[index];
-      // The preload is used only if it is still the right start: a tune heard since then moves it.
-      if (entry && index === first) {
-        active.park();
-        this.active = hidden.id;
-        this.nextReady = false;
-        this.current = index;
-        this.played.add(entry.video.videoId);
-        this.duration = entry.video.durationSeconds ?? 0;
-        this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
-        if (this.#canPlay()) {
-          this.status = hidden.state === PlayerState.PLAYING ? "playing" : "loading";
-          this.#loadingSince = performance.now();
-          hidden.play();
-        } else {
-          this.status = this.#waitingStatus();
-        }
-        this.#beginListen(detail.release.id, entry);
-        return;
-      }
-    }
+    if (this.#adoptPreload(detail, first)) return;
     if (first === null) {
       this.current = null;
       active.park();
@@ -285,6 +263,35 @@ export class TriagePlayer {
       return;
     }
     this.playEntry(first);
+  }
+
+  #adoptPreload(detail: ReleaseDetail, first: number | null): boolean {
+    const hidden = this.#hiddenDeck();
+    if (!hidden?.videoId || hidden.tag?.releaseId !== detail.release.id) return false;
+    const index = this.entries.findIndex((entry) => entry.video.videoId === hidden.videoId);
+    const entry = this.entries[index];
+    // A tune heard after preloading can change the correct starting track.
+    if (!entry || index !== first) return false;
+    this.#activeDeck()?.park();
+    this.active = hidden.id;
+    this.nextReady = false;
+    this.current = index;
+    this.played.add(entry.video.videoId);
+    this.duration = entry.video.durationSeconds ?? 0;
+    this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+    this.#startPreload(hidden);
+    this.#beginListen(detail.release.id, entry);
+    return true;
+  }
+
+  #startPreload(deck: Deck): void {
+    if (!this.#canPlay()) {
+      this.status = this.#waitingStatus();
+      return;
+    }
+    this.status = deck.state === PlayerState.PLAYING ? "playing" : "loading";
+    this.#loadingSince = performance.now();
+    deck.play();
   }
 
   /** Loads the next release's first video into the hidden deck, unless it already holds it. */
@@ -310,6 +317,7 @@ export class TriagePlayer {
   }
 
   #onState(deck: Deck, state: number): void {
+    if (this.#destroyed) return;
     if (deck.id !== this.active) {
       if (deck.primed) this.nextReady = true;
       return;
@@ -335,6 +343,7 @@ export class TriagePlayer {
   }
 
   #onError(deck: Deck, code: number, videoId: string | null): void {
+    if (this.#destroyed) return;
     const refused = videoId ?? deck.videoId;
     if (refused) this.failed.add(refused);
     // A late error for a video the deck has already left changes nothing on screen.
