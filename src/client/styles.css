@@ -9,6 +9,7 @@
   --bg: #161618;
   --surface: #1d1d20;
   --rule: #323238;
+  --rule-soft: color-mix(in srgb, var(--rule) 60%, transparent);
   --fg: #ebe5d4;
   --fg-muted: #a8a294;
   --fg-faint: #6b675e;

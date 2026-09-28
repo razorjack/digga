@@ -156,7 +156,7 @@
     width: 100%;
     padding: 7px 0;
     border: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+    border-bottom: 1px solid var(--rule-soft);
     background: none;
     text-align: left;
     line-height: 1.35;

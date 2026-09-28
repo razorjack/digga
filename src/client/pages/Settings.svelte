@@ -1087,7 +1087,7 @@
     padding-right: 0;
   }
   .job-list tbody tr {
-    border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
+    border-bottom: 1px solid var(--rule-soft);
   }
   th.job-name {
     width: calc(13em + 8px);

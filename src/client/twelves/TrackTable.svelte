@@ -150,7 +150,7 @@
   }
   td {
     padding: 12px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--rule) 60%, transparent);
+    border-bottom: 1px solid var(--rule-soft);
     vertical-align: middle;
     cursor: default;
   }
