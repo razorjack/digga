@@ -89,14 +89,15 @@
   const unenrichedEta = $derived(formatEta(enrichHours(unenriched)));
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
+  /** Derived, so saves that keep the username do not fetch the lists again. */
+  const discogsUsername = $derived(saved?.discogs.username ?? "");
 
   $effect(() => {
     if (saved && draft === null) draft = $state.snapshot(saved);
   });
 
   $effect(() => {
-    const username = saved?.discogs.username;
-    if (username) void discogs.loadLists();
+    if (discogsUsername) void discogs.loadLists();
   });
 
   $effect(() => {
