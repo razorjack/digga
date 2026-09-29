@@ -372,3 +372,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     saving a token that would not be used. A token Discogs refuses is saved anyway, with the
     reason next to the field, since Discogs may only be unreachable. Setting up is not digging,
     so the sandbox does not refuse it.
+87. **Digga downloads the newest dump itself.** Without a terminal, the dump was the one step a
+    user could not do from Settings. `dump download` (`POST /api/jobs/dump-download`) reads the
+    year pages of data.discogs.com, takes the newest `discogs_YYYYMMDD_releases.xml.gz`, and
+    skips the download when the folder has it. The file is written as `<file>.part` while it is
+    hashed and renamed only when its SHA-256 matches `CHECKSUM.txt`, so a file under a dump's
+    name is always whole; a failed, cancelled or mismatched download leaves nothing. The server
+    does not answer range requests, so there is no resume. The job checks for the dump's size
+    plus 1 GB free first, refuses a second download while one runs, and runs on the server
+    thread because it waits on the network; hashing a chunk takes microseconds. Old dumps are
+    not deleted: after a load they are only needed again for another load, and deleting a
+    10 GB file is the user's call. Settings lists the folder (`GET /api/dumps`) and offers its
+    newest dump to Load.

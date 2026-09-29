@@ -1,9 +1,11 @@
-import { formatCount } from "./display.ts";
-import type { Job, JobType, SellerImportProgress } from "./types.ts";
+import { formatBytes, formatCount } from "./display.ts";
+import type { DumpDownloadProgress, Job, JobType, SellerImportProgress } from "./types.ts";
 
 export function jobProgress(job: Job): { text: string; fraction: number | null } {
   if (job.progress === null) return { text: "Waiting for progress", fraction: null };
   switch (job.type) {
+    case "dump_download":
+      return downloadProgress(job.progress);
     case "dump_load":
       return {
         text: `scanned ${formatCount(job.progress.scanned)}, matched ${formatCount(job.progress.matched)}`,
@@ -36,6 +38,23 @@ export function jobProgress(job: Job): { text: string; fraction: number | null }
   }
 }
 
+/** The dump, by its date, and how much of it has arrived. */
+function downloadProgress(progress: DumpDownloadProgress): {
+  text: string;
+  fraction: number | null;
+} {
+  const { phase, file, receivedBytes, totalBytes, alreadyDownloaded } = progress;
+  if (file === null) return { text: "looking for the newest dump", fraction: null };
+  const dump = `${/(\d{4})(\d{2})(\d{2})/.exec(file)?.slice(1).join("-") ?? file} dump`;
+  if (alreadyDownloaded) return { text: `${dump}, downloaded before`, fraction: 1 };
+  if (phase === "done") return { text: `${dump}, ${formatBytes(receivedBytes)}`, fraction: 1 };
+  const total = totalBytes === null ? "" : ` of ${formatBytes(totalBytes)}`;
+  return {
+    text: `${dump}: ${formatBytes(receivedBytes)}${total}`,
+    fraction: totalBytes ? receivedBytes / totalBytes : null,
+  };
+}
+
 /** Pages while the shop is read, then how much of it was read and how much of it is loaded. */
 function sellerProgress(progress: SellerImportProgress): { text: string; fraction: number | null } {
   const { username, page, pages, listings, read, records } = progress;
@@ -54,6 +73,7 @@ function sellerProgress(progress: SellerImportProgress): { text: string; fractio
 }
 
 export const JOB_LABEL: Record<JobType, string> = {
+  dump_download: "Download dump",
   dump_load: "Load dump",
   import_collection: "Import collection",
   import_wantlist: "Import wantlist",

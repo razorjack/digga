@@ -1,4 +1,5 @@
 import {
+  downloadDump,
   dumpLoad,
   enrich,
   enrichTwelves,
@@ -9,6 +10,7 @@ import {
   importWantlist,
 } from "../server/jobs/index.ts";
 import { localDay, writeBackup } from "../server/db/backup.ts";
+import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
 import { createServer } from "../server/server.ts";
 import { computeStats } from "../server/stats.ts";
@@ -25,7 +27,15 @@ import {
   type EnrichCommand,
   type ImportCommand,
 } from "./options.ts";
-import { showBackup, showDump, showEnrichment, showImport, showStats } from "./report.ts";
+import {
+  showBackup,
+  showDownload,
+  showDump,
+  showEnrichment,
+  showImport,
+  showStats,
+  downloadReporter,
+} from "./report.ts";
 import { type Runtime, discogsFor, withDatabase } from "./runtime.ts";
 
 export type ImportResult =
@@ -33,6 +43,21 @@ export type ImportResult =
   | ListImportResult
   | SellerImportResult
   | ({ kind: "history" } & Awaited<ReturnType<typeof importHistory>>);
+
+export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
+  const deps = { dumps: createDataDumpClient(), logger: runtime.logger };
+  const report = downloadReporter();
+  const { result } = await withDatabase(runtime, (db) => {
+    const jobs = createJobRunner(db, runtime.logger);
+    return jobs.runAndWait("dump_download", ({ signal, onProgress }) =>
+      downloadDump(deps, { dumpsDir: runtime.paths.dumpsDir, signal }, (progress) => {
+        onProgress(progress);
+        report(progress);
+      }),
+    );
+  });
+  showDownload(result);
+}
 
 export async function cmdDumpLoad(runtime: Runtime, args: string[]): Promise<void> {
   const options = parseDumpOptions(args, runtime.config);

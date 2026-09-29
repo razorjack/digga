@@ -1,21 +1,25 @@
 import { type Context, Hono } from "hono";
 import {
   type ApiError,
+  type DumpsResponse,
   DumpLoadJobInputSchema,
   EnrichJobInputSchema,
   IMPORT_KINDS,
   ImportJobInputSchema,
   type JobsResponse,
 } from "../../shared/api.ts";
-import { startDumpLoad, startEnrich, startImport } from "../jobs/start.ts";
+import { listDumpFiles } from "../dump-files.ts";
+import { startDumpDownload, startDumpLoad, startEnrich, startImport } from "../jobs/start.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseJson, refuseInSandbox } from "./request.ts";
 
 export function registerJobsRoutes(api: Hono, context: AppContext): void {
   api.post("/jobs/enrich", (request) => enrichJob(request, context));
+  api.post("/jobs/dump-download", (request) => dumpDownloadJob(request, context));
   api.post("/jobs/dump-load", (request) => dumpJob(request, context));
   api.post("/jobs/import/:kind", (request) => importJob(request, context));
   api.get("/jobs", (request) => jobs(request, context));
+  api.get("/dumps", (request) => dumps(request, context));
   api.get("/jobs/:id", (request) => job(request, context));
   api.post("/jobs/:id/cancel", (request) => cancelJob(request, context));
 }
@@ -25,6 +29,10 @@ async function enrichJob(request: Context, context: AppContext) {
   if (!body.ok) return body.response;
   const job = startEnrich(context, body.data);
   return request.json(job, 202);
+}
+
+function dumpDownloadJob(request: Context, context: AppContext) {
+  return request.json(startDumpDownload(context), 202);
 }
 
 async function dumpJob(request: Context, context: AppContext) {
@@ -46,6 +54,12 @@ async function importJob(request: Context, context: AppContext) {
   }
   const job = startImport(context, kind, body.data);
   return request.json(job, 202);
+}
+
+function dumps(request: Context, context: AppContext) {
+  const directory = context.paths.dumpsDir;
+  const body: DumpsResponse = { directory, files: listDumpFiles(directory) };
+  return request.json(body);
 }
 
 function jobs(request: Context, context: AppContext) {

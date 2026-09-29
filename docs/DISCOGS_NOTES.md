@@ -2,7 +2,12 @@
 
 ## The data dump
 
-Monthly dumps are listed at https://data.discogs.com/ (CC0). Digga reads
+Monthly dumps are listed at https://data.discogs.com/ (CC0), one HTML page per year
+(`?prefix=data%2F2026%2F`), each file served with `?download=data%2F2026%2F<file>`. There is no
+JSON index, and the S3 bucket behind it refuses listing, so `dump download` reads the pages for
+their links. Each month also has `discogs_YYYYMMDD_CHECKSUM.txt` with one SHA-256 per file. The
+file is served whole: range requests are answered with the full file, so an interrupted download
+starts over. Digga reads
 `discogs_YYYYMMDD_releases.xml.gz` (~10 GB gzipped) as a stream: `fs.createReadStream ->
 zlib.createGunzip -> saxes`. It never decompresses to disk and never enumerates through
 `/database/search`. `dump load -` accepts already-decompressed XML on stdin

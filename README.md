@@ -129,13 +129,13 @@ Digga creates one on the first command that needs it.
 
 ### 2. Load the catalogue
 
-Download a **releases** dump, `discogs_YYYYMMDD_releases.xml.gz`, from
-[Discogs data dumps](https://data.discogs.com/) into `data/dumps/`. The download is several
-gigabytes. Digga streams the compressed file, so you do not need to extract it.
+Digga reads the monthly **releases** dump, `discogs_YYYYMMDD_releases.xml.gz`, from
+[Discogs data dumps](https://data.discogs.com/). The download is over 10 GB. Digga streams the
+compressed file, so you do not need to extract it. Settings has buttons for both steps under
+Jobs; from the command line:
 
 ```sh
-mkdir -p data/dumps
-# Download the releases dump into data/dumps, then use its actual filename:
+npm run digga -- dump download    # the newest dump into data/dumps/, checked against its checksum
 npm run digga -- dump load data/dumps/discogs_YYYYMMDD_releases.xml.gz
 ```
 

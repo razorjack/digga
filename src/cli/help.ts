@@ -3,6 +3,8 @@ export const HELP = `digga - dig Discogs vinyl by ear
 Usage: digga <command> [options]
 
 Commands:
+  dump download             Download the newest releases dump from data.discogs.com into
+                            data/dumps/, unless it is there already
   dump load <file|->        Stream a Discogs releases dump (.xml.gz, .xml or XML on stdin)
                             into the local universe, filtered by config universe.styles.
       --limit N             Stop after N matching releases (dev aid)

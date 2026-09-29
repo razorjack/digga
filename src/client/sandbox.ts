@@ -65,8 +65,8 @@ function queueItemFromDetail(detail: ReleaseDetail, videoCount: number): QueueIt
  * pushes and the Maybe list import. None of them reach the database or Discogs, and a reload
  * starts from the server's state again. Reads are overlaid with the fake writes, so the queue,
  * counters, Twelves, heard tracks and undo behave as if the writes had happened. Settings, the
- * Discogs token and the other jobs (dump load, enrich, collection, wantlist and history imports)
- * set the app up rather than dig, so they go to the server.
+ * Discogs token and the other jobs (dump download and load, enrich, collection, wantlist and
+ * history imports) set the app up rather than dig, so they go to the server.
  */
 export function createSandboxApi(inner: Api, options: SandboxOptions = {}): Api {
   return new SandboxApi(inner, options);
@@ -500,7 +500,9 @@ class SandboxApi implements Api {
 
   startEnrich: Api["startEnrich"] = (input) => this.#inner.startEnrich(input);
 
+  startDumpDownload: Api["startDumpDownload"] = () => this.#inner.startDumpDownload();
   startDumpLoad: Api["startDumpLoad"] = (input) => this.#inner.startDumpLoad(input);
+  getDumps: Api["getDumps"] = () => this.#inner.getDumps();
 
   startImport: Api["startImport"] = async (kind, input = {}) => {
     if (kind !== "list") return this.#inner.startImport(kind, input);

@@ -27,6 +27,19 @@ const base = {
 export const JobSchema = z.discriminatedUnion("type", [
   z.object({
     ...base,
+    type: z.literal("dump_download"),
+    progress: z
+      .object({
+        phase: z.enum(["finding", "downloading", "done"]),
+        file: z.string().nullable(),
+        receivedBytes: count,
+        totalBytes: count.nullable(),
+        alreadyDownloaded: z.boolean(),
+      })
+      .nullable(),
+  }),
+  z.object({
+    ...base,
     type: z.literal("dump_load"),
     progress: z
       .object({

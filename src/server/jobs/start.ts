@@ -10,6 +10,7 @@ import type { Job } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
 import { resolveDumpFile } from "../paths.ts";
 import {
+  downloadDump,
   dumpLoad,
   enrich,
   enrichTwelves,
@@ -24,6 +25,18 @@ import type { DumpLoadWorkerData } from "./dump-load-worker.ts";
 const DUMP_LOAD_WORKER = new URL("./dump-load-worker.ts", import.meta.url);
 
 export class JobInputError extends Error {}
+
+/** Two downloads of the same dump would write the same file. */
+export function startDumpDownload(context: AppContext): Job {
+  const running = context.jobs
+    .list()
+    .some((job) => job.type === "dump_download" && job.status === "running");
+  if (running) throw new JobInputError("A dump download is running already");
+  const deps = { dumps: context.dataDumps, logger: context.logger };
+  return context.jobs.run("dump_download", ({ signal, onProgress }) =>
+    downloadDump(deps, { dumpsDir: context.paths.dumpsDir, signal }, onProgress),
+  );
+}
 
 export function startDumpLoad(context: AppContext, input: DumpLoadJobInput): Job {
   const workerData = prepareDumpLoad(context, input);

@@ -297,6 +297,20 @@ export const DumpLoadJobInputSchema = z.object({
 });
 export type DumpLoadJobInput = z.input<typeof DumpLoadJobInputSchema>;
 
+// GET /api/dumps
+export interface DumpFile {
+  /** discogs_YYYYMMDD_releases.xml.gz */
+  name: string;
+  /** YYYY-MM-DD, from the name. */
+  date: string;
+  bytes: number;
+}
+export interface DumpsResponse {
+  directory: string;
+  /** Newest first. */
+  files: DumpFile[];
+}
+
 // POST /api/jobs/import/:kind
 export const IMPORT_KINDS = ["collection", "wantlist", "history", "list", "seller"] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];

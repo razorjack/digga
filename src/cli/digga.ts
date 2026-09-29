@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-import { cmdBackup, cmdDumpLoad, cmdEnrich, cmdImport, cmdServe, cmdStats } from "./commands.ts";
+import {
+  cmdBackup,
+  cmdDumpDownload,
+  cmdDumpLoad,
+  cmdEnrich,
+  cmdImport,
+  cmdServe,
+  cmdStats,
+} from "./commands.ts";
 import { HELP } from "./help.ts";
 import { boot } from "./runtime.ts";
 
@@ -12,7 +20,9 @@ async function main(argv: string[]): Promise<void> {
   const runtime = boot();
   switch (command) {
     case "dump":
-      if (args[0] !== "load") throw new Error("usage: digga dump load <file|->");
+      if (args[0] === "download") return cmdDumpDownload(runtime);
+      if (args[0] !== "load")
+        throw new Error("usage: digga dump download | digga dump load <file|->");
       return cmdDumpLoad(runtime, args.slice(1));
     case "import":
       return cmdImport(runtime, args);

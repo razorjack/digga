@@ -7,6 +7,7 @@ import { backupDaily, localDay } from "./db/backup.ts";
 import { type Db, openDb } from "./db/db.ts";
 import { failStaleJobs } from "./db/jobs.ts";
 import { createDiscogsClient, type DiscogsClient } from "./discogs/client.ts";
+import { createDataDumpClient } from "./discogs/data-dumps.ts";
 import { createJobRunner, type JobRunner } from "./jobs/runner.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
@@ -66,6 +67,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       logger.info(`settings updated (${options.paths.configFile})`);
     },
     getDiscogs: discogsProvider(options),
+    dataDumps: createDataDumpClient({ fetchImpl: options.fetchImpl }),
     lookupVideoTitle: createVideoTitleLookup(options.fetchImpl, logger.child("youtube")),
     serveStatic: options.serveStatic ?? true,
   });

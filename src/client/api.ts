@@ -6,6 +6,7 @@ import {
   type DiscogsListResponse,
   type DiscogsListsResponse,
   type DumpLoadJobInput,
+  type DumpsResponse,
   type EnrichJobInput,
   type ExportFile,
   type ImportJobInput,
@@ -62,7 +63,11 @@ export interface Api {
   getSettings(): Promise<Config>;
   putSettings(config: Config): Promise<Config>;
   startEnrich(input?: EnrichJobInput): Promise<Job>;
+  /** Downloads the newest releases dump from data.discogs.com into the dumps folder. */
+  startDumpDownload(): Promise<Job>;
   startDumpLoad(input: DumpLoadJobInput): Promise<Job>;
+  /** The releases dumps in the dumps folder, newest first. */
+  getDumps(): Promise<DumpsResponse>;
   startImport(kind: ImportKind, input?: ImportJobInput): Promise<Job>;
   getJobs(): Promise<JobsResponse>;
   getJob(id: string): Promise<Job>;
@@ -131,7 +136,9 @@ export function createHttpApi(baseUrl = "/api"): Api {
     getSettings: () => call("GET", "/settings"),
     putSettings: (config) => call("PUT", "/settings", config),
     startEnrich: (input = {}) => call("POST", "/jobs/enrich", input),
+    startDumpDownload: () => call("POST", "/jobs/dump-download"),
     startDumpLoad: (input) => call("POST", "/jobs/dump-load", input),
+    getDumps: () => call("GET", "/dumps"),
     startImport: (kind, input = {}) => call("POST", `/jobs/import/${kind}`, input),
     getJobs: () => call("GET", "/jobs"),
     getJob: (id) => call("GET", `/jobs/${id}`),
@@ -158,6 +165,8 @@ export interface AppApi extends Api {
   readonly generation: number;
 }
 
+// One forwarding line per Api method: a declarative table that splitting would only scatter.
+// eslint-disable-next-line max-lines-per-function
 export function createAppApi(
   http: Api,
   makeSandbox: (inner: Api) => Api = createSandboxApi,
@@ -192,7 +201,9 @@ export function createAppApi(
     getSettings: () => current.getSettings(),
     putSettings: (config) => current.putSettings(config),
     startEnrich: (input) => current.startEnrich(input),
+    startDumpDownload: () => current.startDumpDownload(),
     startDumpLoad: (input) => current.startDumpLoad(input),
+    getDumps: () => current.getDumps(),
     startImport: (kind, input) => current.startImport(kind, input),
     getJobs: () => current.getJobs(),
     getJob: (id) => current.getJob(id),

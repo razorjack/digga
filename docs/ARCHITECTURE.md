@@ -98,8 +98,8 @@ every listen (proof of coverage) and feeds `heard_tracks`, keyed by the normaliz
 
 ## Jobs
 
-The jobs (`dumpLoad`, `importCollection`, `importWantlist`, `importHistory`, `importList`,
-`importSeller`, `enrich`, `enrichTwelves`) are
+The jobs (`downloadDump`, `dumpLoad`, `importCollection`, `importWantlist`, `importHistory`,
+`importList`, `importSeller`, `enrich`, `enrichTwelves`) are
 async functions in `src/server/jobs/` taking explicit dependencies and an `onProgress` callback.
 `jobs/runner.ts` creates the `jobs` row, streams progress into `progress_json` and records the
 outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits for them. The dump
@@ -111,6 +111,10 @@ records in queue order, a given number or all of them; `enrichTwelves` refreshes
 the Twelves shelves instead, those never enriched first, then the oldest data, because the queue
 skips records once they have a verdict. `Stats.remainingEnriched` counts the records still to dig
 that have market data, so Settings can say how much of the queue "most wanted first" can order.
+`downloadDump` finds the newest releases dump on data.discogs.com
+(`src/server/discogs/data-dumps.ts`), streams it into `paths.dumpsDir` as `<file>.part` while
+hashing it, and renames it only when the SHA-256 matches the published one. It is network-bound
+and runs on the server thread; `GET /api/dumps` lists what the folder holds for Load.
 
 ## Backups and exports
 

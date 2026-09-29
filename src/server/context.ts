@@ -1,6 +1,7 @@
 import { type Config } from "../shared/config.ts";
 import type { Db } from "./db/db.ts";
 import { type DiscogsClient } from "./discogs/client.ts";
+import type { DataDumpClient } from "./discogs/data-dumps.ts";
 import type { JobRunner } from "./jobs/runner.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
@@ -15,6 +16,8 @@ export interface AppContext {
   getConfig(): Config;
   setConfig(config: Config): void;
   getDiscogs(): DiscogsClient;
+  /** The monthly dumps on data.discogs.com. */
+  dataDumps: DataDumpClient;
   /** YouTube's title for a video, used to match a pasted link to a track. */
   lookupVideoTitle: VideoTitleLookup;
   /** Serve dist/ for non-API routes (production). */

@@ -45,7 +45,8 @@ vp run verify                    # all four of the above
 ### Loading a real dump and seeding
 
 ```sh
-# 1. Get discogs_YYYYMMDD_releases.xml.gz from https://data.discogs.com/ into data/dumps/
+# 1. Download the newest discogs_YYYYMMDD_releases.xml.gz from https://data.discogs.com/ into data/dumps/
+npm run digga -- dump download                                                    # >10 GB, checksum verified
 npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz            # ~10 GB gz, streams
 npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz --limit 500 --dry-run
 gzip -dc data/dumps/discogs_20250901_releases.xml.gz | npm run digga -- dump load -   # from stdin

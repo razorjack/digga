@@ -11,7 +11,7 @@
     type QueueStrategy,
     validateConfig,
   } from "../../shared/config.ts";
-  import { formatCount, formatDay, formatEta } from "../../shared/display.ts";
+  import { formatBytes, formatCount, formatDay, formatEta } from "../../shared/display.ts";
   import { enrichHours } from "../../shared/rate.ts";
   import type { Job } from "../../shared/types.ts";
   import { api } from "../api.ts";
@@ -22,12 +22,14 @@
   import { FilterPreview } from "../settings/preview.svelte.ts";
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
+  import { DumpFiles } from "../settings/dumps.svelte.ts";
   import Backups from "../settings/Backups.svelte";
   import { parseInteger } from "../../shared/integer.ts";
   const id = $props.id();
   const filterPreview = new FilterPreview();
   const jobState = new SettingsJobs();
   const discogs = new DiscogsSettings();
+  const dumpFiles = new DumpFiles();
   let flashTimer: ReturnType<typeof setTimeout> | null = null;
 
   const CURRENCIES = [
@@ -101,6 +103,15 @@
   const highlighted = $derived(getAnchor() === "sandbox");
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
   const tokenFromEnvironment = $derived(discogs.account?.tokenSource === "environment");
+  const downloading = $derived(
+    jobState.items.some((job) => job.type === "dump_download" && job.status === "running"),
+  );
+  const dumpSummary = $derived.by(() => {
+    if (dumpFiles.error) return `The dumps folder did not load: ${dumpFiles.error}.`;
+    const newest = dumpFiles.newest;
+    if (!newest) return "No dump downloaded yet.";
+    return `The newest here is ${newest.name}, ${formatBytes(newest.bytes)}.`;
+  });
   /** Derived, so saves that keep the username do not fetch the lists again. */
   const discogsUsername = $derived(saved?.discogs.username ?? "");
 
@@ -125,6 +136,12 @@
     untrack(() => void jobState.load());
   });
 
+  // A download adds a dump, so the folder is read again whenever the jobs settle.
+  $effect(() => {
+    if (jobState.running) return;
+    untrack(() => void loadDumpFiles());
+  });
+
   $effect(() => {
     if (!highlighted || !modeEl) return;
     modeEl.scrollIntoView({ block: "nearest" });
@@ -138,6 +155,7 @@
 
   onDestroy(() => {
     jobState.destroy();
+    dumpFiles.destroy();
     filterPreview.destroy();
     discogs.destroy();
     if (flashTimer) clearTimeout(flashTimer);
@@ -232,6 +250,12 @@
     } catch (event) {
       showFlash(`Did not start: ${errorMessage(event)}`);
     }
+  }
+
+  /** Offers the newest dump to load until something is typed. */
+  async function loadDumpFiles(): Promise<void> {
+    await dumpFiles.load();
+    if (dumpFile === "" && dumpFiles.newest) dumpFile = dumpFiles.newest.name;
   }
 
   function readSellerShop(event: SubmitEvent): void {
@@ -885,9 +909,30 @@
           </div>
         </form>
         <div class="job">
-          <p><b>Load dump</b> streams a Discogs releases dump from <code>data/dumps/</code> or an absolute path.</p>
+          <p>
+            <b>Dump</b>: Discogs publishes all its releases once a month, over 10 GB compressed. Download fetches the
+            newest one into <code>{dumpFiles.value?.directory ?? "data/dumps/"}</code> and checks it against the
+            checksum Discogs publishes; Load streams a dump from that folder, or from an absolute path, into the library.
+          </p>
           <div class="inline wrap">
-            <input class="file" bind:value={dumpFile} placeholder="discogs_20260901_releases.xml.gz" aria-label="Dump file" />
+            <button type="button" class="secondary" disabled={downloading} onclick={() => startJob(() => api.startDumpDownload())}>
+              {downloading ? "Downloading…" : "Download newest dump"}
+            </button>
+            <span class="quiet">{dumpSummary}</span>
+          </div>
+          <div class="inline wrap">
+            <input
+              class="file"
+              list="{id}-dump-files"
+              bind:value={dumpFile}
+              placeholder="file name or absolute path"
+              aria-label="Dump file"
+            />
+            <datalist id="{id}-dump-files">
+              {#each dumpFiles.value?.files ?? [] as file (file.name)}
+                <option value={file.name}>{formatBytes(file.bytes)}</option>
+              {/each}
+            </datalist>
             <input
               type="number"
               min="1"
@@ -1143,6 +1188,7 @@
   code {
     font-family: inherit;
     color: var(--fg);
+    overflow-wrap: anywhere;
   }
   .file,
   .token {

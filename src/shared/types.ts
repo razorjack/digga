@@ -25,6 +25,7 @@ export const TRACK_MARKS = ["keep", "meh", "candidate"] as const;
 export type TrackMark = (typeof TRACK_MARKS)[number];
 
 export const JOB_TYPES = [
+  "dump_download",
   "dump_load",
   "import_collection",
   "import_wantlist",
@@ -149,6 +150,17 @@ interface JobRecord {
   finishedAt: string | null;
 }
 
+/** Finding the newest releases dump on data.discogs.com, then downloading it. */
+export interface DumpDownloadProgress {
+  phase: "finding" | "downloading" | "done";
+  /** The dump's file name, once found. */
+  file: string | null;
+  receivedBytes: number;
+  totalBytes: number | null;
+  /** The newest dump was in the dumps folder already, so nothing was downloaded. */
+  alreadyDownloaded: boolean;
+}
+
 export interface DumpLoadProgress {
   phase: "scanning" | "done";
   scanned: number;
@@ -195,6 +207,7 @@ export interface SellerImportProgress {
 }
 
 export interface JobProgressByType {
+  dump_download: DumpDownloadProgress;
   dump_load: DumpLoadProgress;
   enrich: EnrichProgress;
   enrich_twelves: EnrichProgress;

@@ -1,10 +1,31 @@
 import type { Stats } from "../shared/api.ts";
 import { formatBytes } from "../shared/display.ts";
+import type { DumpDownloadProgress } from "../shared/types.ts";
+import type { DumpDownloadResult } from "../server/jobs/dump-download.ts";
 import type { BackupFile } from "../server/db/backup.ts";
 import type { Filters } from "../shared/config.ts";
 import type { DumpLoadResult } from "../../tools/dump/load.ts";
 import type { EnrichResult } from "../server/jobs/enrich.ts";
 import type { ImportResult } from "./commands.ts";
+
+/** Prints the download's progress in steps of a tenth. */
+export function downloadReporter(): (progress: DumpDownloadProgress) => void {
+  let printed = 0;
+  return ({ phase, receivedBytes, totalBytes }) => {
+    if (phase !== "downloading" || !totalBytes) return;
+    const tenths = Math.floor((receivedBytes / totalBytes) * 10);
+    if (tenths <= printed) return;
+    printed = tenths;
+    console.log(`  ${formatBytes(receivedBytes)} of ${formatBytes(totalBytes)}`);
+  };
+}
+
+export function showDownload(result: DumpDownloadResult): void {
+  const outcome = result.alreadyDownloaded
+    ? "downloaded before"
+    : `${formatBytes(result.receivedBytes)}, checksum verified`;
+  console.log(`dump download: ${result.path} (${outcome})`);
+}
 
 export function showDump(result: DumpLoadResult): void {
   const written = result.dryRun
