@@ -53,7 +53,6 @@ function fakeDiscogs(calls: string[]): DiscogsClient {
     removeFromWantlist: unused,
     getUser: unused,
     getInventoryPage: unused,
-    rateLimit: () => ({ limit: null, remaining: null, used: null }),
     hasToken: () => true,
   };
 }

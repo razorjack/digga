@@ -29,12 +29,6 @@ export interface DiscogsClientOptions {
   logger?: Logger;
 }
 
-export interface RateLimitState {
-  limit: number | null;
-  remaining: number | null;
-  used: number | null;
-}
-
 export interface DiscogsClient {
   getRelease(id: number, currency: string): Promise<DiscogsRelease>;
   getCollectionPage(
@@ -57,7 +51,6 @@ export interface DiscogsClient {
   addToWantlist(username: string, releaseId: number, options?: { notes?: string }): Promise<void>;
   /** DELETE /users/{u}/wants/{id}; a release that is not on the wantlist counts as removed. */
   removeFromWantlist(username: string, releaseId: number): Promise<void>;
-  rateLimit(): RateLimitState;
   hasToken(): boolean;
 }
 
@@ -99,7 +92,6 @@ export function createDiscogsClient(options: DiscogsClientOptions = {}): Discogs
     addToWantlist: (username, releaseId, options = {}) =>
       addToWantlist(transport, username, releaseId, options),
     removeFromWantlist: (username, releaseId) => removeFromWantlist(transport, username, releaseId),
-    rateLimit: () => transport.rateLimit(),
     hasToken: () => Boolean(options.token),
   };
 }

@@ -33,7 +33,7 @@ const json =
     });
 
 describe("discogs client", () => {
-  it("sends token, user agent and currency, and reads rate limit headers", async () => {
+  it("sends token, user agent and currency", async () => {
     const { fetchImpl, calls } = fakeFetch([
       json(
         { id: 1, title: "x" },
@@ -51,7 +51,6 @@ describe("discogs client", () => {
     expect(calls[0]!.url).toBe("https://api.discogs.com/releases/1?curr_abbr=EUR");
     expect(calls[0]!.headers.Authorization).toBe("Discogs token=abc");
     expect(calls[0]!.headers["User-Agent"]).toMatch(/^Digga\/0\.1 \(\+https:/);
-    expect(client.rateLimit()).toEqual({ limit: 60, remaining: 57, used: null });
     expect(client.hasToken()).toBe(true);
   });
 

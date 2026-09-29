@@ -39,7 +39,6 @@ function fakeShop(pages: DiscogsListing[][] | number, requested: number[] = []) 
     getList: unused,
     addToWantlist: unused,
     removeFromWantlist: unused,
-    rateLimit: () => ({ limit: null, remaining: null, used: null }),
     hasToken: () => false,
   };
   return discogs;

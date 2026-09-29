@@ -1,4 +1,4 @@
-import type { DiscogsClientOptions, RateLimitState } from "./client.ts";
+import type { DiscogsClientOptions } from "./client.ts";
 import { DISCOGS_REQUEST_MS } from "../../shared/rate.ts";
 import { DiscogsApiError } from "./errors.ts";
 
@@ -17,7 +17,8 @@ export class DiscogsTransport {
   #sleep: (ms: number) => Promise<void>;
   #now: () => number;
   #baseUrl: string;
-  #state: RateLimitState = { limit: null, remaining: null, used: null };
+  /** X-Discogs-Ratelimit-Remaining from the last response; null until one says. */
+  #remaining: number | null = null;
   #lastRequestAt: number | null = null;
   #chain: Promise<unknown> = Promise.resolve();
 
@@ -27,10 +28,6 @@ export class DiscogsTransport {
     this.#sleep = options.sleep ?? defaultSleep;
     this.#now = options.now ?? Date.now;
     this.#baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
-  }
-
-  rateLimit(): RateLimitState {
-    return { ...this.#state };
   }
 
   /** Serialization keeps concurrent callers within the same rate limit. */
@@ -64,10 +61,10 @@ export class DiscogsTransport {
     const interval = this.#options.minIntervalMs ?? DISCOGS_REQUEST_MS;
     const wait = this.#lastRequestAt === null ? 0 : this.#lastRequestAt + interval - this.#now();
     if (wait > 0) await this.#sleep(wait);
-    if (this.#state.remaining !== null && this.#state.remaining <= 1) {
+    if (this.#remaining !== null && this.#remaining <= 1) {
       this.#options.logger?.warn("Discogs rate limit nearly exhausted, pausing 60s");
       await this.#sleep(60_000);
-      this.#state.remaining = null;
+      this.#remaining = null;
     }
   }
 
@@ -87,10 +84,7 @@ export class DiscogsTransport {
   }
 
   #readRateLimit(response: Response): void {
-    this.#state.limit = numericHeader(response, "X-Discogs-Ratelimit") ?? this.#state.limit;
-    this.#state.remaining =
-      numericHeader(response, "X-Discogs-Ratelimit-Remaining") ?? this.#state.remaining;
-    this.#state.used = numericHeader(response, "X-Discogs-Ratelimit-Used") ?? this.#state.used;
+    this.#remaining = numericHeader(response, "X-Discogs-Ratelimit-Remaining") ?? this.#remaining;
   }
 
   async #backoff(response: Response, attempt: number): Promise<void> {
