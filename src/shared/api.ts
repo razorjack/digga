@@ -242,8 +242,6 @@ export interface Stats {
   remaining: number;
   /** Records still to dig in the scope the request named; null without one. */
   scopeRemaining: number | null;
-  /** Records still to dig that enrich has given market data, such as the want count. */
-  remainingEnriched: number;
   rate: {
     verdictsPerHour: number | null;
     sessions: number;
@@ -291,18 +289,6 @@ export interface ScopeSearchResponse {
 
 // GET|PUT /api/settings
 export type SettingsResponse = Config;
-
-// POST /api/jobs/enrich
-export const ENRICH_TARGETS = ["queue", "twelves"] as const;
-export type EnrichTarget = (typeof ENRICH_TARGETS)[number];
-export const EnrichJobInputSchema = z.object({
-  /** The next records in the queue, or the records on the Twelves shelves. */
-  target: z.enum(ENRICH_TARGETS).default("queue"),
-  /** How many records, or "all" of them. */
-  ahead: z.union([z.number().int().positive(), z.literal("all")]).default(200),
-});
-export type EnrichJobInput = z.input<typeof EnrichJobInputSchema>;
-export type EnrichJobOptions = z.infer<typeof EnrichJobInputSchema>;
 
 // POST /api/jobs/dump-load
 export const DumpLoadJobInputSchema = z.object({

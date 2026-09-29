@@ -27,7 +27,7 @@ One row per Discogs release in the universe, plus stub rows for seed releases ou
 | `genres_json`, `styles_json`                                                                  | string arrays                                                                 |
 | `in_universe`                                                                                 | 1 when loaded from the dump, 0 for stubs created from seeds                   |
 | `triage_key`                                                                                  | `m:{master_id}` or `r:{id}`, computed by `triageKeyFor()` in application code |
-| `lowest_price`, `num_for_sale`, `currency`, `community_have`, `community_want`, `enriched_at` | API snapshot from `enrich`                                                    |
+| `lowest_price`, `num_for_sale`, `currency`, `community_have`, `community_want`, `enriched_at` | API snapshot, fetched as Triage reaches the record                            |
 | `updated_at`                                                                                  | ISO timestamp of the last dump/stub write                                     |
 | `added_by_load`                                                                               | `dump_loads.id` of the load that brought it into the universe; null for stubs |
 | `written_by_load`                                                                             | `dump_loads.id` of the newest load that wrote it; null for stubs              |
@@ -141,7 +141,8 @@ releases with that `added_by_load`.
 ## jobs
 
 `id` (uuid), `type` (`dump_download`, `dump_load`, `dump_update`, `import_collection`, `import_wantlist`, `import_history`,
-`import_list`, `import_seller`, `enrich`, `enrich_twelves`),
+`import_list`, `import_seller`; migration 5 deleted the rows of the removed `enrich` and
+`enrich_twelves`),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`
 with error `interrupted`.

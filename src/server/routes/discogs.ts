@@ -11,7 +11,7 @@ import { getRelease } from "../db/releases.ts";
 import { DiscogsApiError } from "../discogs/client.ts";
 import { listUserLists } from "../discogs/lists.ts";
 import { listEntriesForApi, resolveListEntries } from "../importers/list.ts";
-import { enrichRelease } from "../jobs/enrich.ts";
+import { enrichRelease } from "../enrich.ts";
 import { buildReleaseDetail } from "../queue/detail.ts";
 import { forgetWantlistItem, recordWantlistPush, wantlistNoteFor } from "../importers/seeds.ts";
 import type { AppContext } from "../context.ts";

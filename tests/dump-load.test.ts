@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
 import { getRelease, getTracks, getVideos } from "../src/server/db/releases.ts";
-import { applyEnrichment } from "../src/server/jobs/enrich.ts";
+import { applyEnrichment } from "../src/server/enrich.ts";
 import { fixtureDb } from "./helpers.ts";
 import { dumpReleaseToWrite } from "../tools/dump/convert.ts";
 import { loadDump, matchesUniverse, dumpDateFromFilename } from "../tools/dump/load.ts";

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const QUEUE_STRATEGIES = ["label_sweep", "popular", "country", "year", "random"] as const;
+export const QUEUE_STRATEGIES = ["label_sweep", "country", "year", "random"] as const;
 export type QueueStrategy = (typeof QUEUE_STRATEGIES)[number];
 
 export const COLOR_SCHEMES = ["system", "light", "dark"] as const;
@@ -67,7 +67,13 @@ export const ConfigSchema = z.object({
   filters: FiltersSchema.prefault({}),
   queue: z
     .object({
-      strategy: z.enum(QUEUE_STRATEGIES).default("label_sweep"),
+      // "popular" (most wanted first) was removed with bulk enrichment; it falls back to the sweep.
+      strategy: z
+        .preprocess(
+          (value) => (value === "popular" ? "label_sweep" : value),
+          z.enum(QUEUE_STRATEGIES),
+        )
+        .default("label_sweep"),
       limit: z.number().int().positive().max(5000).default(200),
     })
     .prefault({}),

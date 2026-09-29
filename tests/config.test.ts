@@ -31,6 +31,13 @@ describe("config schema", () => {
     expect(DEFAULT_CONFIG.appearance.colorScheme).toBe("system");
   });
 
+  it("digs a saved most-wanted order, which no longer exists, as a label sweep", () => {
+    expect(ConfigSchema.parse({ queue: { strategy: "popular" } }).queue.strategy).toBe(
+      "label_sweep",
+    );
+    expect(ConfigSchema.safeParse({ queue: { strategy: "loudest" } }).success).toBe(false);
+  });
+
   it("accepts nullable year bounds and null loadYears", () => {
     const c = ConfigSchema.parse({
       filters: { yearFrom: null, yearTo: null },

@@ -20,8 +20,6 @@ export interface QueueParams {
   seed?: number | null;
   /** One label's, artist's or seller's records only. */
   scope?: ScopeRef | null;
-  /** Only releases enrich has not touched yet (used by the enrich job). */
-  unenrichedOnly?: boolean;
   /** Keep releases that already have a verdict (used for universe counts). */
   includeDecided?: boolean;
 }
@@ -189,8 +187,6 @@ export function orderClause(strategy: QueueStrategy, seed: number): SqlFragment 
         sql: "label_name COLLATE NOCASE ASC NULLS LAST, catno COLLATE NOCASE ASC NULLS LAST, id ASC",
         params: [],
       };
-    case "popular":
-      return { sql: "community_want DESC NULLS LAST, id ASC", params: [] };
     case "country":
       return {
         sql: "country ASC NULLS LAST, label_name COLLATE NOCASE ASC, catno COLLATE NOCASE ASC, id ASC",
@@ -226,11 +222,9 @@ export function buildQueueSql(query: QueueParams): SqlFragment {
     scope: query.scope,
   });
   const order = orderClause(query.strategy, query.seed ?? 0);
-  // "Unenriched" applies to the representative release, not to every pressing of a master.
-  const outer = query.unenrichedOnly ? "rn = 1 AND enriched_at IS NULL" : "rn = 1";
   const sql = `WITH base AS (${BASE_SELECT}${where.sql}
 ), ${RANKED}
-SELECT * FROM ranked WHERE ${outer}
+SELECT * FROM ranked WHERE rn = 1
 ORDER BY ${order.sql}
 LIMIT ? OFFSET ?`;
   return { sql, params: [...where.params, ...order.params, query.limit, query.offset ?? 0] };
@@ -273,19 +267,6 @@ export function countRemaining(db: Db, filters: Filters, scope: ScopeRef | null 
     .get(...where.params) as {
     n: number;
   };
-  return row.n;
-}
-
-/** Records still to dig whose representative release has market data from enrich. */
-export function countEnrichedRemaining(db: Db, filters: Filters): number {
-  const where = buildFilterWhere(filters, { includeDecided: false });
-  const row = db
-    .prepare(
-      `WITH base AS (${BASE_SELECT}${where.sql}
-), ${RANKED}
-SELECT COUNT(*) AS n FROM ranked WHERE rn = 1 AND enriched_at IS NOT NULL`,
-    )
-    .get(...where.params) as { n: number };
   return row.n;
 }
 

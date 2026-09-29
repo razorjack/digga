@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
-import { openDb } from "../src/server/db/db.ts";
-import { createJob, getJob, markJobStarted, updateJobProgress } from "../src/server/db/jobs.ts";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { applyMigrations, listMigrations, openDb } from "../src/server/db/db.ts";
+import {
+  createJob,
+  getJob,
+  listJobs,
+  markJobStarted,
+  updateJobProgress,
+} from "../src/server/db/jobs.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
 import { runWorker } from "../src/server/jobs/worker.ts";
 import { elapsed, jobProgress } from "../src/shared/job-display.ts";
@@ -11,13 +20,13 @@ describe("job contracts", () => {
     const db = openDb(":memory:");
     try {
       const runner = createJobRunner(db, silentLogger);
-      const { job, result } = await runner.runAndWait("enrich", async ({ onProgress }) => {
-        onProgress({ done: 2, total: 3, failed: 1, currentReleaseId: null });
+      const { job, result } = await runner.runAndWait("import_wantlist", async ({ onProgress }) => {
+        onProgress({ page: 2, pages: 3, processed: 150, stubs: 0, verdictsWritten: 150 });
         return { completed: 2 };
       });
       expect(result.completed).toBe(2);
       expect(job.status).toBe("done");
-      expect(jobProgress(job)).toEqual({ text: "2 of 3, 1 failed", fraction: 2 / 3 });
+      expect(jobProgress(job)).toEqual({ text: "page 2 of 3, 150 items", fraction: 2 / 3 });
     } finally {
       db.close();
     }
@@ -84,7 +93,7 @@ describe("job contracts", () => {
   it("tells how long a job has run in seconds, minutes or hours", () => {
     const db = openDb(":memory:");
     try {
-      const job = createJob(db, "enrich");
+      const job = createJob(db, "import_wantlist");
       markJobStarted(db, job.id);
       const started = Date.parse(getJob(db, job.id)!.startedAt!);
       const running = getJob(db, job.id)!;
@@ -93,6 +102,27 @@ describe("job contracts", () => {
       expect(elapsed(running, started + 7_500_000)).toBe("2 h 5 min");
     } finally {
       db.close();
+    }
+  });
+
+  it("drops the rows of the removed enrich jobs, which the panel could not describe", () => {
+    const early = fs.mkdtempSync(path.join(os.tmpdir(), "digga-migrations-"));
+    const db = openDb(":memory:", { foreign: true });
+    try {
+      for (const migration of listMigrations().filter((m) => m.version <= 4))
+        fs.copyFileSync(migration.file, path.join(early, migration.name));
+      applyMigrations(db, early);
+      const insert = db.prepare(
+        "INSERT INTO jobs (id, type, status, created_at) VALUES (?, ?, 'done', '2026-09-01')",
+      );
+      insert.run("a", "enrich");
+      insert.run("b", "enrich_twelves");
+      insert.run("c", "import_wantlist");
+      applyMigrations(db);
+      expect(listJobs(db).map((job) => job.id)).toEqual(["c"]);
+    } finally {
+      db.close();
+      fs.rmSync(early, { recursive: true, force: true });
     }
   });
 
@@ -107,7 +137,13 @@ describe("job contracts", () => {
         matched: 2,
         bytesRead: null,
       });
-      updateJobProgress(db, job.id, { done: 1, total: 1, failed: 0, currentReleaseId: null });
+      updateJobProgress(db, job.id, {
+        page: 1,
+        pages: 1,
+        processed: 1,
+        stubs: 0,
+        verdictsWritten: 1,
+      });
       expect(() => getJob(db, job.id)).toThrow();
     } finally {
       db.close();
@@ -122,10 +158,10 @@ it("waits for cancelled async work before releasing its database", async () => {
   const pending = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const job = runner.run("enrich", async ({ signal, onProgress }) => {
+  const job = runner.run("import_wantlist", async ({ signal, onProgress }) => {
     await pending;
     expect(signal.aborted).toBe(true);
-    onProgress({ done: 0, total: 1, failed: 0, currentReleaseId: null });
+    onProgress({ page: 1, pages: null, processed: 0, stubs: 0, verdictsWritten: 0 });
   });
   let stopped = false;
   const stopping = runner.stop().then(() => {
@@ -138,7 +174,7 @@ it("waits for cancelled async work before releasing its database", async () => {
   await stopping;
   expect(runner.get(job.id)?.status).toBe("cancelled");
   expect(runner.active()).toEqual([]);
-  expect(() => runner.run("enrich", async () => {})).toThrow("stopping");
+  expect(() => runner.run("import_wantlist", async () => {})).toThrow("stopping");
   db.close();
 });
 
@@ -148,17 +184,17 @@ it("finishes a worker step only once the worker has exited", async () => {
   const script = new URL(
     `data:text/javascript,${encodeURIComponent(`
     import { parentPort } from 'node:worker_threads';
-    parentPort.postMessage({ type: 'progress', progress: { done: 1, total: 2, failed: 0, currentReleaseId: null } });
+    parentPort.postMessage({ type: 'progress', progress: { page: 1, pages: 2, processed: 100, stubs: 0, verdictsWritten: 100 } });
     parentPort.postMessage({ type: 'done', result: 7 });
     setTimeout(() => {}, 200);
   `)}`,
   );
   let result: number | null = null;
-  const job = runner.run("enrich", async (context) => {
+  const job = runner.run("import_wantlist", async (context) => {
     result = await runWorker<number>(script, {}, context);
   });
   try {
-    await expect.poll(() => runner.get(job.id)?.progress).toMatchObject({ done: 1 });
+    await expect.poll(() => runner.get(job.id)?.progress).toMatchObject({ page: 1 });
     expect(runner.get(job.id)?.status).toBe("running");
     await expect.poll(() => runner.get(job.id)?.status).toBe("done");
     expect(result).toBe(7);

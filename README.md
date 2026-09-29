@@ -67,8 +67,8 @@ enable `M`. Digga records maybes locally; adding them to the Discogs list is man
 Settings controls the styles, years, formats, and countries in your queue, plus whether to skip
 releases without videos. Format details such as `Unofficial Release` or `Compilation` can leave
 records out, and so can hidden labels; `X` in Triage hides the label on screen, and `Z` brings it
-back. Sweep label by label in catalogue order, start with the most wanted
-records, browse by country or year, or use a daily shuffle. Set where playback starts and how far
+back. Sweep label by label in catalogue order,
+browse by country or year, or use a daily shuffle. Set where playback starts and how far
 the seek keys jump.
 
 ![Settings: year and format filters, queue ordering, and playback controls](docs/assets/screenshots/settings.webp)
@@ -85,8 +85,8 @@ and wantlist updates use Discogs, so those features need an internet connection.
 
 **New installations start in sandbox mode.** Verdicts, notes, track marks, and listens stay in the
 current browser tab, and Digga does not change your Discogs wantlist. Sandbox decisions are
-discarded when you leave that mode. Settings and setup jobs, including dump loading, enrichment,
-and collection, wantlist, and history imports, still write local data.
+discarded when you leave that mode. Settings and setup jobs, including dump loading and
+collection, wantlist, and history imports, still write local data.
 
 When you are ready to keep your listening decisions, turn off sandbox mode in Settings. A Discogs
 token is needed for wantlist updates, but your catalogue and verdicts remain local.
@@ -167,17 +167,8 @@ Chrome and Firefox are also supported via `--browser chrome` or `--browser firef
 `--path /path/to/History` to read a copied history database. Only import history if you want
 previously visited releases excluded from the listening queue.
 
-Fetch prices, have/want counts, and refreshed video links for the next 200 records:
-
-```sh
-npm run digga -- enrich --ahead 200
-```
-
-Enrichment is optional for listening to video links already present in the dump. While you dig,
-Triage also enriches the next five records as they come up (`Enrich ahead` in Settings). The "most
-wanted first" order needs the whole queue enriched: `enrich --all` fetches every record still to
-dig, about one a second. These setup
-jobs are also available in Settings.
+The dump has no prices or have/want counts. While you dig, Triage fetches them from Discogs for
+the record on screen and the next five as they come up (`Enrich ahead` in Settings), one a second.
 
 ### 4. Build and start
 
@@ -195,16 +186,13 @@ On later runs, `npm run serve` is enough. Rebuild after updating the frontend.
 
 ## Useful commands
 
-| Command                               | Purpose                                                   |
-| ------------------------------------- | --------------------------------------------------------- |
-| `npm run digga -- stats`              | Show catalogue size, verdicts, remaining records, and ETA |
-| `npm run digga -- enrich --ahead 200` | Refresh data for the next queue items                     |
-| `npm run digga -- enrich --all`       | Fetch data for every record still to dig                  |
-| `npm run digga -- enrich --twelves`   | Refresh prices of the records in Twelves                  |
-| `npm run digga -- import list`        | Import the Maybe list selected in Settings                |
-| `npm run digga -- backup`             | Copy the database into `data/backups` now                 |
-| `npm run digga -- serve --port 3457`  | Use a different port                                      |
-| `npm run digga -- help`               | Show every CLI command and option                         |
+| Command                              | Purpose                                                   |
+| ------------------------------------ | --------------------------------------------------------- |
+| `npm run digga -- stats`             | Show catalogue size, verdicts, remaining records, and ETA |
+| `npm run digga -- import list`       | Import the Maybe list selected in Settings                |
+| `npm run digga -- backup`            | Copy the database into `data/backups` now                 |
+| `npm run digga -- serve --port 3457` | Use a different port                                      |
+| `npm run digga -- help`              | Show every CLI command and option                         |
 
 The database is stored in `data/digga.sqlite`. The server copies it into `data/backups` once a day
 and keeps the last five; Settings also exports your verdicts and track marks as JSON or CSV. Set `DIGGA_DATA_DIR` or `DIGGA_CONFIG_FILE`

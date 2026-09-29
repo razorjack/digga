@@ -10,12 +10,7 @@ import {
   countVerdictsByStatus,
   triageDecisionTimes,
 } from "./db/verdicts.ts";
-import {
-  countEnrichedRemaining,
-  countRemaining,
-  countUniverseKeys,
-  countUniverseReleases,
-} from "./queue/query.ts";
+import { countRemaining, countUniverseKeys, countUniverseReleases } from "./queue/query.ts";
 
 /** The counters; with a scope, also the records left to dig in it. */
 export function computeStats(db: Db, config: Config, scope: ScopeRef | null = null): Stats {
@@ -30,7 +25,6 @@ export function computeStats(db: Db, config: Config, scope: ScopeRef | null = nu
     verdicts: countVerdictsByStatus(db),
     remaining,
     scopeRemaining: scope ? countRemaining(db, config.filters, scope) : null,
-    remainingEnriched: countEnrichedRemaining(db, config.filters),
     rate: rateSummary(triageDecisionTimes(db), remaining),
     dump: {
       date: getMeta(db, "dump_date") ?? null,

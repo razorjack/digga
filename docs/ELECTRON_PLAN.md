@@ -15,7 +15,6 @@ import { resolvePaths } from "../src/server/paths.js";
 import { createLogger } from "../src/server/logger.js";
 import {
   dumpLoad,
-  enrich,
   importCollection,
   importHistory,
   importWantlist,

@@ -1,11 +1,6 @@
 import fs from "node:fs";
 import { readIdList } from "../../../tools/dump/load.ts";
-import type {
-  DumpLoadJobInput,
-  EnrichJobOptions,
-  ImportJobInput,
-  ImportKind,
-} from "../../shared/api.ts";
+import type { DumpLoadJobInput, ImportJobInput, ImportKind } from "../../shared/api.ts";
 import { JOB_LABEL } from "../../shared/job-display.ts";
 import type { DumpLoadProgress, Job, JobType } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
@@ -14,8 +9,6 @@ import type { DumpLoadJobResult } from "./dump-load.ts";
 import {
   downloadDump,
   dumpLoad,
-  enrich,
-  enrichTwelves,
   importCollection,
   importHistory,
   importList,
@@ -106,23 +99,6 @@ function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoad
       coverage: config.universe.coverage,
     },
   };
-}
-
-export function startEnrich(context: AppContext, options: EnrichJobOptions): Job {
-  const { target } = options;
-  const ahead = options.ahead === "all" ? null : options.ahead;
-  const config = context.getConfig();
-  const deps = { db: context.db, discogs: context.getDiscogs(), logger: context.logger };
-  const currency = config.discogs.currency;
-  if (target === "twelves") {
-    return context.jobs.run("enrich_twelves", ({ signal, onProgress }) =>
-      enrichTwelves(deps, { ahead, currency, signal }, onProgress),
-    );
-  }
-  const queue = { filters: config.filters, strategy: config.queue.strategy };
-  return context.jobs.run("enrich", ({ signal, onProgress }) =>
-    enrich(deps, { ahead, currency, ...queue, signal }, onProgress),
-  );
 }
 
 export function startImport(context: AppContext, kind: ImportKind, input: ImportJobInput): Job {

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
 import { upsertVerdict } from "../src/server/db/verdicts.ts";
-import { writeSnapshot } from "../src/server/db/releases.ts";
 import {
   buildQueueSql,
   countRemaining,
@@ -158,23 +157,6 @@ describe("queue query", () => {
       queryQueue(db, { filters: f, strategy: "label_sweep", limit: 200 }).map((i) => i.id),
     ).toEqual([1004, 1001, 1003]);
     expect(countRemaining(db, f)).toBe(3);
-    writeSnapshot(db, 1003, {
-      lowestPrice: 5,
-      numForSale: 1,
-      currency: "EUR",
-      communityHave: 10,
-      communityWant: 900,
-    });
-    writeSnapshot(db, 1001, {
-      lowestPrice: 5,
-      numForSale: 1,
-      currency: "EUR",
-      communityHave: 10,
-      communityWant: 50,
-    });
-    expect(
-      queryQueue(db, { filters: f, strategy: "popular", limit: 200 }).map((i) => i.id),
-    ).toEqual([1003, 1001, 1004]);
     expect(queryQueue(db, { filters: f, strategy: "year", limit: 200 }).map((i) => i.id)).toEqual([
       1004, 1001, 1003,
     ]);

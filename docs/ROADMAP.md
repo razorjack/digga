@@ -80,10 +80,11 @@ Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with
   wants widen neither.
 - A dump download cannot resume: data.discogs.com answers range requests with the whole file.
 - Old dumps stay in the dumps folder until the user deletes them, 10 GB each.
-- `enrich` treats a 404 as enriched to avoid retry loops; a later `enrich --force` could revisit.
+- Enrichment treats a 404 as enriched, so Triage does not ask Discogs again for a deleted
+  release.
 - Sandbox: after a settings change, the "to go" count still subtracts every sandbox verdict,
   including ones the new filters exclude.
-- `skipWithoutVideos` also narrows enrich, which works through the queue, so a release without
-  videos in the dump only comes back with a newer dump.
+- With `skipWithoutVideos`, a release without videos in the dump never reaches Triage, which is
+  where enrichment happens, so it comes back only with a newer dump.
 - Twelves lists every shelf in one request; fine for hundreds of records, worth paging past a
   few thousand.

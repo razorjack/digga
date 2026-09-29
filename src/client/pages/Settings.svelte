@@ -11,8 +11,7 @@
     type QueueStrategy,
     validateConfig,
   } from "../../shared/config.ts";
-  import { formatBytes, formatCount, formatDay, formatEta } from "../../shared/display.ts";
-  import { enrichHours } from "../../shared/rate.ts";
+  import { formatBytes, formatCount, formatDay } from "../../shared/display.ts";
   import type { Job, JobType } from "../../shared/types.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
@@ -48,7 +47,6 @@
   ];
   const STRATEGY_COPY: Record<QueueStrategy, { label: string; hint: string }> = {
     label_sweep: { label: "Label sweep", hint: "label by label, in catalogue order" },
-    popular: { label: "Most wanted first", hint: "by Discogs want count, which enrich fetches" },
     country: { label: "By country", hint: "then label and catalogue number" },
     year: { label: "By year", hint: "oldest first, then label" },
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
@@ -63,7 +61,6 @@
   let draft = $state<Config | null>(null);
   let saving = $state(false);
   let flash = $state<string | null>(null);
-  let enrichCount = $state(200);
   let historyBrowser = $state<Browser>("brave");
   let sellerUsername = $state("");
   let tokenDraft = $state("");
@@ -84,22 +81,6 @@
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
   const issues = $derived(validation && !validation.ok ? validation.issues : []);
   const startAtPercent = $derived(Math.round((draft?.player.startAtFraction ?? 0) * 100));
-  /** Want counts come from enrich; "most wanted first" can only order the records that have one. */
-  const wantCounts = $derived(
-    filterPreview.value
-      ? { enriched: filterPreview.value.remainingEnriched, remaining: filterPreview.value.remaining }
-      : null,
-  );
-  const popularHint = $derived(
-    wantCounts
-      ? `by Discogs want count; ${formatCount(wantCounts.enriched)} of ${formatCount(wantCounts.remaining)} records to dig have one`
-      : STRATEGY_COPY.popular.hint,
-  );
-  /** A cleared number field binds null, whatever its declared type. */
-  const validEnrichCount = $derived(Number.isInteger(enrichCount) && enrichCount > 0);
-  /** Records to dig under the saved filters that enrich has not reached. */
-  const unenriched = $derived(stats.value ? stats.value.remaining - stats.value.remainingEnriched : 0);
-  const unenrichedEta = $derived(unenriched > 0 ? formatEta(enrichHours(unenriched)) : null);
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
@@ -603,17 +584,11 @@
               />
               <label for="{id}-{strategy}">{STRATEGY_COPY[strategy].label}</label>
               <span class="hint" id="{id}-{strategy}-hint">
-                {strategy === "popular" ? popularHint : STRATEGY_COPY[strategy].hint}
+                {STRATEGY_COPY[strategy].hint}
               </span>
             </div>
           {/each}
         </fieldset>
-        {#if draft.queue.strategy === "popular" && wantCounts && wantCounts.enriched < wantCounts.remaining}
-          <p class="problem">
-            Records without a want count come after the others, in Discogs id order. Enrich all under Jobs fetches
-            the rest ({formatEta(enrichHours(wantCounts.remaining - wantCounts.enriched)) ?? "a moment"}).
-          </p>
-        {/if}
         <div class="field narrow">
           <label class="name" for="{id}-batch">Batch</label>
           <input
@@ -726,7 +701,7 @@
             <select id="{id}-currency" aria-describedby="{id}-currency-hint" bind:value={draft.discogs.currency}>
               {#each CURRENCIES as c (c)}<option value={c}>{c}</option>{/each}
             </select>
-            <span class="hint" id="{id}-currency-hint">For lowest prices from enrich.</span>
+            <span class="hint" id="{id}-currency-hint">For the lowest prices Triage shows.</span>
           </div>
           <div class="field narrow">
             <label class="name" for="{id}-enrich-ahead">Enrich ahead</label>
@@ -876,38 +851,6 @@
         not stop them.{settings.sandbox ? " Only the Maybe list import stays in this tab in the sandbox." : ""}
       </p>
       <div class="job-actions">
-        <div class="job">
-          <p>
-            <b>Enrich</b> fetches price, have/want and fresh videos from Discogs, about one record a second:
-            for the next records in the queue, for every record still to dig, or to refresh the records in Twelves.
-          </p>
-          <div class="inline wrap">
-            <input type="number" min="1" max="5000" bind:value={enrichCount} aria-label="Records to enrich" />
-            <button
-              type="button"
-              class="secondary"
-              disabled={!validEnrichCount}
-              onclick={() => startJob(() => api.startEnrich({ ahead: enrichCount }))}
-            >
-              Enrich next {formatCount(enrichCount || 0)}
-            </button>
-            <button
-              type="button"
-              class="secondary"
-              disabled={unenriched === 0}
-              onclick={() => startJob(() => api.startEnrich({ ahead: "all" }))}
-            >
-              Enrich all {formatCount(unenriched)} to dig{unenrichedEta ? ` (${unenrichedEta})` : ""}
-            </button>
-            <button
-              type="button"
-              class="secondary"
-              onclick={() => startJob(() => api.startEnrich({ target: "twelves", ahead: "all" }))}
-            >
-              Refresh Twelves
-            </button>
-          </div>
-        </div>
         <div class="job">
           <p><b>Import</b> seeds verdicts from Discogs and from browser history.</p>
           <div class="inline wrap">

@@ -5,7 +5,6 @@ import type { DumpDownloadResult } from "../server/jobs/dump-download.ts";
 import type { BackupFile } from "../server/db/backup.ts";
 import type { Filters } from "../shared/config.ts";
 import type { DumpLoadJobResult } from "../server/jobs/dump-load.ts";
-import type { EnrichResult } from "../server/jobs/enrich.ts";
 import type { ImportResult } from "./commands.ts";
 
 /** Prints the download's progress in steps of a tenth. */
@@ -68,13 +67,6 @@ export function showImport(result: ImportResult): void {
   );
 }
 
-export function showEnrichment(result: EnrichResult): void {
-  const aborted = result.aborted ? ", aborted" : "";
-  console.log(
-    `enrich: ${result.done}/${result.total} releases enriched, ${result.failed} failed${aborted}`,
-  );
-}
-
 export function showBackup(backup: BackupFile): void {
   console.log(`backup: ${backup.file} (${formatBytes(backup.bytes)})`);
 }
@@ -93,9 +85,6 @@ export function showStats(stats: Stats, filters: Filters): void {
       .join(" ")}`,
   );
   console.log(`heard:     ${stats.heardTracks.toLocaleString()} tracks`);
-  console.log(
-    `enriched:  ${stats.remainingEnriched.toLocaleString()} of ${stats.remaining.toLocaleString()} records to dig`,
-  );
   console.log(
     `dump:      ${stats.dump.date ?? (stats.dump.loadedAt ? "unknown date" : "not loaded")}${stats.dump.loadedAt ? ` (loaded ${stats.dump.loadedAt})` : ""}`,
   );

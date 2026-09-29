@@ -3,24 +3,16 @@ import {
   type ApiError,
   type DumpsResponse,
   DumpLoadJobInputSchema,
-  EnrichJobInputSchema,
   IMPORT_KINDS,
   ImportJobInputSchema,
   type JobsResponse,
 } from "../../shared/api.ts";
 import { listDumpFiles } from "../dump-files.ts";
-import {
-  startDumpDownload,
-  startDumpLoad,
-  startDumpUpdate,
-  startEnrich,
-  startImport,
-} from "../jobs/start.ts";
+import { startDumpDownload, startDumpLoad, startDumpUpdate, startImport } from "../jobs/start.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseJson, refuseInSandbox } from "./request.ts";
 
 export function registerJobsRoutes(api: Hono, context: AppContext): void {
-  api.post("/jobs/enrich", (request) => enrichJob(request, context));
   api.post("/jobs/dump-download", (request) => dumpDownloadJob(request, context));
   api.post("/jobs/dump-load", (request) => dumpJob(request, context));
   api.post("/jobs/dump-update", (request) => dumpUpdateJob(request, context));
@@ -29,13 +21,6 @@ export function registerJobsRoutes(api: Hono, context: AppContext): void {
   api.get("/dumps", (request) => dumps(request, context));
   api.get("/jobs/:id", (request) => job(request, context));
   api.post("/jobs/:id/cancel", (request) => cancelJob(request, context));
-}
-
-async function enrichJob(request: Context, context: AppContext) {
-  const body = await parseJson(request, EnrichJobInputSchema);
-  if (!body.ok) return body.response;
-  const job = startEnrich(context, body.data);
-  return request.json(job, 202);
 }
 
 function dumpDownloadJob(request: Context, context: AppContext) {

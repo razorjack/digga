@@ -501,7 +501,6 @@ describe("digging one label or artist", () => {
       dug: 0,
       universe: { releases: 10, keys: 10, filteredKeys: 10 },
       verdicts: verdicts as Record<VerdictStatus, number>,
-      remainingEnriched: 0,
       rate: { verdictsPerHour: null, sessions: 0, etaHours: null },
       dump: { date: null, loadedAt: null, lastLoad: null },
       heardTracks: 0,

@@ -4,12 +4,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import {
-  parseDumpOptions,
-  parseEnrichOptions,
-  parseImportOptions,
-  parseServeOptions,
-} from "../src/cli/options.ts";
+import { parseDumpOptions, parseImportOptions, parseServeOptions } from "../src/cli/options.ts";
 import { withDatabase } from "../src/cli/runtime.ts";
 import type { Db } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
@@ -33,22 +28,6 @@ describe("CLI workflows", () => {
     });
     expect(() => parseImportOptions(["seller"], DEFAULT_CONFIG, "/tmp")).toThrow("username");
     expect(parseServeOptions(["--port", "0"])).toEqual({ port: 0, host: undefined });
-  });
-
-  it("parses what enrich works through", () => {
-    expect(parseEnrichOptions([], DEFAULT_CONFIG)).toMatchObject({
-      target: "queue",
-      options: { ahead: 200, strategy: "label_sweep" },
-    });
-    expect(parseEnrichOptions(["--all"], DEFAULT_CONFIG).options.ahead).toBeNull();
-    expect(parseEnrichOptions(["--twelves"], DEFAULT_CONFIG)).toEqual({
-      target: "twelves",
-      options: { ahead: null, currency: "EUR" },
-    });
-    expect(parseEnrichOptions(["--twelves", "--ahead", "20"], DEFAULT_CONFIG).options.ahead).toBe(
-      20,
-    );
-    expect(() => parseEnrichOptions(["--all", "--ahead", "5"], DEFAULT_CONFIG)).toThrow("--all");
   });
 
   it("closes its database when a job rejects", async () => {

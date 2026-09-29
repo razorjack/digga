@@ -4,7 +4,6 @@
  */
 export { downloadDump } from "./dump-download.ts";
 export { dumpLoad } from "./dump-load.ts";
-export { enrich, enrichTwelves } from "./enrich.ts";
 export { importCollection } from "../importers/collection.ts";
 export { importWantlist } from "../importers/wantlist.ts";
 export { importHistory } from "../importers/history.ts";

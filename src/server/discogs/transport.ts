@@ -1,7 +1,8 @@
 import type { DiscogsClientOptions } from "./client.ts";
-import { DISCOGS_REQUEST_MS } from "../../shared/rate.ts";
 import { DiscogsApiError } from "./errors.ts";
 
+/** Gap between Discogs requests; 1100 ms keeps an authenticated client under 60 a minute. */
+const DISCOGS_REQUEST_MS = 1100;
 export const DEFAULT_USER_AGENT = "Digga/0.1 (+https://github.com/razorjack/digga)";
 const DEFAULT_BASE_URL = "https://api.discogs.com";
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

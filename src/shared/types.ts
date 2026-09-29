@@ -33,8 +33,6 @@ export const JOB_TYPES = [
   "import_history",
   "import_list",
   "import_seller",
-  "enrich",
-  "enrich_twelves",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
@@ -192,13 +190,6 @@ export interface ImportProgress {
   verdictsWritten: number;
 }
 
-export interface EnrichProgress {
-  done: number;
-  total: number;
-  currentReleaseId: number | null;
-  failed: number;
-}
-
 export interface HistoryImportProgress {
   files: number;
   urls: number;
@@ -225,8 +216,6 @@ export interface JobProgressByType {
   dump_download: DumpDownloadProgress;
   dump_load: DumpLoadProgress;
   dump_update: DumpUpdateProgress;
-  enrich: EnrichProgress;
-  enrich_twelves: EnrichProgress;
   import_history: HistoryImportProgress;
   import_collection: ImportProgress;
   import_wantlist: ImportProgress;

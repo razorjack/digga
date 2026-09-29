@@ -453,3 +453,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     plans to update a want's note after the push. `seed_items` keeps the Discogs data it stores
     (date added, rating, notes, basic information) although nothing reads it yet: showing more
     of it later would otherwise need every user to import again.
+95. **Enrichment happens only in Triage, for the record on screen.** Digga is for triage by ear,
+    and a record is heard before anything about it is worth fetching. The bulk jobs ("Enrich
+    next N", "Enrich all", "Refresh Twelves", `digga enrich`) are gone, and so is the "most
+    wanted first" order, the only thing that needed the whole queue enriched: it suits someone
+    who cannot hear everything, and Digga's premise is hearing everything. The jobs also
+    promised fresh videos, but of 305 records enriched a month after their dump none had gained
+    or lost a video, and the monthly update reloads videos anyway. Enrich-ahead stays
+    (`discogs.enrichAhead`, the record on screen and the next few), since price and have/want
+    can matter while deciding. A saved "popular" order reads as the label sweep, and
+    migration 5 deletes the jobs rows of the removed types, which the jobs panel could no longer
+    describe.

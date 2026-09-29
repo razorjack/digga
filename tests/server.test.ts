@@ -307,21 +307,6 @@ describe("HTTP API", () => {
     expect((await get("/api/jobs/missing")).status).toBe(404);
   });
 
-  it("enriches the Twelves records as a job of its own", async () => {
-    const started = await send<Job>("POST", "/api/jobs/enrich", {
-      target: "twelves",
-      ahead: "all",
-    });
-    expect(started.status).toBe(202);
-    expect(started.body.type).toBe("enrich_twelves");
-    const done = await waitForJob(started.body.id);
-    expect(done).toMatchObject({ status: "done", progress: { done: 0, total: 0 } });
-    expect((await send("POST", "/api/jobs/enrich", { target: "shelf" })).status).toBe(400);
-    // A cleared count field sends null, which must not mean every record.
-    expect((await send("POST", "/api/jobs/enrich", { ahead: null })).status).toBe(400);
-    expect((await get<Stats>("/api/stats")).body.remainingEnriched).toBe(0);
-  });
-
   it("404s unknown routes", async () => {
     expect((await get("/api/nothing")).status).toBe(404);
   });

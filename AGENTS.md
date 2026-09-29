@@ -58,8 +58,6 @@ npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
 npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
 npm run digga -- import seller <username>              # what a seller has for sale, for F in Triage
-# 3. Prices, have/want, fresh videos for the next 200 queue items
-npm run digga -- enrich --ahead 200                     # or --all; --twelves refreshes Twelves
 npm run digga -- stats
 npm run digga -- backup                                # copy the database into data/backups now
 ```
@@ -76,13 +74,14 @@ src/shared/            types, config schema, API contracts, pure logic (normaliz
                        Imports nothing from Node.
 src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
                        context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts,
-                       attach-video.ts, youtube.ts (oEmbed titles)
+                       attach-video.ts, youtube.ts (oEmbed titles), enrich.ts (one release, for Triage),
+                       dump-files.ts
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
-                       export.ts, no-audio.ts, sellers.ts)
-                       discogs/ (client, transport, types, lists), importers/ (collection, wantlist, history, list,
-                       seller, seeds)
-                       jobs/ (start, dump-load, enrich, runner, dump-load-worker, index), queue/ (query, scopes,
-                       detail, twelves)
+                       export.ts, no-audio.ts, sellers.ts, dump-loads.ts)
+                       discogs/ (client, transport, types, lists, data-dumps), importers/ (collection, wantlist,
+                       history, list, seller, seeds)
+                       jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
+                       queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
                        stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, Flash, HelpOverlay),
@@ -296,8 +295,8 @@ client TypeScript and CSS.
 5. **Jobs are library functions** in `src/server/jobs/` taking `{ db, discogs, logger }`, options and
    `onProgress`; status goes to the `jobs` table through `jobs/runner.ts`.
 6. **Heavy work never blocks the server thread.** `POST /api/jobs/dump-load` runs the loader in a
-   `worker_threads` Worker with its own DB connection and serialisable arguments; `enrich` is async,
-   chunked and cancellable through `AbortSignal`.
+   `worker_threads` Worker with its own DB connection and serialisable arguments; the network-bound
+   jobs are async and cancellable through `AbortSignal`.
 7. **Frontend is environment-agnostic.** `src/shared` imports nothing from Node; `src/client` reads no
    env, filesystem, or `window.location` beyond the hash router. Vite `base: './'`, hash routing only.
    The YouTube IFrame API needs an http(s) origin, which the localhost server provides.

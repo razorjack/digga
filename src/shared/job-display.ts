@@ -54,15 +54,6 @@ function progressOf(job: Job): ProgressSummary {
       return job.progress.step === "download"
         ? downloadProgress(job.progress)
         : loadProgress(job.progress);
-    case "enrich":
-    case "enrich_twelves": {
-      const { done, total, failed } = job.progress;
-      const failures = failed > 0 ? `, ${formatCount(failed)} failed` : "";
-      return {
-        text: `${formatCount(done)} of ${formatCount(total)}${failures}`,
-        fraction: total > 0 ? done / total : null,
-      };
-    }
     case "import_seller":
       return sellerProgress(job.progress);
     case "import_history":
@@ -137,8 +128,6 @@ export const JOB_LABEL: Record<JobType, string> = {
   import_history: "Import browser history",
   import_list: "Import Maybe list",
   import_seller: "Read seller shop",
-  enrich: "Enrich",
-  enrich_twelves: "Enrich Twelves",
 };
 
 /** "45 s", "7 min 45 s", "2 h 5 min". */

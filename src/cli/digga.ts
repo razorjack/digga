@@ -4,7 +4,6 @@ import {
   cmdDumpDownload,
   cmdDumpLoad,
   cmdDumpUpdate,
-  cmdEnrich,
   cmdImport,
   cmdServe,
   cmdStats,
@@ -28,8 +27,6 @@ async function main(argv: string[]): Promise<void> {
       return cmdDumpLoad(runtime, args.slice(1));
     case "import":
       return cmdImport(runtime, args);
-    case "enrich":
-      return cmdEnrich(runtime, args);
     case "stats":
       return cmdStats(runtime);
     case "backup":

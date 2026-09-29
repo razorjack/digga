@@ -7,7 +7,6 @@ import {
   type DiscogsListsResponse,
   type DumpLoadJobInput,
   type DumpsResponse,
-  type EnrichJobInput,
   type ExportFile,
   type ImportJobInput,
   type ImportKind,
@@ -61,7 +60,6 @@ export interface Api {
   getStats(query?: StatsQuery): Promise<Stats>;
   getSettings(): Promise<Config>;
   putSettings(config: Config): Promise<Config>;
-  startEnrich(input?: EnrichJobInput): Promise<Job>;
   /** Downloads the newest releases dump from data.discogs.com into the dumps folder. */
   startDumpDownload(): Promise<Job>;
   startDumpLoad(input: DumpLoadJobInput): Promise<Job>;
@@ -137,7 +135,6 @@ export function createHttpApi(baseUrl = "/api"): Api {
       ),
     getSettings: () => call("GET", "/settings"),
     putSettings: (config) => call("PUT", "/settings", config),
-    startEnrich: (input = {}) => call("POST", "/jobs/enrich", input),
     startDumpDownload: () => call("POST", "/jobs/dump-download"),
     startDumpLoad: (input) => call("POST", "/jobs/dump-load", input),
     startDumpUpdate: () => call("POST", "/jobs/dump-update"),
@@ -202,7 +199,6 @@ export function createAppApi(
     getStats: (query) => current.getStats(query),
     getSettings: () => current.getSettings(),
     putSettings: (config) => current.putSettings(config),
-    startEnrich: (input) => current.startEnrich(input),
     startDumpDownload: () => current.startDumpDownload(),
     startDumpLoad: (input) => current.startDumpLoad(input),
     startDumpUpdate: () => current.startDumpUpdate(),
