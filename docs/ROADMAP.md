@@ -48,6 +48,20 @@ Decisions 64 to 78 in `docs/DECISIONS.md`.
 - A third deck that buffers the next track, so `J` starts at once.
 - Label and format-description filters, and `X` to hide the label on screen.
 
+## Session 5 (done): setup without a terminal, coverage pass and freshness
+
+Decisions 86 to 93.
+
+- The Discogs token is saved in Settings, and Settings downloads the newest dump, checked against
+  its published checksum. The jobs panel was checked against a full download, load and enrich:
+  it shows how far a load has read and the time a job has left.
+- Coverage pass: every load also keeps releases in other styles on the labels and by the artists
+  of wanted or owned records, when those mostly release the styles; undated records on them
+  reach the queue.
+- Freshness: "Update from the newest dump" (`digga dump update`) downloads and loads the month's
+  dump in one job. Each load is recorded, Settings says what it added and did not find, and `F`
+  digs the records it added.
+
 ## Next
 
 - `addToCollection` is still a stub; nothing in the UI needs it yet.
@@ -57,12 +71,6 @@ Decisions 64 to 78 in `docs/DECISIONS.md`.
   the want's note on Discogs.
 - Hear records from Twelves: rounds like the snoozed ones for wants, grails and marked tracks.
 
-## Session 5: coverage pass and freshness
-
-- Coverage pass: mis-tagged and no-year releases on labels/artists present in the accepted set,
-  via the loader's `--labels` / `--artists` mode; a job that derives the id lists from `verdicts`.
-- Monthly dump diff: load a new dump, report new releases in the filtered universe.
-
 ## Session 6: Electron shell
 
 Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with electron-builder,
@@ -70,6 +78,11 @@ Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with
 
 ## Known gaps to keep in mind
 
+- Releases a load no longer finds stay in the library and the queue; the load only counts them.
+- The coverage pass and the undated filter read the verdicts saved on the server, so sandbox
+  wants widen neither.
+- A dump download cannot resume: data.discogs.com answers range requests with the whole file.
+- Old dumps stay in the dumps folder until the user deletes them, 10 GB each.
 - `enrich` treats a 404 as enriched to avoid retry loops; a later `enrich --force` could revisit.
 - Sandbox: after a settings change, the "to go" count still subtracts every sandbox verdict,
   including ones the new filters exclude.
