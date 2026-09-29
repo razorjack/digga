@@ -38,10 +38,9 @@ answers `409` to digging writes while `sandbox` is on.
 
 - `src/client/triage/session.svelte.ts` holds the queue buffer, prefetches release details,
   applies verdicts optimistically, keeps the undo history and passes, and serialises writes so
-  an undo never overtakes its verdict. With `discogs.enrichAhead` above 0 it also has the
-  server enrich the current record and the next few that lack market data, one request at a
-  time (`triage/enrich-ahead.ts`, `POST /api/releases/:id/enrich`), and shows the fresh data;
-  a record that is already playing keeps its videos until it comes up again.
+  an undo never overtakes its verdict. `P` has the server fetch the record on screen from
+  Discogs (`POST /api/releases/:id/enrich`) and shows its market data; the record keeps the
+  videos it is playing until it comes up again.
 - `src/client/player/` wraps the YouTube IFrame API: `deck.ts` is one player, and
   `triage-player.svelte.ts` runs three of them (one audible, one preloading the next release,
   one preloading the track `J` moves to), picks tracks with `src/shared/playlist.ts`, and logs
@@ -111,8 +110,8 @@ loader is the only CPU-heavy job and runs in a `worker_threads` Worker
 (`jobs/dump-load-worker.ts`) with its own database connection when started from the server: the
 job awaits `runWorker()` (`jobs/worker.ts`), which forwards the worker's progress, terminates it
 on cancel and settles once it has exited. The CLI runs the loader inline. Enrichment is not a
-job: Triage fetches price, have/want and current videos for the record on screen and the next
-few, one release per request (`src/server/enrich.ts`, decision 95).
+job: `P` in Triage fetches price, have/want and current videos for the record on screen
+(`src/server/enrich.ts`, decisions 95 and 97).
 The dump update (`POST /api/jobs/dump-update`, `digga dump update`) is one job of two steps,
 `downloadDump` and then the loader, with progress tagged by `step`; the server runs one dump job at
 a time. `downloadDump` finds the newest releases dump on data.discogs.com

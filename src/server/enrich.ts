@@ -8,7 +8,7 @@ import type { Logger } from "./logger.ts";
 
 /**
  * Enrichment fetches one release from the API for what the dump lacks: price, copies for sale,
- * have/want and the current videos. Triage asks for it for the record on screen and the next few.
+ * have/want and the current videos. `P` in Triage asks for it for the record on screen.
  */
 export interface EnrichDeps {
   db: Db;

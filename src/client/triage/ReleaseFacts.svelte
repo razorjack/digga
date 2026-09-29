@@ -1,17 +1,20 @@
 <script lang="ts">
   import type { QueueItem, ReleaseDetail } from "../../shared/api.ts";
-  import { formatCount, formatPrice } from "../../shared/display.ts";
+  import { formatAge, formatCount, formatPrice } from "../../shared/display.ts";
+  import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
 
   let {
     item,
     detail,
-    enriching,
+    pricing,
+    onprice,
   }: {
     item: QueueItem;
     detail: ReleaseDetail | null;
-    /** Triage enriches records as they come up, so the market data is on its way. */
-    enriching: boolean;
+    /** P asked Discogs for the market data and the answer has not come yet. */
+    pricing: boolean;
+    onprice: () => void;
   } = $props();
 
   const catno = $derived(
@@ -23,7 +26,9 @@
       : [],
   );
   const genres = $derived(detail ? detail.release.genres.filter((g) => g !== "Electronic") : []);
-  const enriched = $derived(item.enrichedAt !== null);
+  const enrichedAt = $derived(item.enrichedAt);
+  // The button never keeps focus, so Space always reaches the player.
+  const keepFocus = (event: MouseEvent) => event.preventDefault();
   const siblings = $derived(detail?.siblings ?? []);
 </script>
 
@@ -57,26 +62,45 @@
     </div>
   </dl>
 
-  {#if !enriched}
-    <p class="unenriched">
-      No price or have/want yet; {enriching ? "Digga asks Discogs as records come up." : "Enrich ahead is off in Settings."}
-    </p>
-  {:else}
-    <p class="market">
-      <span class="price">
-        {#if item.lowestPrice !== null}
-          <span class="strong">{formatPrice(item.lowestPrice, item.currency)}</span> lowest,
-          {formatCount(item.numForSale ?? 0)} for sale
-        {:else}
-          none for sale
+  <div class="market">
+    <!-- Keyed by record, so the next record's line is not announced; the answer to P is. -->
+    {#key item.id}
+      <p role="status" aria-busy={pricing}>
+        {#if enrichedAt !== null}
+          <span>
+            {#if item.lowestPrice !== null}
+              <span class="strong">{formatPrice(item.lowestPrice, item.currency)}</span> lowest,
+              {formatCount(item.numForSale ?? 0)} for sale
+            {:else}
+              none for sale
+            {/if}
+          </span>
+          <span>
+            <span class="strong">{formatCount(item.communityWant ?? 0)}</span> want
+            <span class="strong">{formatCount(item.communityHave ?? 0)}</span> have
+          </span>
         {/if}
-      </span>
-      <span class="community">
-        <span class="strong">{formatCount(item.communityWant ?? 0)}</span> want
-        <span class="strong">{formatCount(item.communityHave ?? 0)}</span> have
-      </span>
-    </p>
-  {/if}
+        {#if pricing}
+          <span class="quiet">asking Discogs…</span>
+        {:else if enrichedAt !== null}
+          <span class="quiet">checked <time datetime={enrichedAt}>{formatAge(enrichedAt)}</time></span>
+        {:else}
+          <span class="quiet">no price or have/want yet</span>
+        {/if}
+      </p>
+    {/key}
+    <button
+      type="button"
+      tabindex="-1"
+      aria-keyshortcuts="P"
+      disabled={pricing}
+      onmousedown={keepFocus}
+      onclick={onprice}
+    >
+      <Key label="P" size="sm" aria-hidden="true" />
+      {enrichedAt === null ? "ask Discogs" : "ask again"}
+    </button>
+  </div>
 
   {#if siblings.length > 0}
     <p class="versions">
@@ -153,15 +177,30 @@
     color: var(--fg);
     font-weight: 600;
   }
-  .market {
+  .market,
+  .market p {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     column-gap: 28px;
     color: var(--fg-muted);
   }
-  .unenriched {
+  .quiet {
     color: var(--fg-faint);
     font-size: var(--text-sm);
+  }
+  .market button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--fg-faint);
+    font-size: var(--text-sm);
+  }
+  .market button:disabled {
+    opacity: 0.5;
   }
   .versions {
     color: var(--fg-faint);

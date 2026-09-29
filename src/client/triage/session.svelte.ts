@@ -5,7 +5,6 @@ import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
-import { EnrichAhead } from "./enrich-ahead.ts";
 
 type VerdictEntry = {
   kind: "verdict";
@@ -52,11 +51,6 @@ export interface SessionOptions {
   setLabelHidden?: (label: string, hidden: boolean) => Promise<void>;
 }
 
-export interface StartOptions {
-  /** Records after the current one to enrich from Discogs while they wait; 0 turns it off. */
-  enrichAhead?: number;
-}
-
 export class TriageSession {
   upcoming = $state.raw<QueueItem[]>([]);
   passed = $state.raw<QueueItem[]>([]);
@@ -74,6 +68,8 @@ export class TriageSession {
   scope = $state.raw<QueueScope | null>(null);
   /** Notes written in Triage, by triage key; a record's verdict saves its note. */
   notes = $state.raw<ReadonlyMap<string, string | null>>(new Map());
+  /** Releases whose market data P asked Discogs for, until the answer comes. */
+  pricing = $state.raw<ReadonlySet<number>>(new Set());
 
   current = $derived(this.upcoming[0] ?? null);
   next = $derived(this.upcoming[1] ?? null);
@@ -85,9 +81,7 @@ export class TriageSession {
   #pushGraceMs: number;
   #setLabelHidden: SessionOptions["setLabelHidden"];
   #batch = 200;
-  #enrichAheadCount = 0;
-  #enrichAhead: EnrichAhead;
-  /** Market data enriched this session, by release id, for records that moved on before it came. */
+  /** Market data fetched this session, by release id, for records that moved on before it came. */
   #marketData = new Map<number, ReleaseSnapshot>();
   #loading = new Set<number>();
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
@@ -114,14 +108,12 @@ export class TriageSession {
     this.#apiGeneration = api.generation;
     this.#pushGraceMs = opts.pushGraceMs ?? 1500;
     this.#setLabelHidden = opts.setLabelHidden;
-    this.#enrichAhead = this.#createEnrichAhead();
   }
 
   destroy(): void {
     stats.setScope(null);
     this.#generation += 1;
     this.#apiGeneration = -1;
-    this.#enrichAhead.stop();
     if (this.#flashTimer) clearTimeout(this.#flashTimer);
     for (const [timer, resolve] of this.#graceTimers) {
       clearTimeout(timer);
@@ -130,13 +122,12 @@ export class TriageSession {
     this.#graceTimers.clear();
   }
 
-  async start(batch: number, options: StartOptions = {}): Promise<void> {
+  async start(batch: number): Promise<void> {
     // Undo and the details' overlays belong to the mode they were made in.
     if (this.#api.generation !== this.#apiGeneration) this.#forget();
     // Passes made before a round still belong to the queue.
     if (this.#queueBeforeRound) this.passed = this.#queueBeforeRound.passed;
     this.#batch = batch;
-    this.#enrichAheadCount = options.enrichAhead ?? 0;
     const generation = ++this.#generation;
     this.#refilling = null;
     this.status = "loading";
@@ -165,7 +156,7 @@ export class TriageSession {
     stats.setScope(scope);
     this.passed = [];
     this.#queueBeforeRound = null;
-    await this.start(this.#batch, { enrichAhead: this.#enrichAheadCount });
+    await this.start(this.#batch);
     // After the queue, so the sandbox knows which of its verdicts the scope holds.
     void stats.refresh();
   }
@@ -479,6 +470,30 @@ export class TriageSession {
     }
   }
 
+  /** P: asks Discogs for the price and have/want of the record on screen, again if it has them. */
+  async price(): Promise<void> {
+    const item = this.current;
+    if (!item || this.pricing.has(item.id)) return;
+    const generation = this.#apiGeneration;
+    this.#setPricing(item.id, true);
+    try {
+      const detail = await this.#api.pinned().enrichRelease(item.id);
+      if (generation === this.#apiGeneration) this.#applyEnrichment(detail);
+    } catch (error) {
+      if (generation === this.#apiGeneration)
+        this.#flash(`The price did not load: ${errorMessage(error)}`);
+    } finally {
+      if (generation === this.#apiGeneration) this.#setPricing(item.id, false);
+    }
+  }
+
+  #setPricing(releaseId: number, asking: boolean): void {
+    const pricing = new Set(this.pricing);
+    if (asking) pricing.add(releaseId);
+    else pricing.delete(releaseId);
+    this.pricing = pricing;
+  }
+
   retryDetail(id: number): void {
     const errors = new Map(this.detailErrors);
     errors.delete(id);
@@ -595,8 +610,7 @@ export class TriageSession {
     this.notes = new Map();
     this.round = null;
     this.#queueBeforeRound = null;
-    this.#enrichAhead.stop();
-    this.#enrichAhead = this.#createEnrichAhead();
+    this.pricing = new Set();
     this.#marketData.clear();
   }
 
@@ -633,7 +647,7 @@ export class TriageSession {
       this.#flash("That was every snoozed record in the round; back to the queue.");
       return;
     }
-    this.#prepareAhead();
+    this.#prefetch();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
       const generation = this.#generation;
       this.#refill().catch((error: unknown) => {
@@ -670,31 +684,13 @@ export class TriageSession {
       const fresh = res.items.filter((i) => !known.has(i.triageKey));
       if (fresh.length === 0) this.exhausted = true;
       this.upcoming = [...this.upcoming, ...fresh];
-      this.#prepareAhead();
+      this.#prefetch();
     })();
     const tracked: Promise<void> = run.finally(() => {
       if (this.#refilling === tracked) this.#refilling = null;
     });
     this.#refilling = tracked;
     return tracked;
-  }
-
-  /** Fetches the details of the records coming up and enriches those without market data. */
-  #prepareAhead(): void {
-    this.#prefetch();
-    if (this.#enrichAheadCount > 0)
-      this.#enrichAhead.request(this.upcoming.slice(0, 1 + this.#enrichAheadCount));
-  }
-
-  #createEnrichAhead(): EnrichAhead {
-    return new EnrichAhead({
-      enrich: async (releaseId) => {
-        const generation = this.#apiGeneration;
-        const detail = await this.#api.pinned().enrichRelease(releaseId);
-        return generation === this.#apiGeneration ? detail : null;
-      },
-      apply: (detail) => this.#applyEnrichment(detail),
-    });
   }
 
   /** Shows a record's fresh market data; its fresh videos too, unless it is playing already. */

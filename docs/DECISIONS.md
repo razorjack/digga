@@ -468,3 +468,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     empty snapshot so the bulk jobs would not ask for it on every pass. Those jobs are gone, and
     the empty snapshot read as "none for sale, 0 want, 0 have" in Triage and Twelves. A 404 now
     only fails the request (`502`, "Discogs did not return the release").
+97. **Prices come when asked for, with `P`.** Enrich ahead (decision 68, on by default) asked
+    Discogs about every record Triage reached, about 6,000 requests over the owner's queue, for
+    records mostly skipped within seconds. A price matters once a record might be bought, so `P`
+    fetches the record on screen, and the line shows the answer's age; pressing it again
+    refreshes it. While digging, Digga now calls Discogs only when the user acts: `P`, a wantlist
+    push, an import. A setting to choose between the two was not added: the count already
+    switched enrich ahead off, and two paths cost more than they give a triage tool.
+    `discogs.enrichAhead` is gone; a saved config that has it still parses, and the next save
+    drops it.

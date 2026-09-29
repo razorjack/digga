@@ -167,8 +167,8 @@ Chrome and Firefox are also supported via `--browser chrome` or `--browser firef
 `--path /path/to/History` to read a copied history database. Only import history if you want
 previously visited releases excluded from the listening queue.
 
-The dump has no prices or have/want counts. While you dig, Triage fetches them from Discogs for
-the record on screen and the next five as they come up (`Enrich ahead` in Settings), one a second.
+The dump has no prices or have/want counts. When a record might be worth buying, press `P` in
+Triage and Digga asks Discogs for them.
 
 ### 4. Build and start
 

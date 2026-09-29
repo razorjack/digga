@@ -34,7 +34,7 @@ export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
   api.post("/releases/:id/enrich", (request) => enrichOne(request, context));
 }
 
-/** Fetches one release from Discogs, as enrich does, and returns it as stored. */
+/** Fetches one release from Discogs for `P` in Triage and returns it as stored. */
 async function enrichOne(request: Context, context: AppContext) {
   const { db, logger } = context;
   const id = parseId(request.req.param("id") ?? "");

@@ -63,7 +63,7 @@
         apiGeneration = api.generation;
         player.forgetHeard();
       }
-      void session.start(config.queue.limit, { enrichAhead: config.discogs.enrichAhead });
+      void session.start(config.queue.limit);
     });
   });
 
@@ -96,7 +96,7 @@
   const note = $derived(session.current ? session.noteFor(session.current) : null);
 
   // A verdict or N moves on; a half-written note stays with the record it was for. The key, not
-  // the item, decides: enrichment replaces the item with fresh market data.
+  // the item, decides: P replaces the item with fresh market data.
   const currentKey = $derived(session.current?.triageKey ?? null);
   $effect(() => {
     void currentKey;
@@ -171,7 +171,7 @@
   function retry(): boolean {
     if (session.status === "error" && settings.value) {
       const config = settings.value;
-      void session.start(config.queue.limit, { enrichAhead: config.discogs.enrichAhead });
+      void session.start(config.queue.limit);
       return true;
     }
     if (session.current && detailError) {
@@ -188,6 +188,7 @@
     k: () => player.previousTrack(),
     o: () => openReleaseLink("discogs"),
     s: () => openReleaseLink("youtube"),
+    p: () => void session.price(),
     n: () => session.pass(),
     z: () => session.undo(),
     x: () => void session.hideLabel(),
@@ -222,7 +223,7 @@
       return true;
     }
     // Holding a key down must not judge a run of releases.
-    if (event.repeat) return /^[ jknozsexf1-9radmc]$/.test(key);
+    if (event.repeat) return /^[ jknozspexf1-9radmc]$/.test(key);
     return runShortcut(key);
   }
 
@@ -381,7 +382,8 @@
           <ReleaseFacts
             item={session.current}
             detail={session.currentDetail}
-            enriching={(settings.value?.discogs.enrichAhead ?? 0) > 0}
+            pricing={session.pricing.has(session.current.id)}
+            onprice={() => void session.price()}
           />
           {#if note || editingNote}
             <NoteLine {note} editing={editingNote} onsave={saveNote} oncancel={() => (editingNote = false)} />

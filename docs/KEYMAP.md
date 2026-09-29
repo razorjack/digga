@@ -25,10 +25,16 @@ or Alt. Holding a key down never repeats a verdict.
 | `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s); repeats while held |
 | `1` … `9` | jump to 10% … 90% of the video                                       |
 | `O`       | open the release on discogs.com                                      |
+| `P`       | ask Discogs for the lowest price, copies for sale and have/want      |
 | `S`       | open a YouTube search for artist + title                             |
 | `E`       | write a note on the record; Enter keeps it, its verdict saves it     |
 | `⌘V`      | attach a copied YouTube link to the release and play it              |
 | `Enter`   | retry when the queue or the release failed to load                   |
+
+`P` asks Discogs once for the record on screen and shows the answer with its age ("checked 3
+days ago"); pressing it again refreshes it. Digga asks for nothing ahead, so the records you skip
+cost Discogs no requests. It works in the sandbox too, since the answer is catalogue data and not
+a decision.
 
 ## Triage: verdicts (one per release, undoable)
 

@@ -53,8 +53,8 @@ artist's releases in the load window carry a style (`tools/dump/coverage.ts`). `
 / `--artists ids.txt` add ids to that pass. Releases credit compilations to "Various" (194) and
 self-releases to labels named "Not On Label ...", which never count.
 
-The dump does not carry prices or have/want counts; Triage fetches them, with the current videos,
-for the record on screen and the next few.
+The dump does not carry prices or have/want counts; `P` in Triage fetches them, with the current
+videos, for the record on screen.
 
 ## The API
 

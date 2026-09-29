@@ -392,19 +392,29 @@ it("cancels a pending grace period when the session is destroyed", async () => {
   expect(calls).toEqual(["verdict r:1 accepted"]);
 });
 
-describe("enrich ahead", () => {
-  it("enriches the records coming up and shows their market data", async () => {
-    const server = fakeServer([1, 2, 3, 4]);
-    const session = new TriageSession(server.app, { pushGraceMs: 0 });
-    const enriched = () => server.calls.filter((call) => call.startsWith("enrich"));
-    await session.start(50, { enrichAhead: 2 });
-    await until(() => enriched().length === 3);
-    expect(enriched()).toEqual(["enrich 1", "enrich 2", "enrich 3"]);
-    await until(() => session.upcoming[2]?.communityWant === 40);
-    expect(session.current).toMatchObject({ id: 1, lowestPrice: 9, communityWant: 40 });
+describe("pricing with P", () => {
+  it("asks Discogs only when P is pressed, for the record on screen", async () => {
+    const { session, calls } = await started([1, 2, 3]);
     session.judge("rejected");
-    await until(() => server.calls.includes("enrich 4"));
-    expect(enriched().filter((call) => call === "enrich 2")).toHaveLength(1);
+    await session.price();
+    expect(calls.filter((call) => call.startsWith("enrich"))).toEqual(["enrich 2"]);
+    expect(session.current).toMatchObject({ id: 2, lowestPrice: 9, communityWant: 40 });
+    expect(session.pricing.size).toBe(0);
+    session.destroy();
+  });
+
+  it("ignores P while the answer is on its way", async () => {
+    const server = fakeServer([1, 2]);
+    server.state.enrichDelayMs = 20;
+    const session = new TriageSession(server.app, { pushGraceMs: 0 });
+    await session.start(50);
+    const first = session.price();
+    expect(session.pricing.has(1)).toBe(true);
+    await session.price();
+    await first;
+    expect(server.calls.filter((call) => call.startsWith("enrich"))).toEqual(["enrich 1"]);
+    await session.price();
+    expect(server.calls.filter((call) => call.startsWith("enrich"))).toHaveLength(2);
     session.destroy();
   });
 
@@ -412,18 +422,22 @@ describe("enrich ahead", () => {
     const server = fakeServer([1, 2, 3]);
     server.state.enrichDelayMs = 20;
     const session = new TriageSession(server.app, { pushGraceMs: 0 });
-    await session.start(50, { enrichAhead: 1 });
+    await session.start(50);
+    const priced = session.price();
     session.judge("rejected");
-    await until(() => server.calls.includes("enrich 2"));
+    await priced;
     session.undo();
     expect(session.current).toMatchObject({ id: 1, communityWant: 40 });
     session.destroy();
   });
 
-  it("enriches nothing when enrich ahead is off", async () => {
-    const { session, calls } = await started([1, 2]);
-    await wait(10);
-    expect(calls.some((call) => call.startsWith("enrich"))).toBe(false);
+  it("says so when Discogs does not answer", async () => {
+    const { session, http } = await started([1, 2]);
+    http.enrichRelease = () => Promise.reject(new Error("Discogs did not return the release"));
+    await session.price();
+    expect(session.flash).toBe("The price did not load: Discogs did not return the release");
+    expect(session.current?.enrichedAt).toBeNull();
+    expect(session.pricing.size).toBe(0);
     session.destroy();
   });
 });

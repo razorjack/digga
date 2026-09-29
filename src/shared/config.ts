@@ -49,8 +49,6 @@ export const ConfigSchema = z.object({
       currency: z.string().length(3).default("EUR"),
       /** The Discogs list that holds maybes; the M verdict appears when it is set. */
       maybeListId: z.number().int().positive().nullable().default(null),
-      /** Records ahead of the one playing that Triage enriches from Discogs; 0 turns it off. */
-      enrichAhead: z.number().int().min(0).max(20).default(5),
     })
     .prefault({}),
   universe: z

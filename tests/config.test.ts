@@ -38,6 +38,11 @@ describe("config schema", () => {
     expect(ConfigSchema.safeParse({ queue: { strategy: "loudest" } }).success).toBe(false);
   });
 
+  it("reads a config saved with enrich ahead, which no longer exists, and drops it", () => {
+    const config = ConfigSchema.parse({ discogs: { username: "dj", enrichAhead: 5 } });
+    expect(config.discogs).toEqual({ username: "dj", currency: "EUR", maybeListId: null });
+  });
+
   it("accepts nullable year bounds and null loadYears", () => {
     const c = ConfigSchema.parse({
       filters: { yearFrom: null, yearTo: null },

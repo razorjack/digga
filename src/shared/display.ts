@@ -56,6 +56,24 @@ export function formatDay(iso: string, now: Date = new Date()): string {
   return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
 }
 
+const ages = new Intl.RelativeTimeFormat("en-GB", { numeric: "auto" });
+const AGE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * 86_400],
+  ["month", 30 * 86_400],
+  ["day", 86_400],
+  ["hour", 3600],
+  ["minute", 60],
+];
+
+/** "just now", "5 minutes ago", "yesterday", "3 days ago", "2 months ago". */
+export function formatAge(iso: string, now: Date = new Date()): string {
+  const seconds = (now.getTime() - new Date(iso).getTime()) / 1000;
+  if (Number.isNaN(seconds)) return "";
+  for (const [unit, unitSeconds] of AGE_UNITS)
+    if (seconds >= unitSeconds) return ages.format(-Math.floor(seconds / unitSeconds), unit);
+  return "just now";
+}
+
 /**
  * Rotation of a hand-applied rubber stamp, in degrees: stable per id, between -4 and 3,
  * never quite straight.

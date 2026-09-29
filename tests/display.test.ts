@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  formatAge,
   formatBytes,
   formatCount,
   formatDay,
@@ -35,6 +36,19 @@ describe("display formatting", () => {
     expect(formatDay("2026-09-27T10:00:00Z", now)).toBe("27 Sep");
     expect(formatDay("2025-01-03T10:00:00Z", now)).toBe("3 Jan 2025");
     expect(formatDay("garbage", now)).toBe("");
+  });
+
+  it("says how long ago something happened", () => {
+    const now = new Date("2026-09-27T12:00:00Z");
+    expect(formatAge("2026-09-27T11:59:30Z", now)).toBe("just now");
+    expect(formatAge("2026-09-27T12:00:05Z", now)).toBe("just now");
+    expect(formatAge("2026-09-27T11:55:00Z", now)).toBe("5 minutes ago");
+    expect(formatAge("2026-09-27T09:00:00Z", now)).toBe("3 hours ago");
+    expect(formatAge("2026-09-26T10:00:00Z", now)).toBe("yesterday");
+    expect(formatAge("2026-09-24T12:00:00Z", now)).toBe("3 days ago");
+    expect(formatAge("2026-07-20T12:00:00Z", now)).toBe("2 months ago");
+    expect(formatAge("2024-09-01T12:00:00Z", now)).toBe("2 years ago");
+    expect(formatAge("garbage", now)).toBe("");
   });
 
   it("tilts stamps the same way for the same id, never straight", () => {
