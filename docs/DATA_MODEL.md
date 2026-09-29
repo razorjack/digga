@@ -29,8 +29,11 @@ One row per Discogs release in the universe, plus stub rows for seed releases ou
 | `triage_key`                                                                                  | `m:{master_id}` or `r:{id}`, computed by `triageKeyFor()` in application code |
 | `lowest_price`, `num_for_sale`, `currency`, `community_have`, `community_want`, `enriched_at` | API snapshot from `enrich`                                                    |
 | `updated_at`                                                                                  | ISO timestamp of the last dump/stub write                                     |
+| `added_by_load`                                                                               | `dump_loads.id` of the load that brought it into the universe; null for stubs |
+| `written_by_load`                                                                             | `dump_loads.id` of the newest load that wrote it; null for stubs              |
 
-Indexes: `triage_key`, `master_id`, `(label_name, catno)` NOCASE, `year`, `country`, `in_universe`.
+Indexes: `triage_key`, `master_id`, `(label_name, catno)` NOCASE, `year`, `country`, `in_universe`,
+`added_by_load`.
 
 A dump reload replaces the release columns, tracks and videos and keeps the snapshot columns. A stub
 insert never overwrites an existing row.
@@ -125,9 +128,19 @@ Discogs user id, PK), `username`, `listings` (For Sale listings the shop had), `
 release_id)` PK, the releases for sale at the last read, loaded or not. A new read replaces the
 seller's rows; a cancelled one leaves them. Prices and conditions are not stored.
 
+## dump_loads
+
+One row per dump load that wrote to the database (dry runs record nothing): `id`, `file`,
+`dump_date`, `started_at`, `finished_at` (null while it runs and for a load that failed or was
+cancelled), `added` (releases it brought into the universe), `coverage` (releases in other styles
+it kept for their label or artist) and `missing` (universe releases whose `written_by_load` is
+another load's; null when a limit stopped it). A finished load takes over
+the releases of earlier unfinished loads and deletes their rows. The scope `load:<id>` digs the
+releases with that `added_by_load`.
+
 ## jobs
 
-`id` (uuid), `type` (`dump_load`, `import_collection`, `import_wantlist`, `import_history`,
+`id` (uuid), `type` (`dump_download`, `dump_load`, `import_collection`, `import_wantlist`, `import_history`,
 `import_list`, `import_seller`, `enrich`, `enrich_twelves`),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`

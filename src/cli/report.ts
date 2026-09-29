@@ -4,7 +4,7 @@ import type { DumpDownloadProgress } from "../shared/types.ts";
 import type { DumpDownloadResult } from "../server/jobs/dump-download.ts";
 import type { BackupFile } from "../server/db/backup.ts";
 import type { Filters } from "../shared/config.ts";
-import type { DumpLoadResult } from "../../tools/dump/load.ts";
+import type { DumpLoadJobResult } from "../server/jobs/dump-load.ts";
 import type { EnrichResult } from "../server/jobs/enrich.ts";
 import type { ImportResult } from "./commands.ts";
 
@@ -27,7 +27,7 @@ export function showDownload(result: DumpDownloadResult): void {
   console.log(`dump download: ${result.path} (${outcome})`);
 }
 
-export function showDump(result: DumpLoadResult): void {
+export function showDump(result: DumpLoadJobResult): void {
   const written = result.dryRun
     ? "dry run, nothing written"
     : `upserted ${result.upserted.toLocaleString()}`;
@@ -37,6 +37,9 @@ export function showDump(result: DumpLoadResult): void {
   console.log(
     `dump load: scanned ${result.scanned.toLocaleString()} releases, matched ${result.matched.toLocaleString()}${covered}, ${written} in ${result.elapsedSeconds.toFixed(0)}s${date}`,
   );
+  if (!result.load) return;
+  const missing = result.load.missing ? `; ${result.load.missing.toLocaleString()} not found` : "";
+  console.log(`  ${result.load.added.toLocaleString()} new releases${missing}`);
 }
 
 export function showImport(result: ImportResult): void {
@@ -96,6 +99,11 @@ export function showStats(stats: Stats, filters: Filters): void {
   console.log(
     `dump:      ${stats.dump.date ?? (stats.dump.loadedAt ? "unknown date" : "not loaded")}${stats.dump.loadedAt ? ` (loaded ${stats.dump.loadedAt})` : ""}`,
   );
+  const load = stats.dump.lastLoad;
+  if (load)
+    console.log(
+      `last load: ${load.added.toLocaleString()} new releases, ${load.toDig.toLocaleString()} of their records to dig`,
+    );
   const rate =
     stats.rate.verdictsPerHour === null
       ? "n/a"

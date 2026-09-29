@@ -47,7 +47,7 @@ export class CoverageTracker {
   #names = new Map<string, string>();
   #candidates = new Map<number, Candidate>();
 
-  constructor(ids: CoverageIds) {
+  constructor(ids: Partial<CoverageIds>) {
     this.#labels = new Set(ids.labelIds);
     this.#artists = new Set(ids.artistIds);
   }

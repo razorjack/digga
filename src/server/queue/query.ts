@@ -91,8 +91,8 @@ const FOR_SALE = `EXISTS (SELECT 1 FROM seller_releases ss
        WHERE ss.seller_id = ? AND ss.release_id = r.id)`;
 
 /**
- * Releases on the label, any of their labels; by the artist, on the release or a track; or for
- * sale in the seller's shop when Digga last read it.
+ * Releases on the label, any of their labels; by the artist, on the release or a track; for
+ * sale in the seller's shop when Digga last read it; or brought into the universe by the load.
  */
 function scopeClause(scope: ScopeRef | null | undefined): SqlFragment | null {
   if (!scope) return null;
@@ -103,6 +103,8 @@ function scopeClause(scope: ScopeRef | null | undefined): SqlFragment | null {
       return { sql: BY_ARTIST, params: [scope.id, scope.id] };
     case "seller":
       return { sql: FOR_SALE, params: [scope.id] };
+    case "load":
+      return { sql: "r.added_by_load = ?", params: [scope.id] };
   }
 }
 

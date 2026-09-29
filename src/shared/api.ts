@@ -253,8 +253,26 @@ export interface Stats {
   dump: {
     date: string | null;
     loadedAt: string | null;
+    /** The newest dump load that finished, with its records still to dig under the filters. */
+    lastLoad: (DumpLoadSummary & { toDig: number }) | null;
   };
   heardTracks: number;
+}
+
+/** What one dump load changed. */
+export interface DumpLoadSummary {
+  /** Also the id of the scope of the releases it added, "load:<id>". */
+  id: number;
+  file: string;
+  dumpDate: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  /** Releases the load brought into the universe. */
+  added: number;
+  /** Releases in other styles it kept for their label or artist. */
+  coverage: number;
+  /** Universe releases it did not find; null when a limit stopped it. */
+  missing: number | null;
 }
 
 // GET /api/scopes?q

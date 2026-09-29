@@ -160,10 +160,12 @@ export function rowToVideo(row: VideoRow): VideoRecord {
 const UPSERT_RELEASE = `
 INSERT INTO releases (
   id, master_id, is_main_release, title, artists_json, artist_display, labels_json, label_name, catno,
-  year, released_raw, country, formats_json, is_vinyl, genres_json, styles_json, in_universe, triage_key, updated_at
+  year, released_raw, country, formats_json, is_vinyl, genres_json, styles_json, in_universe, triage_key, updated_at,
+  added_by_load, written_by_load
 ) VALUES (
   @id, @master_id, @is_main_release, @title, @artists_json, @artist_display, @labels_json, @label_name, @catno,
-  @year, @released_raw, @country, @formats_json, @is_vinyl, @genres_json, @styles_json, @in_universe, @triage_key, @updated_at
+  @year, @released_raw, @country, @formats_json, @is_vinyl, @genres_json, @styles_json, @in_universe, @triage_key, @updated_at,
+  @added_by_load, @added_by_load
 )
 ON CONFLICT(id) DO UPDATE SET
   master_id = excluded.master_id,
@@ -183,7 +185,10 @@ ON CONFLICT(id) DO UPDATE SET
   styles_json = excluded.styles_json,
   in_universe = excluded.in_universe,
   triage_key = excluded.triage_key,
-  updated_at = excluded.updated_at`;
+  updated_at = excluded.updated_at,
+  -- A release keeps the load that brought it into the universe; a stub gets the one loading it.
+  added_by_load = CASE WHEN releases.in_universe = 1 THEN releases.added_by_load ELSE excluded.added_by_load END,
+  written_by_load = excluded.written_by_load`;
 
 const INSERT_STUB =
   UPSERT_RELEASE.slice(0, UPSERT_RELEASE.indexOf("ON CONFLICT")) + "ON CONFLICT(id) DO NOTHING";
@@ -199,7 +204,7 @@ ON CONFLICT(release_id, video_id) DO UPDATE SET
   src = excluded.src, title = excluded.title, duration_seconds = excluded.duration_seconds,
   embeddable = excluded.embeddable, matched_position = excluded.matched_position`;
 
-function releaseParams(release: ReleaseWrite, now: string) {
+function releaseParams(release: ReleaseWrite, now: string, loadId: number | null = null) {
   return {
     id: release.id,
     master_id: release.masterId,
@@ -220,6 +225,7 @@ function releaseParams(release: ReleaseWrite, now: string) {
     in_universe: release.inUniverse ? 1 : 0,
     triage_key: release.triageKey,
     updated_at: now,
+    added_by_load: loadId,
   };
 }
 
@@ -261,17 +267,24 @@ export function writeVideos(
   }
 }
 
-/** Full upsert from the dump: release columns, tracks and videos are replaced; API snapshot columns are kept. */
-export function upsertRelease(db: Db, release: ReleaseWrite): void {
+/**
+ * Full upsert from the dump: release columns, tracks and videos are replaced; API snapshot columns
+ * are kept. `loadId` is the dump load writing it, recorded when the release enters the universe.
+ */
+export function upsertRelease(db: Db, release: ReleaseWrite, loadId: number | null = null): void {
   const now = nowIso();
-  db.prepare(UPSERT_RELEASE).run(releaseParams(release, now));
+  db.prepare(UPSERT_RELEASE).run(releaseParams(release, now, loadId));
   writeTracks(db, release.id, release.tracks);
   writeVideos(db, release.id, release.videos, { replace: true });
 }
 
-export const writeReleases = (db: Db, writes: ReleaseWrite[]): void => {
+export const writeReleases = (
+  db: Db,
+  writes: ReleaseWrite[],
+  options: { loadId?: number } = {},
+): void => {
   db.transaction((rows: ReleaseWrite[]) => {
-    for (const release of rows) upsertRelease(db, release);
+    for (const release of rows) upsertRelease(db, release, options.loadId ?? null);
   })(writes);
 };
 

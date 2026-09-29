@@ -401,6 +401,19 @@
           {#if summary.dump.date}from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump{:else if summary.dump.loadedAt}from a dump of unknown date{:else}(no dump loaded yet){/if},
           grouped into <b>{formatCount(summary.universe.keys)}</b> records.
         </p>
+        {#if summary.dump.lastLoad}
+          {@const load = summary.dump.lastLoad}
+          <p>
+            The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
+            added <b>{formatCount(load.added)}</b> {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
+            {#if load.toDig > 0}
+              <b>{formatCount(load.toDig)}</b> records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
+            {/if}
+            {#if load.missing}
+              It did not find {formatCount(load.missing)} releases loaded before, which stay in the library.
+            {/if}
+          </p>
+        {/if}
         <p>
           <b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters;
           <b>{formatCount(summary.remaining)}</b> are still to dig.

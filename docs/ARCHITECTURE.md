@@ -70,8 +70,9 @@ year everywhere or only on the coverage labels and artists, formats, format desc
 without videos), picks one representative release per key (main release, then most
 videos), orders by strategy and limits. Changing filters or strategy never requires a reload.
 A scope (`src/shared/scope.ts`) narrows the same query to one label's, one artist's or one
-seller's records by Discogs id; Triage digs one with `F` (decisions 83 and 84). A seller's
-records are the releases the `import seller` job read from their shop (`seller_releases`).
+seller's records by Discogs id, or to the releases one dump load added (`load:<id>`); Triage
+digs one with `F` (decisions 83, 84 and 92). A seller's records are the releases the
+`import seller` job read from their shop (`seller_releases`).
 
 A record plays the videos of all its pressings. `buildReleaseDetail()` returns the release's own
 videos, then those of other releases on the same master whose matched track is a tune on this

@@ -67,12 +67,18 @@ function progressOf(job: Job): ProgressSummary {
   }
 }
 
-/** Releases scanned and kept; the share of the file read so far is the fraction. */
+/**
+ * Releases scanned and kept, and once the load is recorded, what it added and did not find. The
+ * share of the file read so far is the fraction.
+ */
 function loadProgress(progress: DumpLoadProgress): ProgressSummary {
-  const { scanned, matched, coverage, bytesRead, totalBytes } = progress;
-  const covered = coverage > 0 ? `, ${formatCount(coverage)} more for their label or artist` : "";
+  const { scanned, matched, coverage, added, missing, bytesRead, totalBytes } = progress;
+  const parts = [`scanned ${formatCount(scanned)}`, `matched ${formatCount(matched)}`];
+  if (coverage > 0) parts.push(`${formatCount(coverage)} more for their label or artist`);
+  if (added !== null) parts.push(`${formatCount(added)} new`);
+  if (missing) parts.push(`${formatCount(missing)} not found`);
   return {
-    text: `scanned ${formatCount(scanned)}, matched ${formatCount(matched)}${covered}`,
+    text: parts.join(", "),
     fraction: bytesRead !== null && totalBytes ? bytesRead / totalBytes : null,
   };
 }

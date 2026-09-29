@@ -49,6 +49,8 @@ export const JobSchema = z.discriminatedUnion("type", [
         coverage: count.default(0),
         upserted: count,
         elapsedSeconds: z.number().nonnegative(),
+        added: count.nullable().default(null),
+        missing: count.nullable().default(null),
         bytesRead: count.nullable().default(null),
         totalBytes: count.nullable().default(null),
       })

@@ -1,13 +1,24 @@
 import { z } from "zod";
+import type { DumpLoadSummary, ScopeMatch } from "./api.ts";
+import { formatDay } from "./display.ts";
 import type { ArtistRef, LabelRef } from "./types.ts";
 
 /**
- * A scope narrows the Triage queue to the records of one label, one artist or one seller's shop.
- * Scopes name Discogs ids rather than names: several labels and artists share a name, and Discogs
- * tells them apart as "Name (2)". A seller is named by their Discogs user id.
+ * A scope narrows the Triage queue to the records of one label, one artist, one seller's shop or
+ * one dump load's additions. Scopes name Discogs ids rather than names: several labels and
+ * artists share a name, and Discogs tells them apart as "Name (2)". A seller is named by their
+ * Discogs user id, a load by its row in dump_loads.
  */
-export const SCOPE_KINDS = ["label", "artist", "seller"] as const;
+export const SCOPE_KINDS = ["label", "artist", "seller", "load"] as const;
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
+
+/** How a scope reads before its name: "the label Virus Recordings". */
+export const SCOPE_NOUN: Record<ScopeKind, string> = {
+  label: "the label",
+  artist: "the artist",
+  seller: "the seller",
+  load: "the records",
+};
 
 export const ScopeRefSchema = z.object({
   kind: z.enum(SCOPE_KINDS),
@@ -40,7 +51,7 @@ export const ScopeParamSchema = z
     if (!match) {
       ctx.addIssue({
         code: "custom",
-        message: "scope must look like label:123, artist:45 or seller:6",
+        message: "scope must look like label:123, artist:45, seller:6 or load:2",
       });
       return z.NEVER;
     }
@@ -67,4 +78,14 @@ export function scopesOfRelease(
   for (const artist of release.artists) add("artist", artist);
   for (const artist of tracks.flatMap((track) => track.artists)) add("artist", artist);
   return [...scopes.values()];
+}
+
+/** The records a dump load added that are still to dig, as a scope; null when none are left. */
+export function newRecordsScope(
+  load: (DumpLoadSummary & { toDig: number }) | null,
+  now: Date = new Date(),
+): ScopeMatch | null {
+  if (!load || load.toDig === 0) return null;
+  const dump = load.dumpDate ? `the ${formatDay(load.dumpDate, now)} dump` : "the last dump load";
+  return { kind: "load", id: load.id, name: `new in ${dump}`, records: load.toDig };
 }

@@ -36,6 +36,8 @@ export interface DumpLoadOptions extends UniverseCriteria {
   progressEvery?: number;
   /** Rows per write transaction. */
   batchSize?: number;
+  /** The dump_loads row of this load; releases it brings into the universe carry it. */
+  loadId?: number;
 }
 
 export interface DumpLoadResult {
@@ -48,6 +50,8 @@ export interface DumpLoadResult {
   elapsedSeconds: number;
   dumpDate: string | null;
   dryRun: boolean;
+  /** A limit ended the load before the end of the dump. */
+  stoppedAtLimit: boolean;
 }
 
 /** In the load years and in one of the styles. */
@@ -128,11 +132,8 @@ export async function loadDump(
 ): Promise<DumpLoadResult> {
   const started = Date.now();
   const dryRun = options.dryRun ?? false;
-  const writer = new BatchWriter(db, { batchSize: options.batchSize ?? 500, dryRun });
-  const coverage = new CoverageTracker({
-    labelIds: options.labelIds ?? [],
-    artistIds: options.artistIds ?? [],
-  });
+  const writer = new BatchWriter(db, options);
+  const coverage = new CoverageTracker(options);
   const counts = { scanned: 0, matched: 0, coverage: 0 };
   const elapsed = () => (Date.now() - started) / 1000;
   const input = openDumpInput(options.file, hooks.stdin ?? (process.stdin as Readable));
@@ -145,6 +146,8 @@ export async function loadDump(
         elapsedSeconds: elapsed(),
         bytesRead: input.bytesRead(),
         totalBytes: input.totalBytes,
+        added: null,
+        missing: null,
       },
       hooks,
     );
@@ -171,6 +174,7 @@ export async function loadDump(
     elapsedSeconds: elapsed(),
     dumpDate: dumpDateFromFilename(options.file),
     dryRun,
+    stoppedAtLimit,
   };
 }
 
@@ -236,11 +240,13 @@ class BatchWriter {
   #batch: DumpRelease[] = [];
   #batchSize: number;
   #dryRun: boolean;
+  #loadId: number | undefined;
 
-  constructor(db: Db, options: { batchSize: number; dryRun: boolean }) {
+  constructor(db: Db, options: Pick<DumpLoadOptions, "batchSize" | "dryRun" | "loadId">) {
     this.#db = db;
-    this.#batchSize = options.batchSize;
-    this.#dryRun = options.dryRun;
+    this.#batchSize = options.batchSize ?? 500;
+    this.#dryRun = options.dryRun ?? false;
+    this.#loadId = options.loadId;
   }
 
   add(release: DumpRelease): void {
@@ -251,7 +257,7 @@ class BatchWriter {
   flush(): void {
     if (this.#batch.length === 0) return;
     if (!this.#dryRun) {
-      writeReleases(this.#db, this.#batch.map(dumpReleaseToWrite));
+      writeReleases(this.#db, this.#batch.map(dumpReleaseToWrite), { loadId: this.#loadId });
       this.upserted += this.#batch.length;
     }
     this.#batch = [];

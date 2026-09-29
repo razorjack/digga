@@ -170,6 +170,9 @@ export interface DumpLoadProgress {
   coverage: number;
   upserted: number;
   elapsedSeconds: number;
+  /** Releases new to the universe, and universe releases not found; known once the load is recorded. */
+  added: number | null;
+  missing: number | null;
   /** Bytes of the dump file read so far, compressed; null when it comes from stdin. */
   bytesRead: number | null;
   totalBytes: number | null;

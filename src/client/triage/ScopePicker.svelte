@@ -9,12 +9,15 @@
   let {
     open,
     recordScopes,
+    newRecords,
     onpick,
     onclose,
   }: {
     open: boolean;
     /** The labels and artists of the record on screen, offered until something is typed. */
     recordScopes: QueueScope[];
+    /** The records the last dump load added that are still to dig, offered after the record's. */
+    newRecords: ScopeMatch | null;
     onpick: (scope: QueueScope) => void;
     onclose: () => void;
   } = $props();
@@ -23,9 +26,13 @@
   const search = new ScopeSearch(api);
   let dialog = $state<HTMLDialogElement>();
 
-  const options: (QueueScope | ScopeMatch)[] = $derived(
-    search.active ? search.matches : recordScopes,
-  );
+  /** The options in the order the arrows move through them. */
+  const options: (QueueScope | ScopeMatch)[] = $derived.by(() => {
+    if (search.active) return search.matches;
+    // Last, so F then Enter still digs the first label of the record on screen.
+    return newRecords ? [...recordScopes, newRecords] : recordScopes;
+  });
+  const listed: (QueueScope | ScopeMatch)[] = $derived(search.active ? search.matches : recordScopes);
   /** The option moved to with the arrows or a click; the first one until then. */
   let chosenKey = $state<string | null>(null);
   const checked = $derived(
@@ -41,9 +48,10 @@
     return `${formatCount(options.length)} ${options.length === 1 ? "match" : "matches"}, most records first.`;
   });
 
-  /** "label" for a label on the record, "label, 303 records" for a match. */
+  /** "label" for a label on the record, "label, 303 records" for a match, "12 to dig" for new records. */
   function optionNote(option: QueueScope | ScopeMatch): string {
     if (!("records" in option)) return option.kind;
+    if (option.kind === "load") return `${formatCount(option.records)} to dig`;
     return `${option.kind}, ${formatCount(option.records)} ${option.records === 1 ? "record" : "records"}`;
   }
 
@@ -118,23 +126,33 @@
       />
     </label>
 
-    <fieldset class="options" hidden={options.length === 0}>
+    {#snippet choice(option: QueueScope | ScopeMatch)}
+      <label class="option">
+        <input
+          type="radio"
+          name="scope"
+          value={scopeKey(option)}
+          checked={option === checked}
+          onchange={() => (chosenKey = scopeKey(option))}
+          onkeydown={submitOnEnter}
+        />
+        <span class="name">{option.name}</span>
+        <span class="note">{optionNote(option)}</span>
+      </label>
+    {/snippet}
+
+    <fieldset class="options" hidden={listed.length === 0}>
       <legend>{search.active ? "Matches" : "On this record"}</legend>
-      {#each options as option (scopeKey(option))}
-        <label class="option">
-          <input
-            type="radio"
-            name="scope"
-            value={scopeKey(option)}
-            checked={option === checked}
-            onchange={() => (chosenKey = scopeKey(option))}
-            onkeydown={submitOnEnter}
-          />
-          <span class="name">{option.name}</span>
-          <span class="note">{optionNote(option)}</span>
-        </label>
+      {#each listed as option (scopeKey(option))}
+        {@render choice(option)}
       {/each}
     </fieldset>
+    {#if newRecords && !search.active}
+      <fieldset class="options">
+        <legend>New in the last dump load</legend>
+        {@render choice(newRecords)}
+      </fieldset>
+    {/if}
 
     <p class="status" id="{id}-status" role="status">{status}</p>
 

@@ -3,7 +3,7 @@
   import { withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
-  import { scopesOfRelease } from "../../shared/scope.ts";
+  import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
@@ -116,6 +116,7 @@
       : [],
   );
   const scopeRemaining = $derived(stats.value?.scopeRemaining ?? null);
+  const newRecords = $derived(newRecordsScope(stats.value?.dump.lastLoad ?? null));
 
   /** Esc ends a round of snoozed records first, then the label, artist or seller being dug. */
   function leaveRoundOrScope(): boolean {
@@ -283,7 +284,7 @@
     {:else if session.scope}
       <p class="banner">
         <span>
-          Digging the {session.scope.kind} <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
+          Digging {SCOPE_NOUN[session.scope.kind]} <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
             <b>{formatCount(scopeRemaining)}</b> left under your filters{/if}.
         </span>
         <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
@@ -336,7 +337,7 @@
         </div>
       {:else if session.finished && session.scope}
         <div class="state">
-          <p class="headline">Nothing is left to dig from the {session.scope.kind} {session.scope.name}.</p>
+          <p class="headline">Nothing is left to dig from {SCOPE_NOUN[session.scope.kind]} {session.scope.name}.</p>
           <p class="quiet">
             Under your filters, that is: widen the years, formats or countries in settings to dig further.
           </p>
@@ -435,6 +436,7 @@
   <ScopePicker
     open={pickingScope}
     {recordScopes}
+    {newRecords}
     onpick={(scope) => void session.setScope(scope)}
     onclose={() => (pickingScope = false)}
   />

@@ -421,3 +421,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     (`ON_COVERAGE` in `queue/coverage.ts`), so a new want lets its label's undated records in
     at once. Sandbox verdicts stay in the tab, so they do not widen it. On the owner's library,
     with 212 seed verdicts, it adds 134 records to dig and about 12 ms to a queue query.
+92. **Each load is recorded, and `F` digs what the last one added.** A new monthly dump brings
+    releases that contributors added or retagged, and a wider coverage set brings more; the
+    load reloaded them silently. `dump_loads` records each load, and `releases.added_by_load`
+    names the load that brought a release into the universe, so the diff is a query rather
+    than a comparison of two dumps. A load also counts the universe releases it did not
+    write: Discogs deleted or merged them, or they no longer match. It finds them by
+    `releases.written_by_load`, the newest load that wrote each release; write times failed
+    when two loads wrote within the same millisecond. They stay, since a verdict or a listen
+    may refer to them, and the count only tells the user. The records a load
+    added are the scope `load:<id>`: Settings says how many are still to dig, and `F` offers
+    them after the record's own labels and artists, so `F` then Enter still digs the first
+    label. A cancelled load's additions pass to the next finished load, which is the first to
+    report them.

@@ -3,6 +3,7 @@ import type { Config } from "../shared/config.ts";
 import type { ScopeRef } from "../shared/scope.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type Db, getMeta } from "./db/db.ts";
+import { latestDumpLoad } from "./db/dump-loads.ts";
 import {
   countDug,
   countHeardTracks,
@@ -34,7 +35,15 @@ export function computeStats(db: Db, config: Config, scope: ScopeRef | null = nu
     dump: {
       date: getMeta(db, "dump_date") ?? null,
       loadedAt: getMeta(db, "dump_loaded_at") ?? null,
+      lastLoad: lastLoadSummary(db, config),
     },
     heardTracks: countHeardTracks(db),
   };
+}
+
+/** The newest finished load, and how many of the records it added are still to dig. */
+function lastLoadSummary(db: Db, config: Config): Stats["dump"]["lastLoad"] {
+  const load = latestDumpLoad(db);
+  if (!load) return null;
+  return { ...load, toDig: countRemaining(db, config.filters, { kind: "load", id: load.id }) };
 }

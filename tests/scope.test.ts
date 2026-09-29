@@ -10,6 +10,7 @@ describe("queue scope", () => {
     expect(scopeParam(null)).toBeUndefined();
     expect(ScopeParamSchema.parse("artist:45")).toEqual({ kind: "artist", id: 45 });
     expect(ScopeParamSchema.parse("seller:6")).toEqual({ kind: "seller", id: 6 });
+    expect(ScopeParamSchema.parse("load:2")).toEqual({ kind: "load", id: 2 });
     for (const text of ["shop:1", "label:0", "label:x", "label", "label:1:2", "LABEL:1"])
       expect(ScopeParamSchema.safeParse(text).success).toBe(false);
   });
