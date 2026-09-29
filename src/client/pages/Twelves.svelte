@@ -28,6 +28,12 @@
     trackKey,
   } from "../twelves/model.ts";
   const shelfState = new TwelvesShelf();
+  /** Wants and grails go to the Discogs wantlist; their shelves say whether all of them got there. */
+  const showWantlistHandoff = $derived(
+    shelfState.shelf === "accepted" ||
+      shelfState.shelf === "candidate" ||
+      (shelfState.shelf === "all" && shelfState.wantsPending.length > 0),
+  );
   onMount(() => {
     void shelfState.load();
     return () => shelfState.destroy();
@@ -273,15 +279,15 @@
     </div>
   {/if}
 
-  {#if shelfState.shelf === "accepted" || (shelfState.shelf === "all" && shelfState.wantsPending.length > 0)}
+  {#if showWantlistHandoff}
     <div class="handoff">
       <p>
         {#if shelfState.wantsPending.length > 0}
           <b>{formatCount(shelfState.wantsPending.length)}</b>
-          {shelfState.wantsPending.length === 1 ? "want is" : "wants are"} not on your Discogs wantlist: the push
-          failed or was undone. <Key label="A" /> on one tries again.
+          {shelfState.wantsPending.length === 1 ? "record is" : "records are"} not on your Discogs wantlist.
+          <Key label="A" /> on a want or <Key label="C" /> on a grail adds it.
         {:else}
-          Every want here is on your Discogs wantlist.
+          Everything here is on your Discogs wantlist.
         {/if}
       </p>
       {#if shelfState.wantsPending.length > 1}

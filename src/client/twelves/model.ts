@@ -6,6 +6,7 @@ import {
 } from "../../shared/api.ts";
 import type { TrackMark, VerdictStatus } from "../../shared/types.ts";
 import { isTriageSource } from "../../shared/verdict-rank.ts";
+import { isWantlistVerdict } from "../../shared/wantlist.ts";
 export type ShelfId =
   | "all"
   | "accepted"
@@ -96,8 +97,14 @@ export const TRIAGE_STATUSES = new Set<VerdictStatus>([
 export const notOnList = (i: TwelvesItem) =>
   i.verdict.status === "maybe" && isTriageSource(i.verdict.source);
 
-/** A want that did not reach the Discogs wantlist (a failed push). */
-export const notOnWantlist = (i: TwelvesItem) => i.verdict.status === "accepted" && !i.onWantlist;
+/** A want or grail that is not on the Discogs wantlist: a failed or undone push, or an old grail. */
+export const notOnWantlist = (i: TwelvesItem) =>
+  isWantlistVerdict(i.verdict.status) && !i.onWantlist;
+
+/** The wants and grails on a shelf that are not on the Discogs wantlist. */
+export function missingFromWantlist(items: TwelvesItem[], shelf: ShelfId): TwelvesItem[] {
+  return items.filter((item) => notOnWantlist(item) && matchesShelf(item, shelf));
+}
 
 export const releaseIdOf = (i: TwelvesItem) => i.verdict.releaseId ?? i.release?.id ?? null;
 

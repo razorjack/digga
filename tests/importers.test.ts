@@ -185,6 +185,18 @@ describe("seed precedence", () => {
     db.close();
   });
 
+  it("keeps a grail through the wantlist import, until the record is owned", async () => {
+    const db = await fixtureDb();
+    upsertVerdict(db, { key: "m:501", status: "candidate", source: "triage" });
+    const seed = { releaseId: 1001, masterId: 501, dateAdded: null, rating: null, notes: null };
+    const info = basic(1001, 501, "Wormhole");
+    applySeedItem(db, { ...seed, kind: "wantlist", basicInformation: info });
+    expect(getVerdict(db, "m:501")?.status).toBe("candidate");
+    applySeedItem(db, { ...seed, kind: "collection", basicInformation: info });
+    expect(getVerdict(db, "m:501")?.status).toBe("collection");
+    db.close();
+  });
+
   it("keeps the note written in Digga when the wantlist import takes over a want", async () => {
     const db = await fixtureDb();
     const note = "the Kool FM tune, ".repeat(20);

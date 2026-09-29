@@ -1,4 +1,12 @@
-import type { TrackMark } from "./types.ts";
+import type { TrackMark, VerdictStatus } from "./types.ts";
+
+/**
+ * The verdicts that put a release on the Discogs wantlist: a want, and a grail, which is a want
+ * the user has been hunting and stays marked as a grail in Digga.
+ */
+export function isWantlistVerdict(status: VerdictStatus): boolean {
+  return status === "accepted" || status === "candidate";
+}
 
 /** Longest note Digga sends with a want. */
 export const WANTLIST_NOTE_LENGTH = 255;

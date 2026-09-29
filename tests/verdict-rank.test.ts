@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { isTriageSource, seedRank } from "../src/shared/verdict-rank.ts";
 
 describe("seed precedence", () => {
-  it("ranks account facts over opinions, want and grail over the Maybe list", () => {
+  it("ranks account facts over opinions, and a grail between the collection and the wantlist", () => {
     const collection = seedRank({ status: "collection", source: "seed:collection" });
     const wantlist = seedRank({ status: "wantlist", source: "seed:wantlist" });
     const want = seedRank({ status: "accepted", source: "triage" });
@@ -12,9 +12,9 @@ describe("seed precedence", () => {
     const skip = seedRank({ status: "rejected", source: "triage" });
     const snooze = seedRank({ status: "snoozed", source: "triage" });
     const seen = seedRank({ status: "seen", source: "seed:history" });
-    expect(collection).toBeGreaterThan(wantlist);
+    expect(collection).toBeGreaterThan(grail);
+    expect(grail).toBeGreaterThan(wantlist);
     expect(wantlist).toBeGreaterThan(want);
-    expect(want).toBe(grail);
     expect(want).toBeGreaterThan(listMaybe);
     expect(listMaybe).toBeGreaterThan(triageMaybe);
     expect([skip, snooze]).toEqual([triageMaybe, triageMaybe]);

@@ -57,8 +57,9 @@ note of its own.
 
 ![Twelves: a record list with catalogue numbers, artists, titles, labels, and wantlist or owned stamps](docs/assets/screenshots/twelves.webp)
 
-With sandbox mode off and your Discogs account configured, `A` adds a record to your Discogs
-wantlist, with the tracks you marked and your note as the want's note. Undo reverses the addition. If you use a Discogs Maybe list, select it in Settings to
+With sandbox mode off and your Discogs account configured, `A` and `C` add a record to your Discogs
+wantlist, with the tracks you marked and your note as the want's note. A grail stays a grail in
+Digga. Undo reverses the addition. If you use a Discogs Maybe list, select it in Settings to
 enable `M`. Digga records maybes locally; adding them to the Discogs list is manual.
 
 ## Choose what to dig

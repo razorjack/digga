@@ -3,6 +3,7 @@ import type { Verdict, VerdictStatus } from "../../shared/types.ts";
 import { api as appApi, type Api, type AppApi } from "../api.ts";
 import { waitForJob } from "../jobs.ts";
 import { formatCount } from "../../shared/display.ts";
+import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import { STATUS_COPY } from "../keymap.ts";
 import { errorMessage, stats, settings } from "../stores.svelte.ts";
 import {
@@ -11,6 +12,7 @@ import {
   STATUSES,
   SORTS,
   TRIAGE_STATUSES,
+  missingFromWantlist,
   notOnList,
   notOnWantlist,
   releaseIdOf,
@@ -61,7 +63,8 @@ export class TwelvesShelf {
   checking = $state(false);
   pushing = $state(false);
   pending = $derived(this.items.filter(notOnList).length);
-  wantsPending = $derived(this.items.filter(notOnWantlist));
+  /** Wants and grails on this shelf that are not on the Discogs wantlist. */
+  wantsPending = $derived(missingFromWantlist(this.items, this.shelf));
   counts = $derived(countShelves(this.items, this.tracks));
   visible = $derived(
     visibleItems(this.items, { shelf: this.shelf, sort: this.sort, query: this.query }),
@@ -126,13 +129,18 @@ export class TwelvesShelf {
     const releaseId = releaseIdOf(item);
     const from = item.verdict.status;
     if (releaseId === null || status === from) return { entry: null, note: "" };
-    if (status === "accepted" && !item.onWantlist) {
+    // A want that becomes a grail, or the reverse, stays on the wantlist.
+    if (isWantlistVerdict(status)) {
+      if (item.onWantlist) return { entry: null, note: "" };
       const error = await this.wantlistWrite(releaseId, true);
       return error
-        ? { entry: null, note: ` Not on your Discogs wantlist: ${error}; A tries again.` }
+        ? {
+            entry: null,
+            note: ` Not on your Discogs wantlist: ${error}; the same key tries again.`,
+          }
         : { entry: { releaseId, change: "added" }, note: " Added to your Discogs wantlist." };
     }
-    if (from === "accepted") {
+    if (isWantlistVerdict(from)) {
       // Sent even when the want is not marked as on the wantlist: a push from Triage may have
       // landed after this page loaded. Discogs treats a missing want as removed.
       const error = await this.wantlistWrite(releaseId, false);

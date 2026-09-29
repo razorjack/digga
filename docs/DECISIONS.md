@@ -352,3 +352,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     Sellers come first in the `F` search because there are few and their names are typed on
     purpose. Grails, maybes and snoozes never reach the wantlist, so a seller's records with
     those verdicts appear neither in the seller's queue nor under "Shop my wants".
+85. **A grail goes onto the wantlist like a want and stays a grail in Digga.** "Grail" means "I
+    am buying this, and I have been looking for it for a long time", so `C` pushes after the same
+    grace period as `A`, `Z` takes it off, and Twelves keeps a record on the wantlist when it is
+    re-judged between want and grail (`isWantlistVerdict()` in `src/shared/wantlist.ts`). This
+    replaces the grail part of decision 56 and the last sentence of decision 84. Only the
+    wantlist entry and its note go to Discogs, no rating: Digga stays a triage tool and keeps
+    the grail mark to itself. A grail ranks 2.5, between the wantlist (2) and the collection
+    (3), so the wantlist import that finds the pushed release leaves the verdict a grail, and
+    owning the record still ends the hunt. Grails from before this change are not on the
+    wantlist; Twelves marks them like a failed want push, and `C` or "add all" adds them.

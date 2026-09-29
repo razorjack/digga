@@ -37,7 +37,7 @@ or Alt. Holding a key down never repeats a verdict.
 | `R` | `rejected`  | "skip"       |                                                                   |
 | `A` | `accepted`  | "want"       | pushes to the Discogs wantlist after 1.5 s unless undone          |
 | `M` | `maybe`     | "maybe"      | for your Discogs Maybe list; offered once the list is chosen      |
-| `C` | `candidate` | "grail"      | the one you've been hunting: a top want or an ID-hunt match       |
+| `C` | `candidate` | "grail"      | the one you've been hunting; onto the wantlist like `A`           |
 | `L` | `snoozed`   | "snooze"     | off the queue, to hear again later (Snoozed shelf)                |
 | `D` | `no_audio`  | "no audio"   | leaves the queue without a judgement                              |
 | `N` | none        | "next"       | moves on; the release stays in the queue and comes back later     |
@@ -62,7 +62,7 @@ to the whole queue. Records passed with `N` return to whichever queue comes next
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is
-undone locally. Undoing a want that already reached the Discogs wantlist takes it off again. The
+undone locally. Undoing a want or grail that already reached the Discogs wantlist takes it off again. The
 counter reads "4,312 dug", where dug counts every verdict made in Digga (source `triage` or
 `manual`), not seeds.
 
@@ -86,27 +86,28 @@ Pressing the same mark again clears it.
 
 ## Twelves
 
-| key                     | action                                                                                    |
-| ----------------------- | ----------------------------------------------------------------------------------------- |
-| `1` … `9`               | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks, no audio |
-| `J` / `K`, `↓` / `↑`    | move the selection                                                                        |
-| `S`                     | next sort order (newest, label, artist, year, price, want)                                |
-| `/`                     | focus the filter; Enter or Esc leaves it                                                  |
-| `O`                     | open the release on discogs.com                                                           |
-| `E`                     | edit the note (of the record, or of the track on Tracks); Enter saves                     |
-| `A` `M` `C` `R` `L` `D` | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)              |
-| `Y`                     | search YouTube for the record                                                             |
-| `⌘V`                    | attach a copied YouTube link to the record; no audio goes back to the queue               |
-| `A` on a want           | add it to the Discogs wantlist when it is not there (a failed push)                       |
-| `Enter`                 | hear the selected snoozed record, and those after it, in Triage                           |
-| `I`                     | read the Discogs Maybe list again                                                         |
-| `Z`                     | undo the last change, including what it did to the Discogs wantlist                       |
+| key                         | action                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `1` … `9`                   | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks, no audio |
+| `J` / `K`, `↓` / `↑`        | move the selection                                                                        |
+| `S`                         | next sort order (newest, label, artist, year, price, want)                                |
+| `/`                         | focus the filter; Enter or Esc leaves it                                                  |
+| `O`                         | open the release on discogs.com                                                           |
+| `E`                         | edit the note (of the record, or of the track on Tracks); Enter saves                     |
+| `A` `M` `C` `R` `L` `D`     | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)              |
+| `Y`                         | search YouTube for the record                                                             |
+| `⌘V`                        | attach a copied YouTube link to the record; no audio goes back to the queue               |
+| `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there                                       |
+| `Enter`                     | hear the selected snoozed record, and those after it, in Triage                           |
+| `I`                         | read the Discogs Maybe list again                                                         |
+| `Z`                         | undo the last change, including what it did to the Discogs wantlist                       |
 
 The Tracks shelf lists the tracks marked grail or keep in Triage, with their release and the
 record's verdict; `J`/`K`, `O`, `E`, `/` and `S` work there too. Marks themselves change in Triage.
 
 Wantlist and owned records come from Discogs and cannot be re-judged here. Re-judging a record as
-want adds it to the Discogs wantlist; re-judging a want as anything else takes it off.
+want or grail adds it to the Discogs wantlist; re-judging a want or grail as anything else takes it
+off, and switching between want and grail leaves it there.
 
 ## Settings
 

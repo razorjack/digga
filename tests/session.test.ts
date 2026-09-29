@@ -164,6 +164,16 @@ describe("triage session", () => {
     expect(calls.toSorted()).toEqual(["forget r:1", "put 1", "remove 1", "verdict r:1 accepted"]);
   });
 
+  it("puts a grail on the wantlist like a want, and Z takes it off again", async () => {
+    const { session, calls } = await started([1, 2]);
+    session.judge("candidate");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "done");
+    session.undo();
+    await until(() => calls.includes("remove 1"));
+    await wait();
+    expect(calls.toSorted()).toEqual(["forget r:1", "put 1", "remove 1", "verdict r:1 candidate"]);
+  });
+
   it("ends on the wantlist after A, Z and A while the first push is slow", async () => {
     const { session, calls, state } = await started([1, 2]);
     state.pushDelayMs = 40;

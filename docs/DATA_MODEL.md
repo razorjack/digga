@@ -85,9 +85,9 @@ in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
 | `decided_at` | ISO; seeds use Discogs `date_added` or the last browser visit                                         |
 
 Seed precedence (`applySeedVerdict`, ranks in `src/shared/verdict-rank.ts`): collection (3) >
-wantlist (2) > `accepted` or `candidate` from triage (1.6) > the Discogs Maybe list, `maybe` from
-`seed:list` (1.55) > other triage/manual decisions (1.5) > seen (1). A seed never downgrades a
-higher rank. `maybe` means the release belongs on the Discogs Maybe list: from `triage` it is not
+`candidate` (grail, 2.5) > wantlist (2) > `accepted` from triage (1.6) > the Discogs Maybe list,
+`maybe` from `seed:list` (1.55) > other triage/manual decisions (1.5) > seen (1). A seed never
+downgrades a higher rank. A grail is on the wantlist too, so the wantlist import leaves it a grail. `maybe` means the release belongs on the Discogs Maybe list: from `triage` it is not
 there yet, from `seed:list` it is. `snoozed` is "hear it again later": a round of snoozed records
 in Triage replaces it with the new verdict, and undo there restores the snooze with its original
 `decided_at` (`POST /api/verdicts` accepts `decidedAt` for that). The "dug" count is every verdict

@@ -92,6 +92,35 @@ describe("Twelves changes", () => {
     expect(shelf.items[0]).toMatchObject({ verdict: { status: "accepted" }, onWantlist: true });
   });
 
+  it("keeps a grail on the wantlist like a want, and takes it off for anything else", async () => {
+    const { shelf, calls } = await setup();
+    shelf.rejudge(shelf.items[0]!, "candidate");
+    await shelf.changes;
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.changes;
+    shelf.rejudge(shelf.items[0]!, "candidate");
+    await shelf.changes;
+    expect(calls).toEqual(["candidate", "push", "accepted", "candidate"]);
+    shelf.rejudge(shelf.items[0]!, "snoozed");
+    await shelf.changes;
+    expect(calls.slice(4)).toEqual(["snoozed", "remove"]);
+    expect(shelf.items[0]).toMatchObject({ verdict: { status: "snoozed" }, onWantlist: false });
+  });
+
+  it("offers to add a grail made before grails were pushed", async () => {
+    const { shelf, calls } = await setup();
+    shelf.items = [
+      { ...shelf.items[0]!, verdict: { ...shelf.items[0]!.verdict, status: "candidate" } },
+    ];
+    shelf.shelf = "candidate";
+    expect(shelf.wantsPending).toHaveLength(1);
+    shelf.shelf = "accepted";
+    expect(shelf.wantsPending).toHaveLength(0);
+    shelf.rejudge(shelf.items[0]!, "candidate");
+    await shelf.changes;
+    expect(calls).toEqual(["push"]);
+  });
+
   it("preserves undo history when saving an undo fails", async () => {
     const { shelf, http } = await setup();
     shelf.rejudge(shelf.items[0]!, "accepted");

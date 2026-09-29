@@ -1,6 +1,7 @@
 import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
 import type { QueueScope } from "../../shared/scope.ts";
 import type { ReleaseSnapshot, TrackMark, Verdict } from "../../shared/types.ts";
+import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
@@ -184,7 +185,7 @@ export class TriageSession {
       item,
       status,
       id,
-      push: status === "accepted" ? "pending" : null,
+      push: isWantlistVerdict(status) ? "pending" : null,
     };
     stats.session += 1;
     this.#bumpStats(status, previous, 1);
@@ -209,7 +210,7 @@ export class TriageSession {
     if (generation !== this.#apiGeneration) return;
     stats.refreshSoon();
     // Discogs writes have their own chain so they cannot delay verdicts.
-    if (status === "accepted") void this.#pushAfterGrace(entry, slipId, client);
+    if (isWantlistVerdict(status)) void this.#pushAfterGrace(entry, slipId, client);
   }
 
   #recoverVerdict(entry: VerdictEntry, error: unknown): void {
@@ -393,7 +394,7 @@ export class TriageSession {
       return;
     }
     if (generation !== this.#apiGeneration) return;
-    if (entry.status === "accepted") void this.#takeOffWantlist(entry.item, client);
+    if (isWantlistVerdict(entry.status)) void this.#takeOffWantlist(entry.item, client);
     stats.refreshSoon();
   }
 
@@ -536,11 +537,11 @@ export class TriageSession {
     }
   }
 
-  /** The newest verdict in the history for the key is a want. */
+  /** The newest verdict in the history for the key is a want or a grail. */
   #wanted(key: string): boolean {
     for (const entry of this.history.toReversed()) {
       if (entry.kind === "verdict" && entry.item.triageKey === key)
-        return entry.status === "accepted";
+        return isWantlistVerdict(entry.status);
     }
     return false;
   }
@@ -548,7 +549,8 @@ export class TriageSession {
   /**
    * Brings the Discogs wantlist in line with the history for one record. The calls run one at a
    * time and decide when they run, not when they were asked for, so any mix of A, Z and slow
-   * requests ends with the release on the wantlist exactly when its latest verdict is a want.
+   * requests ends with the release on the wantlist exactly when its latest verdict is a want or
+   * a grail.
    */
   #syncWantlist(item: QueueItem, client: Api): Promise<"added" | "removed" | null> {
     const generation = this.#apiGeneration;
@@ -560,7 +562,8 @@ export class TriageSession {
       if (this.#wanted(key) && pushedId === undefined) {
         // Twelves may have changed the verdict during the grace period.
         const saved = await client.getRelease(item.id);
-        if (saved.verdict?.status !== "accepted" || !this.#wanted(key) || !current()) return null;
+        const savedWant = saved.verdict !== null && isWantlistVerdict(saved.verdict.status);
+        if (!savedWant || !this.#wanted(key) || !current()) return null;
         await client.pushToWantlist(item.id);
         if (current()) this.#onWantlist.set(key, item.id);
         return "added";
