@@ -8,16 +8,16 @@ zlib.createGunzip -> saxes`. It never decompresses to disk and never enumerates 
 `/database/search`. `dump load -` accepts already-decompressed XML on stdin
 (`gzip -dc file | digga dump load -`).
 
-No real dump was present under `data/dumps/` during the bootstrap session, so the element shape is
-an assumption based on the published dump format, encoded in `fixtures/releases-sample.xml` and
-`tools/dump/parse.ts`. Verify it against the first records of a real dump
-(`gzip -dc file | head -c 20000`) before the first full load:
+The element shape below, encoded in `fixtures/releases-sample.xml` and `tools/dump/parse.ts`, is
+verified against the 2026-09-01 dump. Its first records match it, and a full load of it scanned
+19,417,067 releases and kept 71,699 with their tracklists, videos, labels and master ids. That
+dump has no `status` attribute and no `<images>`, and it leaves out empty elements such as
+`<anv>` or `<join>` instead of writing them empty; the parser treats all of them as optional.
 
 ```xml
 <releases>
-<release id="1" status="Accepted">
-  <images>...</images>
-  <artists><artist><id>1</id><name>Name (2)</name><anv/><join>&amp;</join><role/><tracks/></artist></artists>
+<release id="1">
+  <artists><artist><id>1</id><name>Name (2)</name><anv>Name</anv><join>&amp;</join></artist></artists>  <!-- anv, join optional -->
   <title>...</title>
   <labels><label catno="RH 20" id="77" name="Renegade Hardware"/></labels>
   <extraartists>...</extraartists>                       <!-- ignored -->

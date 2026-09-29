@@ -71,8 +71,6 @@ Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with
 
 ## Known gaps to keep in mind
 
-- The dump element shape was written from the published format, not verified against a real
-  dump (none was present). Verify on first load (`docs/DISCOGS_NOTES.md`).
 - `enrich` treats a 404 as enriched to avoid retry loops; a later `enrich --force` could revisit.
 - Sandbox: after a settings change, the "to go" count still subtracts every sandbox verdict,
   including ones the new filters exclude.
