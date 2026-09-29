@@ -464,3 +464,7 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     can matter while deciding. A saved "popular" order reads as the label sweep, and
     migration 5 deletes the jobs rows of the removed types, which the jobs panel could no longer
     describe.
+96. **A release Discogs no longer has stays without market data.** Decision 14 stored a 404 as an
+    empty snapshot so the bulk jobs would not ask for it on every pass. Those jobs are gone, and
+    the empty snapshot read as "none for sale, 0 want, 0 have" in Triage and Twelves. A 404 now
+    only fails the request (`502`, "Discogs did not return the release").

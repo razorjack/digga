@@ -80,8 +80,6 @@ Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with
   wants widen neither.
 - A dump download cannot resume: data.discogs.com answers range requests with the whole file.
 - Old dumps stay in the dumps folder until the user deletes them, 10 GB each.
-- Enrichment treats a 404 as enriched, so Triage does not ask Discogs again for a deleted
-  release.
 - Sandbox: after a settings change, the "to go" count still subtracts every sandbox verdict,
   including ones the new filters exclude.
 - With `skipWithoutVideos`, a release without videos in the dump never reaches Triage, which is

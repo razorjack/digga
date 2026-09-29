@@ -65,8 +65,6 @@ export async function enrichRelease(
   } catch (error) {
     if (error instanceof DiscogsApiError && (error.status === 401 || error.status === 403))
       throw error;
-    if (error instanceof DiscogsApiError && error.status === 404)
-      markUnavailable(deps.db, releaseId);
     deps.logger.warn(
       `enrich ${releaseId} failed: ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -80,15 +78,4 @@ function requeueWithNewVideos(deps: EnrichDeps, releaseId: number): void {
   if (!key) return;
   for (const requeued of requeueNoAudio(deps.db, [key]))
     deps.logger.info(`${requeued} has a new video; back in the queue`);
-}
-
-function markUnavailable(db: Db, releaseId: number): void {
-  // A release removed from Discogs should not be retried on every enrichment pass.
-  writeSnapshot(db, releaseId, {
-    lowestPrice: null,
-    numForSale: null,
-    currency: null,
-    communityHave: null,
-    communityWant: null,
-  });
 }

@@ -67,11 +67,11 @@ describe("enriching one release", () => {
     db.close();
   });
 
-  it("marks a release Discogs deleted as enriched, so it is not asked for again", async () => {
+  it("leaves a release Discogs no longer has without market data", async () => {
     const db = await fixtureDb();
     const discogs = fakeDiscogs(() => Promise.reject(new DiscogsApiError(404, "gone")));
     expect(await enrichRelease({ db, discogs, logger: silentLogger }, 1001, "EUR")).toBe(false);
-    expect(getRelease(db, 1001)!.snapshot.enrichedAt).not.toBeNull();
+    expect(getRelease(db, 1001)!.snapshot.enrichedAt).toBeNull();
     db.close();
   });
 
