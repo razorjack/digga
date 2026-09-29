@@ -34,7 +34,6 @@ function fakeDiscogs(
     getList: () => Promise.reject(new Error("unused")),
     addToWantlist: () => Promise.reject(new Error("unused")),
     removeFromWantlist: () => Promise.reject(new Error("unused")),
-    addToCollection: () => Promise.reject(new Error("unused")),
     getUser: () => Promise.reject(new Error("unused")),
     getInventoryPage: () => Promise.reject(new Error("unused")),
     rateLimit: () => ({ limit: null, remaining: null, used: null }),

@@ -12,8 +12,8 @@ import type {
 } from "./types.ts";
 
 import { DiscogsTransport } from "./transport.ts";
-import { DiscogsApiError, NotImplementedError } from "./errors.ts";
-export { DiscogsApiError, NotImplementedError } from "./errors.ts";
+import { DiscogsApiError } from "./errors.ts";
+export { DiscogsApiError } from "./errors.ts";
 export { DEFAULT_USER_AGENT } from "./transport.ts";
 
 export interface DiscogsClientOptions {
@@ -61,8 +61,6 @@ export interface DiscogsClient {
   ): Promise<void>;
   /** DELETE /users/{u}/wants/{id}; a release that is not on the wantlist counts as removed. */
   removeFromWantlist(username: string, releaseId: number): Promise<void>;
-  /** Stub: POST /users/{u}/collection/folders/{folder}/releases/{id}. */
-  addToCollection(username: string, releaseId: number, folderId?: number): Promise<void>;
   rateLimit(): RateLimitState;
   hasToken(): boolean;
 }
@@ -105,7 +103,6 @@ export function createDiscogsClient(options: DiscogsClientOptions = {}): Discogs
     addToWantlist: (username, releaseId, extra = {}) =>
       addToWantlist(transport, username, releaseId, extra),
     removeFromWantlist: (username, releaseId) => removeFromWantlist(transport, username, releaseId),
-    addToCollection: () => Promise.reject(new NotImplementedError("addToCollection")),
     rateLimit: () => transport.rateLimit(),
     hasToken: () => Boolean(options.token),
   };

@@ -8,10 +8,3 @@ export class DiscogsApiError extends Error {
     this.body = body;
   }
 }
-
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`${what} is not implemented yet (planned for a later session)`);
-    this.name = "NotImplementedError";
-  }
-}

@@ -64,7 +64,6 @@ Decisions 86 to 93.
 
 ## Next
 
-- `addToCollection` is still a stub; nothing in the UI needs it yet.
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.
 - Notes and marks changed after a push stay in Digga; `POST /users/{u}/wants/{id}` could update

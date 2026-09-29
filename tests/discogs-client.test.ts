@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  createDiscogsClient,
-  DiscogsApiError,
-  NotImplementedError,
-} from "../src/server/discogs/client.ts";
+import { createDiscogsClient, DiscogsApiError } from "../src/server/discogs/client.ts";
 
 interface Call {
   url: string;
@@ -98,7 +94,7 @@ describe("discogs client", () => {
     expect(sleeps).toEqual([2000, 60000]);
   });
 
-  it("throws DiscogsApiError on other failures and rejects stubs", async () => {
+  it("throws DiscogsApiError on other failures", async () => {
     const { fetchImpl } = fakeFetch([json({ message: "nope" }, {}, 500)]);
     const client = createDiscogsClient({
       fetchImpl,
@@ -107,7 +103,6 @@ describe("discogs client", () => {
       minIntervalMs: 0,
     });
     await expect(client.getIdentity()).rejects.toBeInstanceOf(DiscogsApiError);
-    await expect(client.addToCollection("u", 1)).rejects.toBeInstanceOf(NotImplementedError);
   });
 
   it("builds paginated collection and wantlist URLs", async () => {

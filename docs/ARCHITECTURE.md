@@ -145,7 +145,7 @@ counts as removed) back `POST` / `DELETE /api/discogs/wantlist/:id`. A push with
 the release's grail and keep tracks and the record's note (`wantlistNote()` in
 `src/shared/wantlist.ts`, at most 255 characters); the server then records or
 forgets the release in `seed_items`, as a wantlist import would, so Twelves knows which wants are on
-the Discogs wantlist. `addToCollection` is still a typed stub.
+the Discogs wantlist.
 
 ## Configuration and paths
 
