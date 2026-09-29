@@ -66,8 +66,6 @@ Decisions 86 to 93.
 
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.
-- Notes and marks changed after a push stay in Digga; `POST /users/{u}/wants/{id}` could update
-  the want's note on Discogs.
 - Hear records from Twelves: rounds like the snoozed ones for wants, grails and marked tracks.
 
 ## Session 6: Electron shell

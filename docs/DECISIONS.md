@@ -446,3 +446,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     other styles, mostly Jungle, Breakbeat and Hardcore on Moving Shadow, Certificate 18 and
     Passenger, 87 of them records to dig under the default filters, and left out 9 labels and
     artists that mostly release other music, P!NK among them.
+94. **Digga is a triage tool, not a Discogs client.** It reads Discogs to decide what to dig and
+    writes back only what a verdict decides: the wantlist entry and its note. Buying, owning and
+    keeping Discogs data current happen on Discogs. So the `addToCollection` stub and the
+    wantlist push's unused `notes` and `rating` options are gone, and the roadmap no longer
+    plans to update a want's note after the push. `seed_items` keeps the Discogs data it stores
+    (date added, rating, notes, basic information) although nothing reads it yet: showing more
+    of it later would otherwise need every user to import again.
