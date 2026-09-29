@@ -80,12 +80,15 @@ export function scopesOfRelease(
   return [...scopes.values()];
 }
 
-/** The records a dump load added that are still to dig, as a scope; null when none are left. */
+/**
+ * The records a dump load added that are still to dig, as a scope; null when none are left.
+ * "Added from" rather than "new in": the coverage pass adds releases the dump had before.
+ */
 export function newRecordsScope(
   load: (DumpLoadSummary & { toDig: number }) | null,
   now: Date = new Date(),
 ): ScopeMatch | null {
   if (!load || load.toDig === 0) return null;
-  const dump = load.dumpDate ? `the ${formatDay(load.dumpDate, now)} dump` : "the last dump load";
-  return { kind: "load", id: load.id, name: `new in ${dump}`, records: load.toDig };
+  const dump = load.dumpDate ? `the ${formatDay(load.dumpDate, now)} dump` : "the last dump";
+  return { kind: "load", id: load.id, name: `added from ${dump}`, records: load.toDig };
 }

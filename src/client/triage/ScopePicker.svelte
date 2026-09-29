@@ -149,7 +149,7 @@
     </fieldset>
     {#if newRecords && !search.active}
       <fieldset class="options">
-        <legend>New in the last dump load</legend>
+        <legend>Added by the last dump load</legend>
         {@render choice(newRecords)}
       </fieldset>
     {/if}

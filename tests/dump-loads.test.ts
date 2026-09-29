@@ -107,7 +107,7 @@ describe("recorded dump loads", () => {
     expect(newRecordsScope({ ...stats.dump.lastLoad!, dumpDate: "2026-10-01" }, now)).toEqual({
       kind: "load",
       id: first.load!.id,
-      name: "new in the 1 Oct dump",
+      name: "added from the 1 Oct dump",
       records: 2,
     });
     expect(newRecordsScope({ ...stats.dump.lastLoad!, toDig: 0 })).toBeNull();
