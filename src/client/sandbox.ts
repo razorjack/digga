@@ -3,7 +3,6 @@ import {
   ListenLogInputSchema,
   TrackVerdictInputSchema,
   VerdictInputSchema,
-  WantlistPushInputSchema,
   type DiscogsListEntry,
   type MarkedTrack,
   type QueueItem,
@@ -544,10 +543,7 @@ class SandboxApi implements Api {
 
   exportUrl: Api["exportUrl"] = (file) => this.#inner.exportUrl(file);
 
-  pushToWantlist: Api["pushToWantlist"] = async (releaseId, input = {}) => {
-    WantlistPushInputSchema.parse(input);
-    return this.#fakeWantlistWrite(releaseId, true);
-  };
+  pushToWantlist: Api["pushToWantlist"] = (releaseId) => this.#fakeWantlistWrite(releaseId, true);
 
   removeFromWantlist: Api["removeFromWantlist"] = (releaseId) =>
     this.#fakeWantlistWrite(releaseId, false);

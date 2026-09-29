@@ -54,11 +54,7 @@ export interface DiscogsClient {
   /** A list with its items. The API has no endpoint to add or remove items. */
   getList(id: number): Promise<DiscogsList>;
   /** PUT /users/{u}/wants/{id}; the token must belong to that user. */
-  addToWantlist(
-    username: string,
-    releaseId: number,
-    opts?: { notes?: string; rating?: number },
-  ): Promise<void>;
+  addToWantlist(username: string, releaseId: number, options?: { notes?: string }): Promise<void>;
   /** DELETE /users/{u}/wants/{id}; a release that is not on the wantlist counts as removed. */
   removeFromWantlist(username: string, releaseId: number): Promise<void>;
   rateLimit(): RateLimitState;
@@ -100,8 +96,8 @@ export function createDiscogsClient(options: DiscogsClientOptions = {}): Discogs
         per_page: perPage,
       }),
     getList: (id) => request<DiscogsList>(`/lists/${id}`),
-    addToWantlist: (username, releaseId, extra = {}) =>
-      addToWantlist(transport, username, releaseId, extra),
+    addToWantlist: (username, releaseId, options = {}) =>
+      addToWantlist(transport, username, releaseId, options),
     removeFromWantlist: (username, releaseId) => removeFromWantlist(transport, username, releaseId),
     rateLimit: () => transport.rateLimit(),
     hasToken: () => Boolean(options.token),
@@ -112,16 +108,13 @@ async function addToWantlist(
   transport: DiscogsTransport,
   username: string,
   releaseId: number,
-  extra: { notes?: string; rating?: number },
+  options: { notes?: string },
 ): Promise<void> {
-  const body = Object.fromEntries(Object.entries(extra).filter(([, value]) => value !== undefined));
+  const body = options.notes === undefined ? undefined : { notes: options.notes };
   await transport.request(
     `/users/${encodeURIComponent(username)}/wants/${releaseId}`,
     {},
-    {
-      method: "PUT",
-      body: Object.keys(body).length > 0 ? body : undefined,
-    },
+    { method: "PUT", body },
   );
 }
 

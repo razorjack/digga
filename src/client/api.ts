@@ -25,7 +25,6 @@ import {
   type TrackVerdictResponse,
   type TwelvesResponse,
   type VerdictInput,
-  type WantlistPushInput,
   type WantlistPushResponse,
 } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
@@ -74,7 +73,8 @@ export interface Api {
   getJobs(): Promise<JobsResponse>;
   getJob(id: string): Promise<Job>;
   cancelJob(id: string): Promise<{ cancelled: boolean; job: Job }>;
-  pushToWantlist(releaseId: number, input?: WantlistPushInput): Promise<WantlistPushResponse>;
+  /** The server writes the note: the release's grail and keep tracks and the record's note. */
+  pushToWantlist(releaseId: number): Promise<WantlistPushResponse>;
   removeFromWantlist(releaseId: number): Promise<WantlistPushResponse>;
   /** Whether a token is set and whose it is; asks Discogs once per call. */
   getDiscogsAccount(): Promise<DiscogsAccountResponse>;
@@ -146,8 +146,7 @@ export function createHttpApi(baseUrl = "/api"): Api {
     getJobs: () => call("GET", "/jobs"),
     getJob: (id) => call("GET", `/jobs/${id}`),
     cancelJob: (id) => call("POST", `/jobs/${id}/cancel`),
-    pushToWantlist: (releaseId, input = {}) =>
-      call("POST", `/discogs/wantlist/${releaseId}`, input),
+    pushToWantlist: (releaseId) => call("POST", `/discogs/wantlist/${releaseId}`),
     removeFromWantlist: (releaseId) => call("DELETE", `/discogs/wantlist/${releaseId}`),
     getDiscogsAccount: () => call("GET", "/discogs/account"),
     setDiscogsToken: (token) => call("PUT", "/discogs/token", { token }),
@@ -212,7 +211,7 @@ export function createAppApi(
     getJobs: () => current.getJobs(),
     getJob: (id) => current.getJob(id),
     cancelJob: (id) => current.cancelJob(id),
-    pushToWantlist: (releaseId, input) => current.pushToWantlist(releaseId, input),
+    pushToWantlist: (releaseId) => current.pushToWantlist(releaseId),
     removeFromWantlist: (releaseId) => current.removeFromWantlist(releaseId),
     getDiscogsAccount: () => current.getDiscogsAccount(),
     setDiscogsToken: (token) => current.setDiscogsToken(token),

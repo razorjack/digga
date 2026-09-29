@@ -5,7 +5,6 @@ import {
   type DiscogsListResponse,
   type DiscogsListsResponse,
   DiscogsTokenInputSchema,
-  WantlistPushInputSchema,
   type WantlistPushResponse,
 } from "../../shared/api.ts";
 import { getRelease } from "../db/releases.ts";
@@ -126,14 +125,12 @@ async function pushWantlist(request: Context, context: AppContext) {
   if (refused) return refused;
   const id = parseId(request.req.param("id") ?? "");
   if (id === null) return badRequest(request, "Invalid release id");
-  const body = await parseJson(request, WantlistPushInputSchema);
-  if (!body.ok) return body.response;
   const release = getRelease(db, id);
   if (!release) return request.json({ error: "Release not found" } satisfies ApiError, 404);
   const account = wantlistAccount(request, context);
   if ("response" in account) return account.response;
-  const notes = body.data.notes ?? wantlistNoteFor(db, release);
-  await context.getDiscogs().addToWantlist(account.username, id, { ...body.data, notes });
+  const notes = wantlistNoteFor(db, release);
+  await context.getDiscogs().addToWantlist(account.username, id, { notes });
   recordWantlistPush(db, release, notes ?? null);
   logger.info(`added release ${id} to the Discogs wantlist`);
   return request.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);

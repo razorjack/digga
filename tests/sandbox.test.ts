@@ -181,7 +181,7 @@ describe("sandbox api", () => {
     expect(twelves.items.map((i) => [i.verdict.key, i.release?.id, i.onWantlist])).toEqual([
       ["m:501", 1001, false],
     ]);
-    expect(await sandbox.pushToWantlist(1001, { notes: "want" })).toEqual({
+    expect(await sandbox.pushToWantlist(1001)).toEqual({
       releaseId: 1001,
       ok: true,
     });

@@ -153,7 +153,7 @@ describe("discogs client", () => {
       minIntervalMs: 0,
     });
     await client.addToWantlist("dj name", 7);
-    await client.addToWantlist("dj name", 7, { notes: "from Digga", rating: undefined });
+    await client.addToWantlist("dj name", 7, { notes: "from Digga" });
     await client.removeFromWantlist("dj name", 7);
     await client.removeFromWantlist("dj name", 7);
     await expect(client.removeFromWantlist("dj name", 7)).rejects.toBeInstanceOf(DiscogsApiError);

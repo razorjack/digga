@@ -8,7 +8,6 @@ import {
 } from "./config.ts";
 import { type QueueScope, ScopeParamSchema } from "./scope.ts";
 import { TRIAGE_KEY_PATTERN } from "./triage-key.ts";
-import { WANTLIST_NOTE_LENGTH } from "./wantlist.ts";
 import {
   TRACK_MARKS,
   VERDICT_SOURCES,
@@ -350,12 +349,6 @@ export interface JobsResponse {
 }
 
 // POST /api/discogs/wantlist/:id adds a release; DELETE takes it off again
-export const WantlistPushInputSchema = z.object({
-  /** Omitted, the server writes the release's grail and keep tracks and the record's note. */
-  notes: z.string().max(WANTLIST_NOTE_LENGTH).optional(),
-  rating: z.number().int().min(0).max(5).optional(),
-});
-export type WantlistPushInput = z.infer<typeof WantlistPushInputSchema>;
 export interface WantlistPushResponse {
   releaseId: number;
   ok: boolean;
