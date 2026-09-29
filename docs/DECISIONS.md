@@ -394,3 +394,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     of being cut off, which had hidden the estimate and long errors, and keeps the estimate on
     one line. Durations over an hour read "2 h 5 min" and the duration column no longer
     wraps. "Enrich all" shows no estimate when nothing is left to enrich.
+89. **The loader runs as a step of an async job.** `runWorker()` (`jobs/worker.ts`) starts the
+    worker, forwards its progress, terminates it when the job's signal fires, and settles once
+    the worker has exited, so nothing uses the database after it. The runner lost its separate
+    worker path: every job is an async function, and one that needs a worker awaits it, which
+    lets a single job download the dump and then load it. A worker that has posted its result
+    but not exited keeps its job running; it used to show as done.

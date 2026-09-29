@@ -371,4 +371,29 @@ describe("createServer with its own database file", () => {
     check.close();
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it("loads a dump in a worker with its own connection", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "digga-worker-"));
+    const own = createServer({
+      config: DEFAULT_CONFIG,
+      paths: resolvePaths({ baseDir: dir }),
+      secrets: testSecrets(),
+      logger: silentLogger,
+      serveStatic: false,
+    });
+    try {
+      const res = await own.app.request("/api/jobs/dump-load", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ file: FIXTURE_GZ }),
+      });
+      const job = (await res.json()) as Job;
+      await expect.poll(() => own.jobs.get(job.id)?.status, { timeout: 10_000 }).toBe("done");
+      expect(own.jobs.get(job.id)?.progress).toMatchObject({ phase: "done", matched: 5 });
+      expect(own.db.prepare("SELECT COUNT(*) FROM releases").pluck().get()).toBe(5);
+    } finally {
+      await own.stop();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

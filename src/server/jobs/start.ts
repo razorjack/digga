@@ -6,7 +6,7 @@ import type {
   ImportJobInput,
   ImportKind,
 } from "../../shared/api.ts";
-import type { Job } from "../../shared/types.ts";
+import type { DumpLoadProgress, Job } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
 import { resolveDumpFile } from "../paths.ts";
 import {
@@ -21,6 +21,8 @@ import {
   importWantlist,
 } from "./index.ts";
 import type { DumpLoadWorkerData } from "./dump-load-worker.ts";
+import { runWorker } from "./worker.ts";
+import type { DumpLoadResult } from "../../../tools/dump/load.ts";
 
 const DUMP_LOAD_WORKER = new URL("./dump-load-worker.ts", import.meta.url);
 
@@ -46,7 +48,9 @@ export function startDumpLoad(context: AppContext, input: DumpLoadJobInput): Job
       dumpLoad({ db: context.db, logger: context.logger }, workerData.options, onProgress),
     );
   }
-  return context.jobs.runInWorker("dump_load", DUMP_LOAD_WORKER, workerData);
+  return context.jobs.run("dump_load", (job) =>
+    runWorker<DumpLoadResult, DumpLoadProgress>(DUMP_LOAD_WORKER, workerData, job),
+  );
 }
 
 function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoadWorkerData {

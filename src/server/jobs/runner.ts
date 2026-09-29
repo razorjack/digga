@@ -1,4 +1,3 @@
-import { Worker } from "node:worker_threads";
 import type { Job, JobType, JobProgress } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import {
@@ -18,16 +17,12 @@ export interface JobContext {
 
 export type JobFn<Result = unknown> = (context: JobContext) => Promise<Result>;
 
-export type WorkerMessage =
-  | { type: "progress"; progress: JobProgress }
-  | { type: "done"; result: unknown }
-  | { type: "error"; message: string };
-
 export interface JobRunner {
-  /** Runs an async job function on this thread (fine for network-bound work). Returns immediately. */
+  /**
+   * Runs an async job function on this thread and returns at once. CPU-heavy steps run in a
+   * worker through runWorker() in worker.ts.
+   */
   run(type: JobType, fn: JobFn): Job;
-  /** Runs a worker script that posts WorkerMessage objects. workerData must be serialisable. */
-  runInWorker(type: JobType, script: URL, workerData: unknown): Job;
   /** Runs a job function and waits for it (CLI). */
   runAndWait<Result>(type: JobType, fn: JobFn<Result>): Promise<{ job: Job; result: Result }>;
   cancel(id: string): boolean;
@@ -114,62 +109,6 @@ class Runner implements JobRunner {
       log.error(`job ${job.id} failed: ${message}`);
       throw error;
     }
-  }
-
-  runInWorker(type: JobType, script: URL, workerData: unknown): Job {
-    const job = this.#create(type);
-    try {
-      this.#watchWorker(job, new Worker(script, { workerData }));
-    } catch (error) {
-      markJobFinished(
-        this.#db,
-        job.id,
-        "failed",
-        error instanceof Error ? error.message : String(error),
-      );
-      throw error;
-    }
-    return job;
-  }
-
-  #watchWorker(job: Job, worker: Worker): void {
-    let cancelled = false;
-    const finished = new Promise<void>((resolve) => {
-      worker.on("message", (message: WorkerMessage) => this.#workerMessage(job.id, message));
-      worker.on("error", (error) => markJobFinished(this.#db, job.id, "failed", error.message));
-      worker.on("exit", (code) => {
-        this.#workerExited(job.id, code, cancelled);
-        this.#active.delete(job.id);
-        resolve();
-      });
-    });
-    this.#active.set(job.id, {
-      finished,
-      abort: () => {
-        cancelled = true;
-        void worker.terminate();
-      },
-    });
-  }
-
-  #workerMessage(id: string, message: WorkerMessage): void {
-    if (message.type === "progress") updateJobProgress(this.#db, id, message.progress);
-    if (message.type === "done") markJobFinished(this.#db, id, "done");
-    if (message.type === "error") markJobFinished(this.#db, id, "failed", message.message);
-  }
-
-  #workerExited(id: string, code: number, cancelled: boolean): void {
-    const job = getJob(this.#db, id);
-    if (job?.status !== "running") return;
-    if (cancelled) {
-      markJobFinished(this.#db, id, "cancelled");
-      return;
-    }
-    if (code === 0) {
-      markJobFinished(this.#db, id, "done");
-      return;
-    }
-    markJobFinished(this.#db, id, "failed", `Worker exited with code ${code}`);
   }
 
   cancel(id: string): boolean {

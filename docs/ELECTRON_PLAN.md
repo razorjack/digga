@@ -49,8 +49,8 @@ app.whenReady().then(async () => {
 - `nativeTheme.themeSource` makes `prefers-color-scheme` match the saved color scheme before the
   first paint, so the window does not show the other scheme until `/api/settings` loads. A change
   in Settings applies in the renderer at once and reaches `nativeTheme` on the next start.
-- Menu items call the same job functions the CLI uses, or `server.jobs.runInWorker(...)` for the
-  dump: `dialog.showOpenDialog({ filters: [{ name: "Discogs dump", extensions: ["gz", "xml"] }] })`,
+- Menu items call the same job functions the CLI uses, and `runWorker()` inside
+  `server.jobs.run(...)` for the dump: `dialog.showOpenDialog({ filters: [{ name: "Discogs dump", extensions: ["gz", "xml"] }] })`,
   then `POST /api/jobs/dump-load`-equivalent code with `{ dbFile: paths.dbFile, options }`.
   Progress can be read from `server.jobs.get(id)` or `GET /api/jobs/:id` in the renderer.
 - The renderer keeps using `src/client/api.ts` over HTTP. Switching to IPC later means replacing

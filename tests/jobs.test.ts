@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
 import { createJob, getJob, markJobStarted, updateJobProgress } from "../src/server/db/jobs.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
+import { runWorker } from "../src/server/jobs/worker.ts";
 import { elapsed, jobProgress } from "../src/shared/job-display.ts";
 import { silentLogger } from "./helpers.ts";
 
@@ -141,36 +142,46 @@ it("waits for cancelled async work before releasing its database", async () => {
   db.close();
 });
 
-it("tracks a worker until exit even after its done message", async () => {
+it("finishes a worker step only once the worker has exited", async () => {
   const db = openDb(":memory:");
   const runner = createJobRunner(db, silentLogger);
   const script = new URL(
     `data:text/javascript,${encodeURIComponent(`
     import { parentPort } from 'node:worker_threads';
-    parentPort.postMessage({ type: 'done', result: null });
-    setInterval(() => {}, 1000);
+    parentPort.postMessage({ type: 'progress', progress: { done: 1, total: 2, failed: 0, currentReleaseId: null } });
+    parentPort.postMessage({ type: 'done', result: 7 });
+    setTimeout(() => {}, 200);
   `)}`,
   );
-  const job = runner.runInWorker("dump_load", script, {});
+  let result: number | null = null;
+  const job = runner.run("enrich", async (context) => {
+    result = await runWorker<number>(script, {}, context);
+  });
   try {
+    await expect.poll(() => runner.get(job.id)?.progress).toMatchObject({ done: 1 });
+    expect(runner.get(job.id)?.status).toBe("running");
     await expect.poll(() => runner.get(job.id)?.status).toBe("done");
-    expect(runner.active()).toEqual([job.id]);
-    await runner.stop();
+    expect(result).toBe(7);
     expect(runner.active()).toEqual([]);
-    expect(runner.get(job.id)?.status).toBe("done");
   } finally {
     await runner.stop();
     db.close();
   }
 });
 
-it("reports an unexpected worker exit as failure", async () => {
+it("reports an unexpected worker exit as failure and a stopped worker as cancelled", async () => {
   const db = openDb(":memory:");
   const runner = createJobRunner(db, silentLogger);
-  const job = runner.runInWorker("dump_load", new URL("data:text/javascript,process.exit(2)"), {});
+  const crash = new URL("data:text/javascript,process.exit(2)");
+  const hang = new URL("data:text/javascript,setInterval(() => {}, 1000)");
+  const crashed = runner.run("dump_load", (context) => runWorker(crash, {}, context));
+  const hanging = runner.run("dump_load", (context) => runWorker(hang, {}, context));
   try {
-    await expect.poll(() => runner.get(job.id)?.status).toBe("failed");
-    expect(runner.get(job.id)?.error).toBe("Worker exited with code 2");
+    await expect.poll(() => runner.get(crashed.id)?.status).toBe("failed");
+    expect(runner.get(crashed.id)?.error).toBe("Worker exited with code 2");
+    expect(runner.cancel(hanging.id)).toBe(true);
+    await expect.poll(() => runner.get(hanging.id)?.status).toBe("cancelled");
+    expect(runner.active()).toEqual([]);
   } finally {
     await runner.stop();
     db.close();

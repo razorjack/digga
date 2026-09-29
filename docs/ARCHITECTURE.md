@@ -104,8 +104,9 @@ async functions in `src/server/jobs/` taking explicit dependencies and an `onPro
 `jobs/runner.ts` creates the `jobs` row, streams progress into `progress_json` and records the
 outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits for them. The dump
 loader is the only CPU-heavy job and runs in a `worker_threads` Worker
-(`jobs/dump-load-worker.ts`) with its own database connection when started from the server. The
-CLI runs it inline. `enrich` is network-bound, sequential (Discogs allows 60 requests/minute) and
+(`jobs/dump-load-worker.ts`) with its own database connection when started from the server: the
+job awaits `runWorker()` (`jobs/worker.ts`), which forwards the worker's progress, terminates it
+on cancel and settles once it has exited. The CLI runs the loader inline. `enrich` is network-bound, sequential (Discogs allows 60 requests/minute) and
 stops at the next release when its `AbortSignal` fires. It works through the next unenriched
 records in queue order, a given number or all of them; `enrichTwelves` refreshes the records on
 the Twelves shelves instead, those never enriched first, then the oldest data, because the queue
