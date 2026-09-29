@@ -80,13 +80,23 @@ export function readIdList(file: string): number[] {
     .filter((n) => !Number.isNaN(n));
 }
 
-export function openDumpInput(file: string, stdin: Readable): Readable {
-  if (file === "-") return stdin;
+export interface DumpInput {
+  stream: Readable;
+  /** Bytes of the file read so far, as stored (compressed); null for stdin. */
+  bytesRead(): number | null;
+  /** The file's size as stored; null for stdin. */
+  totalBytes: number | null;
+}
+
+export function openDumpInput(file: string, stdin: Readable): DumpInput {
+  if (file === "-") return { stream: stdin, bytesRead: () => null, totalBytes: null };
   const raw = fs.createReadStream(file);
-  if (!file.endsWith(".gz")) return raw;
+  const totalBytes = fs.statSync(file).size;
+  const bytesRead = () => raw.bytesRead;
+  if (!file.endsWith(".gz")) return { stream: raw, bytesRead, totalBytes };
   const gunzip = zlib.createGunzip();
   pipeline(raw, gunzip, () => {});
-  return gunzip;
+  return { stream: gunzip, bytesRead, totalBytes };
 }
 
 interface DumpLoadHooks {
@@ -120,13 +130,22 @@ export async function loadDump(
   const counts = { scanned: 0, matched: 0, upserted: 0 };
   const batch: DumpRelease[] = [];
   const elapsed = () => (Date.now() - started) / 1000;
-  const report = (phase: DumpLoadProgress["phase"]) =>
-    reportProgress({ ...counts, phase, elapsedSeconds: elapsed() }, hooks);
-
   const stdin = hooks.stdin ?? (process.stdin as Readable);
   const input = openDumpInput(options.file, stdin);
+  const report = (phase: DumpLoadProgress["phase"]) =>
+    reportProgress(
+      {
+        ...counts,
+        phase,
+        elapsedSeconds: elapsed(),
+        bytesRead: input.bytesRead(),
+        totalBytes: input.totalBytes,
+      },
+      hooks,
+    );
+
   try {
-    for await (const release of iterateReleases(input)) {
+    for await (const release of iterateReleases(input.stream)) {
       counts.scanned += 1;
       if (counts.scanned % progressEvery === 0) report("scanning");
       if (!matchesUniverse(release, options)) continue;
@@ -136,7 +155,7 @@ export async function loadDump(
       if (options.limit !== undefined && counts.matched >= options.limit) break;
     }
   } finally {
-    input.destroy();
+    input.stream.destroy();
   }
   counts.upserted += flushBatch(db, batch, dryRun);
   report("done");

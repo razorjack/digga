@@ -50,7 +50,6 @@ Decisions 64 to 78 in `docs/DECISIONS.md`.
 
 ## Next
 
-- Check the jobs panel against real progress shapes on a long enrich and a full dump load.
 - `addToCollection` is still a stub; nothing in the UI needs it yet.
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.

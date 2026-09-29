@@ -1,16 +1,45 @@
-import { formatBytes, formatCount } from "./display.ts";
-import type { DumpDownloadProgress, Job, JobType, SellerImportProgress } from "./types.ts";
+import { formatBytes, formatCount, formatEta } from "./display.ts";
+import type {
+  DumpDownloadProgress,
+  DumpLoadProgress,
+  Job,
+  JobType,
+  SellerImportProgress,
+} from "./types.ts";
 
-export function jobProgress(job: Job): { text: string; fraction: number | null } {
+interface ProgressSummary {
+  text: string;
+  fraction: number | null;
+}
+
+/** An estimate needs some progress to go on; earlier ones swing too much to help. */
+const ESTIMATE_AFTER = { fraction: 0.01, seconds: 10 };
+
+/** What the job has done, as a line and a fraction, and for a running job the time it has left. */
+export function jobProgress(job: Job, now: number = Date.now()): ProgressSummary {
+  const summary = progressOf(job);
+  const left = job.status === "running" ? timeLeft(job, summary.fraction, now) : null;
+  return left ? { ...summary, text: `${summary.text}, ${left}` } : summary;
+}
+
+/** "~12 min left", from the pace so far. */
+function timeLeft(job: Job, fraction: number | null, now: number): string | null {
+  if (fraction === null || fraction < ESTIMATE_AFTER.fraction || fraction >= 1) return null;
+  if (!job.startedAt) return null;
+  const seconds = (now - Date.parse(job.startedAt)) / 1000;
+  if (seconds < ESTIMATE_AFTER.seconds) return null;
+  const hoursLeft = (seconds * (1 - fraction)) / fraction / 3600;
+  // Non-breaking spaces keep the estimate on one line when the progress wraps.
+  return `${formatEta(hoursLeft)} left`.replaceAll(" ", "\u00a0");
+}
+
+function progressOf(job: Job): ProgressSummary {
   if (job.progress === null) return { text: "Waiting for progress", fraction: null };
   switch (job.type) {
     case "dump_download":
       return downloadProgress(job.progress);
     case "dump_load":
-      return {
-        text: `scanned ${formatCount(job.progress.scanned)}, matched ${formatCount(job.progress.matched)}`,
-        fraction: null,
-      };
+      return loadProgress(job.progress);
     case "enrich":
     case "enrich_twelves": {
       const { done, total, failed } = job.progress;
@@ -38,11 +67,17 @@ export function jobProgress(job: Job): { text: string; fraction: number | null }
   }
 }
 
+/** Releases scanned and kept; the share of the file read so far is the fraction. */
+function loadProgress(progress: DumpLoadProgress): ProgressSummary {
+  const { scanned, matched, bytesRead, totalBytes } = progress;
+  return {
+    text: `scanned ${formatCount(scanned)}, matched ${formatCount(matched)}`,
+    fraction: bytesRead !== null && totalBytes ? bytesRead / totalBytes : null,
+  };
+}
+
 /** The dump, by its date, and how much of it has arrived. */
-function downloadProgress(progress: DumpDownloadProgress): {
-  text: string;
-  fraction: number | null;
-} {
+function downloadProgress(progress: DumpDownloadProgress): ProgressSummary {
   const { phase, file, receivedBytes, totalBytes, alreadyDownloaded } = progress;
   if (file === null) return { text: "looking for the newest dump", fraction: null };
   const dump = `${/(\d{4})(\d{2})(\d{2})/.exec(file)?.slice(1).join("-") ?? file} dump`;
@@ -56,7 +91,7 @@ function downloadProgress(progress: DumpDownloadProgress): {
 }
 
 /** Pages while the shop is read, then how much of it was read and how much of it is loaded. */
-function sellerProgress(progress: SellerImportProgress): { text: string; fraction: number | null } {
+function sellerProgress(progress: SellerImportProgress): ProgressSummary {
   const { username, page, pages, listings, read, records } = progress;
   if (records === null) {
     const total = pages ? ` of ${pages}` : "";
@@ -84,9 +119,12 @@ export const JOB_LABEL: Record<JobType, string> = {
   enrich_twelves: "Enrich Twelves",
 };
 
-export function elapsed(job: Job): string {
+/** "45 s", "7 min 45 s", "2 h 5 min". */
+export function elapsed(job: Job, now: number = Date.now()): string {
   if (!job.startedAt) return "";
-  const end = job.finishedAt ? Date.parse(job.finishedAt) : Date.now();
+  const end = job.finishedAt ? Date.parse(job.finishedAt) : now;
   const seconds = Math.max(0, Math.round((end - Date.parse(job.startedAt)) / 1000));
-  return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+  return `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`;
 }

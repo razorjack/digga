@@ -48,6 +48,8 @@ export const JobSchema = z.discriminatedUnion("type", [
         matched: count,
         upserted: count,
         elapsedSeconds: z.number().nonnegative(),
+        bytesRead: count.nullable().default(null),
+        totalBytes: count.nullable().default(null),
       })
       .nullable(),
   }),

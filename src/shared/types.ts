@@ -167,6 +167,9 @@ export interface DumpLoadProgress {
   matched: number;
   upserted: number;
   elapsedSeconds: number;
+  /** Bytes of the dump file read so far, compressed; null when it comes from stdin. */
+  bytesRead: number | null;
+  totalBytes: number | null;
 }
 
 export interface ImportProgress {

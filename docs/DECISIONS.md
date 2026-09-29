@@ -384,3 +384,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     not deleted: after a load they are only needed again for another load, and deleting a
     10 GB file is the user's call. Settings lists the folder (`GET /api/dumps`) and offers its
     newest dump to Load.
+88. **The jobs panel shows how far a job has got and how long it has left.** Checked against a
+    download of the 2026-09-01 dump (7 min 45 s), a full load of it (19,417,067 releases,
+    13 min 27 s) and a 300-record enrich, all started from the panel. The load reported only
+    counts, so it ran without a bar; it now reports how much of the compressed file it has
+    read, which tracks the scan closely. A running job with a fraction gets an estimate from
+    its pace so far, once it is past 1% and 10 seconds; on the load it was within 6% of the
+    real end from the second minute and within 2% from the fifth. Progress text wraps instead
+    of being cut off, which had hidden the estimate and long errors, and keeps the estimate on
+    one line. Durations over an hour read "2 h 5 min" and the duration column no longer
+    wraps. "Enrich all" shows no estimate when nothing is left to enrich.

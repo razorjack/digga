@@ -16,7 +16,7 @@ const FIXTURE_XML = fileURLToPath(new URL("../fixtures/releases-sample.xml", imp
 async function parseAll(file: string): Promise<DumpRelease[]> {
   const out: DumpRelease[] = [];
   const { openDumpInput } = await import("../tools/dump/load.ts");
-  for await (const rel of iterateReleases(openDumpInput(file, process.stdin))) out.push(rel);
+  for await (const rel of iterateReleases(openDumpInput(file, process.stdin).stream)) out.push(rel);
   return out;
 }
 

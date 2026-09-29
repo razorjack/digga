@@ -98,7 +98,7 @@
   const validEnrichCount = $derived(Number.isInteger(enrichCount) && enrichCount > 0);
   /** Records to dig under the saved filters that enrich has not reached. */
   const unenriched = $derived(stats.value ? stats.value.remaining - stats.value.remainingEnriched : 0);
-  const unenrichedEta = $derived(formatEta(enrichHours(unenriched)));
+  const unenrichedEta = $derived(unenriched > 0 ? formatEta(enrichHours(unenriched)) : null);
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
@@ -985,7 +985,7 @@
                   {/if}
                   {progress.text}{job.error ? `: ${job.error}` : ""}
                 </td>
-                <td class="quiet">
+                <td class="quiet job-started">
                   {#if job.createdAt}
                     <time datetime={job.createdAt}>{formatDay(job.createdAt)}</time>, {elapsed(job)}
                   {/if}
@@ -1227,7 +1227,10 @@
     width: calc(6em + 16px);
   }
   th.job-started {
-    width: calc(11em + 16px);
+    width: calc(19ch + 16px);
+  }
+  td.job-started {
+    white-space: nowrap;
   }
   th.job-action {
     width: calc(4em + 8px);
@@ -1244,9 +1247,7 @@
   }
   .job-progress {
     color: var(--fg-muted);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
   }
   .meter {
     margin-right: 10px;

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
-import { createJob, getJob, updateJobProgress } from "../src/server/db/jobs.ts";
+import { createJob, getJob, markJobStarted, updateJobProgress } from "../src/server/db/jobs.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
-import { jobProgress } from "../src/shared/job-display.ts";
+import { elapsed, jobProgress } from "../src/shared/job-display.ts";
 import { silentLogger } from "./helpers.ts";
 
 describe("job contracts", () => {
@@ -43,13 +43,69 @@ describe("job contracts", () => {
     }
   });
 
+  it("shows how much of the dump file a load has read and the time it has left", () => {
+    const db = openDb(":memory:");
+    try {
+      const job = createJob(db, "dump_load");
+      markJobStarted(db, job.id);
+      const counts = { phase: "scanning", scanned: 4_000_000, matched: 15_000, upserted: 15_000 };
+      const gb = 1024 ** 3;
+      updateJobProgress(db, job.id, {
+        ...counts,
+        elapsedSeconds: 240,
+        bytesRead: 2.5 * gb,
+        totalBytes: 10 * gb,
+      });
+      const running = getJob(db, job.id)!;
+      const fourMinutesIn = Date.parse(running.startedAt!) + 240_000;
+      expect(jobProgress(running, fourMinutesIn)).toEqual({
+        text: "scanned 4,000,000, matched 15,000, ~12\u00a0min\u00a0left",
+        fraction: 0.25,
+      });
+      expect(jobProgress(running, Date.parse(running.startedAt!) + 5_000).text).toBe(
+        "scanned 4,000,000, matched 15,000",
+      );
+      updateJobProgress(db, job.id, {
+        ...counts,
+        elapsedSeconds: 240,
+        bytesRead: null,
+        totalBytes: null,
+      });
+      expect(jobProgress(getJob(db, job.id)!, fourMinutesIn)).toEqual({
+        text: "scanned 4,000,000, matched 15,000",
+        fraction: null,
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("tells how long a job has run in seconds, minutes or hours", () => {
+    const db = openDb(":memory:");
+    try {
+      const job = createJob(db, "enrich");
+      markJobStarted(db, job.id);
+      const started = Date.parse(getJob(db, job.id)!.startedAt!);
+      const running = getJob(db, job.id)!;
+      expect(elapsed(running, started + 45_000)).toBe("45 s");
+      expect(elapsed(running, started + 465_000)).toBe("7 min 45 s");
+      expect(elapsed(running, started + 7_500_000)).toBe("2 h 5 min");
+    } finally {
+      db.close();
+    }
+  });
+
   it("accepts legacy dump results and rejects progress for another job kind", () => {
     const db = openDb(":memory:");
     try {
       const job = createJob(db, "dump_load");
       expect(jobProgress(job).fraction).toBeNull();
       updateJobProgress(db, job.id, { scanned: 5, matched: 2, upserted: 2, elapsedSeconds: 1 });
-      expect(getJob(db, job.id)?.progress).toMatchObject({ phase: "done", matched: 2 });
+      expect(getJob(db, job.id)?.progress).toMatchObject({
+        phase: "done",
+        matched: 2,
+        bytesRead: null,
+      });
       updateJobProgress(db, job.id, { done: 1, total: 1, failed: 0, currentReleaseId: null });
       expect(() => getJob(db, job.id)).toThrow();
     } finally {
