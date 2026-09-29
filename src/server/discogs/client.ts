@@ -2,9 +2,11 @@ import type { Logger } from "../logger.ts";
 import type {
   DiscogsCollectionPage,
   DiscogsIdentity,
+  DiscogsInventoryPage,
   DiscogsList,
   DiscogsMaster,
   DiscogsRelease,
+  DiscogsUser,
   DiscogsUserListsPage,
   DiscogsWantlistPage,
 } from "./types.ts";
@@ -43,6 +45,10 @@ export interface DiscogsClient {
   getWantlistPage(username: string, page: number, perPage?: number): Promise<DiscogsWantlistPage>;
   getIdentity(): Promise<DiscogsIdentity>;
   getMaster(id: number): Promise<DiscogsMaster>;
+  /** A user's public profile; 404 when the username does not exist. */
+  getUser(username: string): Promise<DiscogsUser>;
+  /** One page of a seller's listings; only For Sale ones unless the token is the seller's. */
+  getInventoryPage(username: string, page: number, perPage?: number): Promise<DiscogsInventoryPage>;
   /** The user's lists; private ones only with that user's token. */
   getUserLists(username: string, page: number, perPage?: number): Promise<DiscogsUserListsPage>;
   /** A list with its items. The API has no endpoint to add or remove items. */
@@ -84,6 +90,12 @@ export function createDiscogsClient(options: DiscogsClientOptions = {}): Discogs
       }),
     getIdentity: () => request<DiscogsIdentity>("/oauth/identity"),
     getMaster: (id) => request<DiscogsMaster>(`/masters/${id}`),
+    getUser: (username) => request<DiscogsUser>(`/users/${encodeURIComponent(username)}`),
+    getInventoryPage: (username, page, perPage = 100) =>
+      request<DiscogsInventoryPage>(`/users/${encodeURIComponent(username)}/inventory`, {
+        page,
+        per_page: perPage,
+      }),
     getUserLists: (username, page, perPage = 100) =>
       request<DiscogsUserListsPage>(`/users/${encodeURIComponent(username)}/lists`, {
         page,

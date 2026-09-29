@@ -5,6 +5,7 @@ import {
   importCollection,
   importHistory,
   importList,
+  importSeller,
   importWantlist,
 } from "../server/jobs/index.ts";
 import { localDay, writeBackup } from "../server/db/backup.ts";
@@ -13,6 +14,7 @@ import { createServer } from "../server/server.ts";
 import { computeStats } from "../server/stats.ts";
 import type { SeedImportResult } from "../server/importers/collection.ts";
 import type { ListImportResult } from "../server/importers/list.ts";
+import type { SellerImportResult } from "../server/importers/seller.ts";
 import type { EnrichResult } from "../server/jobs/enrich.ts";
 import type { Db } from "../server/db/db.ts";
 import {
@@ -29,6 +31,7 @@ import { type Runtime, discogsFor, withDatabase } from "./runtime.ts";
 export type ImportResult =
   | SeedImportResult
   | ListImportResult
+  | SellerImportResult
   | ({ kind: "history" } & Awaited<ReturnType<typeof importHistory>>);
 
 export async function cmdDumpLoad(runtime: Runtime, args: string[]): Promise<void> {
@@ -63,6 +66,12 @@ async function runImport(runtime: Runtime, command: ImportCommand): Promise<Impo
     if (kind === "list") {
       const { result } = await jobs.runAndWait("import_list", ({ signal, onProgress }) =>
         importList(deps, { ...options, signal }, onProgress),
+      );
+      return result;
+    }
+    if (kind === "seller") {
+      const { result } = await jobs.runAndWait("import_seller", ({ signal, onProgress }) =>
+        importSeller(deps, { ...options, signal }, onProgress),
       );
       return result;
     }

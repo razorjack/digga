@@ -68,4 +68,18 @@ export const JobSchema = z.discriminatedUnion("type", [
     progress: ImportProgressSchema.nullable(),
   }),
   z.object({ ...base, type: z.literal("import_list"), progress: ImportProgressSchema.nullable() }),
+  z.object({
+    ...base,
+    type: z.literal("import_seller"),
+    progress: z
+      .object({
+        username: z.string(),
+        page: count,
+        pages: count.nullable(),
+        listings: count.nullable(),
+        read: count,
+        records: count.nullable(),
+      })
+      .nullable(),
+  }),
 ]);

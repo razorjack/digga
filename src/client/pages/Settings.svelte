@@ -62,6 +62,7 @@
   let flash = $state<string | null>(null);
   let enrichCount = $state(200);
   let historyBrowser = $state<Browser>("brave");
+  let sellerUsername = $state("");
   let dumpFile = $state("");
   let dumpLimit = $state<number | null>(null);
   let dumpDryRun = $state(false);
@@ -212,6 +213,11 @@
     } catch (event) {
       showFlash(`Did not start: ${errorMessage(event)}`);
     }
+  }
+
+  function readSellerShop(event: SubmitEvent): void {
+    event.preventDefault();
+    void startJob(() => api.startImport("seller", { username: sellerUsername.trim() }));
   }
 
   async function cancel(job: Job): Promise<void> {
@@ -818,6 +824,23 @@
             </button>
           </div>
         </div>
+        <form class="job" onsubmit={readSellerShop}>
+          <p>
+            <b>Seller shop</b> reads which releases a Discogs seller has for sale, about 100 listings a second and at most
+            10,000, so <Key label="F" size="sm" /> in Triage can dig just those. Buying stays on Discogs.
+          </p>
+          <div class="inline wrap">
+            <input
+              bind:value={sellerUsername}
+              placeholder="username"
+              aria-label="Seller's Discogs username"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            />
+            <button type="submit" class="secondary" disabled={sellerUsername.trim() === ""}>Read shop</button>
+          </div>
+        </form>
         <div class="job">
           <p><b>Load dump</b> streams a Discogs releases dump from <code>data/dumps/</code> or an absolute path.</p>
           <div class="inline wrap">

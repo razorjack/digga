@@ -1,5 +1,5 @@
 import { formatCount } from "./display.ts";
-import type { Job, JobType } from "./types.ts";
+import type { Job, JobType, SellerImportProgress } from "./types.ts";
 
 export function jobProgress(job: Job): { text: string; fraction: number | null } {
   if (job.progress === null) return { text: "Waiting for progress", fraction: null };
@@ -18,6 +18,8 @@ export function jobProgress(job: Job): { text: string; fraction: number | null }
         fraction: total > 0 ? done / total : null,
       };
     }
+    case "import_seller":
+      return sellerProgress(job.progress);
     case "import_history":
       return {
         text: `${formatCount(job.progress.discogsUrls)} Discogs links, ${formatCount(job.progress.keys)} releases`,
@@ -34,12 +36,30 @@ export function jobProgress(job: Job): { text: string; fraction: number | null }
   }
 }
 
+/** Pages while the shop is read, then how much of it was read and how much of it is loaded. */
+function sellerProgress(progress: SellerImportProgress): { text: string; fraction: number | null } {
+  const { username, page, pages, listings, read, records } = progress;
+  if (records === null) {
+    const total = pages ? ` of ${pages}` : "";
+    return {
+      text: `${username}: page ${page}${total}, ${formatCount(read)} listings`,
+      fraction: pages ? page / pages : null,
+    };
+  }
+  const cut = listings !== null && read < listings ? ` of ${formatCount(listings)}` : "";
+  return {
+    text: `${username}: ${formatCount(read)}${cut} listings, ${formatCount(records)} loaded records`,
+    fraction: 1,
+  };
+}
+
 export const JOB_LABEL: Record<JobType, string> = {
   dump_load: "Load dump",
   import_collection: "Import collection",
   import_wantlist: "Import wantlist",
   import_history: "Import browser history",
   import_list: "Import Maybe list",
+  import_seller: "Read seller shop",
   enrich: "Enrich",
   enrich_twelves: "Enrich Twelves",
 };

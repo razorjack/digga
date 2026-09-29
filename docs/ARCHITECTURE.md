@@ -66,8 +66,9 @@ verdict, applies the query-time filters (`filters.*` in config: styles subset, y
 year, formats, format descriptions to require or leave out, countries, hidden labels, records
 without videos), picks one representative release per key (main release, then most
 videos), orders by strategy and limits. Changing filters or strategy never requires a reload.
-A scope (`src/shared/scope.ts`) narrows the same query to one label's or one artist's records by
-Discogs id; Triage digs one with `F` (decision 83).
+A scope (`src/shared/scope.ts`) narrows the same query to one label's, one artist's or one
+seller's records by Discogs id; Triage digs one with `F` (decisions 83 and 84). A seller's
+records are the releases the `import seller` job read from their shop (`seller_releases`).
 
 A record plays the videos of all its pressings. `buildReleaseDetail()` returns the release's own
 videos, then those of other releases on the same master whose matched track is a tune on this
@@ -98,7 +99,7 @@ every listen (proof of coverage) and feeds `heard_tracks`, keyed by the normaliz
 ## Jobs
 
 The jobs (`dumpLoad`, `importCollection`, `importWantlist`, `importHistory`, `importList`,
-`enrich`, `enrichTwelves`) are
+`importSeller`, `enrich`, `enrichTwelves`) are
 async functions in `src/server/jobs/` taking explicit dependencies and an `onProgress` callback.
 `jobs/runner.ts` creates the `jobs` row, streams progress into `progress_json` and records the
 outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits for them. The dump

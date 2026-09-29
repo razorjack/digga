@@ -12,7 +12,7 @@ class StatsStore {
   error = $state<string | null>(null);
   /** Verdicts given since the app was opened, net of undos. */
   session = $state(0);
-  /** The label or artist Triage digs; the stats also count what is left in it. */
+  /** The label, artist or seller Triage digs; the stats also count what is left in it. */
   scope: ScopeRef | null = null;
   #timer: ReturnType<typeof setTimeout> | null = null;
 

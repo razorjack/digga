@@ -126,6 +126,22 @@ describe("discogs client", () => {
     expect(calls[1]!.url).toBe("https://api.discogs.com/users/dj/wants?page=3&per_page=100");
   });
 
+  it("reads a user's profile and a page of their shop", async () => {
+    const { fetchImpl, calls } = fakeFetch([json({ id: 6, username: "Shop" }), json({})]);
+    const client = createDiscogsClient({
+      fetchImpl,
+      sleep: async () => {},
+      now: () => 0,
+      minIntervalMs: 0,
+    });
+    expect(await client.getUser("the shop")).toEqual({ id: 6, username: "Shop" });
+    await client.getInventoryPage("the shop", 4);
+    expect(calls.map((call) => call.url)).toEqual([
+      "https://api.discogs.com/users/the%20shop",
+      "https://api.discogs.com/users/the%20shop/inventory?page=4&per_page=100",
+    ]);
+  });
+
   it("adds to and removes from the wantlist, treating a missing want as removed", async () => {
     const { fetchImpl, calls } = fakeFetch([
       json({ id: 7 }, {}, 201),

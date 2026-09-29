@@ -121,7 +121,7 @@ describe("HTTP API", () => {
       scopeRemaining: 1,
     });
     expect((await get<Stats>("/api/stats")).body.scopeRemaining).toBeNull();
-    for (const scope of ["seller:1", "label:0", "label"])
+    for (const scope of ["shop:1", "label:0", "label"])
       expect((await get(`/api/queue?scope=${scope}`)).status).toBe(400);
     expect((await get("/api/stats?scope=artist:x")).status).toBe(400);
 
@@ -293,6 +293,9 @@ describe("HTTP API", () => {
     expect(list.body.jobs[0]!.id).toBe(started.body.id);
     expect((await send("POST", "/api/jobs/dump-load", { file: "/nope.xml.gz" })).status).toBe(400);
     expect((await send("POST", "/api/jobs/import/bogus", {})).status).toBe(400);
+    // A shop read needs a seller's username.
+    expect((await send("POST", "/api/jobs/import/seller", {})).status).toBe(400);
+    expect((await send("POST", "/api/jobs/import/seller", { username: " " })).status).toBe(400);
     const imp = await send<Job>("POST", "/api/jobs/import/history", {
       path: "/definitely/missing/History",
     });

@@ -16,6 +16,7 @@ import {
   importCollection,
   importHistory,
   importList,
+  importSeller,
   importWantlist,
 } from "./index.ts";
 import type { DumpLoadWorkerData } from "./dump-load-worker.ts";
@@ -90,6 +91,13 @@ export function startImport(context: AppContext, kind: ImportKind, input: Import
     );
   }
   const deps = { db, logger, discogs: context.getDiscogs() };
+  if (kind === "seller") {
+    const username = input.username;
+    if (!username) throw new JobInputError("Name the seller whose shop to read");
+    return jobs.run("import_seller", ({ signal, onProgress }) =>
+      importSeller(deps, { username, signal }, onProgress),
+    );
+  }
   if (kind === "list") {
     const listId = input.listId ?? config.discogs.maybeListId;
     if (listId === null)

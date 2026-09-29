@@ -23,6 +23,14 @@ export function showImport(result: ImportResult): void {
     );
     return;
   }
+  if (result.kind === "seller") {
+    const cut = result.listings !== null && result.read < result.listings;
+    const read = cut ? `${result.read} of ${result.listings}` : `${result.read}`;
+    console.log(
+      `import seller ${result.username}: ${read} listings read, ${result.records ?? 0} of their records are loaded; F in Triage digs them`,
+    );
+    return;
+  }
   if (result.kind === "list") {
     console.log(
       `import list "${result.listName}": ${result.processed} items, ${result.stubs} stub releases, ${result.verdictsWritten} verdicts written`,

@@ -338,3 +338,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     queue, and a settings save keeps it. Passes start over with each scope because they belong
     to the queue they were made in. The sandbox subtracts only the local verdicts of keys the
     scope's queue returned, which is all of them once the queue has paged through the scope.
+84. **A seller's shop is a scope, and buying stays on Discogs.** The use is one order with one
+    shipping cost: a seller has a few wants, and their other stock is worth hearing before
+    checkout. `import seller <username>` (a job, so real in the sandbox) looks the user up with
+    `GET /users/{u}` and keeps only the release ids of their For Sale listings in
+    `seller_releases`, keyed by the Discogs user id, which is also the scope's id. Prices,
+    conditions and carts are left to Discogs: `A` pushes the release to the wantlist, and
+    "Shop my wants" there shows it under that seller. Because the scope applies before the
+    representative is chosen, the pushed release is the seller's pressing. The inventory API
+    has no style filter and reportedly stops at page 100 of someone else's shop, so a read
+    covers at most 10,000 listings and the job says how many the shop has. A new read replaces
+    the old one; a cancelled read keeps it, since half a shop would look like a whole one.
+    Sellers come first in the `F` search because there are few and their names are typed on
+    purpose. Grails, maybes and snoozes never reach the wantlist, so a seller's records with
+    those verdicts appear neither in the seller's queue nor under "Shop my wants".

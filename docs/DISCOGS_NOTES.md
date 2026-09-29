@@ -67,6 +67,15 @@ Endpoints used:
 - `GET /users/{u}/collection/folders/0/releases?per_page=100&page=N&sort=added&sort_order=desc`:
   `releases[].{id, instance_id, date_added, rating, notes[], basic_information}`.
 - `GET /users/{u}/wants?per_page=100&page=N`: `wants[].{id, rating, notes, date_added, basic_information}`.
+- `GET /users/{u}`: `{ id, username, num_for_sale }`, the seller behind a shop read; `404` for an
+  unknown username.
+- `GET /users/{u}/inventory?per_page=100&page=N`: `pagination` and
+  `listings[].{id, status, release.id, seller.{id, username}}`. No token is needed for a public
+  shop, which then lists For Sale items only; the seller's own token also returns drafts and sold
+  items, which the import skips. Discogs reportedly refuses pages above 100 of someone else's
+  inventory ("Pagination above 100 disabled for inventories besides your own"), so a shop read
+  stops at 10,000 listings and reports how many the shop has. The API has no genre or style
+  filter for inventories, so the whole shop is read and matched against the loaded releases.
 - `GET /oauth/identity` for a token check: Settings shows whose token is set, since wantlist
   writes to `/users/{u}/...` fail when the token belongs to another account.
 - `GET /users/{u}/lists?per_page=100&page=N`: `lists[].{id, name, public}`; private lists appear

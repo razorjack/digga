@@ -22,6 +22,27 @@ describe("job contracts", () => {
     }
   });
 
+  it("tells how much of a seller's shop was read and how much of it is loaded", () => {
+    const db = openDb(":memory:");
+    try {
+      const job = createJob(db, "import_seller");
+      const reading = { username: "Shop", page: 3, pages: 100, listings: 38112, read: 300 };
+      updateJobProgress(db, job.id, { ...reading, records: null });
+      expect(jobProgress(getJob(db, job.id)!)).toEqual({
+        text: "Shop: page 3 of 100, 300 listings",
+        fraction: 0.03,
+      });
+      updateJobProgress(db, job.id, { ...reading, page: 100, read: 10000, records: 212 });
+      expect(jobProgress(getJob(db, job.id)!).text).toBe(
+        "Shop: 10,000 of 38,112 listings, 212 loaded records",
+      );
+      updateJobProgress(db, job.id, { ...reading, listings: 300, records: 5 });
+      expect(jobProgress(getJob(db, job.id)!).text).toBe("Shop: 300 listings, 5 loaded records");
+    } finally {
+      db.close();
+    }
+  });
+
   it("accepts legacy dump results and rejects progress for another job kind", () => {
     const db = openDb(":memory:");
     try {

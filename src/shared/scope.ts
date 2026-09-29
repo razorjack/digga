@@ -2,11 +2,11 @@ import { z } from "zod";
 import type { ArtistRef, LabelRef } from "./types.ts";
 
 /**
- * A scope narrows the Triage queue to the records of one label or one artist. Scopes name
- * Discogs ids rather than names: several labels and artists share a name, and Discogs tells them
- * apart as "Name (2)".
+ * A scope narrows the Triage queue to the records of one label, one artist or one seller's shop.
+ * Scopes name Discogs ids rather than names: several labels and artists share a name, and Discogs
+ * tells them apart as "Name (2)". A seller is named by their Discogs user id.
  */
-export const SCOPE_KINDS = ["label", "artist"] as const;
+export const SCOPE_KINDS = ["label", "artist", "seller"] as const;
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
 
 export const ScopeRefSchema = z.object({
@@ -15,7 +15,7 @@ export const ScopeRefSchema = z.object({
 });
 export type ScopeRef = z.infer<typeof ScopeRefSchema>;
 
-/** The label or artist Triage digs, with the name it shows. */
+/** The label, artist or seller Triage digs, with the name it shows. */
 export interface QueueScope extends ScopeRef {
   name: string;
 }
@@ -38,7 +38,10 @@ export const ScopeParamSchema = z
   .transform((text, ctx) => {
     const match = /^([a-z]+):(\d+)$/.exec(text);
     if (!match) {
-      ctx.addIssue({ code: "custom", message: "scope must look like label:123 or artist:45" });
+      ctx.addIssue({
+        code: "custom",
+        message: "scope must look like label:123, artist:45 or seller:6",
+      });
       return z.NEVER;
     }
     return { kind: match[1], id: Number(match[2]) };

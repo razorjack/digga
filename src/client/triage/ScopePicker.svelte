@@ -36,7 +36,8 @@
     if (search.error) return `The search failed: ${search.error}`;
     if (!search.active) return recordScopes.length === 0 ? "Type two letters or more." : "";
     if (search.searching) return "Searching…";
-    if (options.length === 0) return `No loaded label or artist matches “${search.text.trim()}”.`;
+    if (options.length === 0)
+      return `Nothing matches “${search.text.trim()}”. A seller's shop is read in Settings, under Jobs.`;
     return `${formatCount(options.length)} ${options.length === 1 ? "match" : "matches"}, most records first.`;
   });
 
@@ -102,14 +103,14 @@
   onkeydown={(event) => event.stopPropagation()}
 >
   <form method="dialog" class="panel" onsubmit={pick}>
-    <h2 id="{id}-title">Dig one label or artist</h2>
+    <h2 id="{id}-title">Dig one label, artist or seller</h2>
     <label class="search">
-      <span class="visually-hidden">Label or artist</span>
+      <span class="visually-hidden">Label, artist or seller</span>
       <input
         type="search"
         autocomplete="off"
         spellcheck="false"
-        placeholder="Label or artist"
+        placeholder="Label, artist or seller"
         aria-describedby="{id}-status"
         value={search.text}
         oninput={(event) => search.update(event.currentTarget.value)}

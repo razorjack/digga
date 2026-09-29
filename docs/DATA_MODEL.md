@@ -117,10 +117,18 @@ row), and removed when Digga takes it off, so `TwelvesItem.onWantlist` can say w
 Discogs before the next wantlist import. The push leaves the `accepted` verdict as it is; the next
 wantlist import turns it into a `wantlist` seed by rank.
 
+## sellers and seller_releases
+
+Shops read by `import seller`, for the seller scope in Triage. `sellers`: `id` (the seller's
+Discogs user id, PK), `username`, `listings` (For Sale listings the shop had), `listings_read`
+(fewer when the API stopped paging at 10,000), `read_at`. `seller_releases`: `(seller_id,
+release_id)` PK, the releases for sale at the last read, loaded or not. A new read replaces the
+seller's rows; a cancelled one leaves them. Prices and conditions are not stored.
+
 ## jobs
 
 `id` (uuid), `type` (`dump_load`, `import_collection`, `import_wantlist`, `import_history`,
-`import_list`, `enrich`, `enrich_twelves`),
+`import_list`, `import_seller`, `enrich`, `enrich_twelves`),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`
 with error `interrupted`.

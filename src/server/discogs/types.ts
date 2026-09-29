@@ -134,6 +134,26 @@ export interface DiscogsList {
   items: DiscogsListItem[];
 }
 
+/** GET /users/{username}: the public profile. */
+export interface DiscogsUser {
+  id: number;
+  username: string;
+  num_for_sale?: number;
+}
+
+/** A marketplace listing; only the fields Digga reads. */
+export interface DiscogsListing {
+  id: number;
+  status?: string;
+  release: { id: number; description?: string };
+  seller?: { id: number; username: string };
+}
+
+export interface DiscogsInventoryPage {
+  pagination: DiscogsPagination;
+  listings: DiscogsListing[];
+}
+
 export interface DiscogsMaster {
   id: number;
   main_release: number;

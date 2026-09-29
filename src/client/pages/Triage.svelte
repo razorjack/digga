@@ -108,7 +108,7 @@
     editingNote = false;
   }
 
-  /** F opened the picker of a label or artist to dig. */
+  /** F opened the picker of a label, artist or seller to dig. */
   let pickingScope = $state(false);
   const recordScopes = $derived(
     session.currentDetail
@@ -117,7 +117,7 @@
   );
   const scopeRemaining = $derived(stats.value?.scopeRemaining ?? null);
 
-  /** Esc ends a round of snoozed records first, then the label or artist being dug. */
+  /** Esc ends a round of snoozed records first, then the label, artist or seller being dug. */
   function leaveRoundOrScope(): boolean {
     if (session.round) {
       session.endRound();

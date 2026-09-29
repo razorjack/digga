@@ -27,6 +27,11 @@ describe("CLI workflows", () => {
       kind: "list",
       options: { listId: 77 },
     });
+    expect(parseImportOptions(["seller", "Shop"], DEFAULT_CONFIG, "/tmp")).toEqual({
+      kind: "seller",
+      options: { username: "Shop" },
+    });
+    expect(() => parseImportOptions(["seller"], DEFAULT_CONFIG, "/tmp")).toThrow("username");
     expect(parseServeOptions(["--port", "0"])).toEqual({ port: 0, host: undefined });
   });
 

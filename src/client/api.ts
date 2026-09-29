@@ -41,7 +41,7 @@ export interface Api {
   /** "sandbox" when writes are faked in memory by createSandboxApi(), "live" when they reach the server. */
   readonly mode: "live" | "sandbox";
   getQueue(query?: QueueQuery): Promise<QueueResponse>;
-  /** Labels and artists whose name contains the text, to narrow the queue to. */
+  /** Sellers, labels and artists whose name contains the text, to narrow the queue to. */
   searchScopes(text: string): Promise<ScopeSearchResponse>;
   getRelease(id: number): Promise<ReleaseDetail>;
   /** Fetches the release's market data and videos from Discogs; the server stores them. */

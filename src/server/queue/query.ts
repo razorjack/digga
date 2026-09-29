@@ -17,7 +17,7 @@ export interface QueueParams {
   limit: number;
   offset?: number;
   seed?: number | null;
-  /** One label's or artist's records only. */
+  /** One label's, artist's or seller's records only. */
   scope?: ScopeRef | null;
   /** Only releases enrich has not touched yet (used by the enrich job). */
   unenrichedOnly?: boolean;
@@ -86,11 +86,23 @@ const BY_ARTIST = `(EXISTS (SELECT 1 FROM json_each(r.artists_json) sa
        OR EXISTS (SELECT 1 FROM tracks st, json_each(st.artists_json) sta
          WHERE st.release_id = r.id AND json_extract(sta.value, '$.id') = ?))`;
 
-/** Releases on the label, any of their labels, or by the artist, on the release or a track. */
+const FOR_SALE = `EXISTS (SELECT 1 FROM seller_releases ss
+       WHERE ss.seller_id = ? AND ss.release_id = r.id)`;
+
+/**
+ * Releases on the label, any of their labels; by the artist, on the release or a track; or for
+ * sale in the seller's shop when Digga last read it.
+ */
 function scopeClause(scope: ScopeRef | null | undefined): SqlFragment | null {
   if (!scope) return null;
-  if (scope.kind === "label") return { sql: ON_LABEL, params: [scope.id] };
-  return { sql: BY_ARTIST, params: [scope.id, scope.id] };
+  switch (scope.kind) {
+    case "label":
+      return { sql: ON_LABEL, params: [scope.id] };
+    case "artist":
+      return { sql: BY_ARTIST, params: [scope.id, scope.id] };
+    case "seller":
+      return { sql: FOR_SALE, params: [scope.id] };
+  }
 }
 
 function styleClause(filters: Filters): SqlFragment | null {

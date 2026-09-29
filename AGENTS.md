@@ -54,6 +54,7 @@ npm run digga -- import collection
 npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
 npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
+npm run digga -- import seller <username>              # what a seller has for sale, for F in Triage
 # 3. Prices, have/want, fresh videos for the next 200 queue items
 npm run digga -- enrich --ahead 200                     # or --all; --twelves refreshes Twelves
 npm run digga -- stats
@@ -74,9 +75,11 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts,
                        attach-video.ts, youtube.ts (oEmbed titles)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
-                       export.ts, no-audio.ts)
-                       discogs/ (client, transport, types, lists), importers/ (collection, wantlist, history, list, seeds)
-                       jobs/ (start, dump-load, enrich, runner, dump-load-worker, index), queue/ (query, detail, twelves)
+                       export.ts, no-audio.ts, sellers.ts)
+                       discogs/ (client, transport, types, lists), importers/ (collection, wantlist, history, list,
+                       seller, seeds)
+                       jobs/ (start, dump-load, enrich, runner, dump-load-worker, index), queue/ (query, scopes,
+                       detail, twelves)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
                        stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, Flash, HelpOverlay),

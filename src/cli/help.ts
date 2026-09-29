@@ -16,6 +16,7 @@ Commands:
       --path FILE           Explicit History / places.sqlite file
   import list               Mark the releases on your Discogs Maybe list as maybe
       --list ID             Another list than discogs.maybeListId
+  import seller <username>  Read what a seller has for sale, to dig only that (F in Triage)
   enrich [--ahead N]        Fetch price, have/want and fresh videos for the next N queue items (default 200)
       --all                 Every record still to dig that has not been enriched
       --twelves             The records on the Twelves shelves instead, oldest data first

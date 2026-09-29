@@ -4,6 +4,15 @@ import type { ScopeMatch, ScopeSearchResponse } from "../src/shared/api.ts";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Polls instead of sleeping a fixed time, so a busy machine cannot reorder the timers. */
+async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> {
+  const end = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > end) throw new Error("condition not met in time");
+    await wait(2);
+  }
+}
+
 const match = (name: string): ScopeMatch => ({ kind: "label", id: 1, name, records: 3 });
 
 /** Answers each search after the delay its text asks for, so a later one can overtake it. */
@@ -29,7 +38,7 @@ describe("scope search", () => {
     search.update("mo");
     search.update("mov");
     expect(search.searching).toBe(true);
-    await wait(30);
+    await until(() => !search.searching);
     expect(api.asked).toEqual(["mov"]);
     expect([search.matches, search.searching]).toEqual([[match("mov")], false]);
     search.clear();
@@ -42,7 +51,9 @@ describe("scope search", () => {
     search.update("slow");
     await wait(5);
     search.update("fast");
-    await wait(60);
+    await until(() => api.asked.length === 2 && !search.searching);
+    // The slow answer arrives last and must not replace the fast one.
+    await wait(50);
     expect(api.asked).toEqual(["slow", "fast"]);
     expect(search.matches).toEqual([match("fast")]);
   });
@@ -50,7 +61,7 @@ describe("scope search", () => {
   it("reports a failed search and clears the error with the next text", async () => {
     const search = new ScopeSearch(fakeApi(), 0);
     search.update("fail");
-    await wait(5);
+    await until(() => !search.searching);
     expect([search.error, search.matches, search.searching]).toEqual(["server down", [], false]);
     search.update("f");
     expect(search.error).toBeNull();

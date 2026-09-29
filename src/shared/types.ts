@@ -30,6 +30,7 @@ export const JOB_TYPES = [
   "import_wantlist",
   "import_history",
   "import_list",
+  "import_seller",
   "enrich",
   "enrich_twelves",
 ] as const;
@@ -179,6 +180,20 @@ export interface HistoryImportProgress {
   verdictsWritten: number;
 }
 
+/** Reading a seller's shop: pages of listings, then the records of it that are loaded. */
+export interface SellerImportProgress {
+  username: string;
+  page: number;
+  /** Pages to read: the shop's, at most 100. */
+  pages: number | null;
+  /** Listings the shop has for sale. */
+  listings: number | null;
+  /** Listings read so far. */
+  read: number;
+  /** Loaded records among them, one per triage key, once the read is saved. */
+  records: number | null;
+}
+
 export interface JobProgressByType {
   dump_load: DumpLoadProgress;
   enrich: EnrichProgress;
@@ -187,6 +202,7 @@ export interface JobProgressByType {
   import_collection: ImportProgress;
   import_wantlist: ImportProgress;
   import_list: ImportProgress;
+  import_seller: SellerImportProgress;
 }
 
 export type JobProgress = JobProgressByType[JobType];

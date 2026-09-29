@@ -59,7 +59,7 @@ export const QueueQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
   seed: z.coerce.number().int().optional(),
   filters: FiltersParamSchema.optional(),
-  /** One label's or artist's records only, as "label:123" or "artist:45". */
+  /** One label's, artist's or seller's records only, as "label:123", "artist:45" or "seller:6". */
   scope: ScopeParamSchema.optional(),
 });
 export type QueueQuery = z.infer<typeof QueueQuerySchema>;
@@ -262,7 +262,7 @@ export const ScopeSearchQuerySchema = z.object({
   q: z.string().trim().min(2).max(100),
 });
 
-/** A label or artist whose name matches a search, with its records in the universe. */
+/** A label, artist or seller whose name matches a search, with its records in the universe. */
 export interface ScopeMatch extends QueueScope {
   records: number;
 }
@@ -298,7 +298,7 @@ export const DumpLoadJobInputSchema = z.object({
 export type DumpLoadJobInput = z.input<typeof DumpLoadJobInputSchema>;
 
 // POST /api/jobs/import/:kind
-export const IMPORT_KINDS = ["collection", "wantlist", "history", "list"] as const;
+export const IMPORT_KINDS = ["collection", "wantlist", "history", "list", "seller"] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 export const BROWSERS = ["brave", "chrome", "firefox"] as const;
 export type Browser = (typeof BROWSERS)[number];
@@ -307,6 +307,8 @@ export const ImportJobInputSchema = z.object({
   path: z.string().optional(),
   /** List import: the Discogs list to read; defaults to discogs.maybeListId. */
   listId: z.number().int().positive().optional(),
+  /** Seller import: the Discogs username whose shop to read. */
+  username: z.string().trim().min(1).max(100).optional(),
 });
 export type ImportJobInput = z.infer<typeof ImportJobInputSchema>;
 

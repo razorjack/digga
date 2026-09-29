@@ -69,7 +69,7 @@ export class TriageSession {
   slip = $state.raw<Slip | null>(null);
   flash = $state<string | null>(null);
   round = $state.raw<Round | null>(null);
-  /** The label or artist the queue is narrowed to; null digs everything the filters let in. */
+  /** The label, artist or seller the queue is narrowed to; null digs everything the filters let in. */
   scope = $state.raw<QueueScope | null>(null);
   /** Notes written in Triage, by triage key; a record's verdict saves its note. */
   notes = $state.raw<ReadonlyMap<string, string | null>>(new Map());
@@ -156,7 +156,7 @@ export class TriageSession {
   }
 
   /**
-   * Narrows the queue to one label's or artist's records, or with null lets everything back.
+   * Narrows the queue to one label's, artist's or seller's records, or with null lets everything back.
    * Passes belong to the queue they were made in; the server returns them in the new one.
    */
   async setScope(scope: QueueScope | null): Promise<void> {

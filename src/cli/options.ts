@@ -5,12 +5,14 @@ import { BROWSERS } from "../shared/api.ts";
 import type { SeedImportOptions } from "../server/importers/collection.ts";
 import type { HistoryImportOptions } from "../server/importers/history.ts";
 import type { ListImportOptions } from "../server/importers/list.ts";
+import type { SellerImportOptions } from "../server/importers/seller.ts";
 import type { EnrichOptions, QueueEnrichOptions } from "../server/jobs/enrich.ts";
 import { integerOption } from "./args.ts";
 
 export type ImportCommand =
   | { kind: "history"; options: HistoryImportOptions }
   | { kind: "list"; options: ListImportOptions }
+  | { kind: "seller"; options: SellerImportOptions }
   | { kind: "collection" | "wantlist"; options: SeedImportOptions };
 
 export function parseDumpOptions(args: string[], config: Config): DumpLoadOptions {
@@ -58,8 +60,13 @@ export function parseImportOptions(args: string[], config: Config, tempDir: stri
       );
     return { kind, options: { listId, currency: config.discogs.currency } };
   }
+  if (kind === "seller") {
+    const username = positionals[1]?.trim();
+    if (!username) throw new Error("import seller needs the seller's Discogs username");
+    return { kind, options: { username } };
+  }
   if (kind !== "collection" && kind !== "wantlist")
-    throw new Error("import needs one of: collection, wantlist, history, list");
+    throw new Error("import needs one of: collection, wantlist, history, list, seller");
   return { kind, options: { username: config.discogs.username } };
 }
 

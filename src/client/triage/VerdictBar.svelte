@@ -76,7 +76,7 @@
       <Key label="X" aria-hidden="true" /> hide label
     </button>
     <button type="button" tabindex="-1" aria-keyshortcuts="F" onmousedown={keepFocus} onclick={onpickscope}>
-      <Key label="F" aria-hidden="true" /> dig label or artist
+      <Key label="F" aria-hidden="true" /> dig label, artist or seller
     </button>
     <button type="button" tabindex="-1" aria-keyshortcuts="Z" onmousedown={keepFocus} onclick={onundo}>
       <Key label="Z" aria-hidden="true" /> undo
