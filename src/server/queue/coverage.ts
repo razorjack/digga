@@ -33,6 +33,12 @@ WHERE cv.status IN (${STATUSES})
   AND json_extract(ca.value, '$.id') <> 194
   AND json_extract(ca.value, '$.name') <> 'Unknown Artist'`;
 
+/** Releases on a coverage label or by a coverage artist, for a query over releases `r`. */
+export const ON_COVERAGE = `(EXISTS (SELECT 1 FROM json_each(r.labels_json) yl
+         WHERE json_extract(yl.value, '$.id') IN (${COVERAGE_LABEL_IDS}))
+       OR EXISTS (SELECT 1 FROM json_each(r.artists_json) ya
+         WHERE json_extract(ya.value, '$.id') IN (${COVERAGE_ARTIST_IDS})))`;
+
 /** The labels and artists the coverage pass keeps releases of, whatever their style. */
 export function coverageIds(db: Db): CoverageIds {
   const ids = (sql: string) =>

@@ -14,6 +14,11 @@ export const FiltersSchema = z.object({
   yearFrom: z.number().int().nullable().default(1998),
   yearTo: z.number().int().nullable().default(2002),
   includeUnknownYear: z.boolean().default(false),
+  /**
+   * Releases without a year on the labels, or by the artists, of the records you want or own;
+   * the coverage labels and artists (decision 90). Moot with includeUnknownYear.
+   */
+  includeUnknownYearOnCoverage: z.boolean().default(true),
   formats: z.array(z.string().min(1)).default(["Vinyl"]),
   countries: z.array(z.string().min(1)).default([]),
   /** Leave out releases without an embeddable video, so every record in the queue can play. */

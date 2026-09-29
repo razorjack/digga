@@ -412,3 +412,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     never count. The load years apply to coverage releases too, and a load stopped by its
     limit keeps none, since it has no shares to go on. `--labels` and `--artists` now add ids
     to the pass instead of replacing style matching.
+91. **Undated releases on the labels you want reach the queue by default.** 5,559 of the
+    owner's 71,699 loaded releases have no year, and `includeUnknownYear` is off because most
+    of them would be noise. Those on the coverage labels and artists are the likely strays of
+    the years dug, and the label sweep puts them beside their catalogue neighbours, so
+    `filters.includeUnknownYearOnCoverage` (on by default) lets them in. It is a query-time
+    filter like the others: the coverage set is read from the verdicts in the same query
+    (`ON_COVERAGE` in `queue/coverage.ts`), so a new want lets its label's undated records in
+    at once. Sandbox verdicts stay in the tab, so they do not widen it. On the owner's library,
+    with 212 seed verdicts, it adds 134 records to dig and about 12 ms to a queue query.

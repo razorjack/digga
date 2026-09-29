@@ -5,6 +5,7 @@ import type { ScopeRef } from "../../shared/scope.ts";
 import type { FormatRef } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import type { ReleaseRow } from "../db/releases.ts";
+import { ON_COVERAGE } from "./coverage.ts";
 
 /**
  * The queue is a query, not a table: releases grouped by triage key, without a verdict,
@@ -125,7 +126,10 @@ function yearClause(filters: Filters): SqlFragment {
     params.push(filters.yearTo);
   }
   const known = `(${parts.join(" AND ")})`;
-  return { sql: filters.includeUnknownYear ? `(${known} OR r.year IS NULL)` : known, params };
+  if (filters.includeUnknownYear) return { sql: `(${known} OR r.year IS NULL)`, params };
+  if (filters.includeUnknownYearOnCoverage)
+    return { sql: `(${known} OR (r.year IS NULL AND ${ON_COVERAGE}))`, params };
+  return { sql: known, params };
 }
 
 function formatClause(filters: Filters): SqlFragment | null {

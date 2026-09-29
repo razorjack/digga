@@ -18,6 +18,7 @@ describe("config schema", () => {
       yearFrom: 1998,
       yearTo: 2002,
       includeUnknownYear: false,
+      includeUnknownYearOnCoverage: true,
       formats: ["Vinyl"],
       countries: [],
       skipWithoutVideos: false,

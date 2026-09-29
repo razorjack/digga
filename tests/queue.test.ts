@@ -33,6 +33,20 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("lets in undated releases on the labels and artists of records the user wants", async () => {
+    const db = await fixtureDb();
+    const onCoverage = filters({ includeUnknownYearOnCoverage: true });
+    const ids = () =>
+      queryQueue(db, { filters: onCoverage, strategy: "label_sweep", limit: 200 }).map((i) => i.id);
+    expect(ids()).toEqual([1006, 1001]);
+    upsertVerdict(db, { key: "m:506", status: "accepted", source: "triage", releaseId: 1006 });
+    // 1003 has no year and is on Renegade Hardware, the label of the wanted record.
+    expect(ids()).toEqual([1001, 1003]);
+    expect(countRemaining(db, onCoverage)).toBe(2);
+    expect(countRemaining(db, { ...onCoverage, includeUnknownYearOnCoverage: false })).toBe(1);
+    db.close();
+  });
+
   it("year, unknown-year, format and country filters are query-time", async () => {
     const db = await fixtureDb();
     const withUnknown = queryQueue(db, {

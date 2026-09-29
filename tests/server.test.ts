@@ -163,7 +163,10 @@ describe("HTTP API", () => {
       source: "triage",
       notes: "wheel up",
     });
-    expect((await get<QueueResponse>("/api/queue")).body.items.map((i) => i.id)).toEqual([1006]);
+    // The want puts Renegade Hardware among the coverage labels, which lets its undated 1003 in.
+    expect((await get<QueueResponse>("/api/queue")).body.items.map((i) => i.id)).toEqual([
+      1006, 1003,
+    ]);
     expect((await send("POST", "/api/verdicts", { key: "nope", status: "accepted" })).status).toBe(
       400,
     );

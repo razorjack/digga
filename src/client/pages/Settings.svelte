@@ -430,7 +430,7 @@
         <div class="fields">
           <fieldset class="field">
             <legend class="name">Years</legend>
-            <div class="inline">
+            <div class="inline wrap">
               <input
                 type="number"
                 aria-label="From year"
@@ -448,7 +448,19 @@
                 <input type="checkbox" bind:checked={draft.filters.includeUnknownYear} />
                 include releases without a year
               </label>
+              <label class="check">
+                <input
+                  type="checkbox"
+                  aria-describedby="{id}-undated-hint"
+                  disabled={draft.filters.includeUnknownYear}
+                  bind:checked={draft.filters.includeUnknownYearOnCoverage}
+                />
+                or only those on labels and by artists you want
+              </label>
             </div>
+            <span class="hint" id="{id}-undated-hint">
+              The labels and artists of the records you want or own, as the coverage pass under Universe uses them.
+            </span>
           </fieldset>
           <div class="field">
             <label class="name" for="{id}-formats">Formats</label>
