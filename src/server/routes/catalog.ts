@@ -4,12 +4,15 @@ import {
   AttachVideoInputSchema,
   QueueQuerySchema,
   type QueueResponse,
+  ScopeSearchQuerySchema,
+  type ScopeSearchResponse,
   StatsQuerySchema,
   type TrackMarksResponse,
   TwelvesQuerySchema,
   type TwelvesResponse,
 } from "../../shared/api.ts";
 import { countRemaining, queryQueue } from "../queue/query.ts";
+import { searchScopes } from "../queue/scopes.ts";
 import { queryTwelves } from "../queue/twelves.ts";
 import { listMarkedTracks } from "../queue/track-marks.ts";
 import { computeStats } from "../stats.ts";
@@ -23,6 +26,7 @@ import { buildReleaseDetail } from "../queue/detail.ts";
 export function registerCatalogRoutes(api: Hono, context: AppContext): void {
   api.get("/health", (request) => health(request));
   api.get("/queue", (request) => queue(request, context));
+  api.get("/scopes", (request) => scopes(request, context));
   api.get("/releases/:id", (request) => release(request, context));
   api.post("/releases/:id/videos", (request) => attachVideoRoute(request, context));
   api.get("/twelves", (request) => twelves(request, context));
@@ -41,6 +45,7 @@ function queue(request: Context, context: AppContext) {
   const config = context.getConfig();
   const strategy = query.data.strategy ?? config.queue.strategy;
   const filters = query.data.filters ?? config.filters;
+  const scope = query.data.scope ?? null;
   const seed = strategy === "random" ? (query.data.seed ?? daySeed()) : null;
   const items = queryQueue(db, {
     filters,
@@ -48,14 +53,22 @@ function queue(request: Context, context: AppContext) {
     limit: query.data.limit ?? config.queue.limit,
     offset: query.data.offset,
     seed,
+    scope,
   });
   const body: QueueResponse = {
     items,
-    remaining: countRemaining(db, filters),
+    remaining: countRemaining(db, filters, scope),
     strategy,
     seed,
     filters,
   };
+  return request.json(body);
+}
+
+function scopes(request: Context, context: AppContext) {
+  const query = parseQuery(request, ScopeSearchQuerySchema);
+  if (!query.ok) return query.response;
+  const body: ScopeSearchResponse = { items: searchScopes(context.db, query.data.q) };
   return request.json(body);
 }
 
@@ -104,9 +117,8 @@ function stats(request: Context, context: AppContext) {
   const query = parseQuery(request, StatsQuerySchema);
   if (!query.ok) return query.response;
   const config = context.getConfig();
-  return request.json(
-    computeStats(db, { ...config, filters: query.data.filters ?? config.filters }),
-  );
+  const filters = query.data.filters ?? config.filters;
+  return request.json(computeStats(db, { ...config, filters }, query.data.scope ?? null));
 }
 
 function daySeed(): number {

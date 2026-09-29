@@ -322,3 +322,19 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     `color-scheme` declaration switches, not an inline style. In the browser the page follows
     the system until the settings load; Electron sets `nativeTheme.themeSource` from the config
     before the window opens.
+83. **`F` digs one label or artist.** A scope narrows the Triage queue to the records of one
+    label or one artist, picked from the record on screen or searched by name
+    (`GET /api/scopes`, labels and artists with loaded records, most records first). It names a
+    Discogs id, because several labels and artists share a name and Discogs tells them apart as
+    "Name (2)"; the release's `labels_json`, `artists_json` and its tracks' `artists_json` carry
+    the ids. A label matches any label line of a release, so co-releases count, and an artist
+    matches release and track credits, since compilations credit their artists on the tracks.
+    Discogs' "Various" (id 194) is left out. The scope is one more condition in
+    `buildFilterWhere`: the filters, verdicts and order still apply, and the representative
+    pressing is chosen among the releases in the scope, so the record shown is the one on that
+    label or with that artist. `GET /api/queue` and `GET /api/stats` take it as `scope=label:123`;
+    stats answer `scopeRemaining` for the banner and keep the header's counts for the whole
+    queue. The scope lives in the session, not the settings: a reload or Esc returns to the whole
+    queue, and a settings save keeps it. Passes start over with each scope because they belong
+    to the queue they were made in. The sandbox subtracts only the local verdicts of keys the
+    scope's queue returned, which is all of them once the queue has paged through the scope.

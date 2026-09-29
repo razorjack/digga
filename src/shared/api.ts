@@ -6,6 +6,7 @@ import {
   type Filters,
   type QueueStrategy,
 } from "./config.ts";
+import { type QueueScope, ScopeParamSchema } from "./scope.ts";
 import { TRIAGE_KEY_PATTERN } from "./triage-key.ts";
 import { WANTLIST_NOTE_LENGTH } from "./wantlist.ts";
 import {
@@ -51,13 +52,15 @@ export function filtersParam(filters: Filters | undefined): string | undefined {
   return filters === undefined ? undefined : JSON.stringify(filters);
 }
 
-// GET /api/queue?strategy&limit&offset&seed&filters
+// GET /api/queue?strategy&limit&offset&seed&filters&scope
 export const QueueQuerySchema = z.object({
   strategy: z.enum(QUEUE_STRATEGIES).optional(),
   limit: z.coerce.number().int().positive().max(5000).optional(),
   offset: z.coerce.number().int().min(0).optional(),
   seed: z.coerce.number().int().optional(),
   filters: FiltersParamSchema.optional(),
+  /** One label's or artist's records only, as "label:123" or "artist:45". */
+  scope: ScopeParamSchema.optional(),
 });
 export type QueueQuery = z.infer<typeof QueueQuerySchema>;
 
@@ -221,9 +224,10 @@ export interface TrackMarksResponse {
   items: MarkedTrack[];
 }
 
-// GET /api/stats?filters
+// GET /api/stats?filters&scope
 export const StatsQuerySchema = z.object({
   filters: FiltersParamSchema.optional(),
+  scope: ScopeParamSchema.optional(),
 });
 export type StatsQuery = z.infer<typeof StatsQuerySchema>;
 
@@ -237,6 +241,8 @@ export interface Stats {
   };
   verdicts: Record<VerdictStatus, number>;
   remaining: number;
+  /** Records still to dig in the scope the request named; null without one. */
+  scopeRemaining: number | null;
   /** Records still to dig that enrich has given market data, such as the want count. */
   remainingEnriched: number;
   rate: {
@@ -249,6 +255,21 @@ export interface Stats {
     loadedAt: string | null;
   };
   heardTracks: number;
+}
+
+// GET /api/scopes?q
+export const ScopeSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(100),
+});
+
+/** A label or artist whose name matches a search, with its records in the universe. */
+export interface ScopeMatch extends QueueScope {
+  records: number;
+}
+
+export interface ScopeSearchResponse {
+  /** Most records first. */
+  items: ScopeMatch[];
 }
 
 // GET|PUT /api/settings

@@ -1,4 +1,5 @@
 import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
+import type { QueueScope } from "../../shared/scope.ts";
 import type { ReleaseSnapshot, TrackMark, Verdict } from "../../shared/types.ts";
 import { type Api, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
@@ -68,6 +69,8 @@ export class TriageSession {
   slip = $state.raw<Slip | null>(null);
   flash = $state<string | null>(null);
   round = $state.raw<Round | null>(null);
+  /** The label or artist the queue is narrowed to; null digs everything the filters let in. */
+  scope = $state.raw<QueueScope | null>(null);
   /** Notes written in Triage, by triage key; a record's verdict saves its note. */
   notes = $state.raw<ReadonlyMap<string, string | null>>(new Map());
 
@@ -114,6 +117,7 @@ export class TriageSession {
   }
 
   destroy(): void {
+    stats.setScope(null);
     this.#generation += 1;
     this.#apiGeneration = -1;
     this.#enrichAhead.stop();
@@ -149,6 +153,20 @@ export class TriageSession {
       this.status = "error";
       this.error = errorMessage(error);
     }
+  }
+
+  /**
+   * Narrows the queue to one label's or artist's records, or with null lets everything back.
+   * Passes belong to the queue they were made in; the server returns them in the new one.
+   */
+  async setScope(scope: QueueScope | null): Promise<void> {
+    this.scope = scope;
+    stats.setScope(scope);
+    this.passed = [];
+    this.#queueBeforeRound = null;
+    await this.start(this.#batch, { enrichAhead: this.#enrichAheadCount });
+    // After the queue, so the sandbox knows which of its verdicts the scope holds.
+    void stats.refresh();
   }
 
   judge(status: TriageStatus): void {
@@ -596,10 +614,12 @@ export class TriageSession {
       stats.value = { ...current, verdicts };
       return;
     }
+    const { scopeRemaining } = current;
     stats.value = {
       ...current,
       dug: Math.max(0, current.dug + delta),
       remaining: Math.max(0, current.remaining - delta),
+      scopeRemaining: scopeRemaining === null ? null : Math.max(0, scopeRemaining - delta),
       verdicts,
     };
   }
@@ -631,13 +651,16 @@ export class TriageSession {
     if (this.#refilling) return this.#refilling;
     const generation = this.#generation;
     const run = (async () => {
+      // A verdict may not have reached the server yet. A pass stays out while it is in `passed`.
+      const judged = this.history.filter((entry) => entry.kind === "verdict");
       const known = new Set(
-        [...this.upcoming, ...this.passed, ...this.history.map((h) => h.item)].map(
-          (i) => i.triageKey,
+        [...this.upcoming, ...this.passed, ...judged.map((entry) => entry.item)].map(
+          (item) => item.triageKey,
         ),
       );
       const res = await this.#api.getQueue({
         limit: Math.min(MAX_QUEUE_LIMIT, this.#batch + this.upcoming.length + this.passed.length),
+        scope: this.scope ?? undefined,
       });
       // A round took over meanwhile; the queue refills again when it ends.
       if (generation !== this.#generation || this.round) return;

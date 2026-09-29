@@ -105,6 +105,29 @@ describe("sandbox api", () => {
     expect(empty.remaining).toBe(0);
   });
 
+  it("subtracts only the scope's own sandbox verdicts from its count", async () => {
+    const konflict = { kind: "artist", id: 21 } as const;
+    await sandbox.getQueue();
+    await sandbox.postVerdict({ key: "m:501", status: "rejected", releaseId: 1001 });
+    const scoped = await sandbox.getQueue({ scope: konflict });
+    expect(scoped.items.map((i) => i.id)).toEqual([1006]);
+    expect(scoped.remaining).toBe(1);
+    expect(await sandbox.getStats({ scope: konflict })).toMatchObject({
+      remaining: 1,
+      scopeRemaining: 1,
+    });
+
+    await sandbox.postVerdict({ key: "m:506", status: "rejected", releaseId: 1006 });
+    const empty = await sandbox.getQueue({ scope: konflict });
+    expect([empty.items, empty.remaining]).toEqual([[], 0]);
+    expect(await sandbox.getStats({ scope: konflict })).toMatchObject({
+      remaining: 0,
+      scopeRemaining: 0,
+    });
+    expect((await sandbox.getStats()).scopeRemaining).toBeNull();
+    expect((await sandbox.searchScopes("konflict")).items).toHaveLength(1);
+  });
+
   it("marks tunes heard across releases and keeps track marks in memory", async () => {
     await sandbox.getRelease(1001);
     const log = await sandbox.postListenLog({

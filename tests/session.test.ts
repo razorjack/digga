@@ -2,14 +2,23 @@ import { queueItem } from "./helpers/catalog.ts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { type Api, createAppApi } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
+import { stats } from "../src/client/stores.svelte.ts";
 import type {
+  QueueQuery,
   ReleaseDetail,
+  Stats,
   TwelvesItem,
   VerdictInput,
   TrackVerdictInput,
 } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type { ReleaseRecord, Verdict } from "../src/shared/types.ts";
+import type { QueueScope } from "../src/shared/scope.ts";
+import {
+  type ReleaseRecord,
+  type Verdict,
+  VERDICT_STATUSES,
+  type VerdictStatus,
+} from "../src/shared/types.ts";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -28,18 +37,22 @@ function fakeServer(queue: number[], labelName: string | null = null) {
   /** Notes sent with verdicts, as "key note". */
   const notes: string[] = [];
   const verdicts = new Map<string, Verdict>();
+  const queries: QueueQuery[] = [];
   const state = { pushDelayMs: 0, enrichDelayMs: 0 };
   const http = {
     mode: "live",
-    getQueue: async () => ({
-      items: queue
-        .map((id) => ({ ...queueItem(id), labelName }))
-        .filter((i) => !verdicts.has(i.triageKey)),
-      remaining: 0,
-      strategy: "label_sweep",
-      seed: null,
-      filters: DEFAULT_CONFIG.filters,
-    }),
+    getQueue: async (query: QueueQuery = {}) => {
+      queries.push(query);
+      return {
+        items: queue
+          .map((id) => ({ ...queueItem(id), labelName }))
+          .filter((i) => !verdicts.has(i.triageKey)),
+        remaining: 0,
+        strategy: "label_sweep",
+        seed: null,
+        filters: DEFAULT_CONFIG.filters,
+      };
+    },
     getRelease: async (id: number): Promise<ReleaseDetail> => ({
       release: { id, triageKey: `r:${id}` } as ReleaseRecord,
       tracks: [],
@@ -106,7 +119,7 @@ function fakeServer(queue: number[], labelName: string | null = null) {
     },
   } as unknown as Api;
   const app = createAppApi(http, (inner) => inner);
-  return { app, http, calls, notes, verdicts, state };
+  return { app, http, calls, notes, verdicts, queries, state };
 }
 
 async function started(queue: number[], pushGraceMs = 0) {
@@ -466,5 +479,54 @@ describe("hiding a label", () => {
     expect(session.history).toEqual([]);
     expect(session.flash).toContain("disk full");
     session.destroy();
+  });
+});
+
+describe("digging one label or artist", () => {
+  const label: QueueScope = { kind: "label", id: 88, name: "Moving Shadow" };
+
+  function statsWith(counts: { remaining: number; scopeRemaining: number | null }): Stats {
+    const verdicts = Object.fromEntries(VERDICT_STATUSES.map((status) => [status, 0]));
+    return {
+      dug: 0,
+      universe: { releases: 10, keys: 10, filteredKeys: 10 },
+      verdicts: verdicts as Record<VerdictStatus, number>,
+      remainingEnriched: 0,
+      rate: { verdictsPerHour: null, sessions: 0, etaHours: null },
+      dump: { date: null, loadedAt: null },
+      heardTracks: 0,
+      ...counts,
+    };
+  }
+
+  it("asks for the scope until Esc lets everything back, and passes start over", async () => {
+    const { session, queries } = await started([1, 2, 3]);
+    session.pass();
+    await session.setScope(label);
+    expect([session.scope, stats.scope, queries.at(-1)?.scope]).toEqual([label, label, label]);
+    // The pass belonged to the whole queue; the record comes back in its place.
+    expect(session.passed).toEqual([]);
+    expect(session.upcoming.map((item) => item.id)).toEqual([1, 2, 3]);
+    // A settings save restarts the queue in the same scope.
+    await session.start(50);
+    expect(queries.at(-1)?.scope).toEqual(label);
+    await session.setScope(null);
+    expect([session.scope, stats.scope, queries.at(-1)?.scope]).toEqual([null, null, undefined]);
+    session.destroy();
+  });
+
+  it("counts a verdict and its undo in the records left in the scope", async () => {
+    const { session } = await started([1, 2]);
+    await session.setScope(label);
+    stats.value = statsWith({ remaining: 10, scopeRemaining: 2 });
+    session.judge("rejected");
+    expect(stats.value).toMatchObject({ remaining: 9, scopeRemaining: 1 });
+    session.undo();
+    expect(stats.value).toMatchObject({ remaining: 10, scopeRemaining: 2 });
+    // The count of another scope is unknown until the stats come back.
+    await session.setScope({ kind: "artist", id: 12, name: "Optical" });
+    expect(stats.value?.scopeRemaining).toBeNull();
+    session.destroy();
+    stats.value = null;
   });
 });

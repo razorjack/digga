@@ -42,12 +42,20 @@ or Alt. Holding a key down never repeats a verdict.
 | `D` | `no_audio`  | "no audio"   | leaves the queue without a judgement                              |
 | `N` | none        | "next"       | moves on; the release stays in the queue and comes back later     |
 | `X` | none        | "hide label" | leaves every record on the release's first label out of the queue |
+| `F` | none        | "dig"        | narrows the queue to one label or artist, picked or searched      |
 | `Z` | undo        |              | reverts the last verdict, `N` or `X` and returns to that release  |
-| Esc | none        |              | during a round of snoozed records: back to the queue              |
+| Esc | none        |              | ends a round of snoozed records, then the label or artist dug     |
 
 `X` adds the release's first label to `filters.excludeLabels` and saves the settings, so the
 queue restarts without that label's records; `Z` takes the label out of the list again. A hidden
 name also covers its bracketed variants, such as `Not On Label (Artist Self-released)`.
+
+`F` opens a picker with the labels and artists of the record on screen, the artists of its tracks
+included, and a search field for any label or artist that has loaded records. `↓` moves from the
+field to the options, the arrows choose, Enter digs and Esc cancels. The queue then holds only the
+records on that label (on any of their labels) or by that artist (on the release or on one of its
+tracks), still under the filters and in the chosen order, and a banner counts what is left. Esc
+goes back to the whole queue. Records passed with `N` return to whichever queue comes next.
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is

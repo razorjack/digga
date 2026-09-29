@@ -1,6 +1,7 @@
 import type { QueueItem } from "../../shared/api.ts";
 import type { Filters, QueueStrategy } from "../../shared/config.ts";
 import { formatSummary } from "../../shared/formats.ts";
+import type { ScopeRef } from "../../shared/scope.ts";
 import type { FormatRef } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import type { ReleaseRow } from "../db/releases.ts";
@@ -16,6 +17,8 @@ export interface QueueParams {
   limit: number;
   offset?: number;
   seed?: number | null;
+  /** One label's or artist's records only. */
+  scope?: ScopeRef | null;
   /** Only releases enrich has not touched yet (used by the enrich job). */
   unenrichedOnly?: boolean;
   /** Keep releases that already have a verdict (used for universe counts). */
@@ -33,10 +36,11 @@ const placeholders = (n: number) => Array.from({ length: n }, () => "?").join(",
 
 export function buildFilterWhere(
   filters: Filters,
-  opts: { includeDecided?: boolean } = {},
+  opts: { includeDecided?: boolean; scope?: ScopeRef | null } = {},
 ): SqlFragment {
   const fragments = [
     { sql: "r.in_universe = 1", params: [] },
+    scopeClause(opts.scope),
     styleClause(filters),
     yearClause(filters),
     formatClause(filters),
@@ -72,6 +76,22 @@ const HAS_VIDEO = `(EXISTS (SELECT 1 FROM videos vf WHERE vf.release_id = r.id A
          WHERE rp.master_id = r.master_id AND rp.id <> r.id AND ${SHARES_TUNE}))`;
 
 const UNDECIDED = "NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)";
+
+const ON_LABEL = `EXISTS (SELECT 1 FROM json_each(r.labels_json) sl
+       WHERE json_extract(sl.value, '$.id') = ?)`;
+
+// Compilations credit their artists on the tracks, not on the release.
+const BY_ARTIST = `(EXISTS (SELECT 1 FROM json_each(r.artists_json) sa
+       WHERE json_extract(sa.value, '$.id') = ?)
+       OR EXISTS (SELECT 1 FROM tracks st, json_each(st.artists_json) sta
+         WHERE st.release_id = r.id AND json_extract(sta.value, '$.id') = ?))`;
+
+/** Releases on the label, any of their labels, or by the artist, on the release or a track. */
+function scopeClause(scope: ScopeRef | null | undefined): SqlFragment | null {
+  if (!scope) return null;
+  if (scope.kind === "label") return { sql: ON_LABEL, params: [scope.id] };
+  return { sql: BY_ARTIST, params: [scope.id, scope.id] };
+}
 
 function styleClause(filters: Filters): SqlFragment | null {
   if (!filters.styles || filters.styles.length === 0) return null;
@@ -140,7 +160,7 @@ function labelClause(filters: Filters): SqlFragment | null {
   };
 }
 
-function escapeLike(text: string): string {
+export function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
@@ -185,6 +205,7 @@ ranked AS (
 export function buildQueueSql(query: QueueParams): SqlFragment {
   const where = buildFilterWhere(query.filters, {
     includeDecided: query.includeDecided,
+    scope: query.scope,
   });
   const order = orderClause(query.strategy, query.seed ?? 0);
   // "Unenriched" applies to the representative release, not to every pressing of a master.
@@ -226,9 +247,9 @@ export function queryQueue(db: Db, query: QueueParams): QueueItem[] {
   return rows.map(rowToQueueItem);
 }
 
-/** Triage keys in the filtered universe that still have no verdict. */
-export function countRemaining(db: Db, filters: Filters): number {
-  const where = buildFilterWhere(filters, { includeDecided: false });
+/** Triage keys in the filtered universe, or in a scope of it, that still have no verdict. */
+export function countRemaining(db: Db, filters: Filters, scope: ScopeRef | null = null): number {
+  const where = buildFilterWhere(filters, { includeDecided: false, scope });
   const row = db
     .prepare(`SELECT COUNT(DISTINCT r.triage_key) AS n FROM releases r WHERE ${where.sql}`)
     .get(...where.params) as {

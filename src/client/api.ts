@@ -16,6 +16,7 @@ import {
   type QueueQuery,
   type QueueResponse,
   type ReleaseDetail,
+  type ScopeSearchResponse,
   type Stats,
   type StatsQuery,
   type TrackMarksResponse,
@@ -27,6 +28,7 @@ import {
   type WantlistPushResponse,
 } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
+import { scopeParam } from "../shared/scope.ts";
 import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
 import { createSandboxApi } from "./sandbox.ts";
 
@@ -39,6 +41,8 @@ export interface Api {
   /** "sandbox" when writes are faked in memory by createSandboxApi(), "live" when they reach the server. */
   readonly mode: "live" | "sandbox";
   getQueue(query?: QueueQuery): Promise<QueueResponse>;
+  /** Labels and artists whose name contains the text, to narrow the queue to. */
+  searchScopes(text: string): Promise<ScopeSearchResponse>;
   getRelease(id: number): Promise<ReleaseDetail>;
   /** Fetches the release's market data and videos from Discogs; the server stores them. */
   enrichRelease(id: number): Promise<ReleaseDetail>;
@@ -98,8 +102,12 @@ export function createHttpApi(baseUrl = "/api"): Api {
   const call = httpCaller(baseUrl);
   return {
     mode: "live",
-    getQueue: ({ filters, ...rest } = {}) =>
-      call("GET", `/queue${queryString({ ...rest, filters: filtersParam(filters) })}`),
+    getQueue: ({ filters, scope, ...rest } = {}) =>
+      call(
+        "GET",
+        `/queue${queryString({ ...rest, filters: filtersParam(filters), scope: scopeParam(scope) })}`,
+      ),
+    searchScopes: (text) => call("GET", `/scopes${queryString({ q: text })}`),
     getRelease: (id) => call("GET", `/releases/${id}`),
     enrichRelease: (id) => call("POST", `/releases/${id}/enrich`),
     attachVideo: (releaseId, url) => call("POST", `/releases/${releaseId}/videos`, { url }),
@@ -113,8 +121,11 @@ export function createHttpApi(baseUrl = "/api"): Api {
         `/twelves${queryString({ status: query.status?.join(","), applyFilters: query.applyFilters })}`,
       ),
     getTrackMarks: () => call("GET", "/track-marks"),
-    getStats: ({ filters } = {}) =>
-      call("GET", `/stats${queryString({ filters: filtersParam(filters) })}`),
+    getStats: ({ filters, scope } = {}) =>
+      call(
+        "GET",
+        `/stats${queryString({ filters: filtersParam(filters), scope: scopeParam(scope) })}`,
+      ),
     getSettings: () => call("GET", "/settings"),
     putSettings: (config) => call("PUT", "/settings", config),
     startEnrich: (input = {}) => call("POST", "/jobs/enrich", input),
@@ -164,6 +175,7 @@ export function createAppApi(
     },
     pinned: () => current,
     getQueue: (query) => current.getQueue(query),
+    searchScopes: (text) => current.searchScopes(text),
     getRelease: (id) => current.getRelease(id),
     enrichRelease: (id) => current.enrichRelease(id),
     attachVideo: (releaseId, url) => current.attachVideo(releaseId, url),

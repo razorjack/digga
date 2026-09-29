@@ -133,8 +133,12 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
         { keys: ["N"], label: "next: decide later, it stays in the queue" },
         { keys: ["E"], label: "write a note on the record; its verdict saves it" },
         { keys: ["X"], label: "hide the record's label: its records leave the queue" },
+        { keys: ["F"], label: "dig one label or artist: the queue narrows to its records" },
         { keys: ["Z"], label: "undo the last verdict or next" },
-        { keys: ["Esc"], label: "leave a round of snoozed records, back to the queue" },
+        {
+          keys: ["Esc"],
+          label: "leave a round of snoozed records, or the label or artist, back to the queue",
+        },
       ],
     },
     {

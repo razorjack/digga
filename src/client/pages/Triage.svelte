@@ -3,6 +3,7 @@
   import { withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
+  import { scopesOfRelease } from "../../shared/scope.ts";
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
@@ -21,6 +22,7 @@
   import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
   import PlayerPanel from "../triage/PlayerPanel.svelte";
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
+  import ScopePicker from "../triage/ScopePicker.svelte";
   import { TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
   import Tracklist from "../triage/Tracklist.svelte";
@@ -106,6 +108,26 @@
     editingNote = false;
   }
 
+  /** F opened the picker of a label or artist to dig. */
+  let pickingScope = $state(false);
+  const recordScopes = $derived(
+    session.currentDetail
+      ? scopesOfRelease(session.currentDetail.release, session.currentDetail.tracks)
+      : [],
+  );
+  const scopeRemaining = $derived(stats.value?.scopeRemaining ?? null);
+
+  /** Esc ends a round of snoozed records first, then the label or artist being dug. */
+  function leaveRoundOrScope(): boolean {
+    if (session.round) {
+      session.endRound();
+      return true;
+    }
+    if (!session.scope) return false;
+    void session.setScope(null);
+    return true;
+  }
+
   const snoozedCount = $derived(stats.value?.verdicts.snoozed ?? 0);
   const noReleases = $derived(stats.value !== null && stats.value.universe.releases === 0);
   const nothingMatches = $derived(
@@ -171,6 +193,9 @@
     e: () => {
       if (session.current) editingNote = true;
     },
+    f: () => {
+      pickingScope = true;
+    },
   };
 
   function openReleaseLink(site: "discogs" | "youtube"): void {
@@ -196,7 +221,7 @@
       return true;
     }
     // Holding a key down must not judge a run of releases.
-    if (event.repeat) return /^[ jknozsex1-9radmc]$/.test(key);
+    if (event.repeat) return /^[ jknozsexf1-9radmc]$/.test(key);
     return runShortcut(key);
   }
 
@@ -207,11 +232,7 @@
       return true;
     }
     if (key === "Enter") return retry();
-    if (key === "Escape") {
-      if (!session.round) return false;
-      session.endRound();
-      return true;
-    }
+    if (key === "Escape") return leaveRoundOrScope();
     if (/^[1-9]$/.test(key)) {
       player.jumpTo(Number(key) / 10);
       return true;
@@ -224,7 +245,7 @@
 
   /** A YouTube link pasted anywhere on the page belongs to the release on screen. */
   function onpaste(event: ClipboardEvent): void {
-    if (!active || ui.helpOpen || !session.current) return;
+    if (!active || ui.helpOpen || pickingScope || !session.current) return;
     const link = pastedVideoLink(event);
     if (link === null) return;
     event.preventDefault();
@@ -247,16 +268,26 @@
 <svelte:window {onkeydown} {onpaste} />
 
 <div class="triage">
-  <!-- The live region stays in the DOM so the banner is announced when a round starts. -->
+  <!-- The live region stays in the DOM so a banner is announced when a round or a scope starts. -->
   <div aria-live="polite">
     {#if session.round}
-      <p class="round">
+      <p class="banner">
         <span>
           Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
           {formatCount(session.round.total)} left. A verdict replaces the snooze; <Key label="N" size="sm" /> leaves it.
         </span>
         <button type="button" aria-keyshortcuts="Escape" onclick={() => session.endRound()}>
           <Key label="Esc" size="sm" aria-hidden="true" /> back to the queue
+        </button>
+      </p>
+    {:else if session.scope}
+      <p class="banner">
+        <span>
+          Digging the {session.scope.kind} <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
+            <b>{formatCount(scopeRemaining)}</b> left under your filters{/if}.
+        </span>
+        <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
+          <Key label="Esc" size="sm" aria-hidden="true" /> back to the whole queue
         </button>
       </p>
     {/if}
@@ -300,6 +331,23 @@
           <p class="actions">
             <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
               <Key label="," aria-hidden="true" /> settings
+            </button>
+          </p>
+        </div>
+      {:else if session.finished && session.scope}
+        <div class="state">
+          <p class="headline">Nothing is left to dig from the {session.scope.kind} {session.scope.name}.</p>
+          <p class="quiet">
+            Under your filters, that is: widen the years, formats or countries in settings to dig further.
+          </p>
+          <p class="actions">
+            {#if session.passed.length > 0}
+              <button type="button" aria-keyshortcuts="N" onclick={() => session.goRound()}>
+                <Key label="N" aria-hidden="true" /> go round the {formatCount(session.passed.length)} you passed
+              </button>
+            {/if}
+            <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
+              <Key label="Esc" primary aria-hidden="true" /> back to the whole queue
             </button>
           </p>
         </div>
@@ -379,8 +427,16 @@
     onjudge={judge}
     onpass={() => session.pass()}
     onhidelabel={() => void session.hideLabel()}
+    onpickscope={() => (pickingScope = true)}
     onundo={() => session.undo()}
     onhelp={() => (ui.helpOpen = true)}
+  />
+
+  <ScopePicker
+    open={pickingScope}
+    {recordScopes}
+    onpick={(scope) => void session.setScope(scope)}
+    onclose={() => (pickingScope = false)}
   />
 </div>
 
@@ -390,7 +446,7 @@
     flex-direction: column;
     height: 100%;
   }
-  .round {
+  .banner {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -402,11 +458,11 @@
     color: var(--fg-muted);
     font-size: var(--text-sm);
   }
-  .round b {
+  .banner b {
     color: var(--fg);
     font-weight: 600;
   }
-  .round button {
+  .banner button {
     display: inline-flex;
     align-items: center;
     gap: 8px;

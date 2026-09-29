@@ -13,6 +13,7 @@ import {
 } from "../shared/api.ts";
 import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
+import { type ScopeRef, scopeKey } from "../shared/scope.ts";
 import type { Job, TrackVerdict, Verdict } from "../shared/types.ts";
 import { isTriageSource, seedRank } from "../shared/verdict-rank.ts";
 import type { Api } from "./api.ts";
@@ -94,6 +95,9 @@ class SandboxApi implements Api {
 
   #releases = new Map<number, QueueItem>();
 
+  /** Triage keys each scope's queue returned, so its count subtracts only its own verdicts. */
+  #scopeKeys = new Map<string, Set<string>>();
+
   #details = new Map<number, ReleaseDetail>();
 
   /** True adds a triage key to the wantlist; false removes it. */
@@ -163,6 +167,23 @@ class SandboxApi implements Api {
   /** Local verdicts on previously undecided keys reduce the remaining count. */
   #newlyDecided = () =>
     [...this.#verdicts.values()].filter((localVerdict) => localVerdict.base === null).length;
+
+  #keysInScope = (scope: ScopeRef): Set<string> => {
+    const keys = this.#scopeKeys.get(scopeKey(scope)) ?? new Set<string>();
+    this.#scopeKeys.set(scopeKey(scope), keys);
+    return keys;
+  };
+
+  /**
+   * A server count of records to dig, less those decided in this sandbox. In a scope only the
+   * keys its queue returned count, which is all of them once the queue has paged through it.
+   */
+  #remainingAfterLocal = (remaining: number, scope?: ScopeRef): number => {
+    if (!scope) return Math.max(0, remaining - this.#newlyDecided());
+    const keys = [...this.#keysInScope(scope)];
+    const decided = keys.filter((key) => this.#verdicts.get(key)?.base === null).length;
+    return Math.max(0, remaining - decided);
+  };
 
   #dugDelta = () => {
     let delta = 0;
@@ -257,12 +278,14 @@ class SandboxApi implements Api {
     const want = query.limit ?? (await this.#inner.getSettings()).queue.limit;
     // Locally decided keys are still undecided on the server, so page past them.
     const limit = Math.min(this.#queuePageLimit, want + this.#verdicts.size);
+    const inScope = query.scope ? this.#keysInScope(query.scope) : null;
     const items: QueueItem[] = [];
     let offset = query.offset ?? 0;
     for (;;) {
       const response = await this.#inner.getQueue({ ...query, limit, offset });
       for (const item of response.items) {
         this.#rememberRelease(item);
+        inScope?.add(item.triageKey);
         if (!this.#serverVerdicts.has(item.triageKey))
           this.#serverVerdicts.set(item.triageKey, null);
         if (!this.#verdicts.has(item.triageKey) && items.length < want) items.push(item);
@@ -272,7 +295,7 @@ class SandboxApi implements Api {
         return {
           ...response,
           items,
-          remaining: Math.max(0, response.remaining - this.#newlyDecided()),
+          remaining: this.#remainingAfterLocal(response.remaining, query.scope),
         };
     }
   };
@@ -437,7 +460,10 @@ class SandboxApi implements Api {
       counts[verdict.status] += 1;
       if (base) counts[base.status] -= 1;
     }
-    const remaining = Math.max(0, stats.remaining - this.#newlyDecided());
+    const remaining = this.#remainingAfterLocal(stats.remaining);
+    const scopeRemaining = query.scope
+      ? this.#remainingAfterLocal(stats.scopeRemaining ?? 0, query.scope)
+      : null;
     const times = [...this.#verdicts.values()]
       .filter(
         (localVerdict) =>
@@ -459,11 +485,14 @@ class SandboxApi implements Api {
       dug: Math.max(0, stats.dug + this.#dugDelta()),
       verdicts: counts,
       remaining,
+      scopeRemaining,
       remainingEnriched: Math.min(stats.remainingEnriched, remaining),
       rate,
       heardTracks: stats.heardTracks + this.#heard.size,
     };
   };
+
+  searchScopes: Api["searchScopes"] = (text) => this.#inner.searchScopes(text);
 
   getSettings: Api["getSettings"] = () => this.#inner.getSettings();
 

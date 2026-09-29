@@ -66,6 +66,8 @@ verdict, applies the query-time filters (`filters.*` in config: styles subset, y
 year, formats, format descriptions to require or leave out, countries, hidden labels, records
 without videos), picks one representative release per key (main release, then most
 videos), orders by strategy and limits. Changing filters or strategy never requires a reload.
+A scope (`src/shared/scope.ts`) narrows the same query to one label's or one artist's records by
+Discogs id; Triage digs one with `F` (decision 83).
 
 A record plays the videos of all its pressings. `buildReleaseDetail()` returns the release's own
 videos, then those of other releases on the same master whose matched track is a tune on this

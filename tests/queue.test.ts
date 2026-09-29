@@ -8,7 +8,9 @@ import {
   queryQueue,
   representativeForKey,
 } from "../src/server/queue/query.ts";
+import { searchScopes } from "../src/server/queue/scopes.ts";
 import { type Filters, withLabelExcluded } from "../src/shared/config.ts";
+import type { ScopeRef } from "../src/shared/scope.ts";
 import { filters, fixtureDb } from "./helpers.ts";
 
 describe("queue query", () => {
@@ -176,6 +178,61 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("narrows to a label on any label line, or to an artist on the release or a track", async () => {
+    const db = await fixtureDb();
+    const ids = (scope: ScopeRef, overrides: Partial<Filters> = {}) =>
+      queryQueue(db, {
+        filters: filters(overrides),
+        strategy: "label_sweep",
+        limit: 10,
+        scope,
+      }).map((item) => item.id);
+    expect(ids({ kind: "label", id: 77 })).toEqual([1006, 1001]);
+    // 1006's second label.
+    expect(ids({ kind: "label", id: 78 })).toEqual([1006]);
+    // Filters still apply: Moving Shadow's only record is a CD from 1996.
+    expect(ids({ kind: "label", id: 88 })).toEqual([]);
+    expect(ids({ kind: "label", id: 88 }, { yearFrom: null, formats: [] })).toEqual([1004]);
+    expect(ids({ kind: "artist", id: 12 })).toEqual([1001]);
+    // Konflict: the artist of 1006, and of the tracks on the sampler 1003 by Various.
+    expect(ids({ kind: "artist", id: 21 }, { includeUnknownYear: true })).toEqual([1006, 1003]);
+    expect(countRemaining(db, filters({}), { kind: "artist", id: 21 })).toBe(1);
+    upsertVerdict(db, { key: "m:506", status: "rejected", source: "triage" });
+    expect(countRemaining(db, filters({}), { kind: "artist", id: 21 })).toBe(0);
+    db.close();
+  });
+
+  it("shows the pressing in the scope, not the master's main release", async () => {
+    const db = await fixtureDb();
+    db.prepare(
+      `UPDATE releases SET labels_json = '[{"id":99,"name":"Boxcutter","catno":"BOX 1"}]' WHERE id = 1002`,
+    ).run();
+    const items = queryQueue(db, {
+      filters: filters({}),
+      strategy: "label_sweep",
+      limit: 10,
+      scope: { kind: "label", id: 99 },
+    });
+    expect(items.map((item) => [item.id, item.triageKey])).toEqual([[1002, "m:501"]]);
+    db.close();
+  });
+
+  it("finds labels and artists by part of their name, most records first", async () => {
+    const db = await fixtureDb();
+    expect(searchScopes(db, "renegade")).toEqual([
+      { kind: "label", id: 77, name: "Renegade Hardware", records: 3 },
+      { kind: "label", id: 78, name: "Renegade Hardware Ltd.", records: 1 },
+    ]);
+    // On the release 1006 and on the tracks of 1003.
+    expect(searchScopes(db, "KONF")).toEqual([
+      { kind: "artist", id: 21, name: "Konflict", records: 2 },
+    ]);
+    expect(searchScopes(db, "various")).toEqual([]);
+    expect(searchScopes(db, "%")).toEqual([]);
+    expect(searchScopes(db, "e", 2)).toHaveLength(2);
+    db.close();
+  });
+
   it("picks the main release with most videos as representative", async () => {
     const db = await fixtureDb();
     expect(representativeForKey(db, "m:501")!.id).toBe(1001);
@@ -194,5 +251,12 @@ describe("queue query", () => {
     expect(sql).toContain("json_each(r.formats_json)");
     expect(sql).toContain("NOT EXISTS (SELECT 1 FROM verdicts");
     expect(params).toEqual([1998, 2002, "Vinyl", "UK", 3, 10, 0]);
+    const scoped = buildQueueSql({
+      filters: filters({}),
+      strategy: "label_sweep",
+      limit: 10,
+      scope: { kind: "artist", id: 21 },
+    });
+    expect(scoped.params).toEqual([21, 21, 1998, 2002, "Vinyl", 10, 0]);
   });
 });

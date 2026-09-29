@@ -1,5 +1,6 @@
 import type { Stats, TwelvesItem } from "../shared/api.ts";
 import type { ColorScheme, Config } from "../shared/config.ts";
+import type { ScopeRef } from "../shared/scope.ts";
 import { api } from "./api.ts";
 
 export function errorMessage(error: unknown): string {
@@ -11,11 +12,23 @@ class StatsStore {
   error = $state<string | null>(null);
   /** Verdicts given since the app was opened, net of undos. */
   session = $state(0);
+  /** The label or artist Triage digs; the stats also count what is left in it. */
+  scope: ScopeRef | null = null;
   #timer: ReturnType<typeof setTimeout> | null = null;
 
+  /** The next refresh counts the records left in the scope; until then the count is unknown. */
+  setScope(scope: ScopeRef | null): void {
+    this.scope = scope;
+    if (this.value) this.value = { ...this.value, scopeRemaining: null };
+  }
+
   async refresh(): Promise<void> {
+    const scope = this.scope;
     try {
-      this.value = await api.getStats();
+      const value = await api.getStats({ scope: scope ?? undefined });
+      // The count belongs to the scope asked about; a refresh for the new one follows.
+      if (scope !== this.scope) return;
+      this.value = value;
       this.error = null;
     } catch (error) {
       this.error = errorMessage(error);

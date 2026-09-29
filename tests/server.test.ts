@@ -9,6 +9,7 @@ import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type {
   QueueResponse,
   ReleaseDetail,
+  ScopeSearchResponse,
   Stats,
   TrackMarksResponse,
   TwelvesResponse,
@@ -109,6 +110,27 @@ describe("HTTP API", () => {
     expect((await get(`/api/stats?filters=${encodeURIComponent('{"yearFrom":"x"}')}`)).status).toBe(
       400,
     );
+  });
+
+  it("narrows the queue and its counts to a label or artist, and finds them by name", async () => {
+    const q = await get<QueueResponse>("/api/queue?scope=label:78");
+    expect(q.body.items.map((i) => i.id)).toEqual([1006]);
+    expect(q.body.remaining).toBe(1);
+    expect((await get<Stats>("/api/stats?scope=artist:12")).body).toMatchObject({
+      remaining: 2,
+      scopeRemaining: 1,
+    });
+    expect((await get<Stats>("/api/stats")).body.scopeRemaining).toBeNull();
+    for (const scope of ["seller:1", "label:0", "label"])
+      expect((await get(`/api/queue?scope=${scope}`)).status).toBe(400);
+    expect((await get("/api/stats?scope=artist:x")).status).toBe(400);
+
+    const found = await get<ScopeSearchResponse>("/api/scopes?q=renegade%20hardware%20ltd");
+    expect(found.body.items).toEqual([
+      { kind: "label", id: 78, name: "Renegade Hardware Ltd.", records: 1 },
+    ]);
+    expect((await get("/api/scopes?q=%20r%20")).status).toBe(400);
+    expect((await get("/api/scopes")).status).toBe(400);
   });
 
   it("returns the full release record", async () => {

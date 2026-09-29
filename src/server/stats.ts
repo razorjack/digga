@@ -1,5 +1,6 @@
 import type { Stats } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
+import type { ScopeRef } from "../shared/scope.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type Db, getMeta } from "./db/db.ts";
 import {
@@ -15,7 +16,8 @@ import {
   countUniverseReleases,
 } from "./queue/query.ts";
 
-export function computeStats(db: Db, config: Config): Stats {
+/** The counters; with a scope, also the records left to dig in it. */
+export function computeStats(db: Db, config: Config, scope: ScopeRef | null = null): Stats {
   const remaining = countRemaining(db, config.filters);
   return {
     dug: countDug(db),
@@ -26,6 +28,7 @@ export function computeStats(db: Db, config: Config): Stats {
     },
     verdicts: countVerdictsByStatus(db),
     remaining,
+    scopeRemaining: scope ? countRemaining(db, config.filters, scope) : null,
     remainingEnriched: countEnrichedRemaining(db, config.filters),
     rate: rateSummary(triageDecisionTimes(db), remaining),
     dump: {
