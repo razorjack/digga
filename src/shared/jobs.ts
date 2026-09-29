@@ -46,6 +46,7 @@ export const JobSchema = z.discriminatedUnion("type", [
         phase: z.enum(["scanning", "done"]).default("done"),
         scanned: count,
         matched: count,
+        coverage: count.default(0),
         upserted: count,
         elapsedSeconds: z.number().nonnegative(),
         bytesRead: count.nullable().default(null),

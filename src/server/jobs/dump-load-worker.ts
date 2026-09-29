@@ -1,14 +1,14 @@
 import { parentPort, workerData } from "node:worker_threads";
-import type { DumpLoadOptions, DumpLoadResult } from "../../../tools/dump/load.ts";
+import type { DumpLoadResult } from "../../../tools/dump/load.ts";
 import type { DumpLoadProgress } from "../../shared/types.ts";
 import { openDb } from "../db/db.ts";
 import { createLogger } from "../logger.ts";
-import { dumpLoad } from "./dump-load.ts";
+import { dumpLoad, type DumpLoadJobOptions } from "./dump-load.ts";
 import type { WorkerMessage } from "./worker.ts";
 
 export interface DumpLoadWorkerData {
   dbFile: string;
-  options: DumpLoadOptions;
+  options: DumpLoadJobOptions;
 }
 
 const data = workerData as DumpLoadWorkerData;

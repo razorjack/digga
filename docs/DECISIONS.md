@@ -400,3 +400,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     worker path: every job is an async function, and one that needs a worker awaits it, which
     lets a single job download the dump and then load it. A worker that has posted its result
     but not exited keeps its job running; it used to show as done.
+90. **The coverage pass is part of every load.** With `universe.coverage` (on by default) a load
+    also keeps releases in other styles on the labels, and by the release artists, of the
+    records the user wants or owns: wants, grails, the wantlist and the collection, every
+    pressing, stubs included. The ids come from the database when the load starts
+    (`queue/coverage.ts`), so a new want widens the next load. A label that mostly releases
+    other music would flood the queue, so a label or artist qualifies only when at least a
+    third of its releases in the load years carry one of the styles, and not at all past 500
+    releases in other styles. The share is only known at the end of the dump, so candidates
+    wait in memory until then; the cap bounds them. Various, Unknown Artist and "Not On Label"
+    never count. The load years apply to coverage releases too, and a load stopped by its
+    limit keeps none, since it has no shares to go on. `--labels` and `--artists` now add ids
+    to the pass instead of replacing style matching.

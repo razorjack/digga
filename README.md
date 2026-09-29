@@ -115,6 +115,8 @@ contains these settings:
   `Drum n Bass`.
 - `universe.loadYears` limits the years imported into the local database. The example uses
   `[1994, 2008]`; `null` loads all years for the selected styles.
+- `universe.coverage` also imports releases in other styles from the labels and artists of the
+  records you want or own, when those labels and artists mostly release the selected styles.
 - `filters` narrows what you listen to from the loaded catalogue. The example starts with vinyl
   from 1998 through 2002. These filters can change in Settings without loading the dump again.
 - `discogs.username` is the account to use for collection and wantlist imports.

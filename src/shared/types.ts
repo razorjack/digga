@@ -164,7 +164,10 @@ export interface DumpDownloadProgress {
 export interface DumpLoadProgress {
   phase: "scanning" | "done";
   scanned: number;
+  /** Releases in the universe styles. */
   matched: number;
+  /** Releases in other styles kept for their label or artist; known once the load is done. */
+  coverage: number;
   upserted: number;
   elapsedSeconds: number;
   /** Bytes of the dump file read so far, compressed; null when it comes from stdin. */

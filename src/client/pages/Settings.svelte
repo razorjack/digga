@@ -802,6 +802,17 @@
               <span class="hint" id="{id}-load-years-hint">Leave either empty to load every year.</span>
             </div>
           </fieldset>
+          <fieldset class="field">
+            <legend class="name">Coverage</legend>
+            <label class="check">
+              <input type="checkbox" aria-describedby="{id}-coverage-hint" bind:checked={draft.universe.coverage} />
+              also other styles from the labels and artists you want
+            </label>
+            <span class="hint" id="{id}-coverage-hint">
+              Keeps releases in other styles on the labels, and by the artists, of the records you want or own, when at
+              least a third of that label's or artist's releases in the load years carry one of the styles above.
+            </span>
+          </fieldset>
         </div>
       </section>
 

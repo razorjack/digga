@@ -69,9 +69,10 @@ function progressOf(job: Job): ProgressSummary {
 
 /** Releases scanned and kept; the share of the file read so far is the fraction. */
 function loadProgress(progress: DumpLoadProgress): ProgressSummary {
-  const { scanned, matched, bytesRead, totalBytes } = progress;
+  const { scanned, matched, coverage, bytesRead, totalBytes } = progress;
+  const covered = coverage > 0 ? `, ${formatCount(coverage)} more for their label or artist` : "";
   return {
-    text: `scanned ${formatCount(scanned)}, matched ${formatCount(matched)}`,
+    text: `scanned ${formatCount(scanned)}, matched ${formatCount(matched)}${covered}`,
     fraction: bytesRead !== null && totalBytes ? bytesRead / totalBytes : null,
   };
 }

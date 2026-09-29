@@ -102,17 +102,29 @@ describe("matchesUniverse", () => {
       matchesUniverse({ ...base, released: "1990" }, { styles: ["Drum n Bass"], loadYears: null }),
     ).toBe(true);
   });
-  it("switches to label/artist id matching when ids are given", () => {
-    const c = {
-      styles: ["Drum n Bass"],
-      loadYears: [1994, 2008] as [number, number],
-      labelIds: [9],
-    };
-    expect(matchesUniverse({ ...base, styles: ["Techno"] }, c)).toBe(true);
-    expect(matchesUniverse({ ...base, labels: [] }, c)).toBe(false);
-    expect(matchesUniverse({ ...base, labels: [] }, { ...c, labelIds: [], artistIds: [5] })).toBe(
-      true,
-    );
+});
+
+describe("the coverage pass in a load", () => {
+  const criteria = { file: FIXTURE_GZ, styles: ["Drum n Bass"], loadYears: null };
+
+  it("keeps a release in another style on a label mostly in the styles", async () => {
+    const db = openDb(":memory:");
+    // 1005 is Techno on Renegade Hardware (77), which has four Drum n Bass releases.
+    const result = await loadDump(db, { ...criteria, labelIds: [77] });
+    expect(result).toMatchObject({ matched: 5, coverage: 1, upserted: 6 });
+    expect(getRelease(db, 1005)?.styles).toEqual(["Techno"]);
+    db.close();
+  });
+
+  it("keeps nothing for an artist without releases in the styles, or after a limit", async () => {
+    const db = openDb(":memory:");
+    // Surgeon (41) has only the Techno release.
+    const byArtist = await loadDump(db, { ...criteria, artistIds: [41] });
+    expect(byArtist).toMatchObject({ matched: 5, coverage: 0 });
+    const limited = await loadDump(db, { ...criteria, labelIds: [77], limit: 5 });
+    expect(limited).toMatchObject({ matched: 5, coverage: 0 });
+    expect(getRelease(db, 1005)).toBeNull();
+    db.close();
   });
 });
 
@@ -222,23 +234,6 @@ describe("loadDump", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM tracks WHERE release_id = 1001").get()).toEqual({
       n: 3,
     });
-    db.close();
-  });
-
-  it("uses the label/artist id mode", async () => {
-    const db = openDb(":memory:");
-    const r = await loadDump(db, {
-      file: FIXTURE_GZ,
-      styles: [],
-      loadYears: null,
-      labelIds: [88],
-      artistIds: [41],
-    });
-    expect(r.matched).toBe(2);
-    const ids = (db.prepare("SELECT id FROM releases ORDER BY id").all() as { id: number }[]).map(
-      (r) => r.id,
-    );
-    expect(ids).toEqual([1004, 1005]);
     db.close();
   });
 

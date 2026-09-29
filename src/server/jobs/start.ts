@@ -74,6 +74,7 @@ function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoad
       dryRun: input.dryRun,
       labelIds,
       artistIds,
+      coverage: config.universe.coverage,
     },
   };
 }

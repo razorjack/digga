@@ -47,8 +47,11 @@ filtered on. Style strings must match Discogs exactly (`Drum n Bass`, not `Drum 
 
 Load-time filter: any style in `universe.styles`, and, when `universe.loadYears` is set, the parsed
 year inside the window or unknown. Format, country and the tight year range are query-time filters.
-`--labels ids.txt` / `--artists ids.txt` switch to id matching regardless of style (for the
-coverage pass in session 4).
+With `universe.coverage`, releases in other styles are kept too when a label or release artist of
+theirs is one of a record the user wants or owns and at least a third of that label's or
+artist's releases in the load window carry a style (`tools/dump/coverage.ts`). `--labels ids.txt`
+/ `--artists ids.txt` add ids to that pass. Releases credit compilations to "Various" (194) and
+self-releases to labels named "Not On Label ...", which never count.
 
 The dump does not carry prices, have/want counts or fresh videos; `enrich` fills those from the API.
 

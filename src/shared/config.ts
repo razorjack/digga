@@ -52,6 +52,11 @@ export const ConfigSchema = z.object({
     .object({
       styles: z.array(z.string().min(1)).default(["Drum n Bass"]),
       loadYears: z.tuple([z.number().int(), z.number().int()]).nullable().default([1994, 2008]),
+      /**
+       * Also keep releases in other styles on the labels, and by the artists, of the records you
+       * want or own, when at least a third of their releases in the load years carry a style.
+       */
+      coverage: z.boolean().default(true),
     })
     .prefault({}),
   filters: FiltersSchema.prefault({}),

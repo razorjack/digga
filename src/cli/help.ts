@@ -6,11 +6,13 @@ Commands:
   dump download             Download the newest releases dump from data.discogs.com into
                             data/dumps/, unless it is there already
   dump load <file|->        Stream a Discogs releases dump (.xml.gz, .xml or XML on stdin)
-                            into the local universe, filtered by config universe.styles.
-      --limit N             Stop after N matching releases (dev aid)
+                            into the local universe, filtered by config universe.styles; with
+                            universe.coverage, other styles on the labels and by the artists of
+                            records you want or own too
+      --limit N             Stop after N matching releases (dev aid; keeps no other styles)
       --dry-run             Count matches without writing
-      --labels FILE         Match by label ids listed in FILE (one per line), any style
-      --artists FILE        Match by artist ids listed in FILE, any style
+      --labels FILE         Add the label ids in FILE (one per line) to the coverage pass
+      --artists FILE        Add the artist ids in FILE to the coverage pass
   import collection         Seed verdicts from your Discogs collection
   import wantlist           Seed verdicts from your Discogs wantlist
   import history            Mark releases you already opened on discogs.com as seen

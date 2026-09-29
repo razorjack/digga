@@ -32,8 +32,10 @@ export function showDump(result: DumpLoadResult): void {
     ? "dry run, nothing written"
     : `upserted ${result.upserted.toLocaleString()}`;
   const date = result.dumpDate ? ` (dump ${result.dumpDate})` : "";
+  const covered =
+    result.coverage > 0 ? ` (+${result.coverage.toLocaleString()} for their label or artist)` : "";
   console.log(
-    `dump load: scanned ${result.scanned.toLocaleString()} releases, matched ${result.matched.toLocaleString()}, ${written} in ${result.elapsedSeconds.toFixed(0)}s${date}`,
+    `dump load: scanned ${result.scanned.toLocaleString()} releases, matched ${result.matched.toLocaleString()}${covered}, ${written} in ${result.elapsedSeconds.toFixed(0)}s${date}`,
   );
 }
 

@@ -58,7 +58,10 @@ The set of releases to dig comes from the monthly Discogs releases dump, never f
 API. `tools/dump/parse.ts` streams `fs -> gunzip -> saxes` and yields one lightweight object per
 `<release>`; `tools/dump/load.ts` keeps releases matching `universe.styles` (plus the wide
 `universe.loadYears` window, unknown years always pass) and upserts them in batches of 500 through
-`src/server/db/releases.ts`. Memory stays flat regardless of dump size.
+`src/server/db/releases.ts`. Memory stays flat regardless of dump size, except for the coverage
+pass (`universe.coverage`, decision 90): releases in other styles on the labels and by the artists
+of wanted or owned records (`queue/coverage.ts`) wait in `tools/dump/coverage.ts` until the end
+of the dump shows whether their label mostly releases the styles, at most 500 per label or artist.
 
 The queue is a query (`src/server/queue/query.ts`), not a table. It groups releases by triage key
 (`m:{master_id}` or `r:{release_id}`, see `src/shared/triage-key.ts`), drops keys that already have a

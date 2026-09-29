@@ -1,5 +1,6 @@
 import { parseArgs } from "node:util";
-import { readIdList, type DumpLoadOptions } from "../../tools/dump/load.ts";
+import { readIdList } from "../../tools/dump/load.ts";
+import type { DumpLoadJobOptions } from "../server/jobs/dump-load.ts";
 import type { Config } from "../shared/config.ts";
 import { BROWSERS } from "../shared/api.ts";
 import type { SeedImportOptions } from "../server/importers/collection.ts";
@@ -15,7 +16,7 @@ export type ImportCommand =
   | { kind: "seller"; options: SellerImportOptions }
   | { kind: "collection" | "wantlist"; options: SeedImportOptions };
 
-export function parseDumpOptions(args: string[], config: Config): DumpLoadOptions {
+export function parseDumpOptions(args: string[], config: Config): DumpLoadJobOptions {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
@@ -36,6 +37,7 @@ export function parseDumpOptions(args: string[], config: Config): DumpLoadOption
     dryRun: values["dry-run"],
     labelIds: values.labels ? readIdList(values.labels) : undefined,
     artistIds: values.artists ? readIdList(values.artists) : undefined,
+    coverage: config.universe.coverage,
   };
 }
 
