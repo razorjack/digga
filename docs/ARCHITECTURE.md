@@ -116,7 +116,9 @@ records in queue order, a given number or all of them; `enrichTwelves` refreshes
 the Twelves shelves instead, those never enriched first, then the oldest data, because the queue
 skips records once they have a verdict. `Stats.remainingEnriched` counts the records still to dig
 that have market data, so Settings can say how much of the queue "most wanted first" can order.
-`downloadDump` finds the newest releases dump on data.discogs.com
+The dump update (`POST /api/jobs/dump-update`, `digga dump update`) is one job of two steps,
+`downloadDump` and then the loader, with progress tagged by `step`; the server runs one dump job at
+a time. `downloadDump` finds the newest releases dump on data.discogs.com
 (`src/server/discogs/data-dumps.ts`), streams it into `paths.dumpsDir` as `<file>.part` while
 hashing it, and renames it only when the SHA-256 matches the published one. It is network-bound
 and runs on the server thread; `GET /api/dumps` lists what the folder holds for Load.

@@ -25,12 +25,22 @@ export function jobProgress(job: Job, now: number = Date.now()): ProgressSummary
 /** "~12 min left", from the pace so far. */
 function timeLeft(job: Job, fraction: number | null, now: number): string | null {
   if (fraction === null || fraction < ESTIMATE_AFTER.fraction || fraction >= 1) return null;
-  if (!job.startedAt) return null;
-  const seconds = (now - Date.parse(job.startedAt)) / 1000;
-  if (seconds < ESTIMATE_AFTER.seconds) return null;
+  const seconds = stepSeconds(job, now);
+  if (seconds === null || seconds < ESTIMATE_AFTER.seconds) return null;
   const hoursLeft = (seconds * (1 - fraction)) / fraction / 3600;
   // Non-breaking spaces keep the estimate on one line when the progress wraps.
   return `${formatEta(hoursLeft)} left`.replaceAll(" ", "\u00a0");
+}
+
+/**
+ * Seconds the running step has taken, which the fraction belongs to. An update's load step times
+ * itself; every other step starts with its job.
+ */
+function stepSeconds(job: Job, now: number): number | null {
+  if (job.type === "dump_update" && job.progress?.step === "load")
+    return job.progress.elapsedSeconds;
+  if (!job.startedAt) return null;
+  return (now - Date.parse(job.startedAt)) / 1000;
 }
 
 function progressOf(job: Job): ProgressSummary {
@@ -40,6 +50,10 @@ function progressOf(job: Job): ProgressSummary {
       return downloadProgress(job.progress);
     case "dump_load":
       return loadProgress(job.progress);
+    case "dump_update":
+      return job.progress.step === "download"
+        ? downloadProgress(job.progress)
+        : loadProgress(job.progress);
     case "enrich":
     case "enrich_twelves": {
       const { done, total, failed } = job.progress;
@@ -117,6 +131,7 @@ function sellerProgress(progress: SellerImportProgress): ProgressSummary {
 export const JOB_LABEL: Record<JobType, string> = {
   dump_download: "Download dump",
   dump_load: "Load dump",
+  dump_update: "Update from the newest dump",
   import_collection: "Import collection",
   import_wantlist: "Import wantlist",
   import_history: "Import browser history",

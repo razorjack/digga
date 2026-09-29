@@ -66,6 +66,8 @@ export interface Api {
   /** Downloads the newest releases dump from data.discogs.com into the dumps folder. */
   startDumpDownload(): Promise<Job>;
   startDumpLoad(input: DumpLoadJobInput): Promise<Job>;
+  /** Downloads the newest dump unless the dumps folder has it, then loads it. */
+  startDumpUpdate(): Promise<Job>;
   /** The releases dumps in the dumps folder, newest first. */
   getDumps(): Promise<DumpsResponse>;
   startImport(kind: ImportKind, input?: ImportJobInput): Promise<Job>;
@@ -138,6 +140,7 @@ export function createHttpApi(baseUrl = "/api"): Api {
     startEnrich: (input = {}) => call("POST", "/jobs/enrich", input),
     startDumpDownload: () => call("POST", "/jobs/dump-download"),
     startDumpLoad: (input) => call("POST", "/jobs/dump-load", input),
+    startDumpUpdate: () => call("POST", "/jobs/dump-update"),
     getDumps: () => call("GET", "/dumps"),
     startImport: (kind, input = {}) => call("POST", `/jobs/import/${kind}`, input),
     getJobs: () => call("GET", "/jobs"),
@@ -203,6 +206,7 @@ export function createAppApi(
     startEnrich: (input) => current.startEnrich(input),
     startDumpDownload: () => current.startDumpDownload(),
     startDumpLoad: (input) => current.startDumpLoad(input),
+    startDumpUpdate: () => current.startDumpUpdate(),
     getDumps: () => current.getDumps(),
     startImport: (kind, input) => current.startImport(kind, input),
     getJobs: () => current.getJobs(),

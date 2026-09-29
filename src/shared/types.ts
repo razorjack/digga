@@ -27,6 +27,7 @@ export type TrackMark = (typeof TRACK_MARKS)[number];
 export const JOB_TYPES = [
   "dump_download",
   "dump_load",
+  "dump_update",
   "import_collection",
   "import_wantlist",
   "import_history",
@@ -178,6 +179,11 @@ export interface DumpLoadProgress {
   totalBytes: number | null;
 }
 
+/** Downloading the newest dump unless the folder has it, then loading it. */
+export type DumpUpdateProgress =
+  | ({ step: "download" } & DumpDownloadProgress)
+  | ({ step: "load" } & DumpLoadProgress);
+
 export interface ImportProgress {
   page: number;
   pages: number | null;
@@ -218,6 +224,7 @@ export interface SellerImportProgress {
 export interface JobProgressByType {
   dump_download: DumpDownloadProgress;
   dump_load: DumpLoadProgress;
+  dump_update: DumpUpdateProgress;
   enrich: EnrichProgress;
   enrich_twelves: EnrichProgress;
   import_history: HistoryImportProgress;

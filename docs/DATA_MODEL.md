@@ -140,7 +140,7 @@ releases with that `added_by_load`.
 
 ## jobs
 
-`id` (uuid), `type` (`dump_download`, `dump_load`, `import_collection`, `import_wantlist`, `import_history`,
+`id` (uuid), `type` (`dump_download`, `dump_load`, `dump_update`, `import_collection`, `import_wantlist`, `import_history`,
 `import_list`, `import_seller`, `enrich`, `enrich_twelves`),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`

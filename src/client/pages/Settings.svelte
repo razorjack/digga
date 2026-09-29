@@ -13,7 +13,7 @@
   } from "../../shared/config.ts";
   import { formatBytes, formatCount, formatDay, formatEta } from "../../shared/display.ts";
   import { enrichHours } from "../../shared/rate.ts";
-  import type { Job } from "../../shared/types.ts";
+  import type { Job, JobType } from "../../shared/types.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
   import { getAnchor } from "../router.svelte.ts";
@@ -53,6 +53,7 @@
     year: { label: "By year", hint: "oldest first, then label" },
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
   };
+  const DUMP_JOBS: JobType[] = ["dump_download", "dump_load", "dump_update"];
   const COLOR_SCHEME_LABEL: Record<ColorScheme, string> = {
     system: "System",
     light: "Light",
@@ -103,8 +104,9 @@
   const highlighted = $derived(getAnchor() === "sandbox");
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
   const tokenFromEnvironment = $derived(discogs.account?.tokenSource === "environment");
-  const downloading = $derived(
-    jobState.items.some((job) => job.type === "dump_download" && job.status === "running"),
+  /** The server runs one dump download, load or update at a time. */
+  const dumpJobRunning = $derived(
+    jobState.items.some((job) => DUMP_JOBS.includes(job.type) && job.status === "running"),
   );
   const dumpSummary = $derived.by(() => {
     if (dumpFiles.error) return `The dumps folder did not load: ${dumpFiles.error}.`;
@@ -946,13 +948,17 @@
         </form>
         <div class="job">
           <p>
-            <b>Dump</b>: Discogs publishes all its releases once a month, over 10 GB compressed. Download fetches the
-            newest one into <code>{dumpFiles.value?.directory ?? "data/dumps/"}</code> and checks it against the
-            checksum Discogs publishes; Load streams a dump from that folder, or from an absolute path, into the library.
+            <b>Dump</b>: Discogs publishes all its releases once a month, over 10 GB compressed. Update downloads the
+            newest one into <code>{dumpFiles.value?.directory ?? "data/dumps/"}</code> unless it is there, checks it
+            against the checksum Discogs publishes, and loads it; the records it adds are offered under
+            <Key label="F" size="sm" /> in Triage. Download and Load do one step each, and Load also takes an absolute path.
           </p>
           <div class="inline wrap">
-            <button type="button" class="secondary" disabled={downloading} onclick={() => startJob(() => api.startDumpDownload())}>
-              {downloading ? "Downloading…" : "Download newest dump"}
+            <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
+              Update from the newest dump
+            </button>
+            <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
+              Download only
             </button>
             <span class="quiet">{dumpSummary}</span>
           </div>
@@ -981,7 +987,7 @@
             <button
               type="button"
               class="secondary"
-              disabled={dumpFile.trim() === ""}
+              disabled={dumpJobRunning || dumpFile.trim() === ""}
               onclick={() =>
                 startJob(() =>
                   api.startDumpLoad({ file: dumpFile.trim(), limit: dumpLimit ?? undefined, dryRun: dumpDryRun }),

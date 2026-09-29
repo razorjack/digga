@@ -137,9 +137,13 @@ compressed file, so you do not need to extract it. Settings has buttons for both
 Jobs; from the command line:
 
 ```sh
+npm run digga -- dump update      # both steps below: download unless it is there, then load
 npm run digga -- dump download    # the newest dump into data/dumps/, checked against its checksum
 npm run digga -- dump load data/dumps/discogs_YYYYMMDD_releases.xml.gz
 ```
+
+Discogs publishes a new dump at the start of each month. Run the update again then: it loads the
+records Discogs has added since, and `F` in Triage digs just those.
 
 The loader keeps releases matching your import settings. Changing queue filters later is
 immediate; expanding the imported styles or year range requires another dump load.

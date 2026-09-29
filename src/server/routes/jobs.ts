@@ -9,7 +9,13 @@ import {
   type JobsResponse,
 } from "../../shared/api.ts";
 import { listDumpFiles } from "../dump-files.ts";
-import { startDumpDownload, startDumpLoad, startEnrich, startImport } from "../jobs/start.ts";
+import {
+  startDumpDownload,
+  startDumpLoad,
+  startDumpUpdate,
+  startEnrich,
+  startImport,
+} from "../jobs/start.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseJson, refuseInSandbox } from "./request.ts";
 
@@ -17,6 +23,7 @@ export function registerJobsRoutes(api: Hono, context: AppContext): void {
   api.post("/jobs/enrich", (request) => enrichJob(request, context));
   api.post("/jobs/dump-download", (request) => dumpDownloadJob(request, context));
   api.post("/jobs/dump-load", (request) => dumpJob(request, context));
+  api.post("/jobs/dump-update", (request) => dumpUpdateJob(request, context));
   api.post("/jobs/import/:kind", (request) => importJob(request, context));
   api.get("/jobs", (request) => jobs(request, context));
   api.get("/dumps", (request) => dumps(request, context));
@@ -33,6 +40,10 @@ async function enrichJob(request: Context, context: AppContext) {
 
 function dumpDownloadJob(request: Context, context: AppContext) {
   return request.json(startDumpDownload(context), 202);
+}
+
+function dumpUpdateJob(request: Context, context: AppContext) {
+  return request.json(startDumpUpdate(context), 202);
 }
 
 async function dumpJob(request: Context, context: AppContext) {

@@ -434,3 +434,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     them after the record's own labels and artists, so `F` then Enter still digs the first
     label. A cancelled load's additions pass to the next finished load, which is the first to
     report them.
+93. **The monthly update is one job.** "Update from the newest dump" downloads the newest dump
+    unless the folder has it, then loads it: the coverage pass, the load record and the new
+    records under `F` come with it. It runs even when that dump was loaded before, since the
+    coverage set may have grown since. Its progress is the download's, then the load's, tagged
+    by `step`, and the estimate for the load step uses the load's own time, not the job's. A
+    download, a load and an update each refuse to start while another of them runs, since two
+    would write the same file or the same rows. Checked from the panel with the owner's
+    collection and wantlist (214 records, 122 labels, 166 artists): the update found the dump
+    downloaded and loaded it in 819 s, 12 s more than without coverage. It kept 557 releases in
+    other styles, mostly Jungle, Breakbeat and Hardcore on Moving Shadow, Certificate 18 and
+    Passenger, 87 of them records to dig under the default filters, and left out 9 labels and
+    artists that mostly release other music, P!NK among them.

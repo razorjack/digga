@@ -3,6 +3,7 @@ import {
   cmdBackup,
   cmdDumpDownload,
   cmdDumpLoad,
+  cmdDumpUpdate,
   cmdEnrich,
   cmdImport,
   cmdServe,
@@ -21,8 +22,9 @@ async function main(argv: string[]): Promise<void> {
   switch (command) {
     case "dump":
       if (args[0] === "download") return cmdDumpDownload(runtime);
+      if (args[0] === "update") return cmdDumpUpdate(runtime);
       if (args[0] !== "load")
-        throw new Error("usage: digga dump download | digga dump load <file|->");
+        throw new Error("usage: digga dump download | update | load <file|->");
       return cmdDumpLoad(runtime, args.slice(1));
     case "import":
       return cmdImport(runtime, args);

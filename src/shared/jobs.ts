@@ -24,36 +24,42 @@ const base = {
   finishedAt: z.string().nullable(),
 };
 
+const DumpDownloadProgressSchema = z.object({
+  phase: z.enum(["finding", "downloading", "done"]),
+  file: z.string().nullable(),
+  receivedBytes: count,
+  totalBytes: count.nullable(),
+  alreadyDownloaded: z.boolean(),
+});
+// Defaults read progress saved by older versions, which lacked these fields.
+const DumpLoadProgressSchema = z.object({
+  phase: z.enum(["scanning", "done"]).default("done"),
+  scanned: count,
+  matched: count,
+  coverage: count.default(0),
+  upserted: count,
+  elapsedSeconds: z.number().nonnegative(),
+  added: count.nullable().default(null),
+  missing: count.nullable().default(null),
+  bytesRead: count.nullable().default(null),
+  totalBytes: count.nullable().default(null),
+});
+
 export const JobSchema = z.discriminatedUnion("type", [
   z.object({
     ...base,
     type: z.literal("dump_download"),
-    progress: z
-      .object({
-        phase: z.enum(["finding", "downloading", "done"]),
-        file: z.string().nullable(),
-        receivedBytes: count,
-        totalBytes: count.nullable(),
-        alreadyDownloaded: z.boolean(),
-      })
-      .nullable(),
+    progress: DumpDownloadProgressSchema.nullable(),
   }),
+  z.object({ ...base, type: z.literal("dump_load"), progress: DumpLoadProgressSchema.nullable() }),
   z.object({
     ...base,
-    type: z.literal("dump_load"),
+    type: z.literal("dump_update"),
     progress: z
-      .object({
-        phase: z.enum(["scanning", "done"]).default("done"),
-        scanned: count,
-        matched: count,
-        coverage: count.default(0),
-        upserted: count,
-        elapsedSeconds: z.number().nonnegative(),
-        added: count.nullable().default(null),
-        missing: count.nullable().default(null),
-        bytesRead: count.nullable().default(null),
-        totalBytes: count.nullable().default(null),
-      })
+      .discriminatedUnion("step", [
+        DumpDownloadProgressSchema.extend({ step: z.literal("download") }),
+        DumpLoadProgressSchema.extend({ step: z.literal("load") }),
+      ])
       .nullable(),
   }),
   z.object({ ...base, type: z.literal("enrich"), progress: EnrichProgressSchema.nullable() }),

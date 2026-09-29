@@ -5,6 +5,7 @@ Usage: digga <command> [options]
 Commands:
   dump download             Download the newest releases dump from data.discogs.com into
                             data/dumps/, unless it is there already
+  dump update               Download the newest dump unless it is there, then load it
   dump load <file|->        Stream a Discogs releases dump (.xml.gz, .xml or XML on stdin)
                             into the local universe, filtered by config universe.styles; with
                             universe.coverage, other styles on the labels and by the artists of

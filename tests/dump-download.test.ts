@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
-import { createJob, getJob, updateJobProgress } from "../src/server/db/jobs.ts";
+import { createJob, getJob, markJobStarted, updateJobProgress } from "../src/server/db/jobs.ts";
 import {
   checksumFor,
   createDataDumpClient,
@@ -18,7 +18,7 @@ import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { downloadDump } from "../src/server/jobs/dump-download.ts";
 import { jobProgress } from "../src/shared/job-display.ts";
 import type { DumpDownloadProgress, Job } from "../src/shared/types.ts";
-import { silentLogger, testSecrets } from "./helpers.ts";
+import { FIXTURE_GZ, silentLogger, testSecrets } from "./helpers.ts";
 
 const ROOT = `<pre>
   <a href="?prefix=data%2F2025%2F">2025/</a>
@@ -234,7 +234,7 @@ describe("the download over HTTP", () => {
       const second = await server.app.request("/api/jobs/dump-download", { method: "POST" });
       expect([second.status, ((await second.json()) as ApiError).error]).toEqual([
         400,
-        "A dump download is running already",
+        'Wait until "Download dump" has finished',
       ]);
 
       await expect.poll(() => server.jobs.get(job.id)?.status).toBe("done");
@@ -248,6 +248,86 @@ describe("the download over HTTP", () => {
     } finally {
       await server.stop();
       fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the monthly update over HTTP", () => {
+  it("downloads the newest dump, then loads it, one dump job at a time", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-update-http-"));
+    const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+    paths.dbFile = ":memory:";
+    const site = fakeSite();
+    site.body = fs.readFileSync(FIXTURE_GZ);
+    site.checksum = createHash("sha256").update(site.body).digest("hex");
+    const server = createServer({
+      config: DEFAULT_CONFIG,
+      paths,
+      secrets: testSecrets(),
+      logger: silentLogger,
+      serveStatic: false,
+      persistConfig: false,
+      fetchImpl: fetchFrom(site),
+    });
+    const post = (url: string, body?: unknown) =>
+      server.app.request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    try {
+      const started = await post("/api/jobs/dump-update");
+      expect(started.status).toBe(202);
+      const job = (await started.json()) as Job;
+      const load = await post("/api/jobs/dump-load", { file: FIXTURE_GZ });
+      expect([load.status, ((await load.json()) as ApiError).error]).toEqual([
+        400,
+        'Wait until "Update from the newest dump" has finished',
+      ]);
+
+      await expect.poll(() => server.jobs.get(job.id)?.status).toBe("done");
+      expect(server.jobs.get(job.id)?.progress).toMatchObject({
+        step: "load",
+        phase: "done",
+        matched: 5,
+        added: 5,
+      });
+      expect(fs.existsSync(path.join(paths.dumpsDir, "discogs_20260901_releases.xml.gz"))).toBe(
+        true,
+      );
+      expect(server.db.prepare("SELECT COUNT(*) FROM releases").pluck().get()).toBe(5);
+    } finally {
+      await server.stop();
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("estimates the load step from its own time, not the download's", () => {
+    const db = openDb(":memory:");
+    try {
+      const job = createJob(db, "dump_update");
+      markJobStarted(db, job.id);
+      updateJobProgress(db, job.id, {
+        step: "load",
+        phase: "scanning",
+        scanned: 4_000_000,
+        matched: 15_000,
+        coverage: 0,
+        upserted: 15_000,
+        elapsedSeconds: 240,
+        bytesRead: 25,
+        totalBytes: 100,
+        added: null,
+        missing: null,
+      });
+      const running = getJob(db, job.id)!;
+      // The download took ten minutes before the load started.
+      const now = Date.parse(running.startedAt!) + 840_000;
+      expect(jobProgress(running, now).text).toBe(
+        "scanned 4,000,000, matched 15,000, ~12\u00a0min\u00a0left",
+      );
+    } finally {
+      db.close();
     }
   });
 });

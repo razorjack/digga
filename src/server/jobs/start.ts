@@ -6,9 +6,11 @@ import type {
   ImportJobInput,
   ImportKind,
 } from "../../shared/api.ts";
-import type { DumpLoadProgress, Job } from "../../shared/types.ts";
+import { JOB_LABEL } from "../../shared/job-display.ts";
+import type { DumpLoadProgress, Job, JobType } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
 import { resolveDumpFile } from "../paths.ts";
+import type { DumpLoadJobResult } from "./dump-load.ts";
 import {
   downloadDump,
   dumpLoad,
@@ -21,19 +23,17 @@ import {
   importWantlist,
 } from "./index.ts";
 import type { DumpLoadWorkerData } from "./dump-load-worker.ts";
-import { runWorker } from "./worker.ts";
-import type { DumpLoadResult } from "../../../tools/dump/load.ts";
+import { runWorker, type WorkerJob } from "./worker.ts";
 
 const DUMP_LOAD_WORKER = new URL("./dump-load-worker.ts", import.meta.url);
 
+/** Jobs that write the dumps folder or load a dump; two at once would write the same file or rows. */
+const DUMP_JOBS: JobType[] = ["dump_download", "dump_load", "dump_update"];
+
 export class JobInputError extends Error {}
 
-/** Two downloads of the same dump would write the same file. */
 export function startDumpDownload(context: AppContext): Job {
-  const running = context.jobs
-    .list()
-    .some((job) => job.type === "dump_download" && job.status === "running");
-  if (running) throw new JobInputError("A dump download is running already");
+  refuseWhileDumpJobRuns(context);
   const deps = { dumps: context.dataDumps, logger: context.logger };
   return context.jobs.run("dump_download", ({ signal, onProgress }) =>
     downloadDump(deps, { dumpsDir: context.paths.dumpsDir, signal }, onProgress),
@@ -42,15 +42,44 @@ export function startDumpDownload(context: AppContext): Job {
 
 export function startDumpLoad(context: AppContext, input: DumpLoadJobInput): Job {
   const workerData = prepareDumpLoad(context, input);
-  if (context.paths.dbFile === ":memory:") {
-    // In-memory servers cannot share their connection with a worker.
-    return context.jobs.run("dump_load", ({ onProgress }) =>
-      dumpLoad({ db: context.db, logger: context.logger }, workerData.options, onProgress),
+  refuseWhileDumpJobRuns(context);
+  return context.jobs.run("dump_load", (job) => runDumpLoad(context, workerData, job));
+}
+
+/** The monthly update: downloads the newest dump unless the folder has it, then loads it. */
+export function startDumpUpdate(context: AppContext): Job {
+  refuseWhileDumpJobRuns(context);
+  const deps = { dumps: context.dataDumps, logger: context.logger };
+  return context.jobs.run("dump_update", async ({ signal, onProgress }) => {
+    const download = await downloadDump(
+      deps,
+      { dumpsDir: context.paths.dumpsDir, signal },
+      (progress) => onProgress({ step: "download", ...progress }),
     );
-  }
-  return context.jobs.run("dump_load", (job) =>
-    runWorker<DumpLoadResult, DumpLoadProgress>(DUMP_LOAD_WORKER, workerData, job),
-  );
+    const workerData = prepareDumpLoad(context, { file: download.path, dryRun: false });
+    return runDumpLoad(context, workerData, {
+      signal,
+      onProgress: (progress) => onProgress({ step: "load", ...progress }),
+    });
+  });
+}
+
+function refuseWhileDumpJobRuns(context: AppContext): void {
+  const running = context.jobs
+    .list()
+    .find((job) => DUMP_JOBS.includes(job.type) && job.status === "running");
+  if (running) throw new JobInputError(`Wait until "${JOB_LABEL[running.type]}" has finished`);
+}
+
+/** In a worker with its own connection; an in-memory database cannot be shared, so it loads inline. */
+function runDumpLoad(
+  context: AppContext,
+  workerData: DumpLoadWorkerData,
+  job: WorkerJob<DumpLoadProgress>,
+): Promise<DumpLoadJobResult> {
+  if (context.paths.dbFile === ":memory:")
+    return dumpLoad({ db: context.db, logger: context.logger }, workerData.options, job.onProgress);
+  return runWorker<DumpLoadJobResult, DumpLoadProgress>(DUMP_LOAD_WORKER, workerData, job);
 }
 
 function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoadWorkerData {

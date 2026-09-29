@@ -59,6 +59,28 @@ export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
   showDownload(result);
 }
 
+/** The monthly update: the newest dump unless the folder has it, then a load of it. */
+export async function cmdDumpUpdate(runtime: Runtime): Promise<void> {
+  const deps = { dumps: createDataDumpClient(), logger: runtime.logger };
+  const report = downloadReporter();
+  const { result } = await withDatabase(runtime, (db) => {
+    const jobs = createJobRunner(db, runtime.logger);
+    return jobs.runAndWait("dump_update", async ({ signal, onProgress }) => {
+      const dumpsDir = runtime.paths.dumpsDir;
+      const download = await downloadDump(deps, { dumpsDir, signal }, (progress) => {
+        onProgress({ step: "download", ...progress });
+        report(progress);
+      });
+      showDownload(download);
+      const options = parseDumpOptions([download.path], runtime.config);
+      return dumpLoad({ db, logger: runtime.logger }, options, (progress) =>
+        onProgress({ step: "load", ...progress }),
+      );
+    });
+  });
+  showDump(result);
+}
+
 export async function cmdDumpLoad(runtime: Runtime, args: string[]): Promise<void> {
   const options = parseDumpOptions(args, runtime.config);
   const { result } = await withDatabase(runtime, (db) => {
