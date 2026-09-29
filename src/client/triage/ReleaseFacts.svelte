@@ -59,7 +59,7 @@
 
   {#if !enriched}
     <p class="unenriched">
-      No price or have/want yet; {enriching ? "Digga asks Discogs as records come up." : "Enrich in settings fetches them."}
+      No price or have/want yet; {enriching ? "Digga asks Discogs as records come up." : "Enrich ahead is off in Settings."}
     </p>
   {:else}
     <p class="market">
