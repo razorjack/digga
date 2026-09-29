@@ -362,3 +362,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     (3), so the wantlist import that finds the pushed release leaves the verdict a grail, and
     owning the record still ends the hunt. Grails from before this change are not on the
     wantlist; Twelves marks them like a failed want push, and `C` or "add all" adds them.
+86. **Settings saves the Discogs token.** A packaged app has no `.env` to edit, and the browser
+    version should not need one either. `PUT /api/discogs/token` takes a token, or null to remove
+    it, and answers the account as `GET /api/discogs/account` does, so the field shows at once
+    whose token it is. `Secrets` gained `setDiscogsToken` and `discogsTokenSource`: the CLI's
+    implementation rewrites the `DISCOGS_TOKEN` line of `.env`, keeps the other lines, and
+    writes the file readable by its owner only; Electron's will use `safeStorage`. A token in the
+    environment still wins, so the route refuses with `409` and Settings says why instead of
+    saving a token that would not be used. A token Discogs refuses is saved anyway, with the
+    reason next to the field, since Discogs may only be unreachable. Setting up is not digging,
+    so the sandbox does not refuse it.

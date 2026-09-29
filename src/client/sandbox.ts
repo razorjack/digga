@@ -64,9 +64,9 @@ function queueItemFromDetail(detail: ReleaseDetail, videoCount: number): QueueIt
  * An Api that fakes the digging writes in memory: verdicts, track marks, listens, wantlist
  * pushes and the Maybe list import. None of them reach the database or Discogs, and a reload
  * starts from the server's state again. Reads are overlaid with the fake writes, so the queue,
- * counters, Twelves, heard tracks and undo behave as if the writes had happened. Settings and
- * the other jobs (dump load, enrich, collection, wantlist and history imports) set the app up
- * rather than dig, so they go to the server.
+ * counters, Twelves, heard tracks and undo behave as if the writes had happened. Settings, the
+ * Discogs token and the other jobs (dump load, enrich, collection, wantlist and history imports)
+ * set the app up rather than dig, so they go to the server.
  */
 export function createSandboxApi(inner: Api, options: SandboxOptions = {}): Api {
   return new SandboxApi(inner, options);
@@ -531,6 +531,7 @@ class SandboxApi implements Api {
   };
 
   getDiscogsAccount: Api["getDiscogsAccount"] = () => this.#inner.getDiscogsAccount();
+  setDiscogsToken: Api["setDiscogsToken"] = (token) => this.#inner.setDiscogsToken(token);
 
   getDiscogsLists: Api["getDiscogsLists"] = () => this.#inner.getDiscogsLists();
 

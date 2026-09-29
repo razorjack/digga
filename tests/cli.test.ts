@@ -14,7 +14,7 @@ import { withDatabase } from "../src/cli/runtime.ts";
 import type { Db } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { FIXTURE_GZ, silentLogger } from "./helpers.ts";
+import { FIXTURE_GZ, silentLogger, testSecrets } from "./helpers.ts";
 
 describe("CLI workflows", () => {
   it("validates command options before execution", () => {
@@ -55,7 +55,7 @@ describe("CLI workflows", () => {
     const runtime = {
       config: DEFAULT_CONFIG,
       paths: { ...resolvePaths({ baseDir: "/tmp" }), dbFile: ":memory:" },
-      secrets: { getDiscogsToken: () => undefined },
+      secrets: testSecrets(),
       logger: silentLogger,
     };
     let database: Db | undefined;

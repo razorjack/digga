@@ -4,7 +4,7 @@ import { SettingsJobs } from "../src/client/settings/jobs.svelte.ts";
 import { DiscogsSettings } from "../src/client/settings/discogs.svelte.ts";
 import { createAppApi, type Api } from "../src/client/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type { DiscogsListsResponse, Stats } from "../src/shared/api.ts";
+import type { DiscogsAccountResponse, DiscogsListsResponse, Stats } from "../src/shared/api.ts";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -85,6 +85,39 @@ describe("Settings request ownership", () => {
     await first;
     expect(discogs.lists).toEqual([]);
     expect(discogs.listsState).toBe("idle");
+    discogs.destroy();
+  });
+
+  it("shows the account a saved token answers, not an older check", async () => {
+    const olderCheck = deferred<DiscogsAccountResponse>();
+    const account = (fields: Partial<DiscogsAccountResponse>): DiscogsAccountResponse => ({
+      username: "dj",
+      hasToken: false,
+      tokenSource: null,
+      tokenUsername: null,
+      error: null,
+      ...fields,
+    });
+    const setDiscogsToken = vi
+      .fn()
+      .mockResolvedValueOnce(account({ hasToken: true, tokenSource: "saved", tokenUsername: "dj" }))
+      .mockRejectedValueOnce(new Error("A Discogs token has no spaces or special characters"));
+    const discogs = new DiscogsSettings({
+      getDiscogsAccount: () => olderCheck.promise,
+      setDiscogsToken,
+    } as unknown as Api);
+
+    const checking = discogs.loadAccount();
+    expect(await discogs.saveToken("abc123")).toBe(true);
+    olderCheck.resolve(account({}));
+    await checking;
+    expect(discogs.tokenStatus).toBe("Works for dj.");
+    expect(discogs.tokenProblem).toBeNull();
+
+    expect(await discogs.saveToken("two words")).toBe(false);
+    expect(discogs.tokenError).toBe("A Discogs token has no spaces or special characters");
+    expect(discogs.tokenSaving).toBe(false);
+    expect(discogs.account?.tokenUsername).toBe("dj");
     discogs.destroy();
   });
 });

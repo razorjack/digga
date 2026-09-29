@@ -6,7 +6,7 @@ import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { ReleaseDetail } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { fixtureDb, silentLogger } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 let tmp: string;
 let server: DiggaServer;
@@ -40,7 +40,7 @@ beforeEach(async () => {
   server = createServer({
     config: DEFAULT_CONFIG,
     paths,
-    secrets: { getDiscogsToken: () => "token" },
+    secrets: testSecrets(() => "token"),
     logger: silentLogger,
     db: await fixtureDb(),
     serveStatic: false,

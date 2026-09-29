@@ -63,6 +63,7 @@
   let enrichCount = $state(200);
   let historyBrowser = $state<Browser>("brave");
   let sellerUsername = $state("");
+  let tokenDraft = $state("");
   let dumpFile = $state("");
   let dumpLimit = $state<number | null>(null);
   let dumpDryRun = $state(false);
@@ -98,6 +99,8 @@
   const unenrichedEta = $derived(formatEta(enrichHours(unenriched)));
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
+  const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
+  const tokenFromEnvironment = $derived(discogs.account?.tokenSource === "environment");
   /** Derived, so saves that keep the username do not fetch the lists again. */
   const discogsUsername = $derived(saved?.discogs.username ?? "");
 
@@ -195,6 +198,22 @@
     } finally {
       saving = false;
     }
+  }
+
+  /** Saved at once, outside the settings form; private lists need the token, so they reload. */
+  async function saveToken(token: string | null): Promise<void> {
+    const stored = await discogs.saveToken(token);
+    if (!stored) return;
+    tokenDraft = "";
+    if (token === null) showFlash("Token removed.");
+    else if (discogs.account?.error) showFlash("Token saved, but Discogs did not confirm it.");
+    else showFlash("Token saved.");
+    if (discogsUsername) void discogs.loadLists();
+  }
+
+  function submitToken(event: SubmitEvent): void {
+    event.preventDefault();
+    void saveToken(tokenDraft.trim());
   }
 
   function revert(): void {
@@ -606,27 +625,49 @@
               spellcheck="false"
             />
             <span class="hint" id="{id}-username-hint">
-              Collection and wantlist imports read this account. The token lives in .env.
+              Collection and wantlist imports read this account.
             </span>
           </div>
           <div class="field">
-            <span class="name">Token</span>
-            <p class:problem={discogs.tokenProblem !== null}>
-              {#if discogs.accountError}
-                Not checked: {discogs.accountError}.
-              {:else if !discogs.account}
-                Checking…
-              {:else if !discogs.account.hasToken}
-                No DISCOGS_TOKEN in .env.
-              {:else if discogs.tokenProblem}
-                {discogs.tokenProblem[0]!.toUpperCase() + discogs.tokenProblem.slice(1)}.
-              {:else}
-                Works for {discogs.account.tokenUsername}.
+            <label class="name" for="{id}-token">Token</label>
+            <div class="inline wrap">
+              <input
+                id="{id}-token"
+                form="{id}-token-form"
+                type="password"
+                class="token"
+                autocomplete="off"
+                spellcheck="false"
+                required
+                disabled={tokenFromEnvironment}
+                placeholder={tokenSaved ? "saved; paste another to replace it" : "paste your token"}
+                aria-describedby="{id}-token-status {id}-token-hint"
+                bind:value={tokenDraft}
+              />
+              <button
+                type="submit"
+                form="{id}-token-form"
+                class="secondary"
+                disabled={tokenFromEnvironment || discogs.tokenSaving || tokenDraft.trim() === ""}
+              >
+                {discogs.tokenSaving ? "Checking…" : "Save token"}
+              </button>
+              {#if tokenSaved}
+                <button type="button" class="link" disabled={discogs.tokenSaving} onclick={() => void saveToken(null)}>
+                  Remove
+                </button>
               {/if}
+            </div>
+            <p class="token-status" id="{id}-token-status" class:problem={discogs.tokenError !== null || discogs.tokenProblem !== null}>
+              {discogs.tokenError ? `Not saved: ${discogs.tokenError}.` : discogs.tokenStatus}
             </p>
-            <span class="hint">
-              A personal access token from discogs.com/settings/developers, in .env as DISCOGS_TOKEN. Pushes to your
-              wantlist and reads of private lists need it.
+            <span class="hint" id="{id}-token-hint">
+              {#if tokenFromEnvironment}
+                DISCOGS_TOKEN in the environment overrides a saved token; unset it to change the token here.
+              {:else}
+                A personal access token from discogs.com/settings/developers, saved in .env. Pushes to your wantlist
+                and reads of private lists need it.
+              {/if}
             </span>
           </div>
           <div class="field narrow">
@@ -763,6 +804,8 @@
         </button>
       </div>
     </form>
+    <!-- The token field sits in the settings form but saves at once, so it belongs to this form. -->
+    <form id="{id}-token-form" onsubmit={submitToken}></form>
 
     <section class="jobs">
       <h2>Jobs</h2>
@@ -979,7 +1022,8 @@
     column-gap: 20px;
     row-gap: 4px;
   }
-  .field > .hint {
+  .field > .hint,
+  .field > .token-status {
     grid-column: 2;
   }
   .field.narrow > input,
@@ -1100,7 +1144,8 @@
     font-family: inherit;
     color: var(--fg);
   }
-  .file {
+  .file,
+  .token {
     width: 26em;
   }
   .job-list {

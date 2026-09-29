@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { loadDump } from "../tools/dump/load.ts";
 import { type Db, openDb } from "../src/server/db/db.ts";
 import { createLogger, silentSink } from "../src/server/logger.ts";
+import type { Secrets } from "../src/server/secrets.ts";
 import { DEFAULT_CONFIG, type Filters } from "../src/shared/config.ts";
 
 export const FIXTURE_GZ = fileURLToPath(
@@ -9,6 +10,17 @@ export const FIXTURE_GZ = fileURLToPath(
 );
 
 export const silentLogger = createLogger({ sink: silentSink });
+
+/** Secrets holding the token the callback returns, as if saved; saving is not expected. */
+export function testSecrets(token: () => string | undefined = () => undefined): Secrets {
+  return {
+    getDiscogsToken: token,
+    discogsTokenSource: () => (token() ? "saved" : null),
+    setDiscogsToken: () => {
+      throw new Error("this test does not save tokens");
+    },
+  };
+}
 
 /** In-memory database with the fixture dump loaded (5 DnB releases, 1005 excluded by style). */
 export async function fixtureDb(): Promise<Db> {

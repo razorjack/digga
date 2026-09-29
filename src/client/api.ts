@@ -71,6 +71,8 @@ export interface Api {
   removeFromWantlist(releaseId: number): Promise<WantlistPushResponse>;
   /** Whether a token is set and whose it is; asks Discogs once per call. */
   getDiscogsAccount(): Promise<DiscogsAccountResponse>;
+  /** Saves the token, or removes the saved one with null; answers the account as the token finds it. */
+  setDiscogsToken(token: string | null): Promise<DiscogsAccountResponse>;
   getDiscogsLists(): Promise<DiscogsListsResponse>;
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
@@ -138,6 +140,7 @@ export function createHttpApi(baseUrl = "/api"): Api {
       call("POST", `/discogs/wantlist/${releaseId}`, input),
     removeFromWantlist: (releaseId) => call("DELETE", `/discogs/wantlist/${releaseId}`),
     getDiscogsAccount: () => call("GET", "/discogs/account"),
+    setDiscogsToken: (token) => call("PUT", "/discogs/token", { token }),
     getDiscogsLists: () => call("GET", "/discogs/lists"),
     getDiscogsList: (id) => call("GET", `/discogs/lists/${id}`),
     getBackups: () => call("GET", "/backups"),
@@ -197,6 +200,7 @@ export function createAppApi(
     pushToWantlist: (releaseId, input) => current.pushToWantlist(releaseId, input),
     removeFromWantlist: (releaseId) => current.removeFromWantlist(releaseId),
     getDiscogsAccount: () => current.getDiscogsAccount(),
+    setDiscogsToken: (token) => current.setDiscogsToken(token),
     getDiscogsLists: () => current.getDiscogsLists(),
     getDiscogsList: (id) => current.getDiscogsList(id),
     getBackups: () => current.getBackups(),

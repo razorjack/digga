@@ -330,13 +330,28 @@ export interface WantlistPushResponse {
 }
 
 // GET /api/discogs/account
+/** A token set in the environment overrides the saved one and cannot be changed in the app. */
+export type TokenSource = "environment" | "saved" | null;
 export interface DiscogsAccountResponse {
   username: string;
   hasToken: boolean;
+  tokenSource: TokenSource;
   /** The account the token belongs to; null without a token or when Discogs could not be asked. */
   tokenUsername: string | null;
   error: string | null;
 }
+
+// PUT /api/discogs/token saves the token, or removes the saved one with null; answers the account
+export const DiscogsTokenInputSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .min(1, "Paste the token")
+    .max(200)
+    .regex(/^[\x21-\x7e]+$/, "A Discogs token has no spaces or special characters")
+    .nullable(),
+});
+export type DiscogsTokenInput = z.infer<typeof DiscogsTokenInputSchema>;
 
 // GET /api/discogs/lists (the configured user's lists, private ones included with a token)
 export interface DiscogsListSummary {

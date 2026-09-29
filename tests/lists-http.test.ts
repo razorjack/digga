@@ -11,7 +11,7 @@ import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { DiscogsListResponse, DiscogsListsResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { Job } from "../src/shared/types.ts";
-import { fixtureDb, silentLogger } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 const DISCOGS: Record<string, unknown> = {
   "/users/dj/lists": {
@@ -57,7 +57,7 @@ beforeEach(async () => {
       discogs: { ...DEFAULT_CONFIG.discogs, username: "dj", maybeListId: 77 },
     },
     paths,
-    secrets: { getDiscogsToken: () => "token" },
+    secrets: testSecrets(() => "token"),
     logger: silentLogger,
     db,
     serveStatic: false,

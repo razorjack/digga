@@ -49,7 +49,8 @@ vp run verify                    # all four of the above
 npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz            # ~10 GB gz, streams
 npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz --limit 500 --dry-run
 gzip -dc data/dumps/discogs_20250901_releases.xml.gz | npm run digga -- dump load -   # from stdin
-# 2. Seeds (needs discogs.username in digga.config.json, created on first run, and DISCOGS_TOKEN in .env)
+# 2. Seeds (needs discogs.username in digga.config.json, created on first run, and a Discogs token,
+#    saved in Settings or set as DISCOGS_TOKEN in .env)
 npm run digga -- import collection
 npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path

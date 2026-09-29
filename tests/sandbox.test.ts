@@ -8,7 +8,7 @@ import type { Db } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { fixtureDb, silentLogger } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 /** The digging writes: the sandbox must never send these to the server. */
 const WRITES = [
@@ -45,7 +45,7 @@ beforeEach(async () => {
   server = createServer({
     config: DEFAULT_CONFIG,
     paths,
-    secrets: { getDiscogsToken: () => undefined },
+    secrets: testSecrets(),
     logger: silentLogger,
     db,
     serveStatic: false,

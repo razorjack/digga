@@ -56,6 +56,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   const app = createApp({
     db,
     paths: options.paths,
+    secrets: options.secrets,
     logger,
     jobs,
     getConfig: () => config,
@@ -107,7 +108,7 @@ function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
       });
       if (!token)
         logger.warn(
-          "DISCOGS_TOKEN is not set; Discogs requests will be unauthenticated and rate limited harder",
+          "no Discogs token is set; Discogs requests will be unauthenticated and rate limited harder",
         );
     }
     return discogs;

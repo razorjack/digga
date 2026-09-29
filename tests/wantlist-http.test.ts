@@ -6,10 +6,11 @@ import type { Db } from "../src/server/db/db.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import { recordWantlistPush } from "../src/server/importers/seeds.ts";
 import { resolvePaths } from "../src/server/paths.ts";
+import { createSecrets, type Secrets } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { ApiError, DiscogsAccountResponse, TwelvesResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { fixtureDb, silentLogger } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 interface Call {
   method: string;
@@ -59,28 +60,32 @@ const acceptedOnWantlist = async () =>
     i.onWantlist,
   ]);
 
-beforeEach(async () => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-wantlist-"));
-  db = await fixtureDb();
-  token = "token";
-  calls = [];
-  bodies = [];
+function serverWith(secrets: Secrets): DiggaServer {
   const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
-  server = createServer({
+  return createServer({
     config: {
       ...DEFAULT_CONFIG,
       sandbox: false,
       discogs: { ...DEFAULT_CONFIG.discogs, username: "dj" },
     },
     paths,
-    secrets: { getDiscogsToken: () => token },
+    secrets,
     logger: silentLogger,
     db,
     serveStatic: false,
     persistConfig: false,
     fetchImpl: fakeFetch,
   });
+}
+
+beforeEach(async () => {
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-wantlist-"));
+  db = await fixtureDb();
+  token = "token";
+  calls = [];
+  bodies = [];
+  server = serverWith(testSecrets(() => token));
 });
 
 afterEach(async () => {
@@ -131,10 +136,13 @@ describe("Discogs wantlist over HTTP", () => {
   it("explains a missing username or token, and a refused token", async () => {
     const refused = await send<ApiError>("POST", "/api/discogs/wantlist/1002", {});
     expect(refused.status).toBe(502);
-    expect(refused.body.error).toMatch(/DISCOGS_TOKEN/);
+    expect(refused.body.error).toMatch(/check the Discogs token in Settings/);
     token = undefined;
     const noToken = await send<ApiError>("POST", "/api/discogs/wantlist/1001", {});
-    expect([noToken.status, noToken.body.error]).toEqual([400, "DISCOGS_TOKEN is not set in .env"]);
+    expect([noToken.status, noToken.body.error]).toEqual([
+      400,
+      "Set your Discogs token in Settings first",
+    ]);
     expect((await send("POST", "/api/discogs/wantlist/999999", {})).status).toBe(404);
     token = "token";
     await send("PUT", "/api/settings", {
@@ -151,10 +159,49 @@ describe("Discogs wantlist over HTTP", () => {
 
   it("reports whose token is set", async () => {
     const res = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
-    expect(res.body).toEqual({ username: "dj", hasToken: true, tokenUsername: "dj", error: null });
+    expect(res.body).toEqual({
+      username: "dj",
+      hasToken: true,
+      tokenSource: "saved",
+      tokenUsername: "dj",
+      error: null,
+    });
     token = undefined;
     const none = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
-    expect(none.body).toMatchObject({ hasToken: false, tokenUsername: null });
+    expect(none.body).toMatchObject({ hasToken: false, tokenSource: null, tokenUsername: null });
+  });
+
+  it("saves the token from Settings, in the sandbox too, and removes it again", async () => {
+    const envFile = path.join(tmp, ".env");
+    await server.stop();
+    server = serverWith(createSecrets({ envFile, env: {} }));
+    await send("PUT", "/api/settings", { ...server.getConfig(), sandbox: true });
+
+    const saved = await send<DiscogsAccountResponse>("PUT", "/api/discogs/token", {
+      token: " abc123 ",
+    });
+    expect(saved.body).toMatchObject({ hasToken: true, tokenSource: "saved", tokenUsername: "dj" });
+    expect(fs.readFileSync(envFile, "utf8")).toBe("DISCOGS_TOKEN=abc123\n");
+    expect(calls).toEqual([{ method: "GET", path: "/oauth/identity" }]);
+
+    const invalid = await send<ApiError>("PUT", "/api/discogs/token", { token: "two words" });
+    expect(invalid.status).toBe(400);
+
+    const removed = await send<DiscogsAccountResponse>("PUT", "/api/discogs/token", {
+      token: null,
+    });
+    expect(removed.body).toMatchObject({ hasToken: false, tokenSource: null });
+    expect(fs.readFileSync(envFile, "utf8")).toBe("");
+  });
+
+  it("leaves a token from the environment alone", async () => {
+    const envFile = path.join(tmp, ".env");
+    await server.stop();
+    server = serverWith(createSecrets({ envFile, env: { DISCOGS_TOKEN: "from-env" } }));
+    const res = await send<ApiError>("PUT", "/api/discogs/token", { token: "abc123" });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/set in the environment/);
+    expect(fs.existsSync(envFile)).toBe(false);
   });
 
   it("refuses every digging write while the config says sandbox", async () => {

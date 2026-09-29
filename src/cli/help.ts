@@ -29,6 +29,6 @@ Commands:
 Environment:
   DIGGA_DATA_DIR            Data directory (default ./data)
   DIGGA_CONFIG_FILE         Config file (default ./digga.config.json)
-  DISCOGS_TOKEN             Personal access token (or put it in .env)
+  DISCOGS_TOKEN             Personal access token (or save it in Settings, which writes .env)
   DIGGA_LOG_LEVEL           debug | info | warn | error
 `;

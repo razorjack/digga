@@ -146,4 +146,5 @@ first run changes nothing by accident) and `filters.skipWithoutVideos` (default 
 drops releases without an embeddable video from the queue and its counts. `src/server/paths.ts`
 decides every filesystem location from a base directory (`process.cwd()` for the CLI,
 `app.getPath('userData')` for Electron) plus optional `DIGGA_DATA_DIR` / `DIGGA_CONFIG_FILE`
-overrides. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `.env`.
+overrides. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `.env`; Settings
+saves the token to `.env` through `PUT /api/discogs/token`, unless the environment sets it.

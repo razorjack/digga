@@ -15,7 +15,7 @@ import type {
   TwelvesResponse,
 } from "../src/shared/api.ts";
 import type { Job, TrackVerdict, Verdict } from "../src/shared/types.ts";
-import { FIXTURE_GZ, fixtureDb, silentLogger } from "./helpers.ts";
+import { FIXTURE_GZ, fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -29,7 +29,7 @@ beforeEach(async () => {
   server = createServer({
     config: { ...DEFAULT_CONFIG, sandbox: false },
     paths,
-    secrets: { getDiscogsToken: () => undefined },
+    secrets: testSecrets(),
     logger: silentLogger,
     db,
     serveStatic: true,
@@ -356,7 +356,7 @@ describe("createServer with its own database file", () => {
     const own = createServer({
       config: DEFAULT_CONFIG,
       paths,
-      secrets: { getDiscogsToken: () => undefined },
+      secrets: testSecrets(),
       logger: silentLogger,
       serveStatic: false,
     });

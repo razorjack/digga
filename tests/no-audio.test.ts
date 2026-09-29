@@ -12,7 +12,7 @@ import { countRemaining } from "../src/server/queue/query.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { ReleaseDetail } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { filters, fixtureDb, silentLogger } from "./helpers.ts";
+import { filters, fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -45,7 +45,7 @@ beforeEach(async () => {
   server = createServer({
     config: { ...DEFAULT_CONFIG, sandbox: false },
     paths,
-    secrets: { getDiscogsToken: () => undefined },
+    secrets: testSecrets(),
     logger: silentLogger,
     db,
     serveStatic: false,

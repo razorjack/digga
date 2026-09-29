@@ -4,10 +4,12 @@ import { type DiscogsClient } from "./discogs/client.ts";
 import type { JobRunner } from "./jobs/runner.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
+import type { Secrets } from "./secrets.ts";
 import type { VideoTitleLookup } from "./youtube.ts";
 export interface AppContext {
   db: Db;
   paths: Paths;
+  secrets: Secrets;
   logger: Logger;
   jobs: JobRunner;
   getConfig(): Config;

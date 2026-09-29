@@ -25,7 +25,7 @@ app.whenReady().then(async () => {
   const userData = app.getPath("userData");
   const paths = resolvePaths({ baseDir: userData, distDir: path.join(app.getAppPath(), "dist") });
   const config = loadConfig(paths.configFile); // creates it with defaults on first run
-  const secrets = { getDiscogsToken: () => readToken(safeStorage) }; // replaces .env
+  const secrets = createSafeStorageSecrets(safeStorage, userData); // replaces .env
   const logger = createLogger({ sink: fileSink(path.join(userData, "digga.log")) });
   const server = createServer({ config, paths, secrets, logger });
   const { browserUrl } = await server.start(0, "127.0.0.1"); // free port, localhost only
@@ -42,8 +42,9 @@ app.whenReady().then(async () => {
 ```
 
 - `paths` -> `app.getPath('userData')`; nothing else in the server knows where data lives.
-- `secrets` -> `safeStorage.encryptString` / `decryptString`, stored as a file under userData; a
-  small settings dialog (or the Settings page via a new API route) writes it.
+- `secrets` -> `safeStorage.encryptString` / `decryptString`, stored as a file under userData. It
+  implements the same `Secrets` interface, so the Settings page keeps saving the token through
+  `PUT /api/discogs/token`.
 - `logger` -> file sink; `createLogger` accepts any `LogSink`.
 - `nativeTheme.themeSource` makes `prefers-color-scheme` match the saved color scheme before the
   first paint, so the window does not show the other scheme until `/api/settings` loads. A change

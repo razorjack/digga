@@ -61,7 +61,7 @@ export function parseQuery<T>(
 }
 export function discogsErrorMessage(error: DiscogsApiError): string {
   if (error.status === 401 || error.status === 403)
-    return `Discogs answered ${error.status}: check DISCOGS_TOKEN in .env and that it belongs to your Discogs username`;
+    return `Discogs answered ${error.status}: check the Discogs token in Settings and that it belongs to your Discogs username`;
   return `Discogs answered ${error.status}`;
 }
 const SANDBOX_REFUSAL = {
@@ -86,6 +86,6 @@ export function wantlistAccount(
   if (username === "")
     return { response: badRequest(request, "Set your Discogs username in Settings first") };
   if (!context.getDiscogs().hasToken())
-    return { response: badRequest(request, "DISCOGS_TOKEN is not set in .env") };
+    return { response: badRequest(request, "Set your Discogs token in Settings first") };
   return { username };
 }

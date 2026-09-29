@@ -120,8 +120,9 @@ contains these settings:
 - `discogs.username` is the account to use for collection and wantlist imports.
 
 To update your Discogs wantlist or read private account data, create a personal access token in
-[Discogs Settings → Developers](https://www.discogs.com/settings/developers) and set
-`DISCOGS_TOKEN` in `.env`. Use a token from the same account as `discogs.username`.
+[Discogs Settings → Developers](https://www.discogs.com/settings/developers) and paste it into
+Settings in Digga, or set `DISCOGS_TOKEN` in `.env`. Use a token from the same account as
+`discogs.username`.
 
 The config file, `.env`, and `data/` are gitignored. If you do not copy the example config,
 Digga creates one on the first command that needs it.

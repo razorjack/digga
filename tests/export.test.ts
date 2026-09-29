@@ -9,7 +9,7 @@ import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { BackupsResponse, DecisionsExport } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { toCsv } from "../src/shared/csv.ts";
-import { fixtureDb, silentLogger } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -23,7 +23,7 @@ beforeEach(async () => {
   server = createServer({
     config: DEFAULT_CONFIG,
     paths,
-    secrets: { getDiscogsToken: () => undefined },
+    secrets: testSecrets(),
     logger: silentLogger,
     db,
     serveStatic: false,

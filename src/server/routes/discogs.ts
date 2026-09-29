@@ -4,6 +4,7 @@ import {
   type DiscogsAccountResponse,
   type DiscogsListResponse,
   type DiscogsListsResponse,
+  DiscogsTokenInputSchema,
   WantlistPushInputSchema,
   type WantlistPushResponse,
 } from "../../shared/api.ts";
@@ -28,6 +29,7 @@ export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
   api.get("/discogs/lists", (request) => discogsLists(request, context));
   api.get("/discogs/lists/:id", (request) => discogsList(request, context));
   api.get("/discogs/account", (request) => account(request, context));
+  api.put("/discogs/token", (request) => saveToken(request, context));
   api.post("/discogs/wantlist/:id", (request) => pushWantlist(request, context));
   api.delete("/discogs/wantlist/:id", (request) => removeWantlist(request, context));
   api.post("/releases/:id/enrich", (request) => enrichOne(request, context));
@@ -78,21 +80,44 @@ async function discogsList(request: Context, context: AppContext) {
 }
 
 async function account(request: Context, context: AppContext) {
+  return request.json(await accountResponse(context));
+}
+
+/** Whether a token is set and whose it is; asks Discogs once. */
+async function accountResponse(context: AppContext): Promise<DiscogsAccountResponse> {
   const discogs = context.getDiscogs();
   const body: DiscogsAccountResponse = {
     username: context.getConfig().discogs.username,
     hasToken: discogs.hasToken(),
+    tokenSource: context.secrets.discogsTokenSource(),
     tokenUsername: null,
     error: null,
   };
   if (body.hasToken) {
     try {
       body.tokenUsername = (await discogs.getIdentity()).username;
-    } catch (e) {
-      body.error = e instanceof DiscogsApiError ? discogsErrorMessage(e) : String(e);
+    } catch (error) {
+      body.error = error instanceof DiscogsApiError ? discogsErrorMessage(error) : String(error);
     }
   }
-  return request.json(body);
+  return body;
+}
+
+/** Setup rather than digging, so the sandbox does not refuse it. */
+async function saveToken(request: Context, context: AppContext) {
+  const body = await parseJson(request, DiscogsTokenInputSchema);
+  if (!body.ok) return body.response;
+  if (context.secrets.discogsTokenSource() === "environment")
+    return request.json(
+      {
+        error:
+          "DISCOGS_TOKEN is set in the environment, which overrides the saved token; unset it to change the token here",
+      } satisfies ApiError,
+      409,
+    );
+  context.secrets.setDiscogsToken(body.data.token);
+  context.logger.info(body.data.token === null ? "Discogs token removed" : "Discogs token saved");
+  return request.json(await accountResponse(context));
 }
 
 async function pushWantlist(request: Context, context: AppContext) {

@@ -8,7 +8,7 @@ import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { silentLogger } from "./helpers.ts";
+import { silentLogger, testSecrets } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -69,7 +69,7 @@ describe("database backups", () => {
     const server = createServer({
       config: DEFAULT_CONFIG,
       paths,
-      secrets: { getDiscogsToken: () => undefined },
+      secrets: testSecrets(),
       logger: silentLogger,
       serveStatic: false,
     });
