@@ -102,7 +102,8 @@ async function ensureRoom(options: DumpDownloadOptions, bytes: number | null): P
   );
 }
 
-async function freeBytesIn(dir: string): Promise<number> {
+/** Free bytes for this user on the disk of `dir`, which must exist. */
+export async function freeBytesIn(dir: string): Promise<number> {
   const stats = await fs.promises.statfs(dir);
   return stats.bavail * stats.bsize;
 }

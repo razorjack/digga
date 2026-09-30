@@ -3,11 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { openDb, setMeta, type Db } from "../src/server/db/db.ts";
+import { createDataDumpClient } from "../src/server/discogs/data-dumps.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
-import { resolvePaths } from "../src/server/paths.ts";
+import { type Paths, resolvePaths } from "../src/server/paths.ts";
 import { createSecrets } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
+import { readSetup } from "../src/server/setup.ts";
 import type {
   ApiError,
   DiscogsAccountResponse,
@@ -24,6 +26,7 @@ const LISTING = {
 };
 
 let tmp: string;
+let paths: Paths;
 let db: Db;
 let server: DiggaServer;
 let listingUp: boolean;
@@ -64,7 +67,7 @@ beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-setup-"));
   db = openDb(":memory:");
   listingUp = true;
-  const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
+  paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
     config: DEFAULT_CONFIG,
@@ -113,6 +116,28 @@ describe("GET /api/setup", () => {
       neededBytes: Math.round(11.5 * 1024 ** 3),
     });
     expect(body.catalogue.freeBytes).toBeGreaterThan(0);
+  });
+
+  it("says nothing of the free space when the filesystem cannot tell it", async () => {
+    const asked: string[] = [];
+    const setup = await readSetup(
+      { db, paths, dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }) },
+      {
+        freeBytes: async (dir) => {
+          asked.push(dir);
+          throw new Error("ENOSYS: function not implemented, statfs");
+        },
+      },
+    );
+
+    // The dumps folder does not exist yet, so its nearest existing folder is asked.
+    expect(asked).toEqual([tmp]);
+    expect(setup.catalogue).toMatchObject({
+      newest: { file: "discogs_20260901_releases.xml.gz", downloaded: false },
+      error: null,
+      freeBytes: null,
+      neededBytes: Math.round(11.5 * 1024 ** 3),
+    });
   });
 
   it("says why the listing could not be read, and is not needed once a load has finished", async () => {
