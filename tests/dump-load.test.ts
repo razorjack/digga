@@ -1,7 +1,8 @@
 import fs from "node:fs";
+import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { openDb } from "../src/server/db/db.ts";
+import { type Db, openDb } from "../src/server/db/db.ts";
 import { getRelease, getTracks, getVideos } from "../src/server/db/releases.ts";
 import { applyEnrichment } from "../src/server/enrich.ts";
 import { fixtureDb } from "./helpers.ts";
@@ -9,6 +10,7 @@ import { dumpReleaseToWrite } from "../tools/dump/convert.ts";
 import { loadDump, matchesUniverse, dumpDateFromFilename } from "../tools/dump/load.ts";
 import { iterateReleases } from "../tools/dump/parse.ts";
 import type { DumpRelease } from "../tools/dump/types.ts";
+import type { DumpLoadProgress } from "../src/shared/types.ts";
 
 const FIXTURE_GZ = fileURLToPath(new URL("../fixtures/releases-sample.xml.gz", import.meta.url));
 const FIXTURE_XML = fileURLToPath(new URL("../fixtures/releases-sample.xml", import.meta.url));
@@ -243,3 +245,67 @@ describe("loadDump", () => {
     expect(fs.existsSync(FIXTURE_GZ)).toBe(true);
   });
 });
+
+describe("a load whose input stalls", () => {
+  const xml = fs.readFileSync(FIXTURE_XML, "utf8");
+  // The input stops after 1001, 1002 and 1003, all in the style: fewer than a batch.
+  const stall = nthEnd(xml, "</release>", 3);
+  const criteria = { file: "-", styles: ["Drum n Bass"], loadYears: null };
+  const releaseIds = (db: Db) => db.prepare("SELECT id FROM releases ORDER BY id").pluck().all();
+
+  it("commits and reports what has arrived within about a second, then once a second", async () => {
+    const db = openDb(":memory:");
+    const input = new PassThrough();
+    const reports: { at: number; progress: DumpLoadProgress }[] = [];
+    const started = Date.now();
+    const loading = loadDump(db, criteria, {
+      stdin: input,
+      onProgress: (progress) => reports.push({ at: Date.now(), progress }),
+    });
+    input.write(xml.slice(0, stall));
+
+    await expect.poll(() => reports.length, { timeout: 3000 }).toBe(2);
+    const [first, second] = reports;
+    expect(first!.at - started).toBeLessThan(1500);
+    expect(first!.progress).toMatchObject({ scanned: 3, matched: 3, upserted: 3 });
+    expect(releaseIds(db)).toEqual([1001, 1002, 1003]);
+    expect(second!.at - first!.at).toBeGreaterThanOrEqual(990);
+
+    input.end(xml.slice(stall));
+    expect(await loading).toMatchObject({ scanned: 6, matched: 5, upserted: 5 });
+    expect(reports.at(-1)!.progress).toMatchObject({ phase: "done", upserted: 5 });
+    db.close();
+  });
+
+  it("writes nothing in a dry run, and ends with the error of a commit that fails", async () => {
+    const dryDb = openDb(":memory:");
+    const dryInput = new PassThrough();
+    const reports: DumpLoadProgress[] = [];
+    const dry = loadDump(
+      dryDb,
+      { ...criteria, dryRun: true },
+      { stdin: dryInput, onProgress: (progress) => reports.push(progress) },
+    );
+    dryInput.write(xml.slice(0, stall));
+    await expect.poll(() => reports.length, { timeout: 2000 }).toBe(1);
+    expect(reports[0]).toMatchObject({ matched: 3, upserted: 0 });
+    dryInput.end(xml.slice(stall));
+    expect(await dry).toMatchObject({ matched: 5, upserted: 0 });
+    expect(releaseIds(dryDb)).toEqual([]);
+    dryDb.close();
+
+    const db = openDb(":memory:");
+    const input = new PassThrough();
+    const loading = loadDump(db, criteria, { stdin: input });
+    input.write(xml.slice(0, stall));
+    db.close();
+    await expect(loading).rejects.toThrow(/not open/);
+  });
+});
+
+/** The index just past the nth occurrence of `text`. */
+function nthEnd(source: string, text: string, n: number): number {
+  let end = 0;
+  for (let found = 0; found < n; found += 1) end = source.indexOf(text, end) + text.length;
+  return end;
+}

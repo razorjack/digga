@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream";
+import { clearTimeout, setTimeout } from "node:timers";
 import zlib from "node:zlib";
 import type { Db } from "../../src/server/db/db.ts";
 import { writeReleases } from "../../src/server/db/releases.ts";
@@ -36,9 +37,12 @@ export interface DumpLoadOptions extends UniverseCriteria {
   dryRun?: boolean;
   /** Emit and log progress every N scanned releases. */
   progressEvery?: number;
-  /** Also emit progress at least this often, unlogged, so a progress bar moves smoothly. */
+  /**
+   * Also emit progress at least this often, unlogged, so a progress bar moves smoothly and a
+   * stalled input still shows what has arrived.
+   */
   progressEveryMs?: number;
-  /** Rows per write transaction. */
+  /** Rows per write transaction; a progress report commits a smaller batch first. */
   batchSize?: number;
   /** The dump_loads row of this load; releases it brings into the universe carry it. */
   loadId?: number;
@@ -156,12 +160,20 @@ export async function loadDump(
   };
   const report = (phase: DumpLoadProgress["phase"], log: boolean) =>
     reportProgress(progressOf(scan, phase), hooks, log);
+  // What the progress reports is in the database, so the setup's counts agree with it.
+  const commitAndReport = (log: boolean) => {
+    scan.writer.flush();
+    report("scanning", log);
+  };
 
   let stoppedAtLimit: boolean;
+  const schedule = new ProgressSchedule(options, commitAndReport, (error) =>
+    scan.input.stream.destroy(error),
+  );
   try {
-    const schedule = new ProgressSchedule(options, (log) => report("scanning", log));
     stoppedAtLimit = await scanReleases(scan, schedule);
   } finally {
+    schedule.stop();
     scan.input.stream.destroy();
   }
   // Shares need the whole dump; a load stopped by its limit keeps no coverage releases.
@@ -258,40 +270,44 @@ function keepCoverage(coverage: CoverageTracker, writer: BatchWriter, logger?: L
   return outcome.releases.length;
 }
 
-/** Scanned releases between looks at the clock, which costs more than counting. */
-const CLOCK_EVERY = 1000;
-
 /**
- * Reports every `progressEvery` releases, logged, and in between whenever `progressEveryMs` has
- * passed, unlogged.
+ * Reports every `progressEvery` releases, logged, and whenever `progressEveryMs` passes without a
+ * report, unlogged. A timer makes the second kind, so it comes while the input stalls too, such as
+ * a download that has not sent more; each report restarts it.
  */
 class ProgressSchedule {
   #every: number;
-  #everyMs: number;
-  #reportedAt = Date.now();
   #report: (log: boolean) => void;
+  #timer: NodeJS.Timeout;
 
+  /** `fail` hears of a timed report that threw, which runs outside the scan's loop. */
   constructor(
     options: Pick<DumpLoadOptions, "progressEvery" | "progressEveryMs">,
     report: (log: boolean) => void,
+    fail: (error: Error) => void,
   ) {
     this.#every = options.progressEvery ?? 100_000;
-    this.#everyMs = options.progressEveryMs ?? 1000;
     this.#report = report;
+    this.#timer = setTimeout(() => {
+      try {
+        this.#send(false);
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      }
+    }, options.progressEveryMs ?? 1000);
   }
 
   tick(scanned: number): void {
-    if (scanned % this.#every === 0) {
-      this.#send(true);
-      return;
-    }
-    if (scanned % CLOCK_EVERY !== 0 || Date.now() - this.#reportedAt < this.#everyMs) return;
-    this.#send(false);
+    if (scanned % this.#every === 0) this.#send(true);
+  }
+
+  stop(): void {
+    clearTimeout(this.#timer);
   }
 
   #send(log: boolean): void {
-    this.#reportedAt = Date.now();
     this.#report(log);
+    this.#timer.refresh();
   }
 }
 
