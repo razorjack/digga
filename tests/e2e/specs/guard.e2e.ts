@@ -115,7 +115,7 @@ async function redirectingServer(
   });
   const port = await listen(server);
   const close = () => {
-    // The harness's fetches keep connections alive, which would hold close() open.
+    // A request still on its way would hold close() open.
     server.closeAllConnections();
     return closeServer(server);
   };

@@ -5,10 +5,12 @@ export interface BrowserGuardLog {
   refused: string[];
   redirects: string[];
   webSockets: string[];
+  /** Requests the harness could not fetch for the page, with the reason, for failure artifacts. */
+  fetchFailures: string[];
 }
 
 export function emptyGuardLog(): BrowserGuardLog {
-  return { refused: [], redirects: [], webSockets: [] };
+  return { refused: [], redirects: [], webSockets: [], fetchFailures: [] };
 }
 
 /**
@@ -37,15 +39,32 @@ async function passAppRequest(route: Route, origin: string, log: BrowserGuardLog
     return;
   }
   try {
-    const response = await route.fetch({ maxRedirects: 0 });
+    const response = await route.fetch({
+      url: onServerAddress(url),
+      // Chromium sends a request again when a kept-alive connection turns out to be closing;
+      // route.fetch() does not, so under load a reused connection can end the request.
+      headers: { ...(await route.request().allHeaders()), connection: "close" },
+      maxRedirects: 0,
+    });
     if (response.status() >= 300 && response.status() < 400) {
       log.redirects.push(`${url} -> ${response.headers().location ?? "?"}`);
       await route.abort("blockedbyclient");
       return;
     }
     await route.fulfill({ response });
-  } catch {
-    // The page went away, or the server stopped, while the request was on its way.
+  } catch (error) {
+    // Normally the page went away, or the server stopped, while the request was on its way.
+    log.fetchFailures.push(`${route.request().method()} ${url}: ${String(error).split("\n")[0]}`);
     await route.abort().catch(() => {});
   }
+}
+
+/**
+ * The page's URL with the address the server binds. Asked for localhost, the harness's fetch tries
+ * [::1] first and can reach another program that listens there on the same port number.
+ */
+function onServerAddress(url: string): string {
+  const target = new URL(url);
+  target.hostname = "127.0.0.1";
+  return target.href;
 }
