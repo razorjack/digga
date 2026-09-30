@@ -112,6 +112,7 @@ describe("exports", () => {
       databaseFile: ":memory:",
       kept: 5,
       backups: [],
+      decisions: { kept: 30, backups: [] },
     });
   });
 });

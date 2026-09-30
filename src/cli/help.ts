@@ -23,7 +23,10 @@ Commands:
       --list ID             Another list than discogs.maybeListId
   import seller <username>  Read what a seller has for sale, to dig only that (F in Triage)
   stats                     Print universe size, verdict counts, remaining and ETA
-  backup                    Copy the database into the backups folder now (serve does it once a day)
+  backup                    Copy the database and write the decisions backup into the backups folder
+                            now (serve does both once a day)
+  restore <file>            Restore a decisions backup (decisions-YYYY-MM-DD.json.gz, a path or a
+                            name in the backups folder) into the library, after copying the database
   serve [--port N] [--host H]
                             Start the local server (default 127.0.0.1:3456; --port 0 picks a free port)
   help                      Show this help

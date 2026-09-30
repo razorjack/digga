@@ -6,6 +6,7 @@ import { backupDaily, listBackups, localDay, writeBackup } from "../src/server/d
 import { type Db, openDb } from "../src/server/db/db.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
+import { listDecisionsBackups } from "../src/server/decisions-backup.ts";
 import { createServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { silentLogger, testSecrets } from "./helpers.ts";
@@ -64,8 +65,11 @@ describe("database backups", () => {
     expect(localDay(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
   });
 
-  it("backs up when the server opens its own database", async () => {
+  it("backs up the database and the decisions when the server opens its own database", async () => {
     const paths = resolvePaths({ dataDir: path.join(tmp, "own") });
+    const own = openDb(paths.dbFile);
+    upsertVerdict(own, { key: "m:501", status: "accepted", source: "triage" });
+    own.close();
     const server = createServer({
       config: DEFAULT_CONFIG,
       paths,
@@ -75,6 +79,9 @@ describe("database backups", () => {
     });
     await server.stop();
     expect(listBackups(paths.backupsDir).map((backup) => backup.day)).toEqual([
+      localDay(new Date()),
+    ]);
+    expect(listDecisionsBackups(paths.backupsDir).map((backup) => backup.day)).toEqual([
       localDay(new Date()),
     ]);
   });

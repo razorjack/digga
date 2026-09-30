@@ -39,12 +39,17 @@ export async function writeBackup(db: Db, options: BackupOptions): Promise<Backu
   return { file, day: options.day, bytes: fs.statSync(file).size };
 }
 
-/** Backups in the directory, newest first. */
+/** Database copies in the directory, newest first. */
 export function listBackups(dir: string): BackupFile[] {
+  return listDatedFiles(dir, BACKUP_FILE);
+}
+
+/** Files in the directory whose name matches the pattern, whose first group is the day; newest first. */
+export function listDatedFiles(dir: string, pattern: RegExp): BackupFile[] {
   if (!fs.existsSync(dir)) return [];
   const backups: BackupFile[] = [];
   for (const name of fs.readdirSync(dir)) {
-    const day = BACKUP_FILE.exec(name)?.[1];
+    const day = pattern.exec(name)?.[1];
     if (!day) continue;
     const file = path.join(dir, name);
     backups.push({ file, day, bytes: fs.statSync(file).size });

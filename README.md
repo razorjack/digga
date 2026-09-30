@@ -199,13 +199,123 @@ On later runs, `npm run serve` is enough. Rebuild after updating the frontend.
 | ------------------------------------ | --------------------------------------------------------- |
 | `npm run digga -- stats`             | Show catalogue size, verdicts, remaining records, and ETA |
 | `npm run digga -- import list`       | Import the Maybe list selected in Settings                |
-| `npm run digga -- backup`            | Copy the database into the backups folder now             |
+| `npm run digga -- backup`            | Write both backups now (see below)                        |
+| `npm run digga -- restore <file>`    | Restore your decisions from a backup                      |
 | `npm run digga -- serve --port 3457` | Use a different port                                      |
 | `npm run digga -- help`              | Show every CLI command and option                         |
 
-The database is `digga.sqlite` in the library folder. The server copies it into `backups/` there
-once a day and keeps the last five; Settings shows where they are and also exports your verdicts
-and track marks as JSON or CSV.
+## Your decisions and their backups
+
+Discogs only learns about your wants and grails, through your wantlist. Every skip, maybe,
+snooze, note, track mark and tune you heard exists only in Digga's database on your computer, so
+Digga backs them up every day. Both kinds of backup go to the `backups` folder in the library
+folder:
+
+| System  | Backups folder                                                          |
+| ------- | ----------------------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/Digga/backups`                           |
+| Windows | `%APPDATA%\Digga\backups`                                               |
+| Linux   | `~/.config/Digga/backups`, or `$XDG_CONFIG_HOME/Digga/backups` when set |
+
+With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the path under
+**Backups and exports**.
+
+- **`decisions-YYYY-MM-DD.json.gz`: your decisions.** Every verdict with its note, your track
+  marks, the tunes you heard, the YouTube links you attached, and the videos a record marked "no
+  audio" had. Your imported wantlist, collection and Maybe list are in it too. Release details
+  are not: the Discogs ids find them again. Digga keeps the last 30. A day on which nothing
+  changed adds no file, so they cover your last 30 days of digging, and a library with nothing
+  decided in it yet writes none. With every Drum n Bass record from 1998 to 2002 judged, about
+  60,000 decisions and two tunes heard on each, the file is about 3.5 MB.
+- **`digga-YYYY-MM-DD.sqlite`: the whole database.** Digga keeps the last five. It restores
+  everything by copying one file back, but is 100 MB or more.
+
+The server writes both when it starts. `npm run digga -- backup` writes both at once.
+
+`gunzip -c decisions-2026-09-30.json.gz` shows what a decisions backup holds, one entry per
+line. Here, Stakka & Skynet's _Clockwork_ is a want, and _Crime Audio_ by Item A La Playa is a
+grail, marked on its track, with a note:
+
+```json
+{
+  "app": "digga",
+  "kind": "decisions",
+  "version": 1,
+  "backedUpAt": "2026-09-30T21:04:12.518Z",
+  "verdicts": [
+    {
+      "key": "m:34620",
+      "status": "accepted",
+      "source": "triage",
+      "notes": null,
+      "releaseId": 8667,
+      "decidedAt": "2026-09-30T20:41:07.332Z"
+    },
+    {
+      "key": "r:620767",
+      "status": "candidate",
+      "source": "triage",
+      "notes": "finally found it",
+      "releaseId": 620767,
+      "decidedAt": "2026-09-30T20:52:39.905Z"
+    }
+  ],
+  "trackMarks": [
+    {
+      "releaseId": 620767,
+      "position": "A",
+      "mark": "candidate",
+      "notes": null,
+      "decidedAt": "2026-09-30T20:52:31.118Z"
+    }
+  ],
+  "heardTunes": [
+    {
+      "heardKey": "stakka and skynet - clockwork",
+      "firstReleaseId": 8667,
+      "secondsListened": 14.2,
+      "firstHeardAt": "2026-09-30T20:40:51.020Z",
+      "lastHeardAt": "2026-09-30T20:40:51.020Z"
+    },
+    {
+      "heardKey": "item a la playa - crime audio",
+      "firstReleaseId": 620767,
+      "secondsListened": 48.9,
+      "firstHeardAt": "2026-09-30T20:51:40.604Z",
+      "lastHeardAt": "2026-09-30T20:52:30.211Z"
+    }
+  ],
+  "attachedVideos": [],
+  "noAudioVideos": []
+}
+```
+
+- `key` is the record: `m:` and a Discogs master id, like
+  [discogs.com/master/34620](https://www.discogs.com/master/34620), or `r:` and a release id for a
+  release without a master, like
+  [discogs.com/release/620767](https://www.discogs.com/release/620767).
+- `status` is the verdict: `accepted` (want), `candidate` (grail), `rejected` (skip), `maybe`,
+  `snoozed` or `no_audio`, or `wantlist`, `collection` and `seen` from your imports. A record you
+  skipped looks the same with `"status":"rejected"`.
+- `source` is `triage` for a decision you made in Digga, `seed:wantlist`, `seed:collection`,
+  `seed:list` or `seed:history` for one an import made.
+- `releaseId` is the pressing you heard. Times are in UTC.
+
+**To restore**, stop the server first. With a database copy, copy `digga-YYYY-MM-DD.sqlite` over
+`digga.sqlite` in the library folder, and that is all. Without one:
+
+1. Load the catalogue again: `npm run digga -- dump update`, or **Update from the newest dump** in
+   Settings.
+2. Run `npm run digga -- restore decisions-YYYY-MM-DD.json.gz`, with a path or the name of a file
+   in the backups folder. It copies the database first, then brings back every decision in the
+   file. A decision you made in Digga after the backup was written stays as it is.
+3. Import your collection and wantlist again, so what changed on Discogs since the backup
+   applies.
+
+Both backups live on the same disk as the library. To survive a lost disk, copy the decisions
+files somewhere else, such as a cloud drive. Decisions made in sandbox mode are never saved, so
+no backup has them. Settings also exports your verdicts and track marks as JSON or CSV, with
+artist, title and label, for reading outside Digga.
 
 ## Development
 

@@ -407,6 +407,8 @@ export interface BackupsResponse {
   kept: number;
   /** Newest first. */
   backups: BackupSummary[];
+  /** The daily decisions backups in the same folder, newest first. */
+  decisions: { kept: number; backups: BackupSummary[] };
 }
 
 // GET /api/export/:file

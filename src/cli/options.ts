@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { parseArgs } from "node:util";
 import { readIdList } from "../../tools/dump/load.ts";
 import type { DumpLoadJobOptions } from "../server/jobs/dump-load.ts";
@@ -77,4 +79,13 @@ export function parseServeOptions(args: string[]) {
     options: { port: { type: "string" }, host: { type: "string" } },
   });
   return { port: integerOption(values.port, "port", { max: 65535 }), host: values.host };
+}
+
+/** The backup to restore: a path, or the name of one in the backups folder. */
+export function parseRestoreFile(args: string[], backupsDir: string): string {
+  const [file, ...rest] = args;
+  if (!file || rest.length > 0)
+    throw new Error("usage: digga restore <decisions-YYYY-MM-DD.json.gz>");
+  if (fs.existsSync(file) || path.basename(file) !== file) return file;
+  return path.join(backupsDir, file);
 }

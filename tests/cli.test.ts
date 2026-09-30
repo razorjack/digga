@@ -4,7 +4,12 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { parseDumpOptions, parseImportOptions, parseServeOptions } from "../src/cli/options.ts";
+import {
+  parseDumpOptions,
+  parseImportOptions,
+  parseRestoreFile,
+  parseServeOptions,
+} from "../src/cli/options.ts";
 import { withDatabase } from "../src/cli/runtime.ts";
 import type { Db } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
@@ -28,6 +33,14 @@ describe("CLI workflows", () => {
     });
     expect(() => parseImportOptions(["seller"], DEFAULT_CONFIG, "/tmp")).toThrow("username");
     expect(parseServeOptions(["--port", "0"])).toEqual({ port: 0, host: undefined });
+  });
+
+  it("finds a backup to restore by path, or by name in the backups folder", () => {
+    const name = "decisions-2026-09-10.json.gz";
+    expect(parseRestoreFile([name], "/library/backups")).toBe(path.join("/library/backups", name));
+    expect(parseRestoreFile([`./${name}`], "/library/backups")).toBe(`./${name}`);
+    expect(parseRestoreFile([FIXTURE_GZ], "/library/backups")).toBe(FIXTURE_GZ);
+    expect(() => parseRestoreFile([], "/library/backups")).toThrow("usage: digga restore");
   });
 
   it("closes its database when a job rejects", async () => {

@@ -8,6 +8,8 @@ import {
   importWantlist,
 } from "../server/jobs/index.ts";
 import { localDay, writeBackup } from "../server/db/backup.ts";
+import { restoreBackedUpData } from "../server/db/user-data.ts";
+import { readDecisionsBackup, writeDecisionsBackup } from "../server/decisions-backup.ts";
 import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
 import { createServer } from "../server/server.ts";
@@ -18,6 +20,7 @@ import type { SellerImportResult } from "../server/importers/seller.ts";
 import {
   parseDumpOptions,
   parseImportOptions,
+  parseRestoreFile,
   parseServeOptions,
   type ImportCommand,
 } from "./options.ts";
@@ -26,6 +29,7 @@ import {
   showDownload,
   showDump,
   showImport,
+  showRestore,
   showStats,
   downloadReporter,
 } from "./report.ts";
@@ -134,10 +138,27 @@ export async function cmdStats(runtime: Runtime): Promise<void> {
 }
 
 export async function cmdBackup(runtime: Runtime): Promise<void> {
-  const backup = await withDatabase(runtime, (db) =>
-    writeBackup(db, { dir: runtime.paths.backupsDir, day: localDay(new Date()) }),
-  );
-  showBackup(backup);
+  const now = new Date();
+  const options = { dir: runtime.paths.backupsDir, day: localDay(now), now };
+  const backups = await withDatabase(runtime, async (db) => [
+    await writeBackup(db, options),
+    await writeDecisionsBackup(db, options),
+  ]);
+  for (const backup of backups) showBackup(backup);
+}
+
+/** Restores a decisions backup into the library, after copying the database as it is. */
+export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void> {
+  const file = parseRestoreFile(args, runtime.paths.backupsDir);
+  const backup = readDecisionsBackup(file);
+  const { copy, outcome } = await withDatabase(runtime, async (db) => {
+    const copy = await writeBackup(db, {
+      dir: runtime.paths.backupsDir,
+      day: localDay(new Date()),
+    });
+    return { copy, outcome: restoreBackedUpData(db, backup, backup.backedUpAt) };
+  });
+  showRestore({ file, backup, copy, outcome });
 }
 
 export async function cmdServe(runtime: Runtime, args: string[]): Promise<void> {

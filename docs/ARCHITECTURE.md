@@ -132,8 +132,20 @@ and runs on the server thread; `GET /api/dumps` lists what the folder holds for 
 `createServer()` copies the database it opens into `paths.backupsDir` (`backups/` in the library) once a
 day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest five (`src/server/db/backup.ts`). The copy
 uses SQLite's online backup, so it runs in steps beside requests and reads a consistent snapshot;
-`stop()` waits for it before closing the database. `digga backup` writes the day's copy on demand.
-Restoring is copying a backup over `digga.sqlite` while the server is stopped.
+`stop()` waits for it before closing the database. Restoring is copying a backup over
+`digga.sqlite` while the server is stopped.
+
+It also writes `decisions-YYYY-MM-DD.json.gz` there, gzipped at level 9, and keeps the newest 30
+(`src/server/decisions-backup.ts`). The file holds what only the user made, read by
+`db/user-data.ts`: every verdict, track marks, heard tunes, attached videos and the videos of
+no-audio records, oldest first, one entry per line, in the format `src/shared/decisions-backup.ts`
+validates. No release data: the Discogs ids in the keys find it again after a dump load. A day
+gets no file when one exists, when the library holds nothing made in Digga, or when nothing
+changed since the newest file, so idle days and a new library never push older backups out.
+`digga backup` writes both backups on demand. `digga restore <file>` copies the database, then
+writes the file into the library in one transaction (`restoreBackedUpData`): the backup wins,
+except over a verdict or track mark made in Digga after it was written; heard tunes and attached
+videos are added, the latter only for releases the library has.
 
 `GET /api/export/decisions.json`, `verdicts.csv` and `track-marks.csv` download every saved
 verdict and track mark with the release they belong to (`src/server/export.ts`). They read the

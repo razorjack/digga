@@ -63,7 +63,8 @@ npm run digga -- import history --browser brave        # Brave on macOS; also ch
 npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
 npm run digga -- import seller <username>              # what a seller has for sale, for F in Triage
 npm run digga -- stats
-npm run digga -- backup                                # copy the database into the backups folder now
+npm run digga -- backup                                # copy the database and write the decisions backup now
+npm run digga -- restore decisions-2026-09-30.json.gz  # bring decisions back into a library rebuilt from a dump
 ```
 
 ## Layout

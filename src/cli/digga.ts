@@ -5,6 +5,7 @@ import {
   cmdDumpLoad,
   cmdDumpUpdate,
   cmdImport,
+  cmdRestore,
   cmdServe,
   cmdStats,
 } from "./commands.ts";
@@ -31,6 +32,8 @@ async function main(argv: string[]): Promise<void> {
       return cmdStats(runtime);
     case "backup":
       return cmdBackup(runtime);
+    case "restore":
+      return cmdRestore(runtime, args);
     case "serve":
       return cmdServe(runtime, args);
     default:

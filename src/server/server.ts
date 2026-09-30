@@ -5,6 +5,7 @@ import { createApp } from "./app.ts";
 import { saveConfig } from "./config-file.ts";
 import { backupDaily, localDay } from "./db/backup.ts";
 import { type Db, openDb } from "./db/db.ts";
+import { backupDecisionsDaily } from "./decisions-backup.ts";
 import { failStaleJobs } from "./db/jobs.ts";
 import { createDiscogsClient, type DiscogsClient } from "./discogs/client.ts";
 import { createDataDumpClient } from "./discogs/data-dumps.ts";
@@ -84,15 +85,26 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   };
 }
 
-/** Copies the database once a day in the background; the copy reads a consistent snapshot. */
+/**
+ * Writes the day's backups in the background: the decisions, and a copy of the database, which
+ * reads a consistent snapshot. One failing does not stop the other.
+ */
 function startDailyBackup(db: Db, options: CreateServerOptions): Promise<void> {
   const { paths, logger } = options;
   if (paths.dbFile === ":memory:") return Promise.resolve();
-  return backupDaily(db, { dir: paths.backupsDir, day: localDay(new Date()) })
+  const now = new Date();
+  const day = localDay(now);
+  const decisions = backupDecisionsDaily(db, { dir: paths.backupsDir, day, now })
+    .then((backup) => {
+      if (backup) logger.info(`backed up your decisions to ${backup.file}`);
+    })
+    .catch((error: unknown) => logger.warn("the daily decisions backup failed", error));
+  const database = backupDaily(db, { dir: paths.backupsDir, day })
     .then((backup) => {
       if (backup) logger.info(`backed up the database to ${backup.file}`);
     })
     .catch((error: unknown) => logger.warn("the daily database backup failed", error));
+  return Promise.all([decisions, database]).then(() => undefined);
 }
 
 function discogsProvider(options: CreateServerOptions): () => DiscogsClient {

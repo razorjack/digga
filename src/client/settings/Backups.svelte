@@ -9,6 +9,7 @@
   let error = $state<string | null>(null);
 
   const latest = $derived(backups?.backups[0] ?? null);
+  const latestDecisions = $derived(backups?.decisions.backups[0] ?? null);
 
   onMount(() => {
     api.getBackups().then(
@@ -24,16 +25,30 @@
     <p>Backups did not load: {error}</p>
   {:else if backups}
     <p>
+      <b>Your decisions</b>:
+      {#if latestDecisions}
+        last backed up <time datetime={latestDecisions.day}>{formatDay(`${latestDecisions.day}T00:00:00`)}</time>
+        ({formatBytes(latestDecisions.bytes)}).
+      {:else}
+        no backup yet.
+      {/if}
+      Once a day Digga writes what only you made here, your verdicts with their notes, track marks, the tunes you
+      heard and the links you attached, to <code>decisions-YYYY-MM-DD.json.gz</code>, and keeps the last
+      {backups.decisions.kept}. Days when nothing changed add none. <code>npm run digga -- restore</code> with
+      the file brings them back into a library loaded from a dump.
+    </p>
+    <p>
+      <b>The database</b>:
       {#if latest}
-        Last backup <time datetime={latest.day}>{formatDay(`${latest.day}T00:00:00`)}</time>
+        last copied <time datetime={latest.day}>{formatDay(`${latest.day}T00:00:00`)}</time>
         ({formatBytes(latest.bytes)}).
       {:else}
-        No backup yet.
+        no copy yet.
       {/if}
-      Digga copies its database once a day when the server starts and keeps the last {backups.kept},
-      in <code>{backups.directory}</code>. To restore one, stop the server and copy it over
-      <code>{backups.databaseFile}</code>.
+      Digga copies it once a day when the server starts and keeps the last {backups.kept}. To restore one, stop the
+      server and copy it over <code>{backups.databaseFile}</code>.
     </p>
+    <p>Both are in <code>{backups.directory}</code>.</p>
   {/if}
   <p>
     Export what is saved:
@@ -58,6 +73,9 @@
   p {
     color: var(--fg-muted);
     max-width: 80ch;
+  }
+  b {
+    color: var(--fg);
   }
   code {
     font-family: inherit;

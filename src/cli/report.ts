@@ -3,6 +3,8 @@ import { formatBytes } from "../shared/display.ts";
 import type { DumpDownloadProgress } from "../shared/types.ts";
 import type { DumpDownloadResult } from "../server/jobs/dump-download.ts";
 import type { BackupFile } from "../server/db/backup.ts";
+import type { RestoreOutcome } from "../server/db/user-data.ts";
+import type { DecisionsBackup } from "../shared/decisions-backup.ts";
 import type { Filters } from "../shared/config.ts";
 import type { DumpLoadJobResult } from "../server/jobs/dump-load.ts";
 import type { ImportResult } from "./commands.ts";
@@ -69,6 +71,26 @@ export function showImport(result: ImportResult): void {
 
 export function showBackup(backup: BackupFile): void {
   console.log(`backup: ${backup.file} (${formatBytes(backup.bytes)})`);
+}
+
+export function showRestore(restore: {
+  file: string;
+  backup: DecisionsBackup;
+  copy: BackupFile;
+  outcome: RestoreOutcome;
+}): void {
+  const { verdicts, trackMarks, heardTunes, attachedVideos } = restore.outcome;
+  const kept = (count: number) =>
+    count > 0 ? `, ${count} kept: decided here after the backup` : "";
+  const leftOut = attachedVideos.withoutRelease;
+  console.log(`copied the database first: ${restore.copy.file}`);
+  console.log(`restored ${restore.file}, backed up ${restore.backup.backedUpAt}`);
+  console.log(`  verdicts:        ${verdicts.restored} restored${kept(verdicts.keptNewer)}`);
+  console.log(`  track marks:     ${trackMarks.restored} restored${kept(trackMarks.keptNewer)}`);
+  console.log(`  heard tunes:     ${heardTunes.added} added`);
+  console.log(
+    `  attached videos: ${attachedVideos.added} added${leftOut > 0 ? `, ${leftOut} left out: load the dump with their releases, then restore again` : ""}`,
+  );
 }
 
 export function showStats(stats: Stats, filters: Filters): void {

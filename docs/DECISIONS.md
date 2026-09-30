@@ -514,3 +514,18 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      returns, so no name reaches outside the folder, and it waits, like the dump jobs, until no
      download, load or update runs. The update does not delete the dump it replaces: the user
      asked for deleting on request, and a deletion nobody asked for can cost a download.
+102. **A daily decisions backup, restorable with `digga restore`.** The full copies (decision 64)
+     sit on the same disk and grow with the catalogue; what only the user made is small. So the
+     server also writes `decisions-YYYY-MM-DD.json.gz`, gzipped at level 9, and keeps 30: every
+     verdict, seeds included, track marks, heard tunes, attached videos and the videos of
+     no-audio records, without release data, since the Discogs ids find it again after a dump
+     load. Measured on a copy of the owner's library scaled to 60,000 records with two heard
+     tunes each: 27 MB of JSON, 3.5 MB gzipped; level 9 saves 4% over the default at under a
+     second, and brotli or zstd would save more but take seconds and need other tools to open.
+     One entry per line, in a fixed field order, so `gunzip -c` reads well and unchanged data
+     writes the same text: a day on which nothing changed gets no file, and neither does a
+     library with nothing made in Digga, so idle days and a new or emptied library never push
+     good backups out. A backup nobody can load back would be an export, so `digga restore`
+     copies the database first and then writes the file in one transaction. The backup wins,
+     except over a verdict or track mark made in Digga after it was written; seeds it replaces
+     come back when the imports run again, which the README says to do after a restore.

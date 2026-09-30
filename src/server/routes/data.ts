@@ -1,6 +1,7 @@
 import { type Context, Hono } from "hono";
-import { type BackupsResponse, EXPORT_FILES } from "../../shared/api.ts";
-import { BACKUPS_KEPT, localDay, listBackups } from "../db/backup.ts";
+import { type BackupSummary, type BackupsResponse, EXPORT_FILES } from "../../shared/api.ts";
+import { type BackupFile, BACKUPS_KEPT, localDay, listBackups } from "../db/backup.ts";
+import { DECISIONS_BACKUPS_KEPT, listDecisionsBackups } from "../decisions-backup.ts";
 import { buildExport } from "../export.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest } from "./request.ts";
@@ -17,7 +18,11 @@ function backups(request: Context, context: AppContext) {
     directory,
     databaseFile: context.paths.dbFile,
     kept: BACKUPS_KEPT,
-    backups: listBackups(directory).map((backup) => ({ day: backup.day, bytes: backup.bytes })),
+    backups: listBackups(directory).map(summarize),
+    decisions: {
+      kept: DECISIONS_BACKUPS_KEPT,
+      backups: listDecisionsBackups(directory).map(summarize),
+    },
   };
   return request.json(body);
 }
@@ -32,4 +37,8 @@ function exportFile(request: Context, context: AppContext) {
     "content-type": document.contentType,
     "content-disposition": `attachment; filename="digga-${localDay(now)}-${file}"`,
   });
+}
+
+function summarize(backup: BackupFile): BackupSummary {
+  return { day: backup.day, bytes: backup.bytes };
 }
