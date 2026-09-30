@@ -46,6 +46,22 @@ vp run verify                    # all four of the above
 `vp` is the Vite+ CLI. The global `vp` delegates to the project-local `vite-plus`; without it use
 `npx vp <cmd>` or the `npm run` scripts. Every command above must be green before a commit.
 
+### End-to-end tests
+
+Playwright drives the built app in Chromium against fake Discogs and YouTube services
+(`docs/E2E_TESTING.md`, whose "Rules for agents writing E2E tests" apply). Install the browser once
+with `npx playwright install chromium`.
+
+```sh
+vp run e2e                       # vp build, then every scenario in tests/e2e/specs/
+vp run e2e:smoke                 # vp build, then the P0 scenarios
+npx playwright test --config tests/e2e/playwright.config.ts --grep "@TRI-12\b"   # one scenario, after vp build
+npx playwright test --config tests/e2e/playwright.config.ts --repeat-each=10     # a new or changed spec, before its commit
+```
+
+The tests start every Digga process through `spawnDigga()` with a throwaway library in a temp
+folder; they never touch the real library, and they use only fake `e2e-token-*` tokens.
+
 ### Loading a real dump and seeding
 
 ```sh
@@ -93,14 +109,21 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
                        queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
-src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
+src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts
+                       (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css
                        (tokens), components/ (Key, Stamp, Flash, HelpOverlay, LoadIndicator), setup/ (the first run),
-                       player/ (YouTube decks), triage/ (session + components), twelves/ (shelf + pure model),
+                       player/ (YouTube decks, status copy), triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (preview, jobs, Discogs state), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts, growing.ts), worker-compatible; census.ts
 tools/dev/             fake-data-dumps.ts: a data.discogs.com stand-in to rehearse the setup (DIGGA_DUMPS_URL)
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
+tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwright.config.ts;
+                       specs/*.e2e.ts (scenarios, tagged with their IDs and priority); pages/ (page objects:
+                       triage, header, twelves); fixtures/ (catalogue.ts, the one source of releases, videos and
+                       accounts, and dump.ts, which writes it as a dump); support/ (test.ts fixtures, app.ts the
+                       host interface, hosts/web.ts, spawn.ts, templates.ts, fakes.ts, fake-youtube.ts, guard.ts
+                       and browser-guard.ts, browser-log.ts, fault-routes.ts, global-setup.ts)
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```
 
@@ -328,4 +351,5 @@ client TypeScript and CSS.
 - `docs/FIRST_RUN.md` for the first run (the setup) being built, and `docs/STYLE_CENSUS.md` for
   refreshing the style census it ships.
 - `docs/ELECTRON_PLAN.md` for packaging.
+- `docs/E2E_TESTING.md` for the end-to-end tests: the harness, the scenarios and what the runs showed.
 - `docs/DECISIONS.md` for why things are the way they are.

@@ -1,10 +1,11 @@
 # End-to-end testing
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
-(Rollout, step 0) is built and its results are recorded in "Spike results"; the rest is not
-built yet. This is the design of Digga's end-to-end (E2E) tests: the tool, the harness, the fake
-services, the markup the tests rely on, and the scenarios the suite should cover. The same tests
-must run against the browser app now and the Electron app later (`docs/ELECTRON_PLAN.md`).
+(Rollout, step 0) is built, and so is the rest of the P0 set apart from the first-run setup
+(SETUP-01); the results of both are recorded in "Spike results". The rest is not built yet. This
+is the design of Digga's end-to-end (E2E) tests: the tool, the harness, the fake services, the
+markup the tests rely on, and the scenarios the suite should cover. The same tests must run
+against the browser app now and the Electron app later (`docs/ELECTRON_PLAN.md`).
 
 ## Goals
 
@@ -168,10 +169,15 @@ export interface DiggaApp {
   readonly library: { dataDir: string; dumpsDir: string; configFile: string };
   /** Opens a hash route such as "#/twelves"; defaults to "#/triage". */
   open(hash?: string): Promise<void>;
-  /** Typed calls to the app's own /api, for given-state and read-back. */
+  /** Typed calls to the current launch's /api, for given-state and read-back. */
   readonly api: AppApiClient;
   readonly given: Given;
-  /** Stops the whole app and starts it again on the same library, with a new page. */
+  /** pause() and runFor(), when the test installed the clock (see "Time"). */
+  readonly clock: PageClock;
+  /**
+   * Stops the whole app and starts it again on the same library, prepared as at the first
+   * launch, with a new page that is blank until open(). Given state is not applied again.
+   */
   relaunch(options?: { crash?: boolean }): Promise<void>;
   /** Web only: restarts the server on the same port while the page and its session stay. */
   restartServer(options?: { crash?: boolean }): Promise<void>;
@@ -185,16 +191,26 @@ export interface DiggaApp {
   paste(text: string): Promise<void>;
   /** Reads and drives window.__fakeYouTube in the page. */
   readonly youtube: FakeYouTubeHandle;
+  /** The page's /api requests so far, over every launch, as "METHOD /api/path". */
+  apiRequests(): string[];
+  /** Aborts the page's next matching requests (one by default), for the current launch. */
+  abortRequests(
+    match: { method: string; path: string },
+    options?: { times?: number },
+  ): Promise<void>;
+  /** Declares aborts, /api errors, console errors and page errors the test causes on purpose. */
+  expectProblems(problems: ExpectedProblems): void;
 }
 ```
 
 **Web host.** It prepares the library, config and fake home, spawns the server, prepares a
 browser context (below) and opens the page. The console, page-error and request collectors are
-attached to the context. `relaunch()` stops the server and closes the context, then starts both
-again with the whole preparation and new collectors; the port may change. `restartServer()`
-keeps the port, so the open page reconnects without a reload. Another worker's `--port 0` could
-take the port in between; the helper then fails with that reason rather than retrying on another
-port.
+attached to the context. `relaunch()` closes the context first, so no request of the page meets a
+stopped server, then stops the server, and starts both again with the whole preparation and new
+collectors; the port may change. The collectors feed one log per test, so a problem from an
+earlier launch still fails the test. `restartServer()` keeps the port, so the open page
+reconnects without a reload. Another worker's `--port 0` could take the port in between; the
+helper then fails with that reason rather than retrying on another port.
 
 **Electron host.** `relaunch()` quits the app and launches it again on the same library, with
 the same preparation. `restartServer()` is not available: the server lives in the main process,
@@ -369,6 +385,8 @@ redirect.
 Digga's own `/api` is never faked. Tests reach a state by driving the real server into it. The
 only exception is transport failure: a `route()` can abort or delay one request to test the "did
 not load" and "not saved" states, since a real server does not fail on demand.
+`app.abortRequests({ method, path }, { times })` registers such a route on the context; the test
+declares the abort and the console error it causes with `app.expectProblems()`.
 
 **Discogs API** (`https://api.discogs.com`), every endpoint `src/server/discogs/client.ts` calls:
 
@@ -608,11 +626,19 @@ clock 60 s, and the load's ETA changes. Tests that read such text match a patter
 Rules:
 
 - Install the clock before the app starts: before `page.goto()` in the web host, before the held
-  navigation is released in Electron. After `install()` time keeps flowing, so polling runs.
+  navigation is released in Electron. After `install()` time keeps flowing, so polling runs. A
+  test asks for it with `test.use({ diggaOptions: { clock: true } })`; the host installs it on
+  every context it opens, a relaunch's too.
 - A test whose action must land inside a browser timer's window, such as `Z` or a sandbox switch
   within the push grace, pauses the clock before the key press that starts the window and keeps
   it paused until the action has completed. Pausing only around the assertion is too late: the
   grace would run out in real time while the test acts.
+- `app.clock.pause()` reads the page's `Date.now()` and calls `pauseAt()` 1 s ahead of it.
+  `pauseAt()` refuses a time the page's clock has already passed, and that clock runs on while
+  the calls travel. The clock then jumps by what is left of the second, firing each timer due in
+  it at most once; pausing before the key press puts that jump before the window opens.
+- The clock also holds `requestAnimationFrame`: while paused, a frame callback waits for
+  `runFor()`. The client uses none and no Svelte transition; one added later would stop there.
 - Use `runFor(ms)` to let time pass: it fires every due timer in order. The player adds at most
   1 s per 250 ms tick, so `runFor(4500)` produces a logged listen, while `fastForward(4500)`,
   which fires each due timer at most once, would not. Use `fastForward()` only when skipping
@@ -640,8 +666,10 @@ synchronise on completed requests and on the state the app sets after them:
   server's 1.1 s throttle held it.
 - Nothing pushed (TRI-13), with the clock paused before `A`: after the verdict has settled, press
   `Z`, wait until the undo has settled, `runFor(2000)` past the grace, check that the page sent
-  no request to `/api/discogs/wantlist` (the context's request log), then that the fake received
-  nothing. The grace timer was armed before `Z`, so `runFor()` fires it and the check is not
+  no request to `/api/discogs/wantlist` (`app.apiRequests()`), then that the fake received
+  nothing after the mark the test took before `A`. The saved token's given state has already
+  asked the fake for `/oauth/identity` before the page opened, so its log is not empty from the
+  start. The grace timer was armed before `Z`, so `runFor()` fires it and the check is not
   empty by accident. The server calls Discogs only when the page asks, so the page's log
   decides, and the fake's log confirms.
 - The sandbox sends no verdict request. Its helpers wait for the record to change and the slip to
@@ -680,9 +708,19 @@ On failure the fixture attaches, as text where possible:
 
 Any `pageerror` or unexpected `console.error` fails the test, unless the test declares it. So
 does any `/api` response with a status of 400 or above that the test did not declare, which
-catches a failed push that a test never looked at. Chromium logs such responses to the console
-as "Failed to load resource"; the declared response covers that message too. Aborted requests
-and a stopped server produce console errors, so the scenarios that cause them declare them.
+catches a failed push that a test never looked at, and any request a fault route aborted.
+Chromium logs a failed response to the console as "Failed to load resource: the server responded
+with a status of …"; the host leaves those messages to the status check, so the declared response
+covers them. Aborted requests and a stopped server produce other console errors, such as "Failed
+to load resource: net::ERR_FAILED", so the scenarios that cause them declare them:
+
+```ts
+app.expectProblems({
+  aborted: [/^POST \/api\/verdicts$/],
+  consoleErrors: [/^Failed to load resource: net::ERR_FAILED/],
+});
+await app.abortRequests({ method: "POST", path: "/api/verdicts" });
+```
 
 ## Product changes the harness needs
 
@@ -719,6 +757,12 @@ ignore `-r` (see "Startup order").
 The web spike built changes 1 and 2, and the markup its scenarios use: the slips' group names,
 the last slip's `aria-busy`, and `data-release-id` and `data-triage-key` on the record's facts.
 `createVideoTitleLookup()` now takes an options object with the oEmbed address.
+
+The rest of the P0 set added more of item 5, and moved keys and copy the tests read into plain
+modules, since Node imports neither a component nor a `.svelte.ts` module: the flash's `label`,
+which names "Triage messages" and "Player notices"; `data-position` on the tracklist's track
+rows; `PLAYER_STATUS_COPY` in `src/client/player/status.ts`; the header's pages and their keys
+(`ROUTES`) in `src/client/routes.ts`; and the track-mark keys (`TRACK_MARK_KEYS`) in `keymap.ts`.
 
 ## Markup audit
 
@@ -795,8 +839,10 @@ page drops out of role queries, so `getByRole("main")` scopes to the visible pag
 
 **State.** No state attribute is needed. The slip's verdict and push state and the player's
 status each have their own copy, one phrase per state: the slip uses `STATUS_COPY` from
-`keymap.ts` and one sentence per push state, the player a map in `PlayerPanel.svelte`. That map
-moves into a module beside the player, so tests import it as they import `STATUS_COPY`. Exact
+`keymap.ts` and one sentence per push state, the player `PLAYER_STATUS_COPY` from
+`src/client/player/status.ts`, a plain module beside the player, so tests import it as they import
+`STATUS_COPY`. A test reads the player's status by its exact text within the Player region: the
+region also says "Nothing playing" while it has no track, which contains "playing". Exact
 text also tells the Twelves stamp "want" from the market cell's "1,210 want":
 `getByText("want", { exact: true })` within the row.
 
@@ -856,9 +902,10 @@ Priority for finding an element, highest first:
 
 Never: CSS classes, element structure, `nth-child`, generated ids, or `waitForTimeout`.
 
-Copy assertions import the app's own copy (`STATUS_COPY`, `VERDICT_KEYS`, `SHELVES` from
-`src/client/keymap.ts` and `src/client/twelves/model.ts`, and the player's status copy once it
-has its module), so a copy change updates the tests, while a handful of copy tests pin the
+Copy assertions import the app's own copy (`STATUS_COPY`, `VERDICT_KEYS` and `TRACK_MARK_KEYS`
+from `src/client/keymap.ts`, `SHELVES` and `MARK_COPY` from `src/client/twelves/model.ts`,
+`ROUTES` from `src/client/routes.ts`, `PLAYER_STATUS_COPY` from `src/client/player/status.ts`),
+so a copy change updates the tests, while a handful of copy tests pin the
 phrases the docs promise. Text in the DOM is as written, not as styled: the stamps read "all
 dug" and "ready to dig" in lower case.
 
@@ -903,9 +950,15 @@ export class TriagePage {
       .locator(`[data-position="${position}"]`);
   }
 
+  /** Exact text: the region's "Nothing playing" also contains "playing". */
+  playerStatus(status: PlayerStatus): Locator {
+    return this.player.getByText(PLAYER_STATUS_COPY[status], { exact: true });
+  }
+
   async startListening(): Promise<void> {
+    await expect(this.playerStatus("needs_gesture")).toBeVisible();
     await this.app.page.keyboard.press("Space");
-    await expect(this.player).toContainText(PLAYER_STATUS_COPY.playing);
+    await expect(this.playerStatus("playing")).toBeVisible();
   }
 
   /** Presses the verdict's key; returns once the server has saved it and the page has acted. */
@@ -1029,7 +1082,7 @@ them; scenarios with pushes use `small-account` with a saved token.
 | TRI-10 | `Z` walks back a verdict, `N` and `X` one step per press and returns to each record; slip "undone"; after the `DELETE` answers, the export no longer holds the verdict                                                                                                                                                                                                          | P0  |
 | TRI-11 | A held verdict key (`keyboard.down` twice, then `up`) judges one record                                                                                                                                                                                                                                                                                                         | P1  |
 | TRI-12 | [`small-account` with a saved token] `E` gives the record a note, then `A`: the slip reads "Adding to your Discogs wantlist…", then "Added to your Discogs wantlist."; the fake got `PUT /users/dj/wants/{id}` with the note. A plain `A` sends no body                                                                                                                         | P0  |
-| TRI-13 | [`small-account` with a saved token] With the clock paused, `A`, then `Z` after the verdict has settled and before the grace ends: after the undo has settled and `runFor(2000)`, the page sent no wantlist request and the fake got nothing. `Z` after the push: the fake gets `DELETE`                                                                                        | P0  |
+| TRI-13 | [`small-account` with a saved token] With the clock paused, `A`, then `Z` after the verdict has settled and before the grace ends: after the undo has settled and `runFor(2000)`, the page sent no wantlist request and the fake got nothing after `A`. `Z` after the push: the fake gets `DELETE`                                                                              | P0  |
 | TRI-14 | [`small-account` with a saved token] `C` pushes like `A`; the note sent lists the grail and keep tracks and the record's note (decision 70)                                                                                                                                                                                                                                     | P1  |
 | TRI-15 | [`small-account` with a saved token] The push fails (fake `500`, the page's `502` declared): "Saved, but not on the Discogs wantlist."; Twelves marks the record                                                                                                                                                                                                                | P1  |
 | TRI-16 | [`small-account`] Saving `e2e-token-other` keeps the username `dj`, and Settings' sandbox section warns before going live; a push then fails: the fake answers `403`, the page gets `502` (declared)                                                                                                                                                                            | P2  |
@@ -1063,15 +1116,15 @@ them; scenarios with pushes use `small-account` with a saved token.
 
 ### Sandbox
 
-| ID     | Scenario                                                                                                                                                                                                                                                                                                                                                              | P   |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| SBX-01 | With the sandbox on, verdicts, marks, notes, listens and `A` send no request to `/api/verdicts`, `/api/track-verdicts`, `/api/listen-log` or `/api/discogs/wantlist`, and the fake Discogs gets no `PUT` or `DELETE`; the slips say "Sandbox: nothing was saved.", and `A` ends with "Added to your wantlist (sandbox: nothing sent).", after which the logs are read | P0  |
-| SBX-02 | Sandbox verdicts show in Twelves and the counts; a reload drops them                                                                                                                                                                                                                                                                                                  | P1  |
-| SBX-03 | Turning the sandbox off: the next verdict is saved; the sandbox's verdicts and undo history are gone; turning it on again starts an empty sandbox                                                                                                                                                                                                                     | P1  |
-| SBX-04 | A want given in the sandbox with the clock paused, then the sandbox turned off within the grace: after `runFor(2000)` no `PUT` ever reaches the fake (decision 55)                                                                                                                                                                                                    | P1  |
-| SBX-05 | Setup work is real in the sandbox: a collection import fills the Owned shelf; `P` reaches the fake                                                                                                                                                                                                                                                                    | P1  |
-| SBX-06 | The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab                                                                                                                                                                                                                                                                              | P2  |
-| SBX-07 | [`small-account` with a saved token] A want given live with the clock paused, then the sandbox turned on within the grace: the verdict stays saved (export); after `runFor(2000)` the pending push has been dropped with the live history (no `PUT`), and Twelves marks the want as not on the wantlist                                                               | P1  |
+| ID     | Scenario                                                                                                                                                                                                                                                                                                                                                                                                        | P   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| SBX-01 | [`small-account` with a saved token] With the sandbox on, verdicts, marks, notes, listens, `A` and `Z` send no request to `/api/verdicts`, `/api/track-verdicts`, `/api/listen-log` or `/api/discogs/wantlist`, and the fake Discogs gets no `PUT` or `DELETE`; the slips say "Sandbox: nothing was saved.", and `A` ends with "Added to your wantlist (sandbox: nothing sent).", after which the logs are read | P0  |
+| SBX-02 | Sandbox verdicts show in Twelves and the counts; a reload drops them                                                                                                                                                                                                                                                                                                                                            | P1  |
+| SBX-03 | Turning the sandbox off: the next verdict is saved; the sandbox's verdicts and undo history are gone; turning it on again starts an empty sandbox                                                                                                                                                                                                                                                               | P1  |
+| SBX-04 | A want given in the sandbox with the clock paused, then the sandbox turned off within the grace: after `runFor(2000)` no `PUT` ever reaches the fake (decision 55)                                                                                                                                                                                                                                              | P1  |
+| SBX-05 | Setup work is real in the sandbox: a collection import fills the Owned shelf; `P` reaches the fake                                                                                                                                                                                                                                                                                                              | P1  |
+| SBX-06 | The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab                                                                                                                                                                                                                                                                                                                        | P2  |
+| SBX-07 | [`small-account` with a saved token] A want given live with the clock paused, then the sandbox turned on within the grace: the verdict stays saved (export); after `runFor(2000)` the pending push has been dropped with the live history (no `PUT`), and Twelves marks the want as not on the wantlist                                                                                                         | P1  |
 
 ### Twelves [`small-account` with given verdicts]
 
@@ -1123,13 +1176,13 @@ them; scenarios with pushes use `small-account` with a saved token.
 
 ### Persistence and lifecycle
 
-| ID     | Scenario                                                                                                                                                                                            | P   |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| PER-01 | A live snooze (`L`) with a note (`E`), and a keep mark on a track (`Shift+K`, its `POST /api/track-verdicts` awaited), survive a reload and a `relaunch()`                                          | P0  |
-| PER-02 | After further changes, `digga backup` writes today's decisions; `digga restore` of that file into a fresh `small` library brings the verdicts back into Twelves                                     | P2  |
-| PER-03 | `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful `relaunch()` during one records it cancelled once its page in flight has returned; Settings shows each | P2  |
-| PER-04 | The server does not take a verdict (`route` aborts `POST /api/verdicts` once): "The verdict was not saved: …", the record comes back, nothing reaches the fake Discogs; the same key again saves it | P0  |
-| PER-05 | `restartServer()` in the middle of a session: the open page keeps working without a reload, and the next verdict is saved (**web**)                                                                 | P1  |
+| ID     | Scenario                                                                                                                                                                                                                                                                         | P   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| PER-01 | A live snooze (`L`) with a note (`E`), and a keep mark on a track (`Shift+K`, its `POST /api/track-verdicts` awaited), survive a reload and a `relaunch()`                                                                                                                       | P0  |
+| PER-02 | After further changes, `digga backup` writes today's decisions; `digga restore` of that file into a fresh `small` library brings the verdicts back into Twelves                                                                                                                  | P2  |
+| PER-03 | `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful `relaunch()` during one records it cancelled once its page in flight has returned; Settings shows each                                                                              | P2  |
+| PER-04 | [`small-account` with a saved token] The server does not take a want (`route` aborts `POST /api/verdicts` once): "The verdict was not saved: …", the record comes back, and after `runFor(2000)` nothing has reached the fake Discogs; the same key again saves it and pushes it | P0  |
+| PER-05 | `restartServer()` in the middle of a session: the open page keeps working without a reload, and the next verdict is saved (**web**)                                                                                                                                              | P1  |
 
 ### Accessibility
 
@@ -1239,9 +1292,10 @@ on a server's stop itself.
 tests/e2e/
   playwright.config.ts, playwright.contract.config.ts
   fixtures/     catalogue.ts, dump builder with checkpoints, history databases, decisions backups
-  support/      test.ts (fixtures), global-setup.ts, spawn.ts, app.ts (the host interface and
-                the API client), hosts/web.ts, hosts/electron.ts, electron-preload.cjs,
-                templates.ts, fake-youtube.ts, guard.ts, browser-guard.ts
+  support/      test.ts (fixtures), global-setup.ts, spawn.ts, app.ts (the host interface, the
+                API client and the clock), hosts/web.ts, hosts/electron.ts, electron-preload.cjs,
+                templates.ts, fake-youtube.ts, guard.ts, browser-guard.ts, browser-log.ts (the
+                page's requests and problems, and the declarations), fault-routes.ts
   pages/        triage.ts, twelves.ts, settings.ts, setup.ts, header.ts, dialogs.ts
   specs/        guard, shell, setup, triage, sandbox, twelves, settings, persistence, a11y,
                 electron
@@ -1267,8 +1321,9 @@ passes `--repeat-each=10` before it is committed.
 **Budget.** About 150 scenarios. Most take 1 to 5 s including the server start; setup journeys
 take 20 to 40 s. On four workers the P0 and P1 sets should finish in about six minutes. In the
 spike a server started in about 200 ms and stopped over IPC in about 5 ms, so per-test servers
-stay; the five spike scenarios took 6.3 s on five workers. The first setup journeys are measured
-when they are written, and a slow suite is sharded.
+stay; the five spike scenarios took 6.3 s on five workers, and the twelve P0 scenarios without
+SETUP-01 take 7.6 s. The first setup journeys are measured when they are written, and a slow
+suite is sharded.
 
 ## Rules for agents writing E2E tests
 
@@ -1284,7 +1339,8 @@ when they are written, and a slow suite is sharded.
    only the browser. Pause it before an action that must land inside a timer's window.
 6. A negative assertion first waits for the request that closes the window and the state the page
    sets after it, then advances the clock, then checks the page's requests and the fake's log.
-7. Import keys and copy from `keymap.ts` and `twelves/model.ts` instead of repeating them.
+7. Import keys and copy from `keymap.ts`, `routes.ts`, `player/status.ts` and `twelves/model.ts`
+   instead of repeating them.
 8. Only fake tokens. Never set a real token, never read the developer's environment, and start
    every Digga process through `spawnDigga()`.
 9. A test that needs a new product hook asks for an accessible name or ARIA state first, then a
@@ -1364,6 +1420,59 @@ of the Discogs API, and the move to `tools/dev/fake-services.ts`; a 40-release c
 dumps (the spike has 10 releases in one); checkpoints and product change 4; the clock, which no
 spike scenario uses yet; and in the host interface `relaunch()`, `restartServer()`, `cli()`,
 `expectExternalOpen()`, `expectDownload()` and every `given` but the saved token.
+
+### The rest of the P0 set (web)
+
+Built on 2026-09-30 on the same machine and versions: SHELL-02, TRI-02, TRI-12, TRI-13, SBX-01,
+PER-01 and PER-04, with the clock option, `relaunch()`, fault routes, declared problems, the
+sandbox helpers, and the header and Twelves page objects. All twelve P0 scenarios but SETUP-01
+pass. The work showed:
+
+- **Pausing needs a time ahead of the page.** Playwright's `pauseAt()` fast-forwards to the time
+  it is given and refuses one the page's clock has passed, and that clock keeps running while the
+  harness's calls travel. `app.clock.pause()` therefore pauses 1 s ahead of the page's own
+  `Date.now()` (see "Time"). Reading the time and pausing took 29 ms at the median, 155 ms at the
+  95th percentile and 228 ms at most over 80 pauses in a burn-in on 16 workers, so the lead holds
+  with room. Once paused, the page's `Date.now()` stayed the same across a verdict's round trip,
+  and the fake player's time stayed at the start offset, which TRI-02 compares exactly.
+- **The app's timers run on the installed clock.** Time flows until a pause, so the player's
+  250 ms tick and the fake player's interval run as usual. `runFor(4500)` produced a logged
+  listen (SBX-01), and `runFor(2000)` fired the push grace with the clock paused (TRI-12, TRI-13,
+  PER-04). The clock also holds `requestAnimationFrame` while paused: a frame callback requested
+  then waited until the test timed out. The client uses none today.
+- **Relaunch.** The host closes the context, stops the server over IPC, then starts a new server
+  on a free port, a different one in each relaunch logged, and prepares a new context, whose clock
+  installs again.
+  Without load, closing the context took 144 ms, the graceful stop 5 ms and the new server 205 ms
+  (medians of 32 relaunches); on 16 workers on 10 cores, 479 ms, 13 ms and 914 ms. The browser
+  log keeps what earlier launches recorded, and the server log attachment has each launch's
+  output.
+- **Fault routes compose with the base route.** PER-04's route, registered after the base route,
+  aborted the one `POST /api/verdicts` and passed every other request back with
+  `route.fallback()`, which the base route then fetched. The abort makes Chromium log "Failed to
+  load resource: net::ERR_FAILED". The spike's host ignored every console message starting
+  "Failed to load resource", which also hid this one; the host now ignores only the "server
+  responded with a status of" messages the `/api` status check covers. Without its declarations,
+  PER-04 fails at teardown with "a fault route aborted POST /api/verdicts" and that console error.
+- **A saved token reaches the fake before the page opens.** `PUT /api/discogs/token` asks the
+  fake for `/oauth/identity`, so "the fake got nothing" counts from a mark taken before the key
+  press (TRI-13, PER-04).
+- **The sandbox sends no digging write.** In SBX-01 a logged listen, a keep mark, a note, `R`,
+  `A` and `Z` sent no request to `/api/verdicts`, `/api/track-verdicts`, `/api/listen-log` or
+  `/api/discogs/wantlist`, and the fake got no `PUT` or `DELETE`. The sandbox want still makes
+  its real `GET /api/releases/:id`.
+- **The player region's text is not specific enough.** It says "Nothing playing" while it has no
+  track, so `toContainText("playing")` would pass before anything plays. The page object reads the
+  status line by its exact text within the region.
+- **Node cannot import what the tests would read from a rune module.** Importing
+  `router.svelte.ts` fails with "$state is not defined", and the player's copy lived in a
+  component. The route table, the player's status copy and the track-mark keys moved into plain
+  modules (see "Product changes the harness needs").
+- **Stable and quick.** 240 of 240 runs passed at `--repeat-each=20` on 16 workers on a 10-core
+  machine, in 1.7 minutes. The twelve scenarios take 7.6 s on five workers, and `vp run e2e` 8.9 s
+  including the client build. In steady state TRI-02 takes about 1.1 s, SHELL-02 1.3 s, SBX-01
+  1.8 s, PER-01 1.8 s, PER-04 2.2 s, TRI-13 2.7 s and TRI-12 2.9 s; the pushes wait for the
+  server's 1.1 s gap between Discogs requests.
 
 ## Risks and open questions
 

@@ -15,10 +15,21 @@ export interface DiggaOptions {
   savedToken: string | null;
   /** Replaces a service's address, as GUARD-01 does; the guard still allows only the fakes. */
   serviceUrls: Partial<ServiceUrls>;
+  /** Installs Playwright's clock before the app starts, so the test can pause and run it. */
+  clock: boolean;
 }
 
+const DEFAULT_OPTIONS: DiggaOptions = {
+  template: "small",
+  sandbox: false,
+  savedToken: null,
+  serviceUrls: {},
+  clock: false,
+};
+
 interface TestFixtures {
-  diggaOptions: DiggaOptions;
+  /** What a test changes from DEFAULT_OPTIONS. */
+  diggaOptions: Partial<DiggaOptions>;
   fakes: FakeServices;
   app: WebApp;
 }
@@ -29,10 +40,7 @@ interface WorkerFixtures {
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
-  diggaOptions: [
-    { template: "small", sandbox: false, savedToken: null, serviceUrls: {} },
-    { option: true },
-  ],
+  diggaOptions: [{}, { option: true }],
 
   runRoot: [
     // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
@@ -61,30 +69,32 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   app: async ({ browser, fakes, templates, runRoot, diggaOptions }, use, testInfo) => {
+    const options = { ...DEFAULT_OPTIONS, ...diggaOptions };
     const folder = fs.mkdtempSync(path.join(runRoot, "test-"));
     const library = copyTemplate(
-      await templates.folder(diggaOptions.template),
+      await templates.folder(options.template),
       path.join(folder, "library"),
     );
-    updateConfig(library.configFile, (config) => ({ ...config, sandbox: diggaOptions.sandbox }));
+    updateConfig(library.configFile, (config) => ({ ...config, sandbox: options.sandbox }));
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
     const app = await WebApp.launch({
       browser,
-      savedToken: diggaOptions.savedToken,
+      savedToken: options.savedToken,
+      clock: options.clock,
       environment: {
         root: runRoot,
         cwd: work,
         home: path.join(folder, "home"),
         library,
         allowedPort: fakes.port,
-        serviceUrls: { ...fakes.urls, ...diggaOptions.serviceUrls },
+        serviceUrls: { ...fakes.urls, ...options.serviceUrls },
       },
     });
 
     await use(app);
 
-    const problems = [...app.problems(), ...fakes.violations];
+    const problems = [...app.log.undeclared(), ...fakes.violations];
     if (problems.length > 0 || testInfo.status !== testInfo.expectedStatus)
       await attachArtifacts(app, fakes, testInfo);
     await app.close();
@@ -99,21 +109,23 @@ async function attachArtifacts(
   fakes: FakeServices,
   testInfo: TestInfo,
 ): Promise<void> {
-  const snapshot = await app.page
-    .locator("body")
-    .ariaSnapshot()
-    .catch((error: unknown) => String(error));
-  await testInfo.attach("aria-snapshot.yml", { body: snapshot, contentType: "text/yaml" });
-  await testInfo.attach("server.log", {
-    body: app.server.stdout + app.server.stderr,
-    contentType: "text/plain",
-  });
+  if (app.running) {
+    const snapshot = await app.page
+      .locator("body")
+      .ariaSnapshot()
+      .catch((error: unknown) => String(error));
+    await testInfo.attach("aria-snapshot.yml", { body: snapshot, contentType: "text/yaml" });
+  }
+  const serverLogs = app.servers.map(
+    (server, index) => `--- launch ${index + 1} ---\n${server.stdout}${server.stderr}`,
+  );
+  await testInfo.attach("server.log", { body: serverLogs.join("\n"), contentType: "text/plain" });
   await testInfo.attach("fake-services.json", {
     body: JSON.stringify(fakes.log, null, 2),
     contentType: "application/json",
   });
   await testInfo.attach("page-api-requests.txt", {
-    body: app.apiRequests.join("\n"),
+    body: app.log.apiRequests.join("\n"),
     contentType: "text/plain",
   });
 }

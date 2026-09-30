@@ -1,7 +1,9 @@
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
 import { videoCatalogue } from "../../fixtures/catalogue.ts";
-import { AppApiClient, type DiggaApp, FakeYouTubeHandle } from "../app.ts";
-import { type BrowserGuardLog, emptyGuardLog, guardContext } from "../browser-guard.ts";
+import { AppApiClient, type DiggaApp, FakeYouTubeHandle, PageClock } from "../app.ts";
+import { guardContext } from "../browser-guard.ts";
+import { BrowserLog, type ExpectedProblems } from "../browser-log.ts";
+import { abortRequests, type RequestMatch } from "../fault-routes.ts";
 import { fakeYouTubeScript } from "../fake-youtube.ts";
 import {
   type DiggaEnvironment,
@@ -23,54 +25,64 @@ export const CONTEXT_OPTIONS: BrowserContextOptions = {
 export interface WebAppOptions {
   browser: Browser;
   environment: DiggaEnvironment;
-  /** Saved through PUT /api/discogs/token before the page opens. */
+  /** Saved through PUT /api/discogs/token before the page first opens. */
   savedToken: string | null;
+  /** Installs Playwright's clock in every context before the app starts. */
+  clock: boolean;
 }
 
-/** The browser app: the CLI's server in its own process, and a prepared Chromium context. */
-export class WebApp implements DiggaApp {
-  readonly server: DiggaServer;
-  readonly context: BrowserContext;
-  readonly page: Page;
-  readonly library: DiggaLibrary;
-  readonly api: AppApiClient;
-  readonly youtube: FakeYouTubeHandle;
-  readonly guardLog: BrowserGuardLog = emptyGuardLog();
-  /** The page's /api requests, as "METHOD /api/path", for negative checks. */
-  readonly apiRequests: string[] = [];
-  readonly #consoleErrors: string[] = [];
-  readonly #pageErrors: string[] = [];
-  readonly #apiErrors: string[] = [];
-  readonly #allowedApiErrors: RegExp[] = [];
+/** One start of the app: its server process and the browser context that talks to it. */
+interface Launch {
+  server: DiggaServer;
+  context: BrowserContext;
+  page: Page;
+  api: AppApiClient;
+}
 
-  private constructor(
-    server: DiggaServer,
-    context: BrowserContext,
-    page: Page,
-    library: DiggaLibrary,
-  ) {
-    this.server = server;
-    this.context = context;
-    this.page = page;
-    this.library = library;
-    this.api = new AppApiClient(server.port);
+/**
+ * The browser app: the CLI's server in its own process, and a prepared Chromium context. A
+ * relaunch replaces both; the library, the problem log and the list of servers stay.
+ */
+export class WebApp implements DiggaApp {
+  readonly library: DiggaLibrary;
+  readonly youtube: FakeYouTubeHandle;
+  readonly clock: PageClock;
+  readonly log = new BrowserLog();
+  /** Every server this test started, the current one last, for the failure artifacts. */
+  readonly servers: DiggaServer[] = [];
+  readonly #options: WebAppOptions;
+  #launch: Launch | null = null;
+
+  private constructor(options: WebAppOptions) {
+    this.#options = options;
+    this.library = options.environment.library;
     this.youtube = new FakeYouTubeHandle(() => this.page);
+    this.clock = new PageClock(() => this.page, options.clock);
   }
 
   static async launch(options: WebAppOptions): Promise<WebApp> {
-    const server = await startDiggaServer(options.environment);
-    try {
-      const api = new AppApiClient(server.port);
+    const app = new WebApp(options);
+    await app.#start(async (api) => {
       if (options.savedToken)
         await api.send("PUT", "/api/discogs/token", { token: options.savedToken });
-      const context = await options.browser.newContext(CONTEXT_OPTIONS);
-      const app = new WebApp(server, context, await context.newPage(), options.environment.library);
-      await app.#prepareContext();
-      return app;
-    } catch (error) {
-      await server.crash();
-      throw error;
-    }
+    });
+    return app;
+  }
+
+  get page(): Page {
+    return this.#current.page;
+  }
+
+  get context(): BrowserContext {
+    return this.#current.context;
+  }
+
+  get server(): DiggaServer {
+    return this.#current.server;
+  }
+
+  get api(): AppApiClient {
+    return this.#current.api;
   }
 
   get origin(): string {
@@ -79,6 +91,11 @@ export class WebApp implements DiggaApp {
 
   async open(hash = "#/triage"): Promise<void> {
     await this.page.goto(`${this.origin}/${hash}`);
+  }
+
+  async relaunch(options: { crash?: boolean } = {}): Promise<void> {
+    await this.#stop(options);
+    await this.#start(async () => {});
   }
 
   async paste(text: string): Promise<void> {
@@ -92,50 +109,75 @@ export class WebApp implements DiggaApp {
     }, text);
   }
 
-  allowApiError(pattern: RegExp): void {
-    this.#allowedApiErrors.push(pattern);
+  async abortRequests(match: RequestMatch, options: { times?: number } = {}): Promise<void> {
+    await abortRequests(this.context, match, {
+      times: options.times ?? 1,
+      onAbort: (request) => this.log.recordAbort(request),
+    });
   }
 
-  /** What went wrong that the test did not declare; the fixture fails the test on any. */
-  problems(): string[] {
-    const { refused, redirects, webSockets } = this.guardLog;
-    return [
-      ...refused.map((url) => `the browser requested ${url}`),
-      ...redirects.map((hop) => `the app redirected ${hop}`),
-      ...webSockets.map((url) => `the browser opened a WebSocket to ${url}`),
-      ...this.#apiErrors.filter(
-        (error) => !this.#allowedApiErrors.some((pattern) => pattern.test(error)),
-      ),
-      ...this.#pageErrors.map((error) => `page error: ${error}`),
-      ...this.#consoleErrors.map((message) => `console error: ${message}`),
-    ];
+  apiRequests(): string[] {
+    return [...this.log.apiRequests];
   }
 
+  expectProblems(problems: ExpectedProblems): void {
+    this.log.expect(problems);
+  }
+
+  /** Stops what is running; a relaunch that failed has left nothing. */
   async close(): Promise<void> {
-    await this.context.close();
-    await this.server.stop();
+    if (this.#launch) await this.#stop({});
   }
 
-  async #prepareContext(): Promise<void> {
-    await guardContext(this.context, this.origin, this.guardLog);
-    await this.context.addInitScript(fakeYouTubeScript(videoCatalogue()));
-    this.context.on("weberror", (error) => this.#pageErrors.push(String(error.error())));
-    this.context.on("console", (message) => {
-      if (message.type() !== "error") return;
-      // Failed responses are logged here too; the API and guard checks decide about those.
-      if (message.text().startsWith("Failed to load resource")) return;
-      this.#consoleErrors.push(`${message.text()} (${message.location().url})`);
-    });
-    this.context.on("request", (request) => {
-      const { pathname } = new URL(request.url());
-      if (pathname.startsWith("/api/")) this.apiRequests.push(`${request.method()} ${pathname}`);
-    });
-    this.context.on("response", (response) => {
-      const { pathname } = new URL(response.url());
-      if (pathname.startsWith("/api/") && response.status() >= 400)
-        this.#apiErrors.push(
-          `${response.request().method()} ${pathname} answered ${response.status()}`,
-        );
-    });
+  /** False after a relaunch that failed, when there is no page to read. */
+  get running(): boolean {
+    return this.#launch !== null;
+  }
+
+  get #current(): Launch {
+    if (!this.#launch) throw new Error("the app is not running");
+    return this.#launch;
+  }
+
+  /** Starts the server, applies the given state, then prepares the context the page opens in. */
+  async #start(given: (api: AppApiClient) => Promise<void>): Promise<void> {
+    const server = await startDiggaServer(this.#options.environment);
+    this.servers.push(server);
+    try {
+      const api = new AppApiClient(server.port);
+      await given(api);
+      const { context, page } = await this.#preparePage(server.origin);
+      this.#launch = { server, context, page, api };
+    } catch (error) {
+      await server.crash();
+      throw error;
+    }
+  }
+
+  /** Closes the page first, so none of its requests meets a stopped server. */
+  async #stop(options: { crash?: boolean }): Promise<void> {
+    const { context, server } = this.#current;
+    this.#launch = null;
+    await context.close();
+    if (options.crash) await server.crash();
+    else await server.stop();
+  }
+
+  /**
+   * A blank page in a context that has everything the app needs before its first script
+   * (docs/E2E_TESTING.md, "Startup order").
+   */
+  async #preparePage(origin: string): Promise<{ context: BrowserContext; page: Page }> {
+    const context = await this.#options.browser.newContext(CONTEXT_OPTIONS);
+    try {
+      await guardContext(context, origin, this.log.guard);
+      await context.addInitScript(fakeYouTubeScript(videoCatalogue()));
+      if (this.#options.clock) await context.clock.install();
+      this.log.watch(context);
+      return { context, page: await context.newPage() };
+    } catch (error) {
+      await context.close();
+      throw error;
+    }
   }
 }
