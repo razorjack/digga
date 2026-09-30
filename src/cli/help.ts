@@ -42,5 +42,7 @@ Environment (also read from a .env in the current folder; variables already set 
                             Digga/dumps; with DIGGA_DATA_DIR, dumps/ inside it)
   DIGGA_CONFIG_FILE         Config file (default digga.config.json in the library folder)
   DISCOGS_TOKEN             Personal access token; overrides the one saved in Settings
+  DIGGA_DUMPS_URL           Another address for data.discogs.com, to rehearse the setup with
+                            tools/dev/fake-data-dumps.ts
   DIGGA_LOG_LEVEL           debug | info | warn | error
 `;

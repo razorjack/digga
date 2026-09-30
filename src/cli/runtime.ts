@@ -20,7 +20,9 @@ export function boot() {
   const secrets = createSecrets({ envFile: paths.secretsFile });
   const level = (process.env.DIGGA_LOG_LEVEL as LogLevel | undefined) ?? "info";
   const logger = createLogger({ level });
-  return { paths, config, secrets, logger };
+  // A stand-in for data.discogs.com, to rehearse the setup (tools/dev/fake-data-dumps.ts).
+  const dataDumpsUrl = fromEnvironment("DIGGA_DUMPS_URL");
+  return { paths, config, secrets, logger, dataDumpsUrl };
 }
 
 /** A .env in the folder digga runs from adds to the environment; variables already set win. */
@@ -42,7 +44,7 @@ export function discogsFor(runtime: Runtime) {
 }
 
 export async function withDatabase<Result>(
-  runtime: Runtime,
+  runtime: Pick<Runtime, "paths">,
   run: (db: Db) => Promise<Result> | Result,
 ): Promise<Result> {
   const db = openDb(runtime.paths.dbFile);

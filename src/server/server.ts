@@ -26,6 +26,8 @@ export interface CreateServerOptions {
   /** Persist PUT /api/settings to paths.configFile. Default true. */
   persistConfig?: boolean;
   fetchImpl?: typeof fetch;
+  /** Where the monthly dumps are listed; data.discogs.com unless a rehearsal points elsewhere. */
+  dataDumpsUrl?: string;
 }
 
 import type { StartInfo } from "./http.ts";
@@ -68,7 +70,10 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       logger.info(`settings updated (${options.paths.configFile})`);
     },
     getDiscogs: discogsProvider(options),
-    dataDumps: createDataDumpClient({ fetchImpl: options.fetchImpl }),
+    dataDumps: createDataDumpClient({
+      fetchImpl: options.fetchImpl,
+      baseUrl: options.dataDumpsUrl,
+    }),
     lookupVideoTitle: createVideoTitleLookup(options.fetchImpl, logger.child("youtube")),
     serveStatic: options.serveStatic ?? true,
   });

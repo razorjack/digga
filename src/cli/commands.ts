@@ -48,7 +48,10 @@ export type ImportResult =
   | ({ kind: "history" } & Awaited<ReturnType<typeof importHistory>>);
 
 export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
-  const deps = { dumps: createDataDumpClient(), logger: runtime.logger };
+  const deps = {
+    dumps: createDataDumpClient({ baseUrl: runtime.dataDumpsUrl }),
+    logger: runtime.logger,
+  };
   const report = downloadReporter();
   const { result } = await withDatabase(runtime, (db) => {
     const jobs = createJobRunner(db, runtime.logger);
@@ -64,7 +67,10 @@ export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
 
 /** The monthly update: the newest dump unless the folder has it, then a load of it. */
 export async function cmdDumpUpdate(runtime: Runtime): Promise<void> {
-  const deps = { dumps: createDataDumpClient(), logger: runtime.logger };
+  const deps = {
+    dumps: createDataDumpClient({ baseUrl: runtime.dataDumpsUrl }),
+    logger: runtime.logger,
+  };
   const report = downloadReporter();
   const { result } = await withDatabase(runtime, (db) => {
     const jobs = createJobRunner(db, runtime.logger);
