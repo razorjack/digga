@@ -3,11 +3,19 @@
    * A one-line status message in the accent. The paragraph stays in the DOM while empty: a live
    * region inserted together with its text is usually not announced.
    */
-  let { message, align = "start" }: { message: string | null; align?: "start" | "end" } =
-    $props();
+  let {
+    message,
+    align = "start",
+    label,
+  }: {
+    message: string | null;
+    align?: "start" | "end";
+    /** Names the region where a page has several status regions. */
+    label?: string;
+  } = $props();
 </script>
 
-<p class="flash {align}" role="status">{message ?? ""}</p>
+<p class="flash {align}" role="status" aria-label={label}>{message ?? ""}</p>
 
 <style>
   .flash {

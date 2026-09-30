@@ -1,4 +1,4 @@
-import type { VerdictStatus } from "../shared/types.ts";
+import type { TrackMark, VerdictStatus } from "../shared/types.ts";
 import { youtubeIdFromUrl } from "../shared/youtube.ts";
 
 /** Verdicts the triage keys write. */
@@ -85,6 +85,18 @@ export const STATUS_COPY: Record<VerdictStatus, string> = {
   collection: "owned",
   seen: "seen",
 };
+
+/** Shift and one of these keys marks the playing track in Triage; the same again clears it. */
+export const TRACK_MARK_KEYS: { mark: TrackMark; key: string }[] = [
+  { mark: "keep", key: "K" },
+  { mark: "meh", key: "M" },
+  { mark: "candidate", key: "C" },
+];
+
+/** The mark a key sets with Shift held, given as `event.key` in lower case; else null. */
+export function trackMarkForKey(key: string): TrackMark | null {
+  return TRACK_MARK_KEYS.find((binding) => binding.key.toLowerCase() === key)?.mark ?? null;
+}
 
 export const STATUS_TONE: Record<VerdictStatus, StampTone> = {
   rejected: "plain",

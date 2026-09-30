@@ -4,6 +4,7 @@
   import { formatDuration } from "../../shared/display.ts";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
+  import { PLAYER_STATUS_COPY } from "../player/status.ts";
   import type { TriagePlayer } from "../player/triage-player.svelte.ts";
 
   let {
@@ -71,19 +72,7 @@
   });
 
   const progress = $derived(player.duration > 0 ? Math.min(1, player.time / player.duration) : 0);
-  const statusCopy = $derived(
-    {
-      starting: "starting",
-      idle: "",
-      loading: "cueing up",
-      playing: "playing",
-      paused: "paused",
-      ended: "end of the tracks",
-      no_audio: "no audio",
-      needs_gesture: "waiting for Space",
-      unavailable: "player unavailable",
-    }[player.status],
-  );
+  const statusCopy = $derived(PLAYER_STATUS_COPY[player.status]);
 
   const position = $derived(`${formatDuration(player.time)} of ${formatDuration(player.duration)}`);
 
@@ -159,7 +148,7 @@
     <span><Key label="E" /> note</span>
   </div>
 
-  <Flash message={player.notice} />
+  <Flash message={player.notice} label="Player notices" />
 </section>
 
 <style>

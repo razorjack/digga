@@ -14,6 +14,7 @@
     hasCommandModifier,
     isTyping,
     pastedVideoLink,
+    trackMarkForKey,
     type TriageStatus,
     VERDICT_KEYS,
   } from "../keymap.ts";
@@ -214,7 +215,6 @@
     return false;
   }
 
-  const TRACK_MARK_KEYS: Record<string, TrackMark> = { k: "keep", m: "meh", c: "candidate" };
   const ACTIONS: Record<string, () => void> = {
     " ": () => player.toggle(),
     j: () => player.nextTrack(),
@@ -246,7 +246,7 @@
   /** Returns true when the key was a triage shortcut. */
   function handle(event: KeyboardEvent): boolean {
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    const mark = event.shiftKey ? TRACK_MARK_KEYS[key] : undefined;
+    const mark = event.shiftKey ? trackMarkForKey(key) : null;
     if (mark) {
       if (!event.repeat) markPlaying(mark);
       return true;
@@ -471,7 +471,7 @@
         inRound={session.round !== null}
         busy={session.slipBusy}
       />
-      <Flash message={session.flash} />
+      <Flash message={session.flash} label="Triage messages" />
     </aside>
   </div>
 

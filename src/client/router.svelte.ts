@@ -1,12 +1,6 @@
-/** Hash router. The only place in src/client that reads window.location. */
-export type Route = "triage" | "twelves" | "settings" | "setup";
+import { type Route, ROUTES } from "./routes.ts";
 
-/** The pages in the header, with their keys; the setup is reached from the app, not the header. */
-export const ROUTES: { route: Route; label: string; key: string }[] = [
-  { route: "triage", label: "Triage", key: "T" },
-  { route: "twelves", label: "Twelves", key: "W" },
-  { route: "settings", label: "Settings", key: "," },
-];
+/** Hash router. The only place in src/client that reads window.location. */
 
 interface HashLocation {
   route: Route;

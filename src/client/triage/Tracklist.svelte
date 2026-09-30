@@ -72,6 +72,7 @@
       {@const heardNow = mine && player.heardNow.has(track.position)}
       {@const heard = track.heard || (player.heardKeys.has(track.heardKey) && !heardNow)}
       <li
+        data-position={track.position}
         class="row {state}"
         class:heard={heard && state !== "playing"}
         class:playing={state === "playing"}

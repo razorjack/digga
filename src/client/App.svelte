@@ -17,7 +17,8 @@
   import Setup from "./pages/Setup.svelte";
   import Triage from "./pages/Triage.svelte";
   import Twelves from "./pages/Twelves.svelte";
-  import { getRoute, localhostAlternative, navigate, ROUTES } from "./router.svelte.ts";
+  import { getRoute, localhostAlternative, navigate } from "./router.svelte.ts";
+  import { ROUTES } from "./routes.ts";
   import { settings, stats, ui } from "./stores.svelte.ts";
 
   const route = $derived(getRoute());

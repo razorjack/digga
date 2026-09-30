@@ -10,18 +10,8 @@ import {
 } from "../../shared/playlist.ts";
 import type { Api, AppApi } from "../api.ts";
 import { Deck, type DeckListener } from "./deck.ts";
+import type { PlayerStatus } from "./status.ts";
 import { embedErrorReason, loadYouTubeApi, PlayerState } from "./youtube.ts";
-
-export type PlayerStatus =
-  | "starting"
-  | "idle"
-  | "loading"
-  | "playing"
-  | "paused"
-  | "ended"
-  | "no_audio"
-  | "needs_gesture"
-  | "unavailable";
 
 /** A listen counts (and the tune turns heard) after this many seconds of playback. */
 const LOG_AFTER_SECONDS = 4;
