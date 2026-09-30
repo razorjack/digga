@@ -24,7 +24,7 @@ let server: DiggaServer;
 beforeEach(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-server-"));
   db = await fixtureDb();
-  const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+  const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
     config: { ...DEFAULT_CONFIG, sandbox: false },
@@ -340,7 +340,7 @@ describe("HTTP API", () => {
 describe("createServer with its own database file", () => {
   it("opens paths.dbFile and applies migrations", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "digga-own-"));
-    const paths = resolvePaths({ baseDir: dir });
+    const paths = resolvePaths({ dataDir: dir });
     const own = createServer({
       config: DEFAULT_CONFIG,
       paths,
@@ -364,7 +364,7 @@ describe("createServer with its own database file", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "digga-worker-"));
     const own = createServer({
       config: DEFAULT_CONFIG,
-      paths: resolvePaths({ baseDir: dir }),
+      paths: resolvePaths({ dataDir: dir }),
       secrets: testSecrets(),
       logger: silentLogger,
       serveStatic: false,

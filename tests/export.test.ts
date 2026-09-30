@@ -18,7 +18,7 @@ let server: DiggaServer;
 beforeEach(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-export-"));
   db = await fixtureDb();
-  const paths = resolvePaths({ baseDir: tmp });
+  const paths = resolvePaths({ dataDir: tmp });
   paths.dbFile = ":memory:";
   server = createServer({
     config: DEFAULT_CONFIG,
@@ -107,6 +107,11 @@ describe("exports", () => {
     expect((await server.app.request("/api/export/secrets.txt")).status).toBe(400);
     const response = await server.app.request("/api/backups");
     const body = (await response.json()) as BackupsResponse;
-    expect(body).toEqual({ directory: path.join(tmp, "data", "backups"), kept: 5, backups: [] });
+    expect(body).toEqual({
+      directory: path.join(tmp, "backups"),
+      databaseFile: ":memory:",
+      kept: 5,
+      backups: [],
+    });
   });
 });

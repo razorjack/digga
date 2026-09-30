@@ -401,6 +401,8 @@ export interface BackupSummary {
 }
 export interface BackupsResponse {
   directory: string;
+  /** The database a backup replaces when restored. */
+  databaseFile: string;
   /** How many daily copies are kept. */
   kept: number;
   /** Newest first. */

@@ -48,7 +48,7 @@ let apiUrl: string;
 beforeEach(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-lists-"));
   db = await fixtureDb();
-  const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+  const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
     config: {

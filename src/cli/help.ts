@@ -4,7 +4,7 @@ Usage: digga <command> [options]
 
 Commands:
   dump download             Download the newest releases dump from data.discogs.com into
-                            data/dumps/, unless it is there already
+                            the dumps folder, unless it is there already
   dump update               Download the newest dump unless it is there, then load it
   dump load <file|->        Stream a Discogs releases dump (.xml.gz, .xml or XML on stdin)
                             into the local universe, filtered by config universe.styles; with
@@ -23,14 +23,18 @@ Commands:
       --list ID             Another list than discogs.maybeListId
   import seller <username>  Read what a seller has for sale, to dig only that (F in Triage)
   stats                     Print universe size, verdict counts, remaining and ETA
-  backup                    Copy the database into data/backups now (serve does it once a day)
+  backup                    Copy the database into the backups folder now (serve does it once a day)
   serve [--port N] [--host H]
                             Start the local server (default 127.0.0.1:3456; --port 0 picks a free port)
   help                      Show this help
 
-Environment:
-  DIGGA_DATA_DIR            Data directory (default ./data)
-  DIGGA_CONFIG_FILE         Config file (default ./digga.config.json)
-  DISCOGS_TOKEN             Personal access token (or save it in Settings, which writes .env)
+Environment (also read from a .env in the current folder; variables already set win):
+  DIGGA_DATA_DIR            Library folder: database, backups, config, saved token (default
+                            ~/Library/Application Support/Digga on macOS, %APPDATA%\\Digga on
+                            Windows, ~/.config/Digga elsewhere)
+  DIGGA_DUMPS_DIR           Dumps folder (default the OS cache folder, such as ~/Library/Caches/
+                            Digga/dumps; with DIGGA_DATA_DIR, dumps/ inside it)
+  DIGGA_CONFIG_FILE         Config file (default digga.config.json in the library folder)
+  DISCOGS_TOKEN             Personal access token; overrides the one saved in Settings
   DIGGA_LOG_LEVEL           debug | info | warn | error
 `;

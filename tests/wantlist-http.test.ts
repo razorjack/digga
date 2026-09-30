@@ -61,7 +61,7 @@ const acceptedOnWantlist = async () =>
   ]);
 
 function serverWith(secrets: Secrets): DiggaServer {
-  const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+  const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   return createServer({
     config: {

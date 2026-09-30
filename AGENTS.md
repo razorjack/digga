@@ -20,6 +20,10 @@ that change without reloading data.
   (`src/client/sandbox.ts`): verdicts, track marks, listens, wantlist pushes and the Maybe list
   import. Settings and the other jobs are real. The server refuses those writes with `409` too.
   Never turn the owner's sandbox off (or edit their config) to test; use a throwaway data dir.
+- **Library:** the database, backups, `digga.config.json` and the saved token live in the per-user
+  app folder (`~/Library/Application Support/Digga` on macOS), dumps in the OS cache folder
+  (`~/Library/Caches/Digga/dumps`). Every `digga` command opens that real library unless
+  `DIGGA_DATA_DIR` points elsewhere, so experiments set it to a throwaway folder.
 - **Later:** an Electron app. Its main process imports `createServer` from `src/server/server.ts`,
   starts it on a free localhost port, opens a `BrowserWindow` at it, and exposes the CLI jobs as
   menu items. That must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
@@ -45,28 +49,28 @@ vp run verify                    # all four of the above
 ### Loading a real dump and seeding
 
 ```sh
-# 1. Download the newest discogs_YYYYMMDD_releases.xml.gz from https://data.discogs.com/ into data/dumps/
+# 1. The newest discogs_YYYYMMDD_releases.xml.gz from https://data.discogs.com/, into the dumps folder
 npm run digga -- dump download                                                    # >10 GB, checksum verified
 npm run digga -- dump update                                                      # download unless there, then load
-npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz            # ~10 GB gz, streams
-npm run digga -- dump load data/dumps/discogs_20250901_releases.xml.gz --limit 500 --dry-run
-gzip -dc data/dumps/discogs_20250901_releases.xml.gz | npm run digga -- dump load -   # from stdin
+npm run digga -- dump load ~/Library/Caches/Digga/dumps/discogs_20250901_releases.xml.gz   # ~10 GB gz, streams
+npm run digga -- dump load path/to/discogs_20250901_releases.xml.gz --limit 500 --dry-run
+gzip -dc path/to/discogs_20250901_releases.xml.gz | npm run digga -- dump load -  # from stdin
 # 2. Seeds (needs discogs.username in digga.config.json, created on first run, and a Discogs token,
-#    saved in Settings or set as DISCOGS_TOKEN in .env)
+#    saved in Settings or set as DISCOGS_TOKEN in the environment or .env)
 npm run digga -- import collection
 npm run digga -- import wantlist
 npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
 npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
 npm run digga -- import seller <username>              # what a seller has for sale, for F in Triage
 npm run digga -- stats
-npm run digga -- backup                                # copy the database into data/backups now
+npm run digga -- backup                                # copy the database into the backups folder now
 ```
 
 ## Layout
 
 ```
-digga.config.example.json  committed defaults; copied to digga.config.json (gitignored, per-user) on first run
-.env.example           DISCOGS_TOKEN= (copy to .env, gitignored)
+digga.config.example.json  the schema defaults a new digga.config.json starts with
+.env.example           DIGGA_DATA_DIR, DIGGA_DUMPS_DIR, DIGGA_CONFIG_FILE, DISCOGS_TOKEN (copy to .env, gitignored)
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
@@ -89,7 +93,7 @@ src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fa
                        settings/ (preview, jobs, Discogs state), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
-data/                  gitignored: digga.sqlite, backups/, dumps/, tmp/
+data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```
 
 ## Conventions
@@ -99,8 +103,9 @@ data/                  gitignored: digga.sqlite, backups/, dumps/, tmp/
 - Tests for all pure logic and for the SQL builders (`tests/`, fixture-driven). Run `vp test`.
 - Schema changes only via a new numbered file in `src/server/db/migrations/`; never edit an applied one.
 - DnB defaults live only in `digga.config.example.json` and the matching schema defaults in
-  `src/shared/config.ts` (a test keeps them equal). `digga.config.json` is per-user and gitignored:
-  it holds the Discogs username and whatever `PUT /api/settings` writes. Never commit it.
+  `src/shared/config.ts` (a test keeps them equal). `digga.config.json` is per-user and lives in
+  the library folder: it holds the Discogs username and whatever `PUT /api/settings` writes. Never
+  commit one.
 - Comments explain constraints, not what the code says. No em dashes; en dash with spaces in prose.
 - Formatting and lint are owned by `vp check --fix`.
 - Prefer short, descriptive commit titles that explain the change without a commit body.
@@ -287,10 +292,12 @@ client TypeScript and CSS.
 1. **Server is a function.** `createServer({ config, paths, secrets, logger })` returns
    `{ app, start(port, host), stop() }`. The CLI is one caller; Electron will be another. 127.0.0.1 only.
 2. **One transport seam.** `src/client/api.ts` is the only file in `src/client` that may call `fetch`.
-3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist.
-   `DIGGA_DATA_DIR` / `DIGGA_CONFIG_FILE` env or `./data` under the CLI's cwd. No `process.cwd()`
-   outside `src/cli/`.
-4. **One place for secrets.** `src/server/secrets.ts` (`.env` / `DISCOGS_TOKEN` now, `safeStorage` later).
+3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist,
+   by default in the per-user app folder Electron's `userData` names. The CLI passes
+   `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` from the environment or a `.env` in
+   its cwd. No `process.cwd()` outside `src/cli/`.
+4. **One place for secrets.** `src/server/secrets.ts` (`secrets.env` in the library / `DISCOGS_TOKEN`
+   now, `safeStorage` later).
    No other `process.env` reads outside `paths.ts`, `secrets.ts`, `src/cli/`.
 5. **Jobs are library functions** in `src/server/jobs/` taking `{ db, discogs, logger }`, options and
    `onProgress`; status goes to the `jobs` table through `jobs/runner.ts`.

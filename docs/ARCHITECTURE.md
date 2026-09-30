@@ -121,7 +121,7 @@ and runs on the server thread; `GET /api/dumps` lists what the folder holds for 
 
 ## Backups and exports
 
-`createServer()` copies the database it opens into `paths.backupsDir` (`data/backups/`) once a
+`createServer()` copies the database it opens into `paths.backupsDir` (`backups/` in the library) once a
 day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest five (`src/server/db/backup.ts`). The copy
 uses SQLite's online backup, so it runs in steps beside requests and reads a consistent snapshot;
 `stop()` waits for it before closing the database. `digga backup` writes the day's copy on demand.
@@ -146,12 +146,20 @@ the Discogs wantlist.
 ## Configuration and paths
 
 `digga.config.json` is the single source of truth, validated by the zod schema in
-`src/shared/config.ts`. It is per-user and gitignored; the first run creates it from the committed
-`digga.config.example.json`. `PUT /api/settings` validates and rewrites the file. Besides the
+`src/shared/config.ts`. It is per-user and lives in the library folder; the first run creates it
+from the schema defaults, which the committed `digga.config.example.json` shows.
+`PUT /api/settings` validates and rewrites the file. Besides the
 Discogs account, universe, filters, order and player, it holds `sandbox` (default `true`, so a
 first run changes nothing by accident) and `filters.skipWithoutVideos` (default `false`), which
-drops releases without an embeddable video from the queue and its counts. `src/server/paths.ts`
-decides every filesystem location from a base directory (`process.cwd()` for the CLI,
-`app.getPath('userData')` for Electron) plus optional `DIGGA_DATA_DIR` / `DIGGA_CONFIG_FILE`
-overrides. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `.env`; Settings
-saves the token to `.env` through `PUT /api/discogs/token`, unless the environment sets it.
+drops releases without an embeddable video from the queue and its counts.
+
+`src/server/paths.ts` decides every filesystem location. The library (database, backups, config,
+saved token, temp files) defaults to the per-user app folder, named as Electron names `userData`
+(`~/Library/Application Support/Digga`, `%APPDATA%\Digga`, `~/.config/Digga`), so the packaged
+app opens the same library. Dumps default to the OS cache folder, which backups skip and the OS may
+clear; a dump can be downloaded again. The CLI reads `.env` from its working directory into the
+environment (variables already set win) and passes `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and
+`DIGGA_CONFIG_FILE` to `resolvePaths()`; a library placed with `DIGGA_DATA_DIR` keeps its dumps
+inside it. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `secrets.env` in
+the library; Settings saves the token there through `PUT /api/discogs/token`, unless the
+environment sets it.

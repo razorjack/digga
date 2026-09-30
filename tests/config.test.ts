@@ -87,19 +87,16 @@ describe("digga.config.example.json", () => {
     expect(parsed.discogs.username).toBe("");
   });
 
-  it("is copied on first run and then left alone", () => {
+  it("shows the config a first run creates, which is then left alone", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "digga-config-"));
-    fs.copyFileSync(EXAMPLE, path.join(dir, "digga.config.example.json"));
-    const paths = resolvePaths({ baseDir: dir });
-    expect(paths.configExampleFile).toBe(path.join(dir, "digga.config.example.json"));
-    const first = loadConfig(paths.configFile, paths.configExampleFile);
+    const paths = resolvePaths({ dataDir: dir });
+    expect(paths.configFile).toBe(path.join(dir, "digga.config.json"));
+    const first = loadConfig(paths.configFile);
     expect(first).toEqual(DEFAULT_CONFIG);
     expect(fs.existsSync(paths.configFile)).toBe(true);
     const edited = { ...first, discogs: { ...first.discogs, username: "someone" } };
     fs.writeFileSync(paths.configFile, JSON.stringify(edited));
-    expect(loadConfig(paths.configFile, paths.configExampleFile).discogs.username).toBe("someone");
-    const bare = loadConfig(path.join(dir, "elsewhere", "digga.config.json"));
-    expect(bare).toEqual(DEFAULT_CONFIG);
+    expect(loadConfig(paths.configFile).discogs.username).toBe("someone");
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

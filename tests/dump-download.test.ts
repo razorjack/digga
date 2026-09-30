@@ -213,7 +213,7 @@ describe("the download in the jobs panel", () => {
 describe("the download over HTTP", () => {
   it("runs one download at a time and lists the dump it saved", async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-download-http-"));
-    const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+    const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
     paths.dbFile = ":memory:";
     const server = createServer({
       config: DEFAULT_CONFIG,
@@ -255,7 +255,7 @@ describe("the download over HTTP", () => {
 describe("the monthly update over HTTP", () => {
   it("downloads the newest dump, then loads it, one dump job at a time", async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-update-http-"));
-    const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+    const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
     paths.dbFile = ":memory:";
     const site = fakeSite();
     site.body = fs.readFileSync(FIXTURE_GZ);

@@ -477,3 +477,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     switched enrich ahead off, and two paths cost more than they give a triage tool.
     `discogs.enrichAhead` is gone; a saved config that has it still parses, and the next save
     drops it.
+98. **The library lives in the per-user app folder.** The database, backups, `digga.config.json`
+    and the token Settings saves (`secrets.env`) default to the folder Electron will call
+    `userData` (`~/Library/Application Support/Digga`, `%APPDATA%\Digga`, `~/.config/Digga`), so
+    the packaged app opens the library the browser version built, with nothing to move. Dumps
+    default to the OS cache folder: they are 10 GB each and can be downloaded again, Time Machine
+    skips `~/Library/Caches`, and `%APPDATA%` roams. The CLI reads a `.env` in its working
+    directory into the environment, variables already set winning, and passes `DIGGA_DATA_DIR`,
+    `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` to `resolvePaths()`, which reads no overrides
+    itself, so tests and Electron are never redirected by the shell. A library placed with
+    `DIGGA_DATA_DIR` keeps its dumps inside it, so a throwaway library never writes to the cache.
+    A new config starts from the schema defaults, since the app folder has no example to copy.
+    There is no migration from `./data`: the only library was moved by hand.

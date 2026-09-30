@@ -32,7 +32,7 @@
       {/if}
       Digga copies its database once a day when the server starts and keeps the last {backups.kept},
       in <code>{backups.directory}</code>. To restore one, stop the server and copy it over
-      <code>digga.sqlite</code>.
+      <code>{backups.databaseFile}</code>.
     </p>
   {/if}
   <p>

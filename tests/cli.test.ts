@@ -33,7 +33,7 @@ describe("CLI workflows", () => {
   it("closes its database when a job rejects", async () => {
     const runtime = {
       config: DEFAULT_CONFIG,
-      paths: { ...resolvePaths({ baseDir: "/tmp" }), dbFile: ":memory:" },
+      paths: { ...resolvePaths({ dataDir: "/tmp" }), dbFile: ":memory:" },
       secrets: testSecrets(),
       logger: silentLogger,
     };

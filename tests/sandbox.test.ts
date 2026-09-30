@@ -40,7 +40,7 @@ function tableCounts(): Record<string, number> {
 beforeEach(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-sandbox-"));
   db = await fixtureDb();
-  const paths = resolvePaths({ baseDir: tmp, distDir: path.join(tmp, "dist") });
+  const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
     config: DEFAULT_CONFIG,

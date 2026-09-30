@@ -110,7 +110,7 @@ async function saveToken(request: Context, context: AppContext) {
     return request.json(
       {
         error:
-          "DISCOGS_TOKEN is set in the environment, which overrides the saved token; unset it to change the token here",
+          "DISCOGS_TOKEN is set in the environment or in the .env digga started with, which overrides the saved token; remove it there to change the token here",
       } satisfies ApiError,
       409,
     );

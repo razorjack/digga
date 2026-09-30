@@ -104,12 +104,17 @@ From a fresh checkout:
 git clone https://github.com/razorjack/digga.git
 cd digga
 npm install
-cp .env.example .env
-cp digga.config.example.json digga.config.json
 ```
 
-Edit `digga.config.json` before loading the catalogue. The [example config](digga.config.example.json)
-contains these settings:
+Digga keeps its library in a folder of your user account: `~/Library/Application Support/Digga`
+on macOS, `%APPDATA%\Digga` on Windows and `~/.config/Digga` on Linux. It holds the database, its
+daily backups, your settings in `digga.config.json` and the Discogs token you save in Settings.
+Dumps go in the cache folder, which backups skip: `~/Library/Caches/Digga/dumps`,
+`%LOCALAPPDATA%\Digga\Cache\dumps` or `~/.cache/Digga/dumps`. `npm run serve` prints both.
+
+The first command creates `digga.config.json` with the defaults the
+[example config](digga.config.example.json) shows. Set these in Settings, or in the file, before
+loading the catalogue:
 
 - `universe.styles` selects the styles to import. Use Discogs' exact names, such as
   `Drum n Bass`.
@@ -123,11 +128,13 @@ contains these settings:
 
 To update your Discogs wantlist or read private account data, create a personal access token in
 [Discogs Settings → Developers](https://www.discogs.com/settings/developers) and paste it into
-Settings in Digga, or set `DISCOGS_TOKEN` in `.env`. Use a token from the same account as
-`discogs.username`.
+Settings in Digga, which saves it in `secrets.env` in the library folder, or set `DISCOGS_TOKEN`
+in the environment. Use a token from the same account as `discogs.username`.
 
-The config file, `.env`, and `data/` are gitignored. If you do not copy the example config,
-Digga creates one on the first command that needs it.
+To keep the library elsewhere, set `DIGGA_DATA_DIR`, and `DIGGA_DUMPS_DIR` or
+`DIGGA_CONFIG_FILE` if needed, in the environment or in a `.env` in the folder you run Digga from
+([`.env.example`](.env.example) lists them). A library placed with `DIGGA_DATA_DIR` keeps its
+dumps inside it unless `DIGGA_DUMPS_DIR` says otherwise.
 
 ### 2. Load the catalogue
 
@@ -138,8 +145,8 @@ Jobs; from the command line:
 
 ```sh
 npm run digga -- dump update      # both steps below: download unless it is there, then load
-npm run digga -- dump download    # the newest dump into data/dumps/, checked against its checksum
-npm run digga -- dump load data/dumps/discogs_YYYYMMDD_releases.xml.gz
+npm run digga -- dump download    # the newest dump into the dumps folder, checked against its checksum
+npm run digga -- dump load ~/Library/Caches/Digga/dumps/discogs_YYYYMMDD_releases.xml.gz
 ```
 
 Discogs publishes a new dump at the start of each month. Run the update again then: it loads the
@@ -190,13 +197,13 @@ On later runs, `npm run serve` is enough. Rebuild after updating the frontend.
 | ------------------------------------ | --------------------------------------------------------- |
 | `npm run digga -- stats`             | Show catalogue size, verdicts, remaining records, and ETA |
 | `npm run digga -- import list`       | Import the Maybe list selected in Settings                |
-| `npm run digga -- backup`            | Copy the database into `data/backups` now                 |
+| `npm run digga -- backup`            | Copy the database into the backups folder now             |
 | `npm run digga -- serve --port 3457` | Use a different port                                      |
 | `npm run digga -- help`              | Show every CLI command and option                         |
 
-The database is stored in `data/digga.sqlite`. The server copies it into `data/backups` once a day
-and keeps the last five; Settings also exports your verdicts and track marks as JSON or CSV. Set `DIGGA_DATA_DIR` or `DIGGA_CONFIG_FILE`
-to use a different data directory or config file.
+The database is `digga.sqlite` in the library folder. The server copies it into `backups/` there
+once a day and keeps the last five; Settings shows where they are and also exports your verdicts
+and track marks as JSON or CSV.
 
 ## Development
 
@@ -211,7 +218,8 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173). The dev server proxies API requests to the
-backend on port 3456.
+backend on port 3456. Both use your library; to develop against another one, set `DIGGA_DATA_DIR`
+in `.env`.
 
 ```sh
 npm run verify

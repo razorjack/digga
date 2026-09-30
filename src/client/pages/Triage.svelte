@@ -309,11 +309,9 @@
         <div class="state">
           <p class="headline">No releases loaded yet.</p>
           <p class="quiet">
-            Digga digs a Discogs releases dump. Download the latest
-            <code>discogs_YYYYMMDD_releases.xml.gz</code> from data.discogs.com into
-            <code>data/dumps/</code>, then load it with
-            <code>npm run digga -- dump load data/dumps/…</code> or from Jobs in settings. The styles and
-            years it keeps are under Universe.
+            Digga digs a Discogs releases dump. In settings, under Jobs, "Update from the newest dump"
+            downloads the latest one, over 10 GB, and loads it. The styles and years it keeps are under
+            Universe.
           </p>
           <p class="actions">
             <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>

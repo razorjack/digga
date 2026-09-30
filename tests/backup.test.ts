@@ -65,7 +65,7 @@ describe("database backups", () => {
   });
 
   it("backs up when the server opens its own database", async () => {
-    const paths = resolvePaths({ baseDir: path.join(tmp, "own") });
+    const paths = resolvePaths({ dataDir: path.join(tmp, "own") });
     const server = createServer({
       config: DEFAULT_CONFIG,
       paths,

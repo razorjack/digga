@@ -22,9 +22,10 @@ import {
 
 app.whenReady().then(async () => {
   const userData = app.getPath("userData");
-  const paths = resolvePaths({ baseDir: userData, distDir: path.join(app.getAppPath(), "dist") });
+  // The CLI's defaults: the library in userData, dumps in the OS cache folder.
+  const paths = resolvePaths({ distDir: path.join(app.getAppPath(), "dist") });
   const config = loadConfig(paths.configFile); // creates it with defaults on first run
-  const secrets = createSafeStorageSecrets(safeStorage, userData); // replaces .env
+  const secrets = createSafeStorageSecrets(safeStorage, userData); // replaces secrets.env
   const logger = createLogger({ sink: fileSink(path.join(userData, "digga.log")) });
   const server = createServer({ config, paths, secrets, logger });
   const { browserUrl } = await server.start(0, "127.0.0.1"); // free port, localhost only
@@ -40,7 +41,9 @@ app.whenReady().then(async () => {
 });
 ```
 
-- `paths` -> `app.getPath('userData')`; nothing else in the server knows where data lives.
+- `paths` -> the defaults of `resolvePaths()`, which name the library folder as Electron names
+  `userData` (keep `productName` "Digga"), so the app opens the library the browser version used.
+  Dumps stay in the OS cache folder. Nothing else in the server knows where data lives.
 - `secrets` -> `safeStorage.encryptString` / `decryptString`, stored as a file under userData. It
   implements the same `Secrets` interface, so the Settings page keeps saving the token through
   `PUT /api/discogs/token`.
@@ -67,8 +70,8 @@ app.whenReady().then(async () => {
   against the Electron ABI. `db.ts` is the only import site, so nothing else changes.
 - `saxes`, `hono`, `@hono/node-server`, `zod` are pure JS.
 - electron-builder targets: mac (dmg, arm64 + x64), win (nsis), linux (AppImage/deb). Include
-  `dist/**`, the transpiled server, `digga.config.json` defaults, and `node_modules` with the
-  rebuilt native module. Exclude `data/`.
+  `dist/**`, the transpiled server and `node_modules` with the rebuilt native module. Exclude
+  `data/`; a new config starts from the schema defaults.
 - macOS: hardened runtime, `com.apple.security.cs.allow-unsigned-executable-memory` is not needed,
   but `better-sqlite3` requires the app to be signed with the same identity as the binary; notarize
   with `notarytool` (electron-builder's `afterSign` hook). Windows: code-sign the installer to avoid

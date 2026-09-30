@@ -689,9 +689,10 @@
             </p>
             <span class="hint" id="{id}-token-hint">
               {#if tokenFromEnvironment}
-                DISCOGS_TOKEN in the environment overrides a saved token; unset it to change the token here.
+                DISCOGS_TOKEN in the environment, or in the .env digga started with, overrides a saved token; remove it
+                there to change the token here.
               {:else}
-                A personal access token from discogs.com/settings/developers, saved in .env. Pushes to your wantlist
+                A personal access token from discogs.com/settings/developers, saved beside the database in secrets.env. Pushes to your wantlist
                 and reads of private lists need it.
               {/if}
             </span>
@@ -876,7 +877,7 @@
         <div class="job">
           <p>
             <b>Dump</b>: Discogs publishes all its releases once a month, over 10 GB compressed. Update downloads the
-            newest one into <code>{dumpFiles.value?.directory ?? "data/dumps/"}</code> unless it is there, checks it
+            newest one into {#if dumpFiles.value}<code>{dumpFiles.value.directory}</code>{:else}the dumps folder{/if} unless it is there, checks it
             against the checksum Discogs publishes, and loads it; the records it adds are offered under
             <Key label="F" size="sm" /> in Triage. Download and Load do one step each, and Load also takes an absolute path.
           </p>

@@ -3,15 +3,13 @@ import path from "node:path";
 import { type Config, ConfigSchema, DEFAULT_CONFIG } from "../shared/config.ts";
 
 /**
- * Reads digga.config.json. The file is per-user (username, filters) and gitignored; when it is
- * missing it is created from digga.config.example.json if given, else from the schema defaults.
+ * Reads digga.config.json, the user's settings (username, filters); when it is missing it is
+ * created from the schema defaults, which digga.config.example.json shows.
  */
-export function loadConfig(file: string, exampleFile?: string): Config {
+export function loadConfig(file: string): Config {
   if (!fs.existsSync(file)) {
-    const initial =
-      exampleFile && fs.existsSync(exampleFile) ? parseFile(exampleFile) : DEFAULT_CONFIG;
-    saveConfig(file, initial);
-    return initial;
+    saveConfig(file, DEFAULT_CONFIG);
+    return DEFAULT_CONFIG;
   }
   return parseFile(file);
 }

@@ -1,6 +1,6 @@
 # Data model
 
-SQLite, WAL mode, one file at `data/digga.sqlite`. Migrations are numbered `.sql` files in
+SQLite, WAL mode, one file: `digga.sqlite` in the library folder (`paths.dbFile`). Migrations are numbered `.sql` files in
 `src/server/db/migrations/` applied at startup; `meta.schema_version` records the last one applied.
 JSON columns hold arrays of small objects and are filtered with `json_each`; the universe is tens
 of thousands of rows, so no junction tables are needed.

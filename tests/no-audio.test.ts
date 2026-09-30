@@ -40,7 +40,7 @@ beforeEach(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-no-audio-"));
   db = await fixtureDb();
   titles = {};
-  const paths = resolvePaths({ baseDir: tmp });
+  const paths = resolvePaths({ dataDir: tmp });
   paths.dbFile = ":memory:";
   server = createServer({
     config: { ...DEFAULT_CONFIG, sandbox: false },
