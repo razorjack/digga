@@ -17,6 +17,9 @@ Where the build differs from the design below:
   releases unfinished loads added that have no verdict.
 - `tools/dev/fake-data-dumps.ts` serves a dump from disk at a set speed, as data.discogs.com
   does, and `DIGGA_DUMPS_URL` points Digga at it, to rehearse the setup.
+- Triage reads its queue when the picks are saved, before the first records arrive, and during
+  the load looks again every 10 seconds, so "Start digging" can open on "You have dug everything
+  loaded so far." until its next look (SETUP-01's gap in `docs/E2E_TESTING.md`).
 
 ## Goals
 
@@ -56,9 +59,9 @@ had run for:
 
 Styles catalogued later arrive less front-loaded. Even an even spread gives a 7,000-record
 selection 70 new records every 10 seconds, faster than anyone digs. The loader commits every 500
-kept releases, and SQLite's WAL lets the server read while the loader's worker writes, so the
-queue can be dug during the load. A verdict saved during the load waits for the batch in progress
-to commit; better-sqlite3 waits up to 5 s for the lock.
+kept releases and at least once a second, and SQLite's WAL lets the server read while the loader's
+worker writes, so the queue can be dug during the load. A verdict saved during the load waits for
+the batch in progress to commit; better-sqlite3 waits up to 5 s for the lock.
 
 ## The flow
 

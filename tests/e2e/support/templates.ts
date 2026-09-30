@@ -13,12 +13,14 @@ import { type DiggaEnvironment, type DiggaLibrary, runDigga } from "./spawn.ts";
  * and renamed into place; a worker that finds it there already discards its copy.
  */
 
-export type TemplateName = "small" | "small-account";
+export type TemplateName = "empty" | "small" | "small-account";
 
 const BUILDERS: Record<
   TemplateName,
   (templates: Templates, environment: DiggaEnvironment) => Promise<void>
 > = {
+  // Nothing, not even a config file: the first start creates it, as for a new user.
+  empty: async () => {},
   small: buildSmall,
   "small-account": buildSmallAccount,
 };

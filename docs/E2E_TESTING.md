@@ -1,11 +1,12 @@
 # End-to-end testing
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
-(Rollout, step 0) is built, and so is the rest of the P0 set apart from the first-run setup
-(SETUP-01); the results of both are recorded in "Spike results". The rest is not built yet. This
-is the design of Digga's end-to-end (E2E) tests: the tool, the harness, the fake services, the
-markup the tests rely on, and the scenarios the suite should cover. The same tests must run
-against the browser app now and the Electron app later (`docs/ELECTRON_PLAN.md`).
+(Rollout, step 0) is built, and so is the whole P0 set, with the first-run setup (SETUP-01) and
+the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21; the results are recorded in "Spike
+results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
+tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
+should cover. The same tests must run against the browser app now and the Electron app later
+(`docs/ELECTRON_PLAN.md`).
 
 ## Goals
 
@@ -353,19 +354,24 @@ release; Jungle and House records for the style picker and census; a release out
 default years for filter tests. The September dump adds three releases and drops one, so the
 last load has "added" and "missing" counts and a `load:<id>` scope.
 
-**The bulk catalogue** adds about 1,500 generated Drum n Bass records from 1998 to 2002 on
-vinyl, deterministic from a seed, placed so that more than 500 records to dig arrive early in the
-dump, plus 20,000 generated releases in other styles so the census and the filter preview have
-something to count. The generated Drum n Bass releases have no master and match the picks the
-setup scenarios make, so each is one record to dig.
+**The bulk catalogue** has 1,500 generated Drum n Bass records from 1998 to 2002 on vinyl,
+deterministic from a seed, on 30 labels no other fixture uses, in id order as in a Discogs dump,
+so more than 500 records to dig arrive in the first 40% of the file. The generated releases have
+no master and match the picks the setup scenarios make (Drum n Bass, the census's middle years,
+vinyl), so each is one record to dig. Releases in other styles, which the census and the filter
+preview need, join when a scenario needs them; the setup scenarios need none. The dump is 81 KB
+and is built in memory once per worker, in about 25 ms (see "The first-run setup path").
 
-**Checkpoints.** The builder compresses the dump with a full flush at named points, such as
-`100-to-dig` and `600-to-dig`, and records for each its compressed offset and the number of
-records to dig before it. A gunzip stream given the bytes up to a full flush yields all the XML
-before it, so at a held transfer the loader has parsed every release before the point. The
+**Checkpoints.** The builder (`fixtures/dump.ts`) compresses the dump with a full flush at named
+points, `100-to-dig` and `600-to-dig`, and records for each its compressed offset, the number of
+records to dig before it and the last release before it. It deflates each part on its own; a
+full flush resets the compressor, so these are the bytes a gzip stream flushed with
+`Z_FULL_FLUSH` between the parts would write. A gunzip stream given the bytes up to a full flush yields all the
+XML before it, so at a held transfer the loader has parsed every release before the point. The
 loader then commits them and reports progress within a second (product change 4), and tests
 wait for the recorded count in the UI or `/api/stats` before they release the transfer. The fake
-data.discogs.com holds and releases transfers (see "The fake services").
+data.discogs.com holds and releases transfers (see "The fake services"). The runs confirmed all
+of this; see "The first-run setup path".
 
 Video ids follow YouTube's 11-character shape (`[\w-]{11}`, which `deck.ts` checks). A prefix
 tells the fake player how to behave: `e150…` refuses with error 150, `e100…` with 100, anything
@@ -417,21 +423,25 @@ so a real token that leaks into a test run is caught instead of logged. The fake
 `?prefix=data/2026/` listing pages with each file's size, the `CHECKSUM.txt` download and the dump
 download with `Content-Length`. Per test: which dumps are listed, the listed size, the
 `Content-Length` sent, the transfer speed, failing after N bytes, a wrong checksum, `503` for
-every page, and checkpoints.
+every page, and checkpoints. Built so far (`fakes.dumps`): the listed dump, which the test names
+with `diggaOptions.listedDump` so it is listed from the app's first request, and without which
+the fake answers `404`; the listed size (`list(dump, { listedBytes })`, `null` for none); holds at
+checkpoints; `set({ failAfterBytes })`; and `sentBytes`, what the transfer has sent so far. The
+rest comes with the scenarios that need it.
 
-A transfer can be held at a checkpoint and released:
+A transfer can be held at a checkpoint and released, to the end or to the next checkpoint:
 
 ```ts
-const point = BULK.checkpoints["600-to-dig"];
+const point = fakes.dumps.checkpoint("100-to-dig");
 fakes.dumps.holdAt(point.name);
 // ... the setup starts the download; the load reads what has arrived ...
-await expect(setup.recordsToDig).toHaveText(formatCount(point.recordsToDig));
-fakes.dumps.release();
+await setup.waitForRecordsToDig(point.recordsToDig);
+fakes.dumps.release("600-to-dig"); // or release() for the rest of the dump
 ```
 
-The speed setting is for realism, never for synchronisation: a byte rate does not say when the
-loader's worker has committed what it read, and a browser clock cannot hurry the worker. Tests
-wait for the committed state through the UI or `/api/stats`, then release.
+A byte rate, when one is added, is for realism, never for synchronisation: it does not say when
+the loader's worker has committed what it read, and a browser clock cannot hurry the worker.
+Tests wait for the committed state through the UI or `/api/stats`, then release.
 
 **YouTube oEmbed** (`https://www.youtube.com/oembed`): the title the catalogue gives a video id,
 else `404`, with an optional delay past the server's 4 s lookup timeout.
@@ -553,7 +563,12 @@ overlap on purpose.
    The spike showed both the need and the cost: with `route.continue()`, a fetch that is redirected
    and a navigation that is redirected both reached the forbidden port; with `route.fetch()` neither
    did, and a Triage page load took about 5 ms longer (86 ms against 81 ms, the medians of 16
-   reloads). `context.routeWebSocket()` closes every WebSocket (Digga opens none). Fault routes and
+   reloads). The base route fetches each request from `127.0.0.1`, the address the server binds,
+   because a fetch of `localhost` tries `[::1]` first, and on its own connection
+   (`Connection: close`), because `route.fetch()`, unlike Chromium, does not send a request again
+   when a kept-alive connection turns out to be closing. A request it cannot fetch is recorded
+   with the reason and attached to the failure artifacts ("The first-run setup path" has both
+   failures). `context.routeWebSocket()` closes every WebSocket (Digga opens none). Fault routes and
    the external-open helper are registered after the base route and call `route.fallback()` for
    requests they do not handle, so they compose with it (Playwright tries the newest matching route
    first). The web context uses `serviceWorkers: "block"`; Electron has no such option, and Digga
@@ -594,8 +609,9 @@ makes the real disk irrelevant instead:
   (SETUP-05).
 - **Too little space at the download.** The listing says 2 MB and the fake's `Content-Length`
   says 900 TB, so the download job refuses in `ensureRoom()` (SETUP-32).
-- **Free space unknown.** `statfs` failing is a vitest case, after `readSetup()` takes its
-  free-space function as a dependency, as `downloadDump()` already takes `freeBytes`.
+- **Free space unknown.** `statfs` failing is a vitest case (`tests/setup-http.test.ts`):
+  `readSetup()` takes its free-space function as a dependency, as `downloadDump()` takes
+  `freeBytes`, and says nothing of the free space when it throws.
 
 ### Time
 
@@ -699,6 +715,7 @@ On failure the fixture attaches, as text where possible:
 
 - the server's stdout and stderr (debug level);
 - the fake services' request log as JSON, and the page's request log;
+- the requests the base route could not fetch for the page, with the reason;
 - browser console messages and page errors;
 - `page.locator("body").ariaSnapshot()`, a YAML view of the accessibility tree that an agent can
   read without opening a trace viewer;
@@ -738,11 +755,11 @@ In the order they are needed:
    `SIGTERM`. A CLI test pins that and the two lines the harness reads (`digga serving on <url>`,
    `library: <dir>`).
 3. **`readSetup()` takes its free-space function as a dependency**, for the vitest case above.
-4. **The loader commits and reports while it waits.** Today it commits every 500 kept releases
-   and reports every 1,000 scanned releases once a second has passed, so while a download stalls,
-   up to 499 kept releases stay uncommitted and the progress stays stale. The loader commits its
-   pending batch and reports progress at least once a second while it runs. The setup then shows
-   what has arrived during a slow download, and checkpoints give exact states.
+4. **The loader commits and reports while it waits.** It committed every 500 kept releases and
+   reported every 1,000 scanned releases once a second had passed, so while a download stalled,
+   up to 499 kept releases stayed uncommitted and the progress stayed stale. The loader commits
+   its pending batch and reports progress at least once a second while it runs. The setup then
+   shows what has arrived during a slow download, and checkpoints give exact states.
 5. **The markup changes** in the next section.
 6. **For Electron:** the main process honours `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`,
    `DIGGA_CONFIG_FILE` and the service URLs, as the CLI does; its `Secrets` lets `DISCOGS_TOKEN`
@@ -763,6 +780,17 @@ modules, since Node imports neither a component nor a `.svelte.ts` module: the f
 which names "Triage messages" and "Player notices"; `data-position` on the tracklist's track
 rows; `PLAYER_STATUS_COPY` in `src/client/player/status.ts`; the header's pages and their keys
 (`ROUTES`) in `src/client/routes.ts`; and the track-mark keys (`TRACK_MARK_KEYS`) in `keymap.ts`.
+
+The setup path built items 3 and 4. `readSetup(deps, { freeBytes })` takes the dependencies it
+reads (`db`, `paths`, `dataDumps`) and the free-space function, whose default is the download's
+`freeBytesIn()`. In the loader, a timer reports whenever a second passes without a report, and
+every scanning report commits the pending batch first, so what the progress says is in the
+database; the batch size, the final flush, the dry run and the limit are as they were, and the
+per-1,000 clock check is gone, since the timer covers it. A timed commit that fails ends the load
+with its error, through the input stream. Its vitest cases are in `tests/dump-load.test.ts` and
+`tests/growing-dump.test.ts`. The burn-in also found a race in the setup's job polling, fixed in
+`src/client/setup/flow.svelte.ts` with `tests/setup-flow.test.ts` (see "The first-run setup
+path"). The setup needed no markup change.
 
 ## Markup audit
 
@@ -1026,41 +1054,41 @@ TRI-13, SBX-01, PER-01 and PER-04.
 
 ### First run (`#/setup`) [`empty`, fake data.discogs.com serving the bulk dump]
 
-| ID       | Scenario                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | P   |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| SETUP-01 | The first run from the default config: the sandbox is on at first (`/api/settings`); fetch, connect with `e2e-token-dj`, keep the suggested styles, fill the crate; the config then has the sandbox off; with the transfer held at `600-to-dig` and its count shown, "Start digging"; the first verdict is in `/api/export/decisions.json`                                                                                                                                                         | P0  |
-| SETUP-02 | An empty library opens `#/setup/catalogue`; the header holds only the wordmark; `T`, `W` and `,` do nothing; the step list marks step 1; the title is "Fetch the catalogue – Digga setup"                                                                                                                                                                                                                                                                                                          | P1  |
-| SETUP-03 | Step 1 shows the dump's date, listed size, folder and free space; the fake logged no download before the button                                                                                                                                                                                                                                                                                                                                                                                    | P1  |
-| SETUP-04 | data.discogs.com answers `503`: the reason and "Try again"; once the fake recovers, Try again shows the dump                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
-| SETUP-05 | The listing says 900 TB: an alert with the space needed, the folder and `DIGGA_DUMPS_DIR`; Fetch is disabled; "Check again"                                                                                                                                                                                                                                                                                                                                                                        | P1  |
-| SETUP-06 | The dump is already in the dumps folder: "Digga has the 1 September 2026 catalogue already" and Continue                                                                                                                                                                                                                                                                                                                                                                                           | P1  |
-| SETUP-07 | Enter starts the download; the download strip shows on steps 2 and 3 with a `<progress>`; the step is in the address; a reload stays on it; Back goes a step back                                                                                                                                                                                                                                                                                                                                  | P1  |
-| SETUP-08 | A token Discogs accepts: "Connected as dj: 5 in your collection, 6 wants"; the username is adopted; currency comes from the profile                                                                                                                                                                                                                                                                                                                                                                | P1  |
-| SETUP-09 | `e2e-token-refused`: the step's alert shows Discogs' refusal, nothing is saved, the username stays empty. After markup item 3: the field has `aria-invalid` and references the alert                                                                                                                                                                                                                                                                                                               | P1  |
-| SETUP-10 | "No token? Use your username": the public profile is read; a later want stays in Digga, its push fails with the declared `400` ("Set your Discogs token in Settings first"), and Twelves marks it as not on the wantlist                                                                                                                                                                                                                                                                           | P2  |
-| SETUP-11 | Skip moves to step 3 with nothing connected and no suggestions                                                                                                                                                                                                                                                                                                                                                                                                                                     | P1  |
-| SETUP-12 | Browser history: the checkbox and browser list appear only for browsers with a history file in the fake home; a browser folder the harness makes unreadable (`chmod 000` on the root it lists, POSIX, not as root, restored in cleanup) is listed too, with the Full Disk Access hint; the import marks the fixture's visited releases as seen                                                                                                                                                     | P2  |
-| SETUP-13 | Continue starts the collection and wantlist imports as jobs (the fake logs their pages) and moves on at once                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
-| SETUP-14 | Step 3 with imports: the account's styles are picked ("mostly Drum n Bass"); years default to the middle 80%; the estimate is a `status` line                                                                                                                                                                                                                                                                                                                                                      | P1  |
-| SETUP-15 | Style picker: "jung" then Enter picks Jungle; "Often tagged with" adds a style; "Remove Jungle" removes it; genres open as `<details>`; Vinyl only; the load-years disclosure                                                                                                                                                                                                                                                                                                                      | P1  |
-| SETUP-16 | Validation: no style blocks submit; "from" is capped by "to". After markup item 3: the search field gets `aria-invalid` and references the message                                                                                                                                                                                                                                                                                                                                                 | P1  |
-| SETUP-17 | "Fill the crate" saves styles, years, formats and load years (read back through `/api/settings`) and starts the load                                                                                                                                                                                                                                                                                                                                                                               | P1  |
-| SETUP-18 | Held at `100-to-dig`, once its count shows: the Download and Read `<progress>` rows have values, releases kept and records to dig are counted, "Just pulled" names a release; the header shows "loading N%" and the page keys work again                                                                                                                                                                                                                                                           | P1  |
-| SETUP-19 | Held at `100-to-dig`: the records to dig reach the checkpoint's count while the download is held, so the load read the growing file                                                                                                                                                                                                                                                                                                                                                                | P1  |
-| SETUP-20 | Imports slower than the load's start (the wantlist pages held at the fake): "Reading your collection and wantlist first, so the load also keeps other records on your labels." and "Start without it"                                                                                                                                                                                                                                                                                              | P2  |
-| SETUP-21 | Held at `100-to-dig`: "Start digging" is disabled and "ready at 500 records" shows; released to `600-to-dig`: enabled once its count shows; Enter and the button open Triage with the sandbox off. `T` is also the page key, which works during the load whatever the count (`docs/FIRST_RUN.md`)                                                                                                                                                                                                  | P1  |
-| SETUP-22 | Practice round: the banner counts "1 of 5"; after five verdicts "That's digging."; Enter turns the sandbox off and the five records come round again; `/api/export/decisions.json` holds none of them; Esc ends it early                                                                                                                                                                                                                                                                           | P1  |
-| SETUP-23 | The load finishes: the "ready to dig" stamp and the `h1` "The catalogue is in: …"; the header status says "The catalogue is in: …" once, the indicator goes; "Delete it" deletes the dump (`/api/dumps` is empty)                                                                                                                                                                                                                                                                                  | P1  |
-| SETUP-24 | "Change your picks" during the load cancels it and returns to step 3; releases the load added without a verdict are gone, releases with a verdict and the verdicts stay; a reload then opens the load's screen with "Cancelled". **Gap:** the picks start again from the suggestions, not from the previous picks                                                                                                                                                                                  | P1  |
-| SETUP-25 | With the load reading the growing file, the download fails part way (fake `failAfterBytes`): "The catalogue stopped loading: The download stopped: …", with Pick up and Change your picks; Pick up downloads again. **Gap:** the designed copy ("The download stopped at 4.1 of 10.5 GB: … it starts again." with "Start again"); and a download that fails before a load reads it (steps 2 and 3) shows nothing today: the strip goes, and "Fill the crate" then fails with "Dump file not found" | P1  |
-| SETUP-26 | Wrong checksum, with the load reading: "The catalogue stopped loading: The download stopped: … does not match its published checksum", with Pick up and Change your picks. **Gap:** designed is "The download does not match Discogs' checksum" and one more download by itself before asking                                                                                                                                                                                                      | P2  |
-| SETUP-27 | A crash during the load (`relaunch({ crash: true })`): the jobs are marked failed as interrupted; the setup offers Pick up, which reads the dump from the start                                                                                                                                                                                                                                                                                                                                    | P1  |
-| SETUP-28 | Resume as built: a new page opens the load's screen once a load exists, step 1 before the download starts, and step 2 while the catalogue comes, or step 3 when the address asks for it. **Gap:** earlier answers come back only where the server holds them (the connected account); the picks do not                                                                                                                                                                                             | P1  |
-| SETUP-29 | **Gap.** Picks that match nothing: today the load ends with no records to dig and "Start digging" enabled. Designed: "Nothing in the catalogue matches these picks" and Change your picks                                                                                                                                                                                                                                                                                                          | P2  |
-| SETUP-30 | A library with a finished load never shows the setup; `#/setup` goes to Triage [`small`]                                                                                                                                                                                                                                                                                                                                                                                                           | P1  |
-| SETUP-31 | Digging during the load, held at `100-to-dig`: at the end of the queue "You have dug everything loaded so far."; after release, once `/api/stats` counts more records to dig, `runFor(10_000)` and the next record shows                                                                                                                                                                                                                                                                           | P1  |
-| SETUP-32 | The listing says 2 MB and the transfer's `Content-Length` 900 TB: the download job fails for lack of space before it writes a byte (`/api/jobs`). **Gap:** the setup shows nothing of it (see SETUP-25); designed: the reason on the step                                                                                                                                                                                                                                                          | P2  |
-| SETUP-33 | A load that finishes with fewer than 500 records to dig enables "Start digging"                                                                                                                                                                                                                                                                                                                                                                                                                    | P1  |
+| ID       | Scenario                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| SETUP-01 | The first run from the default config: the sandbox is on at first (`/api/settings`); fetch, connect with `e2e-token-dj`, keep the suggested styles, fill the crate; the config then has the sandbox off; with the transfer held at `600-to-dig` and its count shown, "Start digging"; the first verdict is in `/api/export/decisions.json`. **Gap:** Triage digs the queue it read when the picks were saved, before the first records came, until it looks again (every 10 s during a load), so "Start digging" can open on "You have dug everything loaded so far." with 600 to go; the test runs the clock 10 s before the verdict. Designed: Triage opens on a record; its `test.fail` pauses the clock before the picks are saved, so Triage cannot look again, and opens Triage with `T` at `100-to-dig` | P0  |
+| SETUP-02 | An empty library opens `#/setup/catalogue`; the header holds only the wordmark; `T`, `W` and `,` do nothing; the step list marks step 1; the title is "Fetch the catalogue – Digga setup"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | P1  |
+| SETUP-03 | Step 1 shows the dump's date, listed size, folder and free space; the fake logged no download before the button                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | P1  |
+| SETUP-04 | data.discogs.com answers `503`: the reason and "Try again"; once the fake recovers, Try again shows the dump                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | P1  |
+| SETUP-05 | The listing says 900 TB: an alert with the space needed, the folder and `DIGGA_DUMPS_DIR`; Fetch is disabled; "Check again"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | P1  |
+| SETUP-06 | The dump is already in the dumps folder: "Digga has the 1 September 2026 catalogue already" and Continue                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
+| SETUP-07 | Enter starts the download; the download strip shows on steps 2 and 3 with a `<progress>`; the step is in the address; a reload stays on it; Back goes a step back                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | P1  |
+| SETUP-08 | A token Discogs accepts: "Connected as dj: 5 in your collection, 6 wants"; the username is adopted; currency comes from the profile                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
+| SETUP-09 | `e2e-token-refused`: the step's alert shows Discogs' refusal, nothing is saved, the username stays empty. After markup item 3: the field has `aria-invalid` and references the alert                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | P1  |
+| SETUP-10 | "No token? Use your username": the public profile is read; a later want stays in Digga, its push fails with the declared `400` ("Set your Discogs token in Settings first"), and Twelves marks it as not on the wantlist                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P2  |
+| SETUP-11 | Skip moves to step 3 with nothing connected and no suggestions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | P1  |
+| SETUP-12 | Browser history: the checkbox and browser list appear only for browsers with a history file in the fake home; a browser folder the harness makes unreadable (`chmod 000` on the root it lists, POSIX, not as root, restored in cleanup) is listed too, with the Full Disk Access hint; the import marks the fixture's visited releases as seen                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | P2  |
+| SETUP-13 | Continue starts the collection and wantlist imports as jobs (the fake logs their pages) and moves on at once                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | P1  |
+| SETUP-14 | Step 3 with imports: the account's styles are picked ("mostly Drum n Bass"); years default to the middle 80%; the estimate is a `status` line                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
+| SETUP-15 | Style picker: "jung" then Enter picks Jungle; "Often tagged with" adds a style; "Remove Jungle" removes it; genres open as `<details>`; Vinyl only; the load-years disclosure                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
+| SETUP-16 | Validation: no style blocks submit; "from" is capped by "to". After markup item 3: the search field gets `aria-invalid` and references the message                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | P1  |
+| SETUP-17 | "Fill the crate" saves styles, years, formats and load years (read back through `/api/settings`) and starts the load                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | P1  |
+| SETUP-18 | Held at `100-to-dig`, once its count shows: the Download and Read `<progress>` rows have values, releases kept and records to dig are counted, "Just pulled" names a release; the header shows "loading N%" and the page keys work again                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
+| SETUP-19 | Held at `100-to-dig`: the records to dig reach the checkpoint's count while the download is held, so the load read the growing file                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
+| SETUP-20 | Imports slower than the load's start (the wantlist pages held at the fake): "Reading your collection and wantlist first, so the load also keeps other records on your labels." and "Start without it"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | P2  |
+| SETUP-21 | Held at `100-to-dig`: "Start digging" is disabled and "ready at 500 records" shows; released to `600-to-dig`: enabled once its count shows; Enter and the button open Triage with the sandbox off (the page; its first record follows SETUP-01's gap). `T` is also the page key, which works during the load whatever the count (`docs/FIRST_RUN.md`)                                                                                                                                                                                                                                                                                                                                                                                                                                                          | P1  |
+| SETUP-22 | Practice round: the banner counts "1 of 5"; after five verdicts "That's digging."; Enter turns the sandbox off and the five records come round again; `/api/export/decisions.json` holds none of them; Esc ends it early                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
+| SETUP-23 | The load finishes: the "ready to dig" stamp and the `h1` "The catalogue is in: …"; the header status says "The catalogue is in: …" once, the indicator goes; "Delete it" deletes the dump (`/api/dumps` is empty)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | P1  |
+| SETUP-24 | "Change your picks" during the load cancels it and returns to step 3; releases the load added without a verdict are gone, releases with a verdict and the verdicts stay; a reload then opens the load's screen with "Cancelled". **Gap:** the picks start again from the suggestions, not from the previous picks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | P1  |
+| SETUP-25 | With the load reading the growing file, the download fails part way (fake `failAfterBytes`): "The catalogue stopped loading: The download stopped: …", with Pick up and Change your picks; Pick up downloads again. **Gap:** the designed copy ("The download stopped at 4.1 of 10.5 GB: … it starts again." with "Start again"); and a download that fails before a load reads it (steps 2 and 3) shows nothing today: the strip goes, and "Fill the crate" then fails with "Dump file not found"                                                                                                                                                                                                                                                                                                             | P1  |
+| SETUP-26 | Wrong checksum, with the load reading: "The catalogue stopped loading: The download stopped: … does not match its published checksum", with Pick up and Change your picks. **Gap:** designed is "The download does not match Discogs' checksum" and one more download by itself before asking                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | P2  |
+| SETUP-27 | A crash during the load (`relaunch({ crash: true })`): the jobs are marked failed as interrupted; the setup offers Pick up, which reads the dump from the start                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | P1  |
+| SETUP-28 | Resume as built: a new page opens the load's screen once a load exists, step 1 before the download starts, and step 2 while the catalogue comes, or step 3 when the address asks for it. **Gap:** earlier answers come back only where the server holds them (the connected account); the picks do not                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | P1  |
+| SETUP-29 | **Gap.** Picks that match nothing: today the load ends with no records to dig and "Start digging" enabled. Designed: "Nothing in the catalogue matches these picks" and Change your picks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | P2  |
+| SETUP-30 | A library with a finished load never shows the setup; `#/setup` goes to Triage [`small`]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
+| SETUP-31 | Digging during the load, held at `100-to-dig`: at the end of the queue "You have dug everything loaded so far."; after release, once `/api/stats` counts more records to dig, `runFor(10_000)` and the next record shows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
+| SETUP-32 | The listing says 2 MB and the transfer's `Content-Length` 900 TB: the download job fails for lack of space before it writes a byte (`/api/jobs`). **Gap:** the setup shows nothing of it (see SETUP-25); designed: the reason on the step                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | P2  |
+| SETUP-33 | A load that finishes with fewer than 500 records to dig enables "Start digging"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | P1  |
 
 ### Triage [`small`, sandbox off unless stated]
 
@@ -1319,11 +1347,11 @@ that passes only on retry still fails the run and is reported as flaky. A new or
 passes `--repeat-each=10` before it is committed.
 
 **Budget.** About 150 scenarios. Most take 1 to 5 s including the server start; setup journeys
-take 20 to 40 s. On four workers the P0 and P1 sets should finish in about six minutes. In the
-spike a server started in about 200 ms and stopped over IPC in about 5 ms, so per-test servers
-stay; the five spike scenarios took 6.3 s on five workers, and the twelve P0 scenarios without
-SETUP-01 take 7.6 s. The first setup journeys are measured when they are written, and a slow
-suite is sharded.
+take 5 to 10 s, most of it waiting for the crate's 3 s reads of the records to dig. On four
+workers the P0 and P1 sets should finish in about six minutes. In the spike a server started in
+about 200 ms and stopped over IPC in about 5 ms, so per-test servers stay; the five spike
+scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and all 17 tests
+14.0 s; SETUP-01 sets the smoke set's pace. A slow suite is sharded.
 
 ## Rules for agents writing E2E tests
 
@@ -1371,6 +1399,12 @@ suite is sharded.
    and `bulk` templates; the rest of the host interface; page objects; the rest of the P0 set; the
    commands and the `tests/e2e/` layout in AGENTS.md. `e2e:smoke` joins `vp run verify` after it has
    passed a burn-in of `--repeat-each=20`, since `verify` must be green before every commit.
+   Done on 2026-10-01: product changes 3 and 4; data.discogs.com in the fakes module with the
+   listing, the checksum, holds at checkpoints and `failAfterBytes`; the checkpoint builder and the
+   bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
+   its burn-in; the layout in AGENTS.md. Still to do: the rest of the fake services' settings and
+   of the Discogs API, the move to `tools/dev/fake-services.ts`, the `bulk` template, the rest of
+   the host interface and page objects, and the decision on `e2e:smoke` in `verify`.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
@@ -1474,6 +1508,90 @@ pass. The work showed:
   1.8 s, PER-01 1.8 s, PER-04 2.2 s, TRI-13 2.7 s and TRI-12 2.9 s; the pushes wait for the
   server's 1.1 s gap between Discogs requests.
 
+### The first-run setup path (web)
+
+Built on 2026-10-01 on the same machine and versions: product changes 3 and 4, data.discogs.com
+in the fakes module, the checkpoint builder and the bulk catalogue, the `empty` template, the setup
+page object, SETUP-01 with its gap, SETUP-18, SETUP-19 and SETUP-21. All thirteen P0 scenarios
+pass. The work showed:
+
+- **Checkpoints give exact states.** Held at `100-to-dig`, the crate counted exactly 100 records
+  to dig and 100 releases kept, `/api/stats` said 100, the fake had sent exactly the checkpoint's
+  6,112 bytes, the download was still running, and `/api/dumps` listed nothing, since the dump was
+  still a `.part` file. The load had read exactly those bytes: the Read bar's value was the
+  checkpoint's share of the dump (6,112 of 81,198 bytes), the header read "loading 7%", and "Just
+  pulled" named the checkpoint's last release with its catalogue number. At `600-to-dig` it was
+  600 and 40%. The builder's bytes match those of a gzip stream flushed with `Z_FULL_FLUSH`
+  (compared on the first part), and a vitest case cuts a growing `.part` at a full flush and gets
+  exactly the releases before it.
+- **The loader change works as intended.** In vitest, an input that stops after three releases,
+  fewer than a batch, has them committed and reported about a second after the load starts, and
+  the next report comes a second later, not sooner; a dry run commits nothing; a timed commit that
+  fails ends the load with its error. Both stalled cases fail on the old loader. In the app, the
+  100 records of `100-to-dig`, below a batch, reached `/api/stats` 1.1 to 1.4 s after the load
+  started (median 1.23 s over 10 runs on six workers): the worker's start plus the timer.
+  Released to `600-to-dig`, the 500 new records fill a batch and commit at once: `/api/stats`
+  counted 600 0.22 to 0.31 s after the fake had sent the bytes (median 0.27 s).
+- **The crate's count trails the database by up to 3 s.** The setup reads the records to dig
+  every 3 s, so the count showed 4.1 to 4.6 s after the load started (median 4.4 s), and 2.6 to
+  3.1 s after the bytes for 600 arrived (median 3.1 s). The page object waits up to 15 s.
+- **The bulk dump is small.** 1,500 records make 1.39 MB of XML and 81,198 bytes gzipped,
+  generated in about 9 ms and compressed in about 16 ms, once per worker and in memory: the fake
+  serves it from memory, so no file is written. The loader reads it whole in about 210 ms
+  in-process (195 to 223 ms over 5 runs), and a transfer released from `600-to-dig` to the end
+  reached READY TO DIG 0.8 to 1.3 s later (median 1.06 s), with the checksum verified. The size
+  costs nothing measurable, and the 900 records after `600-to-dig` are there for scenarios that
+  release to the end. The 20,000 releases in other styles the design planned wait until a
+  scenario needs them.
+- **The fake reads as data.discogs.com does.** `newestReleasesDump()`, `checksum()` and
+  `download()` read the listing, `CHECKSUM.txt` and the `Content-Length` as they read the real
+  site; a whole transfer ended "downloaded … (79 KB), checksum verified". `failAfterBytes` at
+  20,000 ended the download job `failed` with "fetch failed", undici's message for a body cut off,
+  which SETUP-25's copy would show as the reason.
+- **The Download bar can lag while a transfer is held.** The downloader reports only when a chunk
+  arrives and a second has passed since its last report, so a held transfer can show fewer bytes
+  than have arrived. The loader reads what is on disk, so its numbers are exact. In the runs the
+  checkpoint's bytes came in one chunk, and the bar was exact in 10 of 10 runs; SETUP-18 checks
+  only that it has a value.
+- **A gap: Triage digs a stale queue after "Start digging".** Triage's session reads its queue
+  when the picks are saved (`PUT /api/settings`, then `GET /api/queue`, then
+  `POST /api/jobs/dump-load` in the page's log), before any record has arrived, and during a load
+  it looks again every 10 s. The count reaches 600 within about 5 s, so "Start digging", or `T` at
+  any count, can open "You have dug everything loaded so far." with 600 to go. SETUP-01 records
+  the gap: the normal test runs the clock 10 s after "Start digging", and its `test.fail` shows the
+  design with the clock paused, so Triage cannot look again. With a real dump the first look comes
+  10 s into a load that takes about 70 s to reach 500 records, so the owner would rarely see it.
+- **A race in the setup's job polling.** The first burn-in failed SETUP-01 once in 20 runs: the
+  crate stayed at "starting" with no records to dig, while the header read "loading 40%". The
+  trace showed that the page's timers had stalled for 4.6 s under load. When they ran again, the
+  poll that was due before "Fill the crate" fired while the answer to the load's `POST` was still
+  unprocessed. It found no load, asked only about the download, and wrote the missing load back
+  after `#startLoad()` had set it, so from then on it asked about the download alone. Without a
+  stall, the same happens whenever a poll's answer arrives after a job the flow started meanwhile.
+  `#refreshJobs()` now keeps a job that changed while the answers were on their way; the vitest
+  case in `tests/setup-flow.test.ts` fails without the fix.
+- **The base route's own fetch failed under load.** One TRI-07 run in 280 and two SETUP-21 runs
+  in 100 failed on "Failed to load resource: net::ERR_FAILED" for `GET /api/jobs` or
+  `GET /api/stats`. The route caught every fetch error silently, so the harness now records them;
+  the SETUP-21 failures were "route.fetch: read ECONNRESET" on `127.0.0.1`: a kept-alive
+  connection the server was closing when the harness used it again. Chromium sends such a
+  request again, but `route.fetch()` does not. A probe also showed that a fetch of `localhost`
+  tries `[::1]` first, where another program with the same port number takes it: with a listener
+  there, the fetch failed with `ECONNRESET` and the page with `net::ERR_FAILED`. This machine has
+  such listeners (`rapportd` on `*:59685`). The base route now fetches from `127.0.0.1` with
+  `Connection: close`; a loopback connection per request did not change the suite's time
+  measurably.
+- **Stable.** After these fixes the P0 set passed 280 of 280 runs at `--repeat-each=20` on 16
+  workers on the 10-core machine, in 2.3 minutes; the setup spec passed 100 of 100 in 1.4 minutes,
+  and the whole suite 340 of 340 in each of two runs, in 2.8 and 3.0 minutes. SETUP-01's `test.fail` failed as expected in
+  every run.
+- **Durations.** On five workers (`vp run e2e`): SETUP-01 9.6 s, its gap test 8.2 s, SETUP-18
+  5.5 s, SETUP-19 5.3 s and SETUP-21 7.2 s. The medians on 16 workers in the burn-in were 12.6 s,
+  10.9 s, 8.8 s, 7.9 s and 10.2 s. SETUP-01 spends about 3.3 s in the Discogs client's 1.1 s gaps
+  between its four requests and about 4.4 s waiting for the crate's count; the gap test spends
+  5 s on its failing expectation. `vp run e2e:smoke` takes 12.6 s with the client build, and
+  `vp run e2e` 15.2 s.
+
 ## Risks and open questions
 
 - **Per-test server processes** keep tests isolated but cost a Node start each, about 200 ms in
@@ -1494,8 +1612,9 @@ pass. The work showed:
   changed too; ELEC-13 fails first if it is not.
 - **Playwright's Electron support** is experimental, and fuses and keychains limit what runs on
   release builds.
-- **Open:** once it has passed its burn-in, should `e2e:smoke` be part of `vp run verify`, which
-  then needs Playwright's Chromium on every machine that commits? Which browsers must the web
-  version support? Is a CI provider other than GitHub Actions planned? Are visual snapshots
-  wanted at all? What does the Electron app do when `safeStorage` cannot encrypt, as on Linux
-  without a keyring: refuse to save the token, or save it with the plain-text key?
+- **Open:** `e2e:smoke` has passed its burn-in (see "The first-run setup path"). Should it be part
+  of `vp run verify`, which would then take about 13 s longer and need Playwright's Chromium on
+  every machine that commits? Which browsers must the web version support? Is a CI provider other
+  than GitHub Actions planned? Are visual snapshots wanted at all? What does the Electron app do
+  when `safeStorage` cannot encrypt, as on Linux without a keyring: refuse to save the token, or
+  save it with the plain-text key?

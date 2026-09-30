@@ -8,6 +8,9 @@ import { DEFAULT_CONFIG, type Filters } from "../src/shared/config.ts";
 export const FIXTURE_GZ = fileURLToPath(
   new URL("../fixtures/releases-sample.xml.gz", import.meta.url),
 );
+export const FIXTURE_XML = fileURLToPath(
+  new URL("../fixtures/releases-sample.xml", import.meta.url),
+);
 
 export const silentLogger = createLogger({ sink: silentSink });
 

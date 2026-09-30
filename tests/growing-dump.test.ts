@@ -12,7 +12,8 @@ import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { Job } from "../src/shared/types.ts";
 import type { GrowingState } from "../tools/dump/growing.ts";
 import { loadDump } from "../tools/dump/load.ts";
-import { FIXTURE_GZ, silentLogger, testSecrets } from "./helpers.ts";
+import { gzipInParts } from "./e2e/fixtures/dump.ts";
+import { FIXTURE_GZ, FIXTURE_XML, silentLogger, testSecrets } from "./helpers.ts";
 
 const DUMP = "discogs_20260901_releases.xml.gz";
 const BYTES = fs.readFileSync(FIXTURE_GZ);
@@ -49,6 +50,34 @@ describe("a load reading a dump that is still downloading", () => {
       { growing, logger: silentLogger },
     );
     await writeInSteps(file);
+    fs.renameSync(`${file}.part`, file);
+    state = { state: "whole" };
+
+    expect(await loading).toMatchObject({ scanned: 6, matched: 5, upserted: 5 });
+    db.close();
+  });
+
+  it("has every release before a full flush committed while the rest has not arrived", async () => {
+    const file = path.join(dir, DUMP);
+    const xml = fs.readFileSync(FIXTURE_XML, "utf8");
+    // A full flush after 1001, 1002 and 1003, as the end-to-end dumps have at their checkpoints.
+    const flushAt = xml.indexOf('<release id="1004"');
+    const { data, ends } = gzipInParts([xml.slice(0, flushAt), xml.slice(flushAt)]);
+    let state: GrowingState = { state: "writing" };
+    const db = openDb(":memory:");
+    fs.writeFileSync(`${file}.part`, data.subarray(0, ends[0]));
+
+    const loading = loadDump(
+      db,
+      { file, styles: ["Drum n Bass"], loadYears: null },
+      { growing: { state: () => state, totalBytes: () => data.length }, logger: silentLogger },
+    );
+    await expect
+      .poll(() => db.prepare("SELECT id FROM releases ORDER BY id").pluck().all(), {
+        timeout: 2000,
+      })
+      .toEqual([1001, 1002, 1003]);
+    fs.appendFileSync(`${file}.part`, data.subarray(ends[0]));
     fs.renameSync(`${file}.part`, file);
     state = { state: "whole" };
 

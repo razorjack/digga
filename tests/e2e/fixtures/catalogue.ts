@@ -197,7 +197,33 @@ export const DJ: FixtureAccount = { username: "dj", collection: [1301], wantlist
 
 export const ACCOUNTS: FixtureAccount[] = [DJ, { username: "other", collection: [], wantlist: [] }];
 
-export const ALL_RELEASES: FixtureRelease[] = [...SMALL, NOT_IN_ANY_DUMP];
+/** Records in the bulk catalogue, all of them to dig. */
+const BULK_RECORDS = 1500;
+const BULK_FIRST_ID = 300_001;
+const BULK_SEED = 20_260_901;
+const WORDS = (
+  "Axis Basalt Cipher Delta Ember Flux Granite Helix Ion Jolt Kinetic Lumen Mono Nadir Orbit " +
+  "Prism Quartz Rift Static Tangent Umbra Vertex Warp Xenon Yield Zenith"
+).split(" ");
+const LABEL_KINDS = ["Audio", "Music", "Recordings", "Records", "Sound"];
+const BULK_LABELS = 30;
+const BULK_ARTISTS = 200;
+
+/**
+ * The transfer of the bulk dump can be held after this many records, each one to dig, so the
+ * setup reaches exact states (docs/E2E_TESTING.md, "The fixture catalogue").
+ */
+export const BULK_CHECKPOINTS = { "100-to-dig": 100, "600-to-dig": 600 };
+
+/**
+ * Generated Drum n Bass records from 1998 to 2002 on vinyl, deterministic from a seed, for the
+ * first run. None has a master, and each matches the picks the setup scenarios make (Drum n Bass,
+ * the census's middle years, vinyl), so each is one record to dig. They sit in id order, as in a
+ * Discogs dump, on labels no other fixture uses, so the coverage pass keeps nothing from them.
+ */
+export const BULK: FixtureRelease[] = generateBulk();
+
+export const ALL_RELEASES: FixtureRelease[] = [...SMALL, NOT_IN_ANY_DUMP, ...BULK];
 
 export function releaseById(id: number): FixtureRelease | undefined {
   return ALL_RELEASES.find((candidate) => candidate.id === id);
@@ -210,4 +236,50 @@ export function videoCatalogue(): Record<string, { title: string; seconds: numbe
     for (const entry of fixture.videos)
       videos[entry.id] = { title: entry.title, seconds: entry.seconds };
   return videos;
+}
+
+function generateBulk(): FixtureRelease[] {
+  const random = seededRandom(BULK_SEED);
+  const pick = <T>(list: T[]) => list[Math.floor(random() * list.length)]!;
+  const words = (count: number) => Array.from({ length: count }, () => pick(WORDS)).join(" ");
+  const labels = Array.from({ length: BULK_LABELS }, (_, index) => ({
+    id: 700 + index,
+    name: `${words(1)} ${pick(LABEL_KINDS)} ${index + 1}`,
+    prefix: `BK${String(index + 1).padStart(2, "0")}`,
+  }));
+  const artists = Array.from({ length: BULK_ARTISTS }, (_, index) => `${words(2)} ${index + 1}`);
+
+  const releases: FixtureRelease[] = [];
+  for (let index = 0; index < BULK_RECORDS; index += 1) {
+    const id = BULK_FIRST_ID + index;
+    const label = pick(labels);
+    const artist = pick(artists);
+    const title = words(2);
+    const seconds = 300 + Math.floor(random() * 180);
+    releases.push(
+      release({
+        id,
+        artists: [artist],
+        title,
+        label: { id: label.id, name: label.name, catno: `${label.prefix} ${index + 1}` },
+        year: 1998 + Math.floor(random() * 5),
+        country: "UK",
+        styles: ["Drum n Bass"],
+        tracks: [track("A", title, "6:00"), track("B", words(2), "6:30")],
+        videos: [video(`bk${String(id).padStart(9, "0")}`, `${artist} - ${title}`, seconds)],
+      }),
+    );
+  }
+  return releases;
+}
+
+/** mulberry32: a small generator that gives the same sequence for the same seed. */
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), 1 | state);
+    value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
 }

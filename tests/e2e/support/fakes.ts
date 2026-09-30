@@ -8,6 +8,7 @@ import type {
   DiscogsUser,
 } from "../../../src/server/discogs/types.ts";
 import { ACCOUNTS, releaseById, videoCatalogue } from "../fixtures/catalogue.ts";
+import type { DumpCheckpoint, DumpFile } from "../fixtures/dump.ts";
 import type { ServiceUrls } from "./spawn.ts";
 
 /**
@@ -79,6 +80,7 @@ export class FakeServices {
   /** Problems a test must not hide: a real token, an unplanned request. */
   readonly violations: string[] = [];
   readonly wantlists = new Map<string, Map<number, string | null>>();
+  readonly dumps = new FakeDataDumps();
   #server: http.Server;
   #log: FakeRequest[] = [];
   #faults: Fault[] = [];
@@ -141,6 +143,7 @@ export class FakeServices {
 
   async stop(): Promise<void> {
     for (const fault of this.#faults) fault.hold?.resolve();
+    this.dumps.stop();
     this.#server.closeAllConnections();
     await new Promise((resolve) => this.#server.close(resolve));
   }
@@ -148,6 +151,11 @@ export class FakeServices {
   async #answer(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
     const url = new URL(request.url ?? "/", "http://fake");
     const logged = await this.#record(request, url);
+    if (logged.service === "dumps") {
+      await this.dumps.answer(logged, response);
+      logged.answeredAt = Date.now();
+      return;
+    }
     const answer = await this.#route(logged);
     logged.answeredAt = Date.now();
     response.writeHead(answer.status, {
@@ -216,6 +224,152 @@ export class FakeServices {
     }
     return null;
   }
+}
+
+/**
+ * data.discogs.com as src/server/discogs/data-dumps.ts reads it: the listing pages with the
+ * dump's size, CHECKSUM.txt, and the dump with its Content-Length. Nothing is listed until a test
+ * lists a dump. A transfer can stop at a checkpoint until the test releases it, or fail part way.
+ */
+export class FakeDataDumps {
+  #listed: DumpFile | null = null;
+  #listedBytes: number | null = null;
+  #holdAt: number | null = null;
+  #failAfterBytes: number | null = null;
+  #gate = Promise.withResolvers<void>();
+  #sentBytes = 0;
+
+  /** Lists the dump as the newest, with the size the listing shows; null shows none. */
+  list(dump: DumpFile, options: { listedBytes?: number | null } = {}): void {
+    this.#listed = dump;
+    this.#listedBytes = options.listedBytes === undefined ? dump.data.length : options.listedBytes;
+  }
+
+  get listed(): DumpFile {
+    if (!this.#listed) throw new Error("no dump is listed; set diggaOptions.listedDump");
+    return this.#listed;
+  }
+
+  checkpoint(name: string): DumpCheckpoint {
+    const checkpoint = this.listed.checkpoints[name];
+    if (!checkpoint) throw new Error(`${this.listed.name} has no checkpoint ${name}`);
+    return checkpoint;
+  }
+
+  /** The transfer stops once it has sent the bytes before the checkpoint, until release(). */
+  holdAt(name: string): void {
+    this.#holdAt = this.checkpoint(name).offset;
+  }
+
+  /** Lets a held transfer go on: to the end, or to the next checkpoint when one is named. */
+  release(next?: string): void {
+    this.#holdAt = next === undefined ? null : this.checkpoint(next).offset;
+    this.#gate.resolve();
+    this.#gate = Promise.withResolvers();
+  }
+
+  /** The transfer closes its connection after this many bytes, as a dropped download does. */
+  set(options: { failAfterBytes: number | null }): void {
+    this.#failAfterBytes = options.failAfterBytes;
+  }
+
+  /** The bytes of the dump the last transfer has sent so far. */
+  get sentBytes(): number {
+    return this.#sentBytes;
+  }
+
+  stop(): void {
+    this.#holdAt = null;
+    this.#gate.resolve();
+  }
+
+  async answer(request: FakeRequest, response: http.ServerResponse): Promise<void> {
+    const dump = this.#listed;
+    const { prefix, download } = request.query;
+    if (!dump) return sendText(response, 404, "not found");
+    const year = dump.date.slice(0, 4);
+    if (prefix === "data/") return sendText(response, 200, rootPage(year));
+    if (prefix === `data/${year}/`)
+      return sendText(response, 200, yearPage(dump, this.#listedBytes));
+    if (download === `data/${year}/${checksumFile(dump)}`)
+      return sendText(response, 200, `${dump.sha256} ${dump.name}\n`);
+    if (download === `data/${year}/${dump.name}`) return this.#transfer(dump, response);
+    return sendText(response, 404, "not found");
+  }
+
+  async #transfer(dump: DumpFile, response: http.ServerResponse): Promise<void> {
+    const size = dump.data.length;
+    response.writeHead(200, {
+      "content-type": "application/octet-stream",
+      "content-length": String(size),
+    });
+    this.#sentBytes = 0;
+    while (this.#sentBytes < size) {
+      if (this.#sentBytes === this.#failAfterBytes) {
+        response.destroy();
+        return;
+      }
+      if (this.#sentBytes === this.#holdAt) {
+        await this.#gate.promise;
+        continue;
+      }
+      const until = this.#nextStop(size);
+      if (!(await writeBytes(response, dump.data.subarray(this.#sentBytes, until)))) return;
+      this.#sentBytes = until;
+    }
+    response.end();
+  }
+
+  /** The end, or the hold or failure point before it. */
+  #nextStop(size: number): number {
+    const stops = [this.#holdAt, this.#failAfterBytes].filter(
+      (stop): stop is number => stop !== null && stop > this.#sentBytes,
+    );
+    return Math.min(size, ...stops);
+  }
+}
+
+function rootPage(year: string): string {
+  return `<pre><a href="?prefix=data%2F${year}%2F">${year}/</a></pre>`;
+}
+
+/** The year's page lists each file after its size, as data.discogs.com does. */
+function yearPage(dump: DumpFile, listedBytes: number | null): string {
+  const year = dump.date.slice(0, 4);
+  const checksum = checksumFile(dump);
+  const size = listedBytes === null ? "" : `${listingSize(listedBytes)}   `;
+  return [
+    "<pre>",
+    `${dump.date} 19:20:02   0.3 KB   <a href="?download=data%2F${year}%2F${checksum}">${checksum}</a>`,
+    `${dump.date} 19:21:51   ${size}<a href="?download=data%2F${year}%2F${dump.name}">${dump.name}</a>`,
+    "</pre>",
+  ].join("\n");
+}
+
+function checksumFile(dump: DumpFile): string {
+  return dump.name.replace("_releases.xml.gz", "_CHECKSUM.txt");
+}
+
+/** "79.3 KB": powers of 1024, one decimal, as the listing prints sizes. */
+function listingSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let unit = 0;
+  while (bytes >= 1024 ** (unit + 1) && unit < units.length - 1) unit += 1;
+  return `${(bytes / 1024 ** unit).toFixed(1)} ${units[unit]}`;
+}
+
+function sendText(response: http.ServerResponse, status: number, text: string): void {
+  response.writeHead(status, { "content-type": "text/html; charset=utf-8" }).end(text);
+}
+
+/** Writes with backpressure; false once the client has gone. */
+function writeBytes(response: http.ServerResponse, bytes: Buffer): Promise<boolean> {
+  if (response.destroyed) return Promise.resolve(false);
+  if (response.write(bytes)) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    response.once("drain", () => resolve(true));
+    response.once("close", () => resolve(false));
+  });
 }
 
 function identity(_fakes: FakeServices, request: FakeRequest): FakeAnswer {

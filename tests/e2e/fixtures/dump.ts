@@ -1,23 +1,119 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import type { FixtureRelease } from "./catalogue.ts";
+import { BULK, BULK_CHECKPOINTS, type FixtureRelease } from "./catalogue.ts";
+
+/** A releases dump as data.discogs.com publishes it: gzipped XML, with its checksum. */
+export interface DumpFile {
+  /** discogs_YYYYMMDD_releases.xml.gz */
+  name: string;
+  /** YYYY-MM-DD, the date in the name. */
+  date: string;
+  data: Buffer;
+  sha256: string;
+  checkpoints: Record<string, DumpCheckpoint>;
+}
 
 /**
- * Writes releases as a Discogs releases dump, gzipped, the way data.discogs.com publishes it.
- * The file is written beside its final name and renamed, so a parallel worker never reads half
- * of it.
+ * A point where the compressor made a full flush. A gunzip stream given the bytes up to it yields
+ * all the XML before it, so a transfer held there gives the load every release before it and no
+ * part of the next one (docs/E2E_TESTING.md, "The fixture catalogue").
+ */
+export interface DumpCheckpoint {
+  name: string;
+  /** The compressed bytes before the checkpoint. */
+  offset: number;
+  /** The releases before it; in a dump with checkpoints each release is one record to dig. */
+  recordsToDig: number;
+  /** The last of them, which the load names as "Just pulled" once it has read it. */
+  last: FixtureRelease;
+}
+
+export interface DumpOptions {
+  date: string;
+  releases: FixtureRelease[];
+  /** Each checkpoint's name and the number of releases before it. */
+  checkpoints?: Record<string, number>;
+}
+
+/** The dump in memory, compressed with a full flush at each checkpoint. */
+export function buildDump(options: DumpOptions): DumpFile {
+  const breaks = Object.entries(options.checkpoints ?? {}).sort(
+    (left, right) => left[1] - right[1],
+  );
+  const parts = splitXml(
+    options.releases,
+    breaks.map(([, releases]) => releases),
+  );
+  const { data, ends } = gzipInParts(parts);
+  const checkpoints = Object.fromEntries(
+    breaks.map(([name, releases], index) => [
+      name,
+      { name, offset: ends[index]!, recordsToDig: releases, last: options.releases[releases - 1]! },
+    ]),
+  );
+  return {
+    name: `discogs_${options.date.replaceAll("-", "")}_releases.xml.gz`,
+    date: options.date,
+    data,
+    sha256: createHash("sha256").update(data).digest("hex"),
+    checkpoints,
+  };
+}
+
+/**
+ * Writes the releases as a dump file for a template to load. The file is written beside its final
+ * name and renamed, so a parallel worker never reads half of it.
  */
 export function writeDump(file: string, releases: FixtureRelease[]): void {
   if (fs.existsSync(file)) return;
-  const xml = ['<?xml version="1.0" encoding="UTF-8"?>', "<releases>"];
-  const artistIds = new Map<string, number>();
-  for (const release of releases) xml.push(releaseXml(release, artistIds));
-  xml.push("</releases>", "");
+  const dump = buildDump({ date: "2026-09-01", releases });
   const part = `${file}.${process.pid}.part`;
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(part, zlib.gzipSync(xml.join("\n")));
+  fs.writeFileSync(part, dump.data);
   fs.renameSync(part, file);
+}
+
+/**
+ * Gzips the parts as one stream with a full flush after each, and returns where each part ends in
+ * the compressed data. A full flush resets the compressor, so each part is deflated on its own:
+ * the bytes are those a gzip stream flushed with Z_FULL_FLUSH between the parts would write.
+ */
+export function gzipInParts(parts: string[]): { data: Buffer; ends: number[] } {
+  const header = Buffer.from([0x1f, 0x8b, 0x08, 0, 0, 0, 0, 0, 0, 0x03]);
+  const chunks = [header];
+  const ends: number[] = [];
+  let length = header.length;
+  for (const part of parts) {
+    const deflated = zlib.deflateRawSync(part, { finishFlush: zlib.constants.Z_FULL_FLUSH });
+    chunks.push(deflated);
+    length += deflated.length;
+    ends.push(length);
+  }
+  const xml = Buffer.from(parts.join(""));
+  // The last block, empty, then the CRC-32 and the length of the uncompressed data.
+  const trailer = Buffer.alloc(8);
+  trailer.writeUInt32LE(zlib.crc32(xml), 0);
+  trailer.writeUInt32LE(xml.length % 2 ** 32, 4);
+  chunks.push(zlib.deflateRawSync(Buffer.alloc(0)), trailer);
+  return { data: Buffer.concat(chunks), ends };
+}
+
+/** The dump's XML, cut after the given numbers of releases. */
+function splitXml(releases: FixtureRelease[], cuts: number[]): string[] {
+  const artistIds = new Map<string, number>();
+  const parts: string[] = [];
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<releases>\n';
+  for (const [index, release] of releases.entries()) {
+    xml += `${releaseXml(release, artistIds)}\n`;
+    if (cuts.includes(index + 1)) {
+      parts.push(xml);
+      xml = "";
+    }
+  }
+  parts.push(`${xml}</releases>\n`);
+  return parts;
 }
 
 function releaseXml(release: FixtureRelease, artistIds: Map<string, number>): string {
@@ -56,4 +152,12 @@ function escapeXml(text: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+let bulk: DumpFile | null = null;
+
+/** The bulk catalogue as the newest dump, with its checkpoints; built once per worker. */
+export function bulkDump(): DumpFile {
+  bulk ??= buildDump({ date: "2026-09-01", releases: BULK, checkpoints: BULK_CHECKPOINTS });
+  return bulk;
 }

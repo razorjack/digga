@@ -30,6 +30,11 @@ export class HeaderPage {
     return this.root.getByRole("link", { name: /sandbox/i });
   }
 
+  /** "loading 41%" while a load runs, "fetching" while only a download does. */
+  get loadIndicator(): Locator {
+    return this.root.getByRole("link", { name: /^(loading|fetching)\b/ });
+  }
+
   link(route: Route): Locator {
     return this.pages.getByRole("link", { name: page(route).label, exact: true });
   }

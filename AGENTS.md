@@ -120,10 +120,11 @@ tools/dev/             fake-data-dumps.ts: a data.discogs.com stand-in to rehear
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwright.config.ts;
                        specs/*.e2e.ts (scenarios, tagged with their IDs and priority); pages/ (page objects:
-                       triage, header, twelves); fixtures/ (catalogue.ts, the one source of releases, videos and
-                       accounts, and dump.ts, which writes it as a dump); support/ (test.ts fixtures, app.ts the
-                       host interface, hosts/web.ts, spawn.ts, templates.ts, fakes.ts, fake-youtube.ts, guard.ts
-                       and browser-guard.ts, browser-log.ts, fault-routes.ts, global-setup.ts)
+                       triage, header, twelves, setup); fixtures/ (catalogue.ts, the one source of releases,
+                       videos and accounts, the generated bulk records included, and dump.ts, which writes them
+                       as dumps with gzip checkpoints); support/ (test.ts fixtures, app.ts the host interface,
+                       hosts/web.ts, spawn.ts, templates.ts, fakes.ts with data.discogs.com, fake-youtube.ts,
+                       guard.ts and browser-guard.ts, browser-log.ts, fault-routes.ts, global-setup.ts)
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```
 

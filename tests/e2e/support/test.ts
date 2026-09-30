@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type TestInfo } from "@playwright/test";
+import { bulkDump, type DumpFile } from "../fixtures/dump.ts";
 import { FakeServices } from "./fakes.ts";
 import { WebApp } from "./hosts/web.ts";
 import type { ServiceUrls } from "./spawn.ts";
@@ -8,8 +9,12 @@ import { copyTemplate, type TemplateName, Templates, updateConfig } from "./temp
 
 export { expect } from "@playwright/test";
 
+/** Dumps the fake data.discogs.com can list as the newest. */
+const LISTED_DUMPS: Record<"bulk", () => DumpFile> = { bulk: bulkDump };
+
 export interface DiggaOptions {
   template: TemplateName;
+  /** Ignored for `empty`, which starts with the schema defaults, the sandbox on. */
   sandbox: boolean;
   /** A token saved through the API before the page opens. */
   savedToken: string | null;
@@ -17,6 +22,8 @@ export interface DiggaOptions {
   serviceUrls: Partial<ServiceUrls>;
   /** Installs Playwright's clock before the app starts, so the test can pause and run it. */
   clock: boolean;
+  /** The dump data.discogs.com lists, from the app's first request on; none answers 404. */
+  listedDump: keyof typeof LISTED_DUMPS | null;
 }
 
 const DEFAULT_OPTIONS: DiggaOptions = {
@@ -25,6 +32,7 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   savedToken: null,
   serviceUrls: {},
   clock: false,
+  listedDump: null,
 };
 
 interface TestFixtures {
@@ -75,7 +83,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       await templates.folder(options.template),
       path.join(folder, "library"),
     );
-    updateConfig(library.configFile, (config) => ({ ...config, sandbox: options.sandbox }));
+    if (options.template !== "empty")
+      updateConfig(library.configFile, (config) => ({ ...config, sandbox: options.sandbox }));
+    if (options.listedDump) fakes.dumps.list(LISTED_DUMPS[options.listedDump]());
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
     const app = await WebApp.launch({
@@ -128,4 +138,9 @@ async function attachArtifacts(
     body: app.log.apiRequests.join("\n"),
     contentType: "text/plain",
   });
+  if (app.log.guard.fetchFailures.length > 0)
+    await testInfo.attach("harness-fetch-failures.txt", {
+      body: app.log.guard.fetchFailures.join("\n"),
+      contentType: "text/plain",
+    });
 }
