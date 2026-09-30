@@ -45,7 +45,7 @@
       {:else}
         no copy yet.
       {/if}
-      Digga copies it once a day when the server starts and keeps the last {backups.kept}. To restore one, stop the
+      Digga copies it once a day while the server runs and keeps the last {backups.kept}. To restore one, stop the
       server and copy it over <code>{backups.databaseFile}</code>.
     </p>
     <p>Both are in <code>{backups.directory}</code>.</p>

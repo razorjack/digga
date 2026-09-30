@@ -230,7 +230,8 @@ With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the pa
 - **`digga-YYYY-MM-DD.sqlite`: the whole database.** Digga keeps the last two. It restores
   everything by copying one file back, but is 100 MB or more.
 
-The server writes both when it starts. `npm run digga -- backup` writes both at once.
+The server writes both when it starts, and again each day while it runs. `npm run digga -- backup`
+writes both at once.
 
 `gunzip -c decisions-2026-09-30.json.gz` shows what a decisions backup holds, one entry per
 line. Here, Stakka & Skynet's _Clockwork_ is a want, and _Crime Audio_ by Item A La Playa is a

@@ -3,9 +3,8 @@ import type { Hono } from "hono";
 import type { Config } from "../shared/config.ts";
 import { createApp } from "./app.ts";
 import { saveConfig } from "./config-file.ts";
-import { backupDaily, localDay } from "./db/backup.ts";
+import { type DailyBackups, startDailyBackups } from "./daily-backups.ts";
 import { type Db, openDb } from "./db/db.ts";
-import { backupDecisionsDaily } from "./decisions-backup.ts";
 import { failStaleJobs } from "./db/jobs.ts";
 import { createDiscogsClient, type DiscogsClient } from "./discogs/client.ts";
 import { createDataDumpClient } from "./discogs/data-dumps.ts";
@@ -52,7 +51,8 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   const logger = options.logger;
   const stale = failStaleJobs(db);
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
-  const backup = ownsDb ? startDailyBackup(db, options) : Promise.resolve();
+  const backups =
+    ownsDb && options.paths.dbFile !== ":memory:" ? startDailyBackups(db, options) : null;
   const jobs = createJobRunner(db, logger.child("jobs"));
 
   const app = createApp({
@@ -81,30 +81,8 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     jobs,
     getConfig: () => config,
     start: (port, host) => listener.start(port ?? config.server.port, host ?? config.server.host),
-    stop: () => (stopping ??= stopServer({ listener, jobs, backup, db, ownsDb, logger })),
+    stop: () => (stopping ??= stopServer({ listener, jobs, backups, db, ownsDb, logger })),
   };
-}
-
-/**
- * Writes the day's backups in the background: the decisions, and a copy of the database, which
- * reads a consistent snapshot. One failing does not stop the other.
- */
-function startDailyBackup(db: Db, options: CreateServerOptions): Promise<void> {
-  const { paths, logger } = options;
-  if (paths.dbFile === ":memory:") return Promise.resolve();
-  const now = new Date();
-  const day = localDay(now);
-  const decisions = backupDecisionsDaily(db, { dir: paths.backupsDir, day, now })
-    .then((backup) => {
-      if (backup) logger.info(`backed up your decisions to ${backup.file}`);
-    })
-    .catch((error: unknown) => logger.warn("the daily decisions backup failed", error));
-  const database = backupDaily(db, { dir: paths.backupsDir, day })
-    .then((backup) => {
-      if (backup) logger.info(`backed up the database to ${backup.file}`);
-    })
-    .catch((error: unknown) => logger.warn("the daily database backup failed", error));
-  return Promise.all([decisions, database]).then(() => undefined);
 }
 
 function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
@@ -134,14 +112,14 @@ function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
 async function stopServer(context: {
   listener: HttpListener;
   jobs: JobRunner;
-  backup: Promise<void>;
+  backups: DailyBackups | null;
   db: Db;
   ownsDb: boolean;
   logger: Logger;
 }): Promise<void> {
   await context.listener.stop();
   await context.jobs.stop();
-  await context.backup;
+  await context.backups?.stop();
   if (context.ownsDb) context.db.close();
   context.logger.info("stopped");
 }

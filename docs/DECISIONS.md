@@ -533,3 +533,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      about 330 MB for every Drum n Bass year. The decisions backup (decision 102) keeps a month of
      what only the user made at a few MB, so the full copies only need to cover a bad day or two:
      they restore by copying a file back, with nothing to rebuild.
+104. **Daily backups run while the server runs, not only when it starts.** The backups were
+     written once, at start, so a server left running for days, as the Electron app will be,
+     wrote one backup. The server now checks every hour; a check on a day that has its backups
+     costs two file lookups, and one after midnight writes the new day's. `stop()` ends the
+     checks and waits for a backup being written before the database closes.

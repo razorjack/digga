@@ -75,14 +75,15 @@ digga.config.example.json  the schema defaults a new digga.config.json starts wi
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
-                       triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs.
+                       triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
+                       the decisions backup format (decisions-backup).
                        Imports nothing from Node.
 src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
                        context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts,
                        attach-video.ts, youtube.ts (oEmbed titles), enrich.ts (one release, for Triage),
-                       dump-files.ts
+                       dump-files.ts, decisions-backup.ts and daily-backups.ts (the daily backups)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
-                       export.ts, no-audio.ts, sellers.ts, dump-loads.ts)
+                       export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts)
                        discogs/ (client, transport, types, lists, data-dumps), importers/ (collection, wantlist,
                        history, list, seller, seeds)
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
