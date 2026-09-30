@@ -22,7 +22,7 @@ export default defineConfig({
     ignorePatterns: ["src/server/style-census.json"],
   },
   lint: {
-    ignorePatterns: ["dist/**", "data/**"],
+    ignorePatterns: ["dist/**", "data/**", "test-results/**", "playwright-report/**"],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",
@@ -37,7 +37,7 @@ export default defineConfig({
     },
     overrides: [
       {
-        files: ["**/*.test.ts"],
+        files: ["**/*.test.ts", "**/*.e2e.ts"],
         rules: { complexity: "off", "max-lines-per-function": "off" },
       },
     ],

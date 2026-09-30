@@ -1,7 +1,8 @@
 # End-to-end testing
 
-Status: proposed on 2026-09-30 and revised the same day after two rounds of review. Nothing here
-is built yet. This is the design of Digga's end-to-end (E2E) tests: the tool, the harness, the fake
+Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
+(Rollout, step 0) is built and its results are recorded in "Spike results"; the rest is not
+built yet. This is the design of Digga's end-to-end (E2E) tests: the tool, the harness, the fake
 services, the markup the tests rely on, and the scenarios the suite should cover. The same tests
 must run against the browser app now and the Electron app later (`docs/ELECTRON_PLAN.md`).
 
@@ -126,7 +127,8 @@ server, the template builds and `app.cli()`. They all get the same isolation.
   exists, is what keeps the real library safe. The `library: <dir>` line the server prints is
   compared afterwards as a second check.
 - `digga serve --port 0` runs with an IPC channel for shutdown (below). The helper reads
-  `digga serving on <url>` from stdout and waits for `GET http://127.0.0.1:<port>/api/health`.
+  `digga serving on <url>` from stdout, matched by prefix since info log lines come first, and
+  waits for `GET http://127.0.0.1:<port>/api/health`.
   The browser uses `localhost`, because the app warns on `127.0.0.1` (decision 29).
 
 ### Stopping processes
@@ -272,9 +274,10 @@ database that a process still has open.
 | `small-account` | `small`, then `import collection` and `import wantlist` for `dj`; username in config | wantlist, Maybe list, seller tests |
 | `bulk`          | `dump load` of the bulk dump                                                         | paging, strategies                 |
 
-There is no cache across runs at first. If measurements show the template build is slow, a cache
-keyed by a hash of every input (the catalogue, the fake services, the migrations, the loader, the
-importers and the CLI) can follow, still published only after success.
+There is no cache across runs: the spike built `small` in 0.2 s and `small-account` in 0.4 s. If
+a larger catalogue makes the build slow, a cache keyed by a hash of every input (the catalogue,
+the fake services, the migrations, the loader, the importers and the CLI) can follow, still
+published only after success.
 
 Per-test state goes on top, through documented paths only:
 
@@ -475,14 +478,15 @@ no product code changes. The fake implements the slice of the API `YTPlayer` dec
   it plays; errors on the hidden decks are silent.
 
 **User activation.** The app decides between playing and waiting for Space from
-`navigator.userActivation.hasBeenActive` (`triage-player.svelte.ts`). In Chromium every
-Playwright call that evaluates in the page, `expect(locator)` and `locator.textContent()`
-included, runs as a user gesture and sets that flag, so the real flag would depend on when the
-test first looked at the page. The init script therefore replaces `navigator.userActivation`
-with an object the harness owns. It turns active on the first trusted `keydown` other than
-Escape, or the first `pointerdown`, which is what the HTML standard counts as activation. The
-app and the fake player read the same flag, in every engine and in Electron, whose planned
-`autoplayPolicy` does not change the flag. If the Electron shell later skips the Space step
+`navigator.userActivation.hasBeenActive` (`triage-player.svelte.ts`). In Chromium every Playwright
+call that evaluates in the page, `expect(locator)` and `locator.textContent()` included, runs as a
+user gesture and sets that flag. The spike measured more: a fresh page starts inactive, and the flag
+is set about 9 ms after `page.goto()` with no test action at all, so under Playwright the real flag
+is practically always set and the app would never wait for Space. The init script therefore replaces
+`navigator.userActivation` with an object the harness owns. It turns active on the first trusted
+`keydown` other than Escape, or the first `pointerdown`, which is what the HTML standard counts as
+activation. The app and the fake player read the same flag, in every engine and in Electron, whose
+planned `autoplayPolicy` does not change the flag. If the Electron shell later skips the Space step
 because it may autoplay, TRI-02 gets an Electron variant.
 
 `window.__fakeYouTube` lets tests read and drive it: `players()` lists each player's video,
@@ -526,13 +530,16 @@ overlap on purpose.
 2. **Context routes.** The base route lets through the app's exact origin and aborts everything
    else, recording the URL; the fixture fails a test that has aborts it did not declare. In
    Chromium, Playwright does not route the requests that follow a redirect, so the base route
-   fetches an allowed request itself with `route.fetch({ maxRedirects: 0 })`, fulfills the page
-   with the answer, and aborts and fails the test on a redirect. Digga's server and the fakes
-   send none. `context.routeWebSocket()` closes every WebSocket (Digga opens none). Fault routes
-   and the external-open helper are registered after the base route and call `route.fallback()`
-   for requests they do not handle, so they compose with it (Playwright tries the newest
-   matching route first). The web context uses `serviceWorkers: "block"`; Electron has no such
-   option, and Digga registers no service worker.
+   fetches an allowed request itself with `route.fetch({ maxRedirects: 0 })`, fulfills the page with
+   the answer, and aborts and fails the test on a redirect. Digga's server and the fakes send none.
+   The spike showed both the need and the cost: with `route.continue()`, a fetch that is redirected
+   and a navigation that is redirected both reached the forbidden port; with `route.fetch()` neither
+   did, and a Triage page load took about 5 ms longer (86 ms against 81 ms, the medians of 16
+   reloads). `context.routeWebSocket()` closes every WebSocket (Digga opens none). Fault routes and
+   the external-open helper are registered after the base route and call `route.fallback()` for
+   requests they do not handle, so they compose with it (Playwright tries the newest matching route
+   first). The web context uses `serviceWorkers: "block"`; Electron has no such option, and Digga
+   registers no service worker.
 3. **Chromium resolution.** The browser, and Electron through its command line, starts with
    `--host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1"`, so no
    other host name or IP literal resolves. This covers what Playwright does not route, such as
@@ -667,7 +674,9 @@ On failure the fixture attaches, as text where possible:
 - browser console messages and page errors;
 - `page.locator("body").ariaSnapshot()`, a YAML view of the accessibility tree that an agent can
   read without opening a trace viewer;
-- a screenshot, and a trace (`trace: "retain-on-failure"`).
+- a screenshot, and a trace (`trace: "retain-on-failure"`). In the web host these options reach
+  the contexts the host creates with `browser.newContext()`, and Playwright also writes an
+  `error-context.md` with the error and the test's source for an agent to read.
 
 Any `pageerror` or unexpected `console.error` fails the test, unless the test declares it. So
 does any `/api` response with a status of 400 or above that the test did not declare, which
@@ -706,6 +715,10 @@ In the order they are needed:
 
 No product code exists only for tests, unless the Electron spike shows that packaged builds
 ignore `-r` (see "Startup order").
+
+The web spike built changes 1 and 2, and the markup its scenarios use: the slips' group names,
+the last slip's `aria-busy`, and `data-release-id` and `data-triage-key` on the record's facts.
+`createVideoTitleLookup()` now takes an options object with the oEmbed address.
 
 ## Markup audit
 
@@ -897,6 +910,8 @@ export class TriagePage {
 
   /** Presses the verdict's key; returns once the server has saved it and the page has acted. */
   async judge(status: TriageStatus): Promise<void> {
+    // A key pressed before a record is on screen does nothing.
+    await expect(this.record).toBeVisible();
     const saved = this.app.page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/verdicts" &&
@@ -1213,19 +1228,20 @@ bundle a user runs. Every script passes `--config tests/e2e/playwright.config.ts
 **Configuration.** `testDir: "specs"` and `testMatch: "**/*.e2e.ts"`, since `.e2e.ts` is outside
 Playwright's default pattern. Tests end in `.e2e.ts`, so vitest's `tests/**/*.test.ts` never picks
 them up. Scenario IDs and priorities are tags (`{ tag: ["@TRI-12", "@P0"] }`); `@web` and
-`@electron` mark host-specific tests. `tests/e2e/tsconfig.json` adds the DOM library for the fake
-YouTube script and page objects, and the root `tsconfig.json` references it so `vp check`
-type-checks the suite. The lint override that exempts `*.test.ts` from the length and complexity
-limits also covers `*.e2e.ts`. The test timeout is 30 s, which covers fixture setup; setup
-journeys call `test.slow()`, and the host enforces the 15 s limit on a server's stop itself.
+`@electron` mark host-specific tests. `tsconfig.e2e.json` adds the DOM library for the fake YouTube
+script and page objects, `tsconfig.node.json` leaves `tests/e2e/` to it, and the root
+`tsconfig.json` references it, so `vp check` type-checks the suite. The lint override that exempts
+`*.test.ts` from the length and complexity limits also covers `*.e2e.ts`. The test timeout is 30 s,
+which covers fixture setup; setup journeys call `test.slow()`, and the host enforces the 15 s limit
+on a server's stop itself.
 
 ```
 tests/e2e/
   playwright.config.ts, playwright.contract.config.ts
   fixtures/     catalogue.ts, dump builder with checkpoints, history databases, decisions backups
-  support/      test.ts (fixtures), spawn.ts, hosts/web.ts, hosts/electron.ts,
-                electron-preload.cjs, library.ts, templates.ts, fake-youtube.ts, guard.ts,
-                artifacts.ts
+  support/      test.ts (fixtures), global-setup.ts, spawn.ts, app.ts (the host interface and
+                the API client), hosts/web.ts, hosts/electron.ts, electron-preload.cjs,
+                templates.ts, fake-youtube.ts, guard.ts, browser-guard.ts
   pages/        triage.ts, twelves.ts, settings.ts, setup.ts, header.ts, dialogs.ts
   specs/        guard, shell, setup, triage, sandbox, twelves, settings, persistence, a11y,
                 electron
@@ -1248,10 +1264,11 @@ and a burn-in with `--repeat-each=5`. With the shell: `electron` on macOS, Windo
 that passes only on retry still fails the run and is reported as flaky. A new or changed spec
 passes `--repeat-each=10` before it is committed.
 
-**Budget.** About 150 scenarios. Most take 2 to 5 s including the server start; setup journeys
-take 20 to 40 s. On four workers the P0 and P1 sets should finish in about six minutes. The
-spike measures the server's start time and the first setup journeys; per-test servers stay
-either way, and a slow suite is sharded.
+**Budget.** About 150 scenarios. Most take 1 to 5 s including the server start; setup journeys
+take 20 to 40 s. On four workers the P0 and P1 sets should finish in about six minutes. In the
+spike a server started in about 200 ms and stopped over IPC in about 5 ms, so per-test servers
+stay; the five spike scenarios took 6.3 s on five workers. The first setup journeys are measured
+when they are written, and a slow suite is sharded.
 
 ## Rules for agents writing E2E tests
 
@@ -1261,7 +1278,8 @@ either way, and a slow suite is sharded.
 3. Locate by role and name, label, `aria-keyshortcuts` or domain `data-*`, in that order. Never
    by class, structure or generated id.
 4. Never `waitForTimeout`. Wait for a completed request, a state the app exposes, or an entry in
-   the fake's log. The first visible sign of an action is not proof that it finished.
+   the fake's log. The first visible sign of an action is not proof that it finished. Before an
+   action, wait for its precondition: a key pressed before Triage shows a record does nothing.
 5. Install the clock before the app starts, advance it with `runFor()`, and remember that it moves
    only the browser. Pause it before an action that must land inside a timer's window.
 6. A negative assertion first waits for the request that closes the window and the state the page
@@ -1281,20 +1299,22 @@ either way, and a slow suite is sharded.
 ## Rollout
 
 0. **Spikes (one session each, independent).**
-   - Web: add `@playwright/test`; `spawnDigga()` with the isolated environment and the socket
-     guard and its vitest test; the base route with `route.fetch()`; the fake YouTube script with
-     its user-activation object; the `small` template from a hand-written dump; GUARD-01,
-     GUARD-02, SHELL-01, TRI-07 and TRI-10. Measure the server's start time.
+   - Web, done on 2026-09-30 (see "Spike results"): `@playwright/test`; `spawnDigga()` with the
+     isolated environment and the socket guard and its vitest test; the base route with
+     `route.fetch()`; the fake YouTube script with its user-activation object; the `small` and
+     `small-account` templates from a hand-written dump; GUARD-01, GUARD-02, SHELL-01, TRI-07 and
+     TRI-10.
    - Electron, throwaway: a minimal main process that follows the plan's startup, outside the
      product. Check the preload's guard in the main process and in a worker it starts, the held
      first `loadURL()` (no request before release), routes, init scripts and the clock on
      `electronApp.context()`, the host-resolver switch, the safeStorage round trip with the
      keychain switches, `relaunch()`, and whether a packaged build honours `-r`. Record the
      results in this document before the host interface is fixed.
-1. **Harness.** Product changes 1 to 5; the fake services with request log, faults, holds and
-   checkpoints; the templates; page objects; the P0 set; the commands and the `tests/e2e/`
-   layout in AGENTS.md. `e2e:smoke` joins `vp run verify` after it has passed a burn-in of
-   `--repeat-each=20`, since `verify` must be green before every commit.
+1. **Harness.** The rest of product changes 1 to 5; the fake services with data.discogs.com,
+   checkpoints and the rest of the Discogs API, moved to `tools/dev/fake-services.ts`; the `empty`
+   and `bulk` templates; the rest of the host interface; page objects; the rest of the P0 set; the
+   commands and the `tests/e2e/` layout in AGENTS.md. `e2e:smoke` joins `vp run verify` after it has
+   passed a burn-in of `--repeat-each=20`, since `verify` must be green before every commit.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
@@ -1302,10 +1322,53 @@ either way, and a slow suite is sharded.
 4. **Electron** (with session 7). Product change 6, the Electron host and preload, the ELEC
    scenarios, and the shared suite on the unpackaged app and the inspectable release candidate.
 
+## Spike results
+
+The web spike was built on 2026-09-30 on macOS with Node 24.18, Playwright 1.63.0 and its
+Chromium 153. GUARD-01, GUARD-02, SHELL-01, TRI-07 and TRI-10 pass. The spike showed:
+
+- **The Node guard works in every call form.** Loaded through `NODE_OPTIONS=--import`, it refused
+  fetch to `127.0.0.1`, to `localhost` and to an external host, a redirected fetch, `http.get`,
+  `https.get`, `tls.connect`, `net.connect` in both call forms, `socket.connect`, and fetch in a
+  worker thread, and let the fakes' port through (`tests/e2e-guard.test.ts`). Without the guard,
+  GUARD-01 fails: the server's oEmbed lookup reaches the test's listener.
+- **Redirects need the harness's fetch**, and user activation needs the harness's flag; the
+  measurements are in "The network and filesystem guard" and "The fake YouTube IFrame API".
+- **The fake player behaves as designed.** Before a key press the player waits for Space; Space
+  plays the cued first video with sound at half its length, and the next release and track are
+  preloaded muted on the hidden decks. The init script is built from the source of several
+  functions and a class, which keeps each within the lint limits, and Playwright's TypeScript
+  transform leaves that source usable in the page.
+- **The slip's `aria-busy` marks the end of a save.** With `POST /api/verdicts` held by a route,
+  the slip reads `aria-busy="true"`, and `"false"` once the answer has arrived. TRI-07 and TRI-10
+  synchronise on it; the session's part has a vitest test.
+- **Undeclared failures are caught.** A want on `small`, which has no account, fails the test at
+  teardown with "POST /api/discogs/wantlist/1101 answered 400". Chromium also logs that response
+  as the console error "Failed to load resource: the server responded with a status of 400 (Bad
+  Request)".
+- **Actions need their precondition.** An early `judge()` hung in 4 of 10 runs when a test
+  called it straight after `open()`: the key arrived before Triage showed a record and did
+  nothing. Page-object actions now wait for a record first (rule 4).
+- **Costs are small.** A server starts in about 200 ms and stops over IPC in about 5 ms; `small`
+  builds in 0.2 s and `small-account` in 0.4 s; `route.fetch()` adds about 5 ms to a page load;
+  `vp run e2e` takes 7.7 s including the client build. TRI-07 takes about 5 s, most of it two
+  1.5 s push graces and the server's 1.1 s gap between Discogs requests.
+- **The scenarios are stable so far.** 50 of 50 runs passed at `--repeat-each=10` on five
+  workers, and 100 of 100 at `--repeat-each=20` on 16 workers on a 10-core machine.
+- **Tooling fits.** Playwright's loader resolves the repository's `.ts` import specifiers, so
+  specs import `keymap.ts`, `src/shared` and the Discogs types directly. `digga serve` prints info
+  log lines before `digga serving on <url>`, so the helper matches lines by prefix.
+
+The spike left out, for the harness step: data.discogs.com in the fakes (it answers `404`), most
+of the Discogs API, and the move to `tools/dev/fake-services.ts`; a 40-release catalogue in two
+dumps (the spike has 10 releases in one); checkpoints and product change 4; the clock, which no
+spike scenario uses yet; and in the host interface `relaunch()`, `restartServer()`, `cli()`,
+`expectExternalOpen()`, `expectDownload()` and every `given` but the saved token.
+
 ## Risks and open questions
 
-- **Per-test server processes** keep tests isolated but cost a Node start each. The spike
-  measures it.
+- **Per-test server processes** keep tests isolated but cost a Node start each, about 200 ms in
+  the spike.
 - **Real timers on the server.** The Discogs client's 1.1 s gap makes tests that touch Discogs
   several times slower. If the suite exceeds its budget, a `discogsMinIntervalMs` server option
   set by the harness would help, at the cost of not running production spacing in E2E.

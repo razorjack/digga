@@ -12,6 +12,8 @@
     "serve": "node src/cli/digga.ts serve",
     "check:portability": "node scripts/check-portability.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
+    "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",
+    "e2e:smoke": "vp build && playwright test --config tests/e2e/playwright.config.ts --grep @P0",
     "verify": "vp check && vp test && vp run check:portability && vp run check:svelte"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@fontsource-variable/martian-mono": "^5.3.0",
     "@fontsource/michroma": "^5.3.0",
+    "@playwright/test": "1.63.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@tsconfig/svelte": "^5.0.8",
     "@types/better-sqlite3": "^9.6.0",

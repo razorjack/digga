@@ -12,3 +12,7 @@ data/
 
 # Per-user config (username, filters); copy digga.config.example.json or let the first run create it
 digga.config.json
+
+# End-to-end test output
+test-results/
+playwright-report/
