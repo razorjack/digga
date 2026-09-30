@@ -171,7 +171,8 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
     title: "Twelves",
     keys: [
       { keys: ["1", "…", "9"], label: "switch shelf; 8 is the tracks you marked, 9 no audio" },
-      { keys: ["J", "K"], label: "move down / up (also ↓ ↑)" },
+      { keys: ["J", "K"], label: "move down / up (also ↓ ↑), into the next page too" },
+      { keys: ["←", "→"], label: "previous / next page of 500" },
       { keys: ["S"], label: "change the sort" },
       { keys: ["O"], label: "open the release on discogs.com" },
       { keys: ["E"], label: "edit the note, on a record or a marked track" },

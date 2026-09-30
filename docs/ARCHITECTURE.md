@@ -53,6 +53,10 @@ answers `409` to digging writes while `sandbox` is on.
   the snoozed records Twelves hands to Triage for a round.
 - Pages: `Triage.svelte` (always mounted, hidden when another page is shown), `Twelves.svelte`,
   `Settings.svelte`. The keymap and its help text are in `keymap.ts`.
+- Twelves loads every shelf in one request and filters, sorts and counts in the browser
+  (`twelves/model.ts`), so counts, "add all" and rounds of snoozed records cover the whole shelf.
+  It renders the 500 records around the selection (`pageAround`); `J` and `K` cross pages and
+  `←` / `→` turn them.
 
 ## The universe and the queue
 

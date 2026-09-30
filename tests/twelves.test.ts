@@ -4,6 +4,9 @@ import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
 import {
   compareNullable,
   countShelves,
+  pageAround,
+  PAGE_SIZE,
+  turnedPageStart,
   visibleItems,
   visibleTracks,
 } from "../src/client/twelves/model.ts";
@@ -223,5 +226,52 @@ describe("the No audio shelf", () => {
     const options = { sort: "newest" as const, query: "" };
     expect(visibleItems([record(1), silent], { ...options, shelf: "all" })).toHaveLength(1);
     expect(visibleItems([record(1), silent], { ...options, shelf: "no_audio" })).toEqual([silent]);
+  });
+});
+
+describe("pages", () => {
+  it("shows the page that holds the selection", () => {
+    const list = [1, 2, 3, 4, 5];
+    expect(pageAround(list, -1, 2)).toEqual({
+      items: [1, 2],
+      index: 0,
+      count: 3,
+      first: 1,
+      last: 2,
+      total: 5,
+    });
+    expect(pageAround(list, 4, 2)).toMatchObject({ items: [5], index: 2, first: 5, last: 5 });
+    expect(pageAround([], -1, 2)).toMatchObject({ items: [], count: 1, first: 0, last: 0 });
+  });
+
+  it("turns to the start of the page before or after, and not past either end", () => {
+    expect(turnedPageStart(5, 0, 1, 2)).toBe(2);
+    expect(turnedPageStart(5, 3, 1, 2)).toBe(4);
+    expect(turnedPageStart(5, 4, 1, 2)).toBeNull();
+    expect(turnedPageStart(5, 3, -1, 2)).toBe(0);
+    expect(turnedPageStart(5, -1, -1, 2)).toBeNull();
+  });
+
+  it("lets J cross into the next page and the arrows turn whole pages", async () => {
+    const items = Array.from({ length: PAGE_SIZE * 2 + 1 }, (_, index) => record(index + 1));
+    const http = {
+      mode: "live",
+      getTwelves: async () => ({ items }),
+      getTrackMarks: async () => ({ items: [] }),
+    };
+    const shelf = new TwelvesShelf(createAppApi(http as unknown as Api, (inner) => inner));
+    shelves.push(shelf);
+    await shelf.load();
+    shelf.selectedKey = items[PAGE_SIZE - 1]!.verdict.key;
+    expect(shelf.page).toMatchObject({ index: 0, first: 1, last: PAGE_SIZE });
+    shelf.move(1);
+    expect(shelf.page).toMatchObject({ index: 1, first: PAGE_SIZE + 1 });
+    shelf.turnPage(1);
+    expect(shelf.selected).toBe(items[PAGE_SIZE * 2]);
+    expect(shelf.page).toMatchObject({ index: 2, count: 3, items: [items[PAGE_SIZE * 2]] });
+    shelf.turnPage(1);
+    expect(shelf.page.index).toBe(2);
+    shelf.turnPage(-1);
+    expect(shelf.selected).toBe(items[PAGE_SIZE]);
   });
 });

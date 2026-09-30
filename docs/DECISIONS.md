@@ -497,3 +497,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     outside the library. A timed-out request may still finish on the server: a price is then
     stored and shows next time, and a push reaches the wantlist although the slip says it
     failed. Twelves reads what the server recorded, so it shows such a want as on the wantlist.
+100. **Twelves pages what it renders, 500 records a page.** Measured with 5,212 records (4,234 on
+     Everything): the request took 0.23 s and 3 MB, while rendering took 1.5 s to open the page,
+     about 550 ms per sort change and 40 ms per `J`. With pages of 500, a sort or shelf change
+     takes about 80 ms and `J` 20 ms; smaller pages would save little more, since opening the
+     page costs about 0.7 s whatever the page size. The one request stays, so shelf counts, "add
+     all", rounds of snoozed records from the selected one onwards and undo keep covering the
+     whole shelf, as does the sandbox overlay. The page follows the selection: `J` and `K` cross
+     into the next page and `←` / `→` jump a page.

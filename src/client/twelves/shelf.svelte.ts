@@ -18,7 +18,9 @@ import {
   releaseIdOf,
   nameOf,
   countShelves,
+  pageAround,
   trackKey,
+  turnedPageStart,
   visibleItems,
   visibleTracks,
 } from "./model.ts";
@@ -73,6 +75,8 @@ export class TwelvesShelf {
     this.visible.findIndex((index) => index.verdict.key === this.selectedKey),
   );
   selected = $derived(this.selectedIndex === -1 ? null : this.visible[this.selectedIndex]!);
+  /** The page of the shelf that holds the selected record. */
+  page = $derived(pageAround(this.visible, this.selectedIndex));
   visibleTracks = $derived(visibleTracks(this.tracks, { sort: this.sort, query: this.query }));
   selectedTrackKey = $state<string | null>(null);
   selectedTrackIndex = $derived(
@@ -81,6 +85,7 @@ export class TwelvesShelf {
   selectedTrack = $derived(
     this.selectedTrackIndex === -1 ? null : this.visibleTracks[this.selectedTrackIndex]!,
   );
+  trackPage = $derived(pageAround(this.visibleTracks, this.selectedTrackIndex));
   changes: Promise<void> = Promise.resolve();
   async load(): Promise<void> {
     const version = ++this.#loadVersion;
@@ -325,6 +330,17 @@ export class TwelvesShelf {
       Math.max(0, (this.selectedIndex === -1 ? 0 : this.selectedIndex) + delta),
     );
     this.selectedKey = this.visible[index]!.verdict.key;
+  }
+
+  /** ← and →: selects the first record of the page before or after. */
+  turnPage(turn: -1 | 1): void {
+    if (this.shelf === "tracks") {
+      const start = turnedPageStart(this.visibleTracks.length, this.selectedTrackIndex, turn);
+      if (start !== null) this.selectedTrackKey = trackKey(this.visibleTracks[start]!);
+      return;
+    }
+    const start = turnedPageStart(this.visible.length, this.selectedIndex, turn);
+    if (start !== null) this.selectedKey = this.visible[start]!.verdict.key;
   }
 
   #moveTrack(delta: number): void {

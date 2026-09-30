@@ -17,6 +17,7 @@
   import { navigate, openExternal } from "../router.svelte.ts";
   import { settings, ui } from "../stores.svelte.ts";
   import { TwelvesShelf } from "../twelves/shelf.svelte.ts";
+  import Pager from "../twelves/Pager.svelte";
   import TrackTable from "../twelves/TrackTable.svelte";
   import {
     SHELVES,
@@ -60,6 +61,7 @@
   });
 
   const onTracks = $derived(shelfState.shelf === "tracks");
+  const page = $derived(onTracks ? shelfState.trackPage : shelfState.page);
 
   $effect(() => {
     void shelfState.selectedKey;
@@ -105,6 +107,8 @@
     ArrowDown: () => shelfState.move(1),
     k: () => shelfState.move(-1),
     ArrowUp: () => shelfState.move(-1),
+    ArrowLeft: () => shelfState.turnPage(-1),
+    ArrowRight: () => shelfState.turnPage(1),
     s: () => shelfState.cycleSort(),
     "/": () => filterInput?.focus(),
     z: () => shelfState.enqueueTask(() => shelfState.undo()),
@@ -325,7 +329,7 @@
     <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY.tracks}</p>
   {:else if onTracks}
     <TrackTable
-      tracks={shelfState.visibleTracks}
+      tracks={shelfState.trackPage.items}
       selectedKey={shelfState.selectedTrackKey}
       {editingKey}
       onselect={(key) => (shelfState.selectedTrackKey = key)}
@@ -339,7 +343,9 @@
     <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY[shelfState.shelf]}</p>
   {:else}
     <table class="box" bind:this={table}>
-      <caption class="visually-hidden">{shelfLabel}</caption>
+      <caption class="visually-hidden">
+        {shelfLabel}{#if page.count > 1}, {formatCount(page.first)} to {formatCount(page.last)} of {formatCount(page.total)}{/if}
+      </caption>
       <thead>
         <tr>
           <th scope="col" class="catno"><span class="visually-hidden">Cat no</span></th>
@@ -351,7 +357,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each shelfState.visible as item (item.verdict.key)}
+        {#each shelfState.page.items as item (item.verdict.key)}
           {@const release = item.release}
           {@const isSelected = item.verdict.key === shelfState.selectedKey}
           <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
@@ -443,7 +449,12 @@
       {/if}
       <span><Key label="Z" /> undo</span>
     </p>
-    <Flash message={shelfState.flash} align="end" />
+    <div class="status">
+      <Flash message={shelfState.flash} align="end" />
+      {#if page.count > 1}
+        <Pager {page} noun={onTracks ? "tracks" : "records"} onturn={(turn) => shelfState.turnPage(turn)} />
+      {/if}
+    </div>
   </footer>
 </div>
 
@@ -694,6 +705,11 @@
     padding: 12px 40px 14px;
     border-top: 1px solid var(--rule);
     background: var(--surface);
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 28px;
   }
   .hints {
     display: flex;

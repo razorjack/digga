@@ -96,7 +96,8 @@ Pressing the same mark again clears it.
 | key                         | action                                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------------------- |
 | `1` … `9`                   | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks, no audio |
-| `J` / `K`, `↓` / `↑`        | move the selection                                                                        |
+| `J` / `K`, `↓` / `↑`        | move the selection, across pages                                                          |
+| `←` / `→`                   | previous / next page; a page holds 500 records                                            |
 | `S`                         | next sort order (newest, label, artist, year, price, want)                                |
 | `/`                         | focus the filter; Enter or Esc leaves it                                                  |
 | `O`                         | open the release on discogs.com                                                           |

@@ -72,6 +72,55 @@ export const MARK_COPY: Record<TrackMark, string> = {
   candidate: "grail",
 };
 
+/**
+ * Rows a shelf shows at once. 4,000 rows took 1.5 s to open and half a second per sort; a page
+ * this size renders in about a tenth of that, and J and K cross into the next page.
+ */
+export const PAGE_SIZE = 500;
+
+/** One page of a sorted, filtered shelf. */
+export interface Page<Item> {
+  items: Item[];
+  /** Zero-based. */
+  index: number;
+  count: number;
+  /** One-based positions of the first and last item shown; 0 and 0 for an empty list. */
+  first: number;
+  last: number;
+  total: number;
+}
+
+/** The page that holds the item at `selectedIndex`, or the first page when nothing is selected. */
+export function pageAround<Item>(
+  list: Item[],
+  selectedIndex: number,
+  size: number = PAGE_SIZE,
+): Page<Item> {
+  const index = selectedIndex < 0 ? 0 : Math.floor(selectedIndex / size);
+  const start = index * size;
+  const items = list.slice(start, start + size);
+  return {
+    items,
+    index,
+    count: Math.max(1, Math.ceil(list.length / size)),
+    first: items.length === 0 ? 0 : start + 1,
+    last: start + items.length,
+    total: list.length,
+  };
+}
+
+/** Where the page before or after the one holding `selectedIndex` starts; null past either end. */
+export function turnedPageStart(
+  total: number,
+  selectedIndex: number,
+  turn: -1 | 1,
+  size: number = PAGE_SIZE,
+): number | null {
+  const target = Math.floor(Math.max(0, selectedIndex) / size) + turn;
+  if (target < 0 || target * size >= total) return null;
+  return target * size;
+}
+
 export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${track.mark.position}`;
 
 /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
