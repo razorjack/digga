@@ -144,7 +144,7 @@
     {/if}
     <ProgressRow label="Read" fraction={flow.loadDone ? 1 : readFraction} text={readText()} />
     <p class="counts">
-      <span><b>{formatCount(loadProgress?.matched ?? 0)}</b> releases kept</span>
+      <span><b>{formatCount((loadProgress?.matched ?? 0) + (loadProgress?.coverage ?? 0))}</b> releases kept</span>
       <span><b>{formatCount(toDig)}</b> records to dig</span>
       {#if toDig > 0}
         <span class="quiet">At 20 seconds a record, that is {Math.max(1, Math.round((toDig * 20) / 3600))} hours. Pace yourself.</span>
