@@ -57,7 +57,8 @@ export function startDumpUpdate(context: AppContext): Job {
   });
 }
 
-function refuseWhileDumpJobRuns(context: AppContext): void {
+/** A download, load or update is running; another one, or deleting a dump, has to wait. */
+export function refuseWhileDumpJobRuns(context: AppContext): void {
   const running = context.jobs
     .list()
     .find((job) => DUMP_JOBS.includes(job.type) && job.status === "running");

@@ -500,6 +500,7 @@ class SandboxApi implements Api {
   startDumpLoad: Api["startDumpLoad"] = (input) => this.#inner.startDumpLoad(input);
   startDumpUpdate: Api["startDumpUpdate"] = () => this.#inner.startDumpUpdate();
   getDumps: Api["getDumps"] = () => this.#inner.getDumps();
+  deleteDump: Api["deleteDump"] = (name) => this.#inner.deleteDump(name);
 
   startImport: Api["startImport"] = async (kind, input = {}) => {
     if (kind !== "list") return this.#inner.startImport(kind, input);

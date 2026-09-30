@@ -2,7 +2,7 @@
   import { jobProgress, elapsed, JOB_LABEL } from "../../shared/job-display.ts";
   import { onDestroy, onMount, untrack } from "svelte";
   import type { Attachment } from "svelte/attachments";
-  import { BROWSERS, type Browser } from "../../shared/api.ts";
+  import { BROWSERS, type Browser, type DumpFile } from "../../shared/api.ts";
   import {
     COLOR_SCHEMES,
     type ColorScheme,
@@ -21,7 +21,7 @@
   import { FilterPreview } from "../settings/preview.svelte.ts";
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
-  import { DumpFiles } from "../settings/dumps.svelte.ts";
+  import { DumpFiles, dumpUse } from "../settings/dumps.svelte.ts";
   import Backups from "../settings/Backups.svelte";
   import { parseInteger } from "../../shared/integer.ts";
   const id = $props.id();
@@ -89,12 +89,7 @@
   const dumpJobRunning = $derived(
     jobState.items.some((job) => DUMP_JOBS.includes(job.type) && job.status === "running"),
   );
-  const dumpSummary = $derived.by(() => {
-    if (dumpFiles.error) return `The dumps folder did not load: ${dumpFiles.error}.`;
-    const newest = dumpFiles.newest;
-    if (!newest) return "No dump downloaded yet.";
-    return `The newest here is ${newest.name}, ${formatBytes(newest.bytes)}.`;
-  });
+  let deletingDump = $state(false);
   /** Derived, so saves that keep the username do not fetch the lists again. */
   const discogsUsername = $derived(saved?.discogs.username ?? "");
 
@@ -232,6 +227,22 @@
       await jobState.load();
     } catch (event) {
       showFlash(`Did not start: ${errorMessage(event)}`);
+    }
+  }
+
+  async function deleteDump(file: DumpFile): Promise<void> {
+    const size = formatBytes(file.bytes);
+    if (!confirm(`Delete ${file.name} (${size})? Loading it again means downloading it again.`))
+      return;
+    deletingDump = true;
+    try {
+      await dumpFiles.delete(file.name);
+      if (dumpFile === file.name) dumpFile = dumpFiles.newest?.name ?? "";
+      showFlash(`Deleted ${file.name}; ${size} freed.`);
+    } catch (error) {
+      showFlash(`Not deleted: ${errorMessage(error)}`);
+    } finally {
+      deletingDump = false;
     }
   }
 
@@ -880,6 +891,7 @@
             newest one into {#if dumpFiles.value}<code>{dumpFiles.value.directory}</code>{:else}the dumps folder{/if} unless it is there, checks it
             against the checksum Discogs publishes, and loads it; the records it adds are offered under
             <Key label="F" size="sm" /> in Triage. Download and Load do one step each, and Load also takes an absolute path.
+            A dump that is loaded, or older than one that is, can go: Digga reads a dump only while it loads it.
           </p>
           <div class="inline wrap">
             <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
@@ -888,8 +900,30 @@
             <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
               Download only
             </button>
-            <span class="quiet">{dumpSummary}</span>
           </div>
+          {#if dumpFiles.error}
+            <p class="quiet">The dumps folder did not load: {dumpFiles.error}.</p>
+          {:else if dumpFiles.value && dumpFiles.newest}
+            {@const newest = dumpFiles.newest}
+            <ul class="dumps" aria-label="Dumps in the folder">
+              {#each dumpFiles.value.files as file (file.name)}
+                <li>
+                  <span>{file.name}</span>
+                  <span class="quiet">{formatBytes(file.bytes)}, {dumpUse(file, newest, stats.value?.dump.date ?? null)}</span>
+                  <button
+                    type="button"
+                    class="link"
+                    disabled={dumpJobRunning || deletingDump}
+                    onclick={() => void deleteDump(file)}
+                  >
+                    Delete<span class="visually-hidden"> {file.name}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {:else if dumpFiles.value}
+            <p class="quiet">No dump downloaded yet.</p>
+          {/if}
           <div class="inline wrap">
             <input
               class="file"
@@ -1236,6 +1270,18 @@
   }
   .meter::-moz-progress-bar {
     background: var(--accent-mark);
+  }
+  .dumps {
+    display: grid;
+    gap: 4px;
+    padding: 0;
+    list-style: none;
+  }
+  .dumps li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
   }
   button.link {
     border: 0;

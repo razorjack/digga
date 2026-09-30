@@ -505,3 +505,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      all", rounds of snoozed records from the selected one onwards and undo keep covering the
      whole shelf, as does the sandbox overlay. The page follows the selection: `J` and `K` cross
      into the next page and `←` / `→` jump a page.
+101. **Settings deletes dumps; nothing deletes them by itself.** Each dump is over 10 GB, and
+     Digga reads one only while it loads it, so a loaded dump, and any dump older than it, is
+     kept only to load again without a download. Settings lists the dumps with what each is
+     for ("the library was loaded from it", "nothing needs it: the 1 Oct dump is newer", "not
+     loaded yet") and deletes one after a confirmation, since a deleted dump means another
+     download of over 10 GB. `DELETE /api/dumps/:name` accepts only a name the folder listing
+     returns, so no name reaches outside the folder, and it waits, like the dump jobs, until no
+     download, load or update runs. The update does not delete the dump it replaces: the user
+     asked for deleting on request, and a deletion nobody asked for can cost a download.

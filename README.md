@@ -150,7 +150,9 @@ npm run digga -- dump load ~/Library/Caches/Digga/dumps/discogs_YYYYMMDD_release
 ```
 
 Discogs publishes a new dump at the start of each month. Run the update again then: it loads the
-records Discogs has added since, and `F` in Triage digs just those.
+records Discogs has added since, and `F` in Triage digs just those. Digga reads a dump only while
+it loads it, so Settings lists the dumps in the folder, says which one the library came from, and
+deletes the ones you no longer want.
 
 The loader keeps releases matching your import settings. Changing queue filters later is
 immediate; expanding the imported styles or year range requires another dump load.

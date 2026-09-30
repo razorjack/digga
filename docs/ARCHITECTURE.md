@@ -124,7 +124,8 @@ The dump update (`POST /api/jobs/dump-update`, `digga dump update`) is one job o
 a time. `downloadDump` finds the newest releases dump on data.discogs.com
 (`src/server/discogs/data-dumps.ts`), streams it into `paths.dumpsDir` as `<file>.part` while
 hashing it, and renames it only when the SHA-256 matches the published one. It is network-bound
-and runs on the server thread; `GET /api/dumps` lists what the folder holds for Load.
+and runs on the server thread; `GET /api/dumps` lists what the folder holds for Load, and
+`DELETE /api/dumps/:name` deletes a dump the listing names, never while a dump job runs.
 
 ## Backups and exports
 

@@ -16,3 +16,13 @@ export function listDumpFiles(dir: string): DumpFile[] {
   }
   return files.sort((left, right) => right.date.localeCompare(left.date));
 }
+
+/**
+ * Deletes a releases dump the folder lists; false when it has none by that name. Only listed
+ * names are accepted, so the name cannot reach outside the folder.
+ */
+export function deleteDumpFile(dir: string, name: string): boolean {
+  if (!listDumpFiles(dir).some((file) => file.name === name)) return false;
+  fs.rmSync(path.join(dir, name));
+  return true;
+}

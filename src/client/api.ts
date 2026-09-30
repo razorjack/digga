@@ -67,6 +67,8 @@ export interface Api {
   startDumpUpdate(): Promise<Job>;
   /** The releases dumps in the dumps folder, newest first. */
   getDumps(): Promise<DumpsResponse>;
+  /** Deletes a dump from the dumps folder; answers what the folder holds then. */
+  deleteDump(name: string): Promise<DumpsResponse>;
   startImport(kind: ImportKind, input?: ImportJobInput): Promise<Job>;
   getJobs(): Promise<JobsResponse>;
   getJob(id: string): Promise<Job>;
@@ -124,6 +126,8 @@ function queryString(params: Record<string, string | number | boolean | undefine
   return encoded === "" ? "" : `?${encoded}`;
 }
 
+// One line per Api method, like createAppApi below.
+// eslint-disable-next-line max-lines-per-function
 export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIMEOUTS): Api {
   const call = httpCaller(baseUrl, timeouts.localMs);
   const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
@@ -160,6 +164,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     startDumpLoad: (input) => call("POST", "/jobs/dump-load", input),
     startDumpUpdate: () => call("POST", "/jobs/dump-update"),
     getDumps: () => call("GET", "/dumps"),
+    deleteDump: (name) => call("DELETE", `/dumps/${encodeURIComponent(name)}`),
     startImport: (kind, input = {}) => call("POST", `/jobs/import/${kind}`, input),
     getJobs: () => call("GET", "/jobs"),
     getJob: (id) => call("GET", `/jobs/${id}`),
@@ -224,6 +229,7 @@ export function createAppApi(
     startDumpLoad: (input) => current.startDumpLoad(input),
     startDumpUpdate: () => current.startDumpUpdate(),
     getDumps: () => current.getDumps(),
+    deleteDump: (name) => current.deleteDump(name),
     startImport: (kind, input) => current.startImport(kind, input),
     getJobs: () => current.getJobs(),
     getJob: (id) => current.getJob(id),

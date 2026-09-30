@@ -10,7 +10,7 @@ import {
   createDataDumpClient,
   parseDumpListing,
 } from "../src/server/discogs/data-dumps.ts";
-import { listDumpFiles } from "../src/server/dump-files.ts";
+import { deleteDumpFile, listDumpFiles } from "../src/server/dump-files.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer } from "../src/server/server.ts";
 import type { ApiError, DumpsResponse } from "../src/shared/api.ts";
@@ -245,6 +245,63 @@ describe("the download over HTTP", () => {
           { name: "discogs_20260901_releases.xml.gz", date: "2026-09-01", bytes: BODY.length },
         ],
       });
+    } finally {
+      await server.stop();
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("deleting dumps", () => {
+  it("deletes only a dump the folder lists", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "digga-dumps-"));
+    const dump = "discogs_20260801_releases.xml.gz";
+    fs.writeFileSync(path.join(dir, dump), "old");
+    fs.writeFileSync(path.join(dir, "notes.txt"), "keep");
+    try {
+      expect(deleteDumpFile(dir, "notes.txt")).toBe(false);
+      expect(deleteDumpFile(dir, `../${path.basename(dir)}/${dump}`)).toBe(false);
+      expect(deleteDumpFile(dir, dump)).toBe(true);
+      expect(fs.readdirSync(dir)).toEqual(["notes.txt"]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes over HTTP, but not while a dump job runs", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-delete-http-"));
+    const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
+    paths.dbFile = ":memory:";
+    fs.mkdirSync(paths.dumpsDir, { recursive: true });
+    const old = "discogs_20260801_releases.xml.gz";
+    fs.writeFileSync(path.join(paths.dumpsDir, old), "old");
+    const server = createServer({
+      config: DEFAULT_CONFIG,
+      paths,
+      secrets: testSecrets(),
+      logger: silentLogger,
+      serveStatic: false,
+      persistConfig: false,
+      fetchImpl: fetchFrom(fakeSite()),
+    });
+    const remove = (name: string) =>
+      server.app.request(`/api/dumps/${encodeURIComponent(name)}`, { method: "DELETE" });
+    try {
+      const started = await server.app.request("/api/jobs/dump-download", { method: "POST" });
+      const job = (await started.json()) as Job;
+      const refused = await remove(old);
+      expect([refused.status, ((await refused.json()) as ApiError).error]).toEqual([
+        400,
+        'Wait until "Download dump" has finished',
+      ]);
+      await expect.poll(() => server.jobs.get(job.id)?.status).toBe("done");
+
+      expect((await remove("digga.sqlite")).status).toBe(404);
+      const deleted = await remove(old);
+      expect(((await deleted.json()) as DumpsResponse).files.map((file) => file.name)).toEqual([
+        "discogs_20260901_releases.xml.gz",
+      ]);
+      expect(fs.existsSync(path.join(paths.dumpsDir, old))).toBe(false);
     } finally {
       await server.stop();
       fs.rmSync(tmp, { recursive: true, force: true });
