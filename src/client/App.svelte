@@ -43,7 +43,7 @@
     `${ROUTES.find((destination) => destination.route === route)?.label ?? "Setup"} – Digga`,
   );
   /** No load has finished: the library still needs its first, which the setup walks through. */
-  const firstRun = $derived(stats.value !== null && stats.value.dump.lastLoad === null);
+  const firstRun = $derived(stats.value !== null && stats.value.dump.loadedAt === null);
   /**
    * Until the first load starts there is nothing to dig, so the setup has the screen to itself:
    * the header keeps the wordmark, and the page keys stay quiet.

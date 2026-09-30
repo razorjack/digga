@@ -7,7 +7,7 @@ import {
   type SetupResponse,
 } from "../shared/api.ts";
 import type { AppContext } from "./context.ts";
-import { latestDumpLoad } from "./db/dump-loads.ts";
+import { hasLoadedCatalogue } from "./db/dump-loads.ts";
 import { tallySeedReleases } from "./db/seed-tally.ts";
 import type { DataDump, DataDumpClient } from "./discogs/data-dumps.ts";
 import { discoverHistoryFiles } from "./importers/history.ts";
@@ -22,7 +22,7 @@ const listings = new WeakMap<DataDumpClient, { dump: DataDump; readAt: number }>
 /** What the first run shows: whether it is needed, the catalogue to fetch, and suggestions. */
 export async function readSetup(context: AppContext): Promise<SetupResponse> {
   return {
-    needed: latestDumpLoad(context.db) === null,
+    needed: !hasLoadedCatalogue(context.db),
     catalogue: await readCatalogue(context),
     seeds: tallySeedReleases(context.db),
     browsers: historyBrowsers(),

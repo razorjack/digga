@@ -1,5 +1,5 @@
 import type { DumpLoadSummary } from "../../shared/api.ts";
-import type { Db } from "./db.ts";
+import { type Db, getMeta } from "./db.ts";
 
 interface DumpLoadRow {
   id: number;
@@ -111,4 +111,12 @@ export function forgetUnfinishedLoads(db: Db): number {
          AND NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = releases.triage_key)`,
     )
     .run().changes;
+}
+
+/**
+ * Some load has finished. Loads from before `dump_loads` existed left no row, only the time in
+ * meta, which every finished load still writes.
+ */
+export function hasLoadedCatalogue(db: Db): boolean {
+  return latestDumpLoad(db) !== null || getMeta(db, "dump_loaded_at") !== undefined;
 }

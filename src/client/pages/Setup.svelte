@@ -20,7 +20,7 @@
   const anchor = $derived(getAnchor());
   let opened = $state(false);
   /** A library that has finished a load needs no setup, unless this visit watched it finish. */
-  const done = $derived(opened && stats.value?.dump.lastLoad != null && !flow.followsLoad);
+  const done = $derived(opened && stats.value?.dump.loadedAt != null && !flow.followsLoad);
 
   onMount(async () => {
     await flow.open(isSetupStep(anchor) ? anchor : null);

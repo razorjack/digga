@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { openDb, type Db } from "../src/server/db/db.ts";
+import { openDb, setMeta, type Db } from "../src/server/db/db.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
 import { resolvePaths } from "../src/server/paths.ts";
@@ -127,6 +127,14 @@ describe("GET /api/setup", () => {
     expect(body.catalogue).toMatchObject({ newest: null, error: "data.discogs.com answered 503" });
   });
 
+  it("is not needed for a library loaded before loads were recorded", async () => {
+    setMeta(db, "dump_loaded_at", "2026-09-27T18:44:16.434Z");
+    const { body } = await send<SetupResponse>("GET", "/api/setup");
+
+    expect(body.needed).toBe(false);
+    expect((await send<ApiError>("DELETE", "/api/setup/load")).status).toBe(409);
+  });
+
   it("tallies the styles and years of imported releases, most first", async () => {
     importWant(1, 1999, ["Drum n Bass", "Jungle"]);
     importWant(2, 1999, ["Drum n Bass"]);
@@ -156,7 +164,9 @@ describe("changing the picks during the first load", () => {
       { db, logger: silentLogger },
       { file: FIXTURE_GZ, styles: ["Drum n Bass"], loadYears: null, coverage: false, limit: 3 },
     );
+    // As a load that never finished leaves them.
     db.prepare("UPDATE dump_loads SET finished_at = NULL WHERE id = ?").run(load.load!.id);
+    db.prepare("DELETE FROM meta WHERE key = 'dump_loaded_at'").run();
     await send("PUT", "/api/settings", { ...server.getConfig(), sandbox: false });
     await send("POST", "/api/verdicts", { key: "m:501", status: "rejected" });
 

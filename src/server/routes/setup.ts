@@ -1,7 +1,7 @@
 import { type Context, Hono } from "hono";
 import type { ApiError } from "../../shared/api.ts";
 import type { AppContext } from "../context.ts";
-import { forgetUnfinishedLoads, latestDumpLoad } from "../db/dump-loads.ts";
+import { forgetUnfinishedLoads, hasLoadedCatalogue } from "../db/dump-loads.ts";
 import { refuseWhileDumpJobRuns } from "../jobs/start.ts";
 import { readSetup } from "../setup.ts";
 import { readStyleCensus } from "../style-census.ts";
@@ -15,7 +15,7 @@ export function registerSetupRoutes(api: Hono, context: AppContext): void {
 
 /** "Change your picks" during the first load: the releases it added go, so new picks start clean. */
 function forgetFirstLoad(request: Context, context: AppContext) {
-  if (latestDumpLoad(context.db) !== null)
+  if (hasLoadedCatalogue(context.db))
     return request.json(
       { error: "A load has finished; change the styles in Settings instead" } satisfies ApiError,
       409,
