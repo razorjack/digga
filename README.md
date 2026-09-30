@@ -83,28 +83,56 @@ Digga runs on your computer and opens in a browser. The catalogue and saved list
 live in a local SQLite database. Playback uses YouTube, and account imports, fresh release data,
 and wantlist updates use Discogs, so those features need an internet connection.
 
-**New installations start in sandbox mode.** Verdicts, notes, track marks, and listens stay in the
-current browser tab, and Digga does not change your Discogs wantlist. Sandbox decisions are
-discarded when you leave that mode. Settings and setup jobs, including dump loading and
-collection, wantlist, and history imports, still write local data.
-
-When you are ready to keep your listening decisions, turn off sandbox mode in Settings. A Discogs
-token is needed for wantlist updates, but your catalogue and verdicts remain local.
+**Sandbox mode** keeps verdicts, notes, track marks, and listens in the current browser tab, and
+Digga does not change your Discogs wantlist; they are discarded when you leave that mode. The
+setup turns it off, and its practice round uses it for five records. Settings switches it, and
+setup jobs, including dump loading and collection, wantlist, and history imports, write local
+data in either mode. A Discogs token is needed for wantlist updates, but your catalogue and
+verdicts remain local.
 
 ## Run Digga
 
 Use **Node.js 24.11+ on the 24.x line** and npm. Vite+ is installed with the project, so the commands
 below do not need a global `vp` installation.
 
-### 1. Install and configure
-
-From a fresh checkout:
+### 1. Install and start
 
 ```sh
 git clone https://github.com/razorjack/digga.git
 cd digga
 npm install
+npm run build
+npm run serve
 ```
+
+Keep the server running and open **[http://localhost:3456](http://localhost:3456)**. Use
+`localhost`: some YouTube videos refuse to play when the page is opened at `127.0.0.1`. On later
+runs, `npm run serve` is enough. Rebuild after updating the frontend.
+
+### 2. Follow the setup
+
+A new library opens the setup, which takes about 20 minutes, most of it waiting:
+
+1. **Fetch the catalogue.** Digga downloads the newest monthly releases dump,
+   `discogs_YYYYMMDD_releases.xml.gz` from [Discogs data dumps](https://data.discogs.com/), about
+   10.5 GB, and checks it against the checksum Discogs publishes. The first screen says how big it
+   is and how much space the disk has before anything downloads.
+2. **Bring your Discogs** (optional). Paste a personal access token from
+   [Discogs Settings → Developers](https://www.discogs.com/settings/developers); Digga takes your
+   username from it. It then imports your collection and wantlist, so records you own or want stay
+   out of the queue, and it can mark the releases you opened on discogs.com in Brave, Chrome or
+   Firefox as seen. Without a token, your username reads a public collection and wantlist.
+3. **Pick your sound.** Every Discogs style, with its size, and the years to dig, over a histogram
+   of their releases. Styles your Discogs records mostly carry are picked already, and the estimate
+   says how many releases the picks come to.
+4. **Fill the crate.** The load reads the dump while it downloads, and keeps the releases in your
+   styles and years. It takes 15 to 20 minutes, but records arrive from the first seconds:
+   "Start digging" lights up once 500 wait, and the header shows the load while you dig.
+
+The setup turns sandbox mode off, so your verdicts are kept from the first one. "Practice on five
+records first" digs five records in the sandbox before that.
+
+### Where Digga keeps things
 
 Digga keeps its library in a folder of your user account: `~/Library/Application Support/Digga`
 on macOS, `%APPDATA%\Digga` on Windows and `~/.config/Digga` on Linux. It holds the database, its
@@ -112,86 +140,71 @@ daily backups, your settings in `digga.config.json` and the Discogs token you sa
 Dumps go in the cache folder, which backups skip: `~/Library/Caches/Digga/dumps`,
 `%LOCALAPPDATA%\Digga\Cache\dumps` or `~/.cache/Digga/dumps`. `npm run serve` prints both.
 
-The first command creates `digga.config.json` with the defaults the
-[example config](digga.config.example.json) shows. Set these in Settings, or in the file, before
-loading the catalogue:
-
-- `universe.styles` selects the styles to import. Use Discogs' exact names, such as
-  `Drum n Bass`.
-- `universe.loadYears` limits the years imported into the local database. The example uses
-  `[1994, 2008]`; `null` loads all years for the selected styles.
-- `universe.coverage` also imports releases in other styles from the labels and artists of the
-  records you want or own, when those labels and artists mostly release the selected styles.
-- `filters` narrows what you listen to from the loaded catalogue. The example starts with vinyl
-  from 1998 through 2002. These filters can change in Settings without loading the dump again.
-- `discogs.username` is the account to use for collection and wantlist imports.
-
-To update your Discogs wantlist or read private account data, create a personal access token in
-[Discogs Settings → Developers](https://www.discogs.com/settings/developers) and paste it into
-Settings in Digga, which saves it in `secrets.env` in the library folder, or set `DISCOGS_TOKEN`
-in the environment. Use a token from the same account as `discogs.username`.
-
 To keep the library elsewhere, set `DIGGA_DATA_DIR`, and `DIGGA_DUMPS_DIR` or
 `DIGGA_CONFIG_FILE` if needed, in the environment or in a `.env` in the folder you run Digga from
 ([`.env.example`](.env.example) lists them). A library placed with `DIGGA_DATA_DIR` keeps its
-dumps inside it unless `DIGGA_DUMPS_DIR` says otherwise.
+dumps inside it unless `DIGGA_DUMPS_DIR` says otherwise. `DIGGA_DUMPS_DIR` also puts the dumps on
+another disk when the one with the cache folder is short of space.
 
-### 2. Load the catalogue
+### Digga and the Discogs API
 
-Digga reads the monthly **releases** dump, `discogs_YYYYMMDD_releases.xml.gz`, from
-[Discogs data dumps](https://data.discogs.com/). The download is over 10 GB. Digga streams the
-compressed file, so you do not need to extract it. Settings has buttons for both steps under
-Jobs; from the command line:
+Digga reads the catalogue from the dump, not through your account. It uses the token only for
+things you do, one request at a time:
 
-```sh
-npm run digga -- dump update      # both steps below: download unless it is there, then load
-npm run digga -- dump download    # the newest dump into the dumps folder, checked against its checksum
-npm run digga -- dump load ~/Library/Caches/Digga/dumps/discogs_YYYYMMDD_releases.xml.gz
-```
+- your account: when you connect, and each time you open Settings, which shows whose token is
+  saved and offers your lists for the Maybe list, about two requests a visit;
+- your collection and wantlist: one request per 100 records, when you import them;
+- the Maybe list: when you import it, or press `I` in Twelves;
+- a want: one request 1.5 s after `A` or `C`, and one more when `Z` takes it back, and in Twelves
+  when you re-judge a want onto or off the wantlist;
+- a price: one request when you press `P`, for the record on screen;
+- a seller's shop: one request per 100 listings, when you read it.
 
-Discogs publishes a new dump at the start of each month. Run the update again then: it loads the
-records Discogs has added since, and `F` in Triage digs just those. Digga reads a dump only while
-it loads it, so Settings lists the dumps in the folder, says which one the library came from, and
-deletes the ones you no longer want.
+Digga leaves 1.1 s between requests, which keeps it under Discogs' limit of 60 a minute. It
+pauses when Discogs says the limit is nearly used, and waits as long as Discogs asks when it says
+too many. Nothing runs in the background. Digga never changes your collection or lists, and never
+reads orders or messages. A Discogs token cannot be limited to some actions, so Digga saves it
+only on this computer, in `secrets.env` in the library folder (or reads `DISCOGS_TOKEN` from the
+environment), and sends it only to api.discogs.com. You can revoke it on discogs.com at any time.
 
-The loader keeps releases matching your import settings. Changing queue filters later is
-immediate; expanding the imported styles or year range requires another dump load.
+### Settings and the config file
 
-### 3. Import what you already know (optional)
+Settings changes everything the setup chose, and `digga.config.json` holds it:
 
-With your Discogs username configured:
+- `universe.styles` selects the styles to load, by Discogs' exact names, such as `Drum n Bass`.
+- `universe.loadYears` limits the years loaded into the library. The setup loads three years more
+  on each side of the years you dig; `null` loads all years for the selected styles.
+- `universe.coverage` also loads releases in other styles from the labels and artists of the
+  records you want or own, when those labels and artists mostly release the selected styles.
+- `filters` narrows what you listen to from the loaded catalogue. These filters change in
+  Settings without loading the dump again.
+- `discogs.username` is the account to use for collection and wantlist imports.
 
-```sh
-npm run digga -- import collection
-npm run digga -- import wantlist
-```
-
-To mark previously visited Discogs releases as seen, import browser history:
-
-```sh
-npm run digga -- import history --browser brave
-```
-
-Chrome and Firefox are also supported via `--browser chrome` or `--browser firefox`. Use
-`--path /path/to/History` to read a copied history database. Only import history if you want
-previously visited releases excluded from the listening queue.
+Changing the queue filters is immediate; loading more styles or years takes another dump load.
+Discogs publishes a new dump at the start of each month. "Update from the newest dump" in
+Settings, under Jobs, loads it: it adds the records Discogs has added since, and `F` in Triage
+digs just those. Settings also lists the dumps in the folder, says which one the library came
+from, and deletes the ones you no longer want, about 10 GB each.
 
 The dump has no prices or have/want counts. When a record might be worth buying, press `P` in
 Triage and Digga asks Discogs for them.
 
-### 4. Build and start
+### From the command line
+
+Every setup step also runs from the command line:
 
 ```sh
-npm run build
-npm run serve
+npm run digga -- dump update      # download the newest dump unless it is there, then load it
+npm run digga -- dump download    # the newest dump into the dumps folder, checked against its checksum
+npm run digga -- dump load ~/Library/Caches/Digga/dumps/discogs_YYYYMMDD_releases.xml.gz
+npm run digga -- import collection
+npm run digga -- import wantlist
+npm run digga -- import history --browser brave   # also chrome or firefox; --path reads a copy
 ```
 
-Keep the server running and open **[http://localhost:3456](http://localhost:3456)**. Use
-`localhost`: some YouTube videos refuse to play when the page is opened at `127.0.0.1`.
-Press `Space` to start listening, try the verdict keys in sandbox mode, then turn sandbox off in
-Settings when you want your decisions saved.
-
-On later runs, `npm run serve` is enough. Rebuild after updating the frontend.
+To rehearse the setup without downloading from Discogs, serve a dump you have with
+`node tools/dev/fake-data-dumps.ts <dump.xml.gz>` and start Digga with
+`DIGGA_DUMPS_URL=http://127.0.0.1:4567/` and a throwaway `DIGGA_DATA_DIR`.
 
 ## Useful commands
 

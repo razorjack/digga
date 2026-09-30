@@ -545,6 +545,8 @@ class SandboxApi implements Api {
 
   getDiscogsProfile: Api["getDiscogsProfile"] = () => this.#inner.getDiscogsProfile();
 
+  forgetFirstLoad: Api["forgetFirstLoad"] = () => this.#inner.forgetFirstLoad();
+
   exportUrl: Api["exportUrl"] = (file) => this.#inner.exportUrl(file);
 
   pushToWantlist: Api["pushToWantlist"] = (releaseId) => this.#fakeWantlistWrite(releaseId, true);

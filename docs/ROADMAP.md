@@ -62,13 +62,26 @@ Decisions 86 to 93.
   dump in one job. Each load is recorded, Settings says what it added and did not find, and `F`
   digs the records it added.
 
+## Session 6 (done): the first run
+
+Decisions 105 to 111; the design is `docs/FIRST_RUN.md`.
+
+- A setup in the app: fetch the catalogue, bring your Discogs, pick your sound, fill the crate.
+- The style census: every complete load counts the whole dump's styles by year, and Digga ships
+  one for the first run (`docs/STYLE_CENSUS.md`).
+- A load reads the dump while it downloads, and Triage digs while the load runs.
+- Saving a token checks it with Discogs first and fills in the username.
+
 ## Next
+
+- The style picker in Settings, instead of the comma-separated Styles field.
+- "Update from the newest dump" reading the dump while it downloads, as the setup does.
 
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.
 - Hear records from Twelves: rounds like the snoozed ones for wants, grails and marked tracks.
 
-## Session 6: Electron shell
+## Session 7: Electron shell
 
 Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with electron-builder,
 `@electron/rebuild` for `better-sqlite3`, menu items for jobs, signing and notarization.

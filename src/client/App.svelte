@@ -3,6 +3,7 @@
   import { formatCount, formatEta } from "../shared/display.ts";
   import HelpOverlay from "./components/HelpOverlay.svelte";
   import Key from "./components/Key.svelte";
+  import LoadIndicator from "./components/LoadIndicator.svelte";
   import Stamp from "./components/Stamp.svelte";
   import {
     GLOBAL_KEYS,
@@ -11,7 +12,9 @@
     triageKeyGroups,
     TWELVES_KEY_GROUPS,
   } from "./keymap.ts";
+  import { loadStatus } from "./load-status.svelte.ts";
   import Settings from "./pages/Settings.svelte";
+  import Setup from "./pages/Setup.svelte";
   import Triage from "./pages/Triage.svelte";
   import Twelves from "./pages/Twelves.svelte";
   import { getRoute, localhostAlternative, navigate, ROUTES } from "./router.svelte.ts";
@@ -36,7 +39,16 @@
 
   const colorScheme = $derived(settings.value?.appearance.colorScheme ?? "system");
   const eta = $derived(formatEta(stats.value?.rate.etaHours ?? null));
-  const pageTitle = $derived(`${ROUTES.find((destination) => destination.route === route)!.label} – Digga`);
+  const pageTitle = $derived(
+    `${ROUTES.find((destination) => destination.route === route)?.label ?? "Setup"} – Digga`,
+  );
+  /** No load has finished: the library still needs its first, which the setup walks through. */
+  const firstRun = $derived(stats.value !== null && stats.value.dump.lastLoad === null);
+  /**
+   * Until the first load starts there is nothing to dig, so the setup has the screen to itself:
+   * the header keeps the wordmark, and the page keys stay quiet.
+   */
+  const setupOnly = $derived(route === "setup" && firstRun && !loadStatus.loading);
 
   // A clicked header link must not keep focus: a later Enter would follow it again.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
@@ -44,6 +56,13 @@
   onMount(() => {
     void settings.load();
     void stats.refresh();
+    void loadStatus.check();
+  });
+
+  // A library without a finished load opens the setup, unless its first load is running.
+  $effect(() => {
+    if (firstRun && loadStatus.checked && !loadStatus.loading && route !== "setup")
+      navigate("setup");
   });
 
   $effect(() => {
@@ -63,7 +82,7 @@
       return;
     }
     // The open dialog handles its own keys, Esc included.
-    if (ui.helpOpen) return;
+    if (ui.helpOpen || setupOnly) return;
     const target = ROUTES.find(
       (destination) => destination.key.toLowerCase() === event.key.toLowerCase(),
     );
@@ -75,7 +94,10 @@
 </script>
 
 <svelte:window {onkeydown} />
-<svelte:head><title>{pageTitle}</title></svelte:head>
+<!-- The setup names each of its steps itself. -->
+<svelte:head>
+  {#if route !== "setup"}<title>{pageTitle}</title>{/if}
+</svelte:head>
 
 <!-- Rubber-stamp ink for .stamp elements: speckled voids plus wobbly edges; finer for small stamps. -->
 <svg class="defs" aria-hidden="true" width="0" height="0">
@@ -106,46 +128,53 @@
 </svg>
 
 <div class="app">
-  <header class="top">
+  <header class="top" class:busy={loadStatus.job !== null}>
     <a class="wordmark" href="#/triage" aria-label="Digga, triage" onmousedown={keepFocus}>digga</a>
-    <nav aria-label="Pages">
-      {#each ROUTES as destination (destination.route)}
+    {#if !setupOnly}
+      <nav aria-label="Pages">
+        {#each ROUTES as destination (destination.route)}
+          <a
+            href="#/{destination.route}"
+            aria-current={route === destination.route ? "page" : undefined}
+            aria-keyshortcuts={destination.key}
+            onmousedown={keepFocus}
+          >
+            {destination.label}
+            <Key label={destination.key} size="sm" aria-hidden="true" />
+          </a>
+        {/each}
+      </nav>
+
+      {#if settings.sandbox}
         <a
-          href="#/{destination.route}"
-          aria-current={route === destination.route ? "page" : undefined}
-          aria-keyshortcuts={destination.key}
+          class="sandbox"
+          href="#/settings/sandbox"
+          title="Verdicts, notes, track marks and heard tunes stay in this tab, and nothing goes to Discogs. Click to change."
           onmousedown={keepFocus}
         >
-          {destination.label}
-          <Key label={destination.key} size="sm" aria-hidden="true" />
+          <Stamp text="sandbox" tone="accent" size="sm" seed={3} />
+          <span>verdicts are not saved</span>
         </a>
-      {/each}
-    </nav>
-
-    {#if settings.sandbox}
-      <a
-        class="sandbox"
-        href="#/settings/sandbox"
-        title="Verdicts, notes, track marks and heard tunes stay in this tab, and nothing goes to Discogs. Click to change."
-        onmousedown={keepFocus}
-      >
-        <Stamp text="sandbox" tone="accent" size="sm" seed={3} />
-        <span>verdicts are not saved</span>
-      </a>
-    {/if}
-
-    <div class="counter">
-      {#if stats.value}
-        <p><b>{formatCount(stats.value.dug)}</b> dug</p>
-        <p><b>{formatCount(stats.value.remaining)}</b> to go</p>
-        {#if stats.value.remaining > 0}
-          <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
-        {/if}
-        {#if stats.session > 0}<p class="session">+{formatCount(stats.session)} this session</p>{/if}
-      {:else if stats.error}
-        <p class="error">Server unreachable</p>
       {/if}
-    </div>
+
+      {#if loadStatus.job}
+        <LoadIndicator href={firstRun ? "#/setup" : "#/settings"} />
+      {/if}
+
+      <div class="counter">
+        {#if stats.value}
+          <p><b>{formatCount(stats.value.dug)}</b> dug</p>
+          <p><b>{formatCount(stats.value.remaining)}</b> to go{loadStatus.loading ? " so far" : ""}</p>
+          {#if stats.value.remaining > 0 && !loadStatus.loading}
+            <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
+          {/if}
+          {#if stats.session > 0}<p class="session">+{formatCount(stats.session)} this session</p>{/if}
+        {:else if stats.error}
+          <p class="error">Server unreachable</p>
+        {/if}
+      </div>
+    {/if}
+    <p class="visually-hidden" role="status">{loadStatus.announcement ?? ""}</p>
   </header>
 
   {#if localhostUrl}
@@ -165,6 +194,8 @@
       {/key}
     {:else if route === "settings"}
       <div class="page scroll"><Settings /></div>
+    {:else if route === "setup"}
+      <div class="page scroll"><Setup /></div>
     {/if}
   </main>
 </div>
@@ -183,6 +214,7 @@
     height: 100%;
   }
   .top {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 36px;
@@ -270,6 +302,12 @@
   }
   .scroll {
     overflow-y: auto;
+  }
+  /* The load indicator needs the room the sandbox's explanation takes. */
+  @media (max-width: 1440px) {
+    .busy .sandbox span {
+      display: none;
+    }
   }
   @media (max-width: 1180px) {
     .sandbox span,

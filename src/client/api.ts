@@ -93,6 +93,8 @@ export interface Api {
   getStyles(): Promise<StyleCensus>;
   /** The collection and wantlist sizes and the currency of the connected account. */
   getDiscogsProfile(): Promise<DiscogsProfileResponse>;
+  /** Undoes the unfinished first load, so the setup can load other picks. */
+  forgetFirstLoad(): Promise<{ deleted: number }>;
   /** Where the browser downloads an export of the saved decisions. */
   exportUrl(file: ExportFile): string;
 }
@@ -188,6 +190,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getSetup: () => call("GET", "/setup"),
     getStyles: () => call("GET", "/styles"),
     getDiscogsProfile: () => callDiscogs("GET", "/discogs/profile"),
+    forgetFirstLoad: () => call("DELETE", "/setup/load"),
     exportUrl: (file) => `${baseUrl}/export/${file}`,
   };
 }
@@ -256,6 +259,7 @@ export function createAppApi(
     getSetup: () => current.getSetup(),
     getStyles: () => current.getStyles(),
     getDiscogsProfile: () => current.getDiscogsProfile(),
+    forgetFirstLoad: () => current.forgetFirstLoad(),
     exportUrl: (file) => current.exportUrl(file),
   };
 }

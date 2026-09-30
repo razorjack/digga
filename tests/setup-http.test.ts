@@ -150,6 +150,31 @@ describe("GET /api/setup", () => {
   });
 });
 
+describe("changing the picks during the first load", () => {
+  it("deletes what the unfinished load added, but not a record with a verdict", async () => {
+    const load = await dumpLoad(
+      { db, logger: silentLogger },
+      { file: FIXTURE_GZ, styles: ["Drum n Bass"], loadYears: null, coverage: false, limit: 3 },
+    );
+    db.prepare("UPDATE dump_loads SET finished_at = NULL WHERE id = ?").run(load.load!.id);
+    await send("PUT", "/api/settings", { ...server.getConfig(), sandbox: false });
+    await send("POST", "/api/verdicts", { key: "m:501", status: "rejected" });
+
+    // 1001 and 1002 are the two pressings of m:501, which has a verdict now.
+    const forgotten = await send<{ deleted: number }>("DELETE", "/api/setup/load");
+    expect(forgotten.body).toEqual({ deleted: 1 });
+    expect(db.prepare("SELECT id FROM releases ORDER BY id").pluck().all()).toEqual([1001, 1002]);
+  });
+
+  it("refuses once a load has finished", async () => {
+    await dumpLoad(
+      { db, logger: silentLogger },
+      { file: FIXTURE_GZ, styles: ["Drum n Bass"], loadYears: null, coverage: false },
+    );
+    expect((await send<ApiError>("DELETE", "/api/setup/load")).status).toBe(409);
+  });
+});
+
 describe("GET /api/styles", () => {
   it("answers with the shipped census, then with the one the last complete load counted", async () => {
     const shipped = (await send<StyleCensus>("GET", "/api/styles")).body;

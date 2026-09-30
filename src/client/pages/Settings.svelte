@@ -24,6 +24,7 @@
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
   import { DumpFiles, dumpUse } from "../settings/dumps.svelte.ts";
   import Backups from "../settings/Backups.svelte";
+  import RequestList from "../setup/RequestList.svelte";
   import { parseInteger } from "../../shared/integer.ts";
   const id = $props.id();
   const filterPreview = new FilterPreview();
@@ -638,6 +639,15 @@
 
       <section>
         <h2>Discogs</h2>
+        <div class="api-use">
+          <p>
+            Digga reads the catalogue from the dump, not through your account. It uses the token only for things you
+            do: importing, <Key label="A" size="sm" /> and <Key label="C" size="sm" /> putting records on your
+            wantlist, <Key label="P" size="sm" /> asking for a price, and showing your account here. One request at a
+            time, within Discogs' rate limit.
+          </p>
+          <RequestList />
+        </div>
         <div class="fields">
           <div class="field">
             <label class="name" for="{id}-username">Username</label>
@@ -996,6 +1006,15 @@
 </div>
 
 <style>
+  .api-use {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 46em;
+    margin-bottom: 18px;
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+  }
   .settings {
     padding: 32px 40px 0;
   }

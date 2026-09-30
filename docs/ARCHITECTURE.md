@@ -52,7 +52,18 @@ answers `409` to digging writes while `sandbox` is on.
   version that restarts the queue on save, and the api mode switch), the help overlay flag, and
   the snoozed records Twelves hands to Triage for a round.
 - Pages: `Triage.svelte` (always mounted, hidden when another page is shown), `Twelves.svelte`,
-  `Settings.svelte`. The keymap and its help text are in `keymap.ts`.
+  `Settings.svelte`, `Setup.svelte`. The keymap and its help text are in `keymap.ts`.
+- `src/client/load-status.svelte.ts` follows the running dump job for the header's indicator,
+  Triage and the setup: it asks once when the app opens and whenever something starts a dump
+  job, then every second while one runs, and says once when a load it watched has finished.
+- The setup (`src/client/setup/`, `docs/FIRST_RUN.md`): `flow.svelte.ts` owns the jobs it starts
+  and polls them, and resumes from what the server has; `model.ts` holds the estimate, the
+  suggestions and the default years as pure functions; one component per step. `App.svelte`
+  sends a library without a finished load to `#/setup` unless its first load runs, and until
+  the load starts the header keeps only the wordmark and the page keys stay quiet. While a load
+  runs, the triage session's `lookAgain()` asks the server again at the end of the queue every
+  10 seconds, and once more when the load ends. A practice round (`ui.practice`) digs five
+  records in the sandbox and then turns it off.
 - Twelves loads every shelf in one request and filters, sorts and counts in the browser
   (`twelves/model.ts`), so counts, "add all" and rounds of snoozed records cover the whole shelf.
   It renders the 500 records around the selection (`pageAround`); `J` and `K` cross pages and

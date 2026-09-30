@@ -97,3 +97,18 @@ function rowToSummary(row: DumpLoadRow): DumpLoadSummary {
     missing: row.missing,
   };
 }
+
+/**
+ * Undoes loads that did not finish, for the setup's "Change your picks": deletes the releases
+ * they brought into the universe, except those with a verdict on their record, which the next
+ * finished load takes over. Returns how many it deleted.
+ */
+export function forgetUnfinishedLoads(db: Db): number {
+  return db
+    .prepare(
+      `DELETE FROM releases
+       WHERE added_by_load IN (SELECT id FROM dump_loads WHERE finished_at IS NULL)
+         AND NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = releases.triage_key)`,
+    )
+    .run().changes;
+}

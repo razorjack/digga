@@ -94,10 +94,12 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts,
-                       stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, Flash, HelpOverlay),
+                       stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css
+                       (tokens), components/ (Key, Stamp, Flash, HelpOverlay, LoadIndicator), setup/ (the first run),
                        player/ (YouTube decks), triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (preview, jobs, Discogs state), pages/
-tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible; census.ts (style census)
+tools/dump/            streaming loader (parse.ts, convert.ts, load.ts, growing.ts), worker-compatible; census.ts
+tools/dev/             fake-data-dumps.ts: a data.discogs.com stand-in to rehearse the setup (DIGGA_DUMPS_URL)
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```

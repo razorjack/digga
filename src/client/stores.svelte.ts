@@ -105,9 +105,14 @@ class SettingsStore {
 export const stats = new StatsStore();
 export const settings = new SettingsStore();
 
+/** Records a practice round lasts; the setup offers it before digging for real. */
+export const PRACTICE_RECORDS = 5;
+
 class UiStore {
   /** The ? overlay is open; page shortcuts stay quiet while it is. */
   helpOpen = $state(false);
+  /** A practice round in the sandbox: the verdicts given so far; null outside one. */
+  practice = $state<{ judged: number } | null>(null);
   /** Snoozed records Twelves hands to Triage to hear again; Triage takes them and clears this. */
   snoozedRound = $state.raw<TwelvesItem[] | null>(null);
 }

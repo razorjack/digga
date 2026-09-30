@@ -19,15 +19,17 @@
   } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
-  import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
+  import { errorMessage, PRACTICE_RECORDS, settings, stats, ui } from "../stores.svelte.ts";
   import PlayerPanel from "../triage/PlayerPanel.svelte";
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
   import ScopePicker from "../triage/ScopePicker.svelte";
+  import { loadStatus } from "../load-status.svelte.ts";
   import { TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
   import Tracklist from "../triage/Tracklist.svelte";
   import NoteLine from "../triage/NoteLine.svelte";
   import VerdictBar from "../triage/VerdictBar.svelte";
+  import PracticeDone from "../triage/PracticeDone.svelte";
 
   let { active }: { active: boolean } = $props();
 
@@ -65,6 +67,17 @@
       }
       void session.start(config.queue.limit);
     });
+  });
+
+  // While a load adds records, the end of the queue asks again every 10 seconds, and once more
+  // when the load ends, which brings the coverage releases last.
+  $effect(() => {
+    if (!loadStatus.loading || !session.finished) return;
+    const timer = setInterval(() => void session.lookAgain(), 10_000);
+    return () => {
+      clearInterval(timer);
+      void session.lookAgain();
+    };
   });
 
   // Snoozed records handed over by Twelves.
@@ -118,8 +131,12 @@
   const scopeRemaining = $derived(stats.value?.scopeRemaining ?? null);
   const newRecords = $derived(newRecordsScope(stats.value?.dump.lastLoad ?? null));
 
-  /** Esc ends a round of snoozed records first, then the label, artist or seller being dug. */
+  /** Esc ends a practice round first, then a round of snoozed records, then a dig. */
   function leaveRoundOrScope(): boolean {
+    if (ui.practice) {
+      practiceOver = true;
+      return true;
+    }
     if (session.round) {
       session.endRound();
       return true;
@@ -155,6 +172,22 @@
       return;
     }
     session.judge(status);
+    if (ui.practice) ui.practice.judged += 1;
+  }
+
+  /** Five verdicts in, or Esc: the practice round is over. */
+  let practiceOver = $state(false);
+  $effect(() => {
+    if (ui.practice && ui.practice.judged >= PRACTICE_RECORDS) practiceOver = true;
+  });
+
+  /** Leaves the sandbox; the queue restarts without the practice verdicts. */
+  async function digForReal(): Promise<void> {
+    if (!ui.practice) return;
+    practiceOver = false;
+    ui.practice = null;
+    const config = settings.value;
+    if (config) await settings.save({ ...$state.snapshot(config), sandbox: false });
   }
 
   function markPlaying(mark: TrackMark): void {
@@ -258,6 +291,7 @@
     if (
       !active ||
       ui.helpOpen ||
+      practiceOver ||
       event.defaultPrevented ||
       isTyping(event) ||
       hasCommandModifier(event)
@@ -272,7 +306,17 @@
 <div class="triage">
   <!-- The live region stays in the DOM so a banner is announced when a round or a scope starts. -->
   <div aria-live="polite">
-    {#if session.round}
+    {#if ui.practice}
+      <p class="banner">
+        <span>
+          Practice: <b>{Math.min(ui.practice.judged + 1, PRACTICE_RECORDS)}</b> of {PRACTICE_RECORDS}. Nothing is saved
+          and nothing goes to Discogs.
+        </span>
+        <button type="button" aria-keyshortcuts="Escape" onclick={() => (practiceOver = true)}>
+          <Key label="Esc" size="sm" aria-hidden="true" /> end the practice
+        </button>
+      </p>
+    {:else if session.round}
       <p class="banner">
         <span>
           Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
@@ -303,6 +347,14 @@
           <p class="quiet">
             Check that the server runs (<code>npm run digga -- serve</code>), then press
             <Key label="Enter" /> to try again.
+          </p>
+        </div>
+      {:else if session.finished && loadStatus.loading}
+        <div class="state">
+          <p class="headline">You have dug everything loaded so far.</p>
+          <p class="quiet">
+            {loadStatus.fraction === null ? "The catalogue is loading" : `${Math.floor(loadStatus.fraction * 100)}% of the catalogue is read`};
+            records join the queue as they arrive, and the next one shows here.
           </p>
         </div>
       {:else if session.finished && noReleases}
@@ -440,6 +492,7 @@
     onpick={(scope) => void session.setScope(scope)}
     onclose={() => (pickingScope = false)}
   />
+  <PracticeDone open={practiceOver} ondig={() => void digForReal()} />
 </div>
 
 <style>

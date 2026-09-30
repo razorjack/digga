@@ -561,3 +561,18 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      download is doing, so neither job needs the other's cooperation or a channel between the
      server thread and the load's worker. A checksum that fails after the load read everything
      leaves the load unfinished, so the next finished load takes its releases over.
+109. **The setup's step is in the address.** A reload during the setup should not lose the step,
+     and the browser's Back should go a step back. The server knows which jobs ran, not which
+     screen the user was on, so `#/setup/sound` says it; what the server has still decides where
+     a step can resume: nothing before the download starts, and nothing but the load's screen
+     once the load runs.
+110. **The setup turns the sandbox off, and offers a practice round.** The schema default stays
+     on, for configs the CLI creates. Someone who has just set Digga up and digs in the sandbox
+     loses the evening's verdicts on reload; the choice is explicit instead. "Practice on five
+     records first" turns it on for five verdicts, then a dialog turns it off and the queue
+     starts again without them.
+111. **Triage digs while a load runs.** The queue is a query, so each refill sees what the load
+     has written so far; an empty refill is not the end while a load runs, and the session asks
+     again every 10 seconds. The label sweep can return to a label once, for releases that
+     arrived after it passed; in the owner's dump 91% of the records arrive in the first two
+     minutes, so this is rare.

@@ -143,6 +143,21 @@ const snoozed = (id: number, decidedAt: string): TwelvesItem => ({
 });
 
 describe("triage session", () => {
+  it("asks again at the end of the queue, for records a running load has added", async () => {
+    const queue = [1];
+    const { session } = await started(queue);
+    session.judge("rejected");
+    await until(() => session.finished);
+
+    await session.lookAgain();
+    expect(session.finished).toBe(true);
+    queue.push(2, 3);
+    await session.lookAgain();
+
+    expect(session.finished).toBe(false);
+    expect(session.current?.id).toBe(2);
+  });
+
   it("cancels the wantlist push when the want is undone during the grace period", async () => {
     const { session, calls } = await started([1, 2], 40);
     session.judge("accepted");

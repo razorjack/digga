@@ -1,8 +1,22 @@
 # First run
 
-Status: proposed, not built. This is the design of Digga's first launch, from an empty library to
-the first record playing in Triage, without a terminal. The CLI keeps working as it does; this
-flow is for people who open the app.
+Status: built on 2026-09-30, except the Electron parts and the style picker in Settings. This is
+the design of Digga's first launch, from an empty library to the first record playing in Triage,
+without a terminal. The CLI keeps working as it does; this flow is for people who open the app.
+
+Where the build differs from the design below:
+
+- The setup's token form is its own component. Settings keeps its form, and both show the same
+  "Every request Digga makes" list (`src/client/setup/RequestList.svelte`).
+- The step is in the address (`#/setup/sound`), so a reload stays on it and the browser's Back
+  goes a step back. Once the load runs, its screen stays; "Change your picks" leads back.
+- "No token? Use your username" is built: it saves `discogs.username` and reads the public
+  profile.
+- The genres of the first picks come first in the style picker, and every genre starts closed.
+- "Change your picks" cancels the load and calls `DELETE /api/setup/load`, which deletes the
+  releases unfinished loads added that have no verdict.
+- `tools/dev/fake-data-dumps.ts` serves a dump from disk at a set speed, as data.discogs.com
+  does, and `DIGGA_DUMPS_URL` points Digga at it, to rehearse the setup.
 
 ## Goals
 

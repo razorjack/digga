@@ -1,6 +1,7 @@
 /** Hash router. The only place in src/client that reads window.location. */
-export type Route = "triage" | "twelves" | "settings";
+export type Route = "triage" | "twelves" | "settings" | "setup";
 
+/** The pages in the header, with their keys; the setup is reached from the app, not the header. */
 export const ROUTES: { route: Route; label: string; key: string }[] = [
   { route: "triage", label: "Triage", key: "T" },
   { route: "twelves", label: "Twelves", key: "W" },
@@ -15,6 +16,7 @@ interface HashLocation {
 
 function parse(hash: string): HashLocation {
   const [name = "", anchor] = hash.replace(/^#\/?/, "").split(/[?]/)[0]!.split("/");
+  if (name === "setup") return { route: "setup", anchor: anchor || null };
   return ROUTES.some((r) => r.route === name)
     ? { route: name as Route, anchor: anchor || null }
     : { route: "triage", anchor: null };

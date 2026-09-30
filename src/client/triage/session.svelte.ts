@@ -148,6 +148,21 @@ export class TriageSession {
   }
 
   /**
+   * While a load adds records, the end of the queue is only the end of what has arrived: asks the
+   * server again, and the next record shows once there is one.
+   */
+  async lookAgain(): Promise<void> {
+    if (!this.finished || this.round) return;
+    const generation = this.#generation;
+    try {
+      await this.#refill();
+    } catch (error) {
+      if (generation === this.#generation)
+        this.#flash(`Could not look for new records: ${errorMessage(error)}`);
+    }
+  }
+
+  /**
    * Narrows the queue to one label's, artist's or seller's records, or with null lets everything back.
    * Passes belong to the queue they were made in; the server returns them in the new one.
    */
@@ -682,7 +697,7 @@ export class TriageSession {
       // A round took over meanwhile; the queue refills again when it ends.
       if (generation !== this.#generation || this.round) return;
       const fresh = res.items.filter((i) => !known.has(i.triageKey));
-      if (fresh.length === 0) this.exhausted = true;
+      this.exhausted = fresh.length === 0;
       this.upcoming = [...this.upcoming, ...fresh];
       this.#prefetch();
     })();
