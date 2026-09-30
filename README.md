@@ -27,7 +27,7 @@ through, at a position you choose, and the next track and the next release are p
 listen. Mark a
 record as a want, skip it, flag a grail, or leave it for later. Undo walks back through your session.
 
-![Triage: release details and tracklist beside the player, with verdict keys along the bottom](docs/assets/screenshots/triage.webp)
+![Triage: The Code by Absolute Zero + Subphonics on Renegade Hardware playing, its tracklist and other videos beside the player, the last verdict on the slip, and the verdict keys along the bottom](docs/assets/screenshots/triage.webp)
 
 | Key       | Action                                                  |
 | --------- | ------------------------------------------------------- |
@@ -55,7 +55,7 @@ and collection. Filter and sort the shelves, add notes, change a verdict, or ret
 records for another listen. The Tracks shelf lists every track you marked grail or keep, with a
 note of its own.
 
-![Twelves: a record list with catalogue numbers, artists, titles, labels, and wantlist or owned stamps](docs/assets/screenshots/twelves.webp)
+![Twelves: the shelves, then records with their stamps: a grail with its note and price, a snoozed record, and records from the Discogs wantlist and collection](docs/assets/screenshots/twelves.webp)
 
 With sandbox mode off and your Discogs account configured, `A` and `C` add a record to your Discogs
 wantlist, with the tracks you marked and your note as the want's note. A grail stays a grail in
@@ -71,7 +71,7 @@ back. Sweep label by label in catalogue order,
 browse by country or year, or use a daily shuffle. Set where playback starts and how far
 the seek keys jump.
 
-![Settings: year and format filters, queue ordering, and playback controls](docs/assets/screenshots/settings.webp)
+![Settings: what to dig, with years, formats, countries, format details, hidden labels, and whether to skip releases without videos](docs/assets/screenshots/settings.webp)
 
 Imports of your collection, wantlist, and browser history can keep records you already know out
 of the queue. The session counter shows how many you have judged, how many remain, and an estimated
@@ -128,6 +128,10 @@ A new library opens the setup, which takes about 20 minutes, most of it waiting:
 4. **Fill the crate.** The load reads the dump while it downloads, and keeps the releases in your
    styles and years. It takes 15 to 20 minutes, but records arrive from the first seconds:
    "Start digging" lights up once 500 wait, and the header shows the load while you dig.
+
+![The setup's Pick your sound step: a style suggested from the Discogs wantlist, a style search, the years over a histogram of their releases, and an estimate of the library's size](docs/assets/screenshots/setup-sound.webp)
+
+![The setup's Fill the crate step: the download and the read, the releases kept so far and the records to dig, the years filling in, and Start digging](docs/assets/screenshots/setup-crate.webp)
 
 The setup turns sandbox mode off, so your verdicts are kept from the first one. "Practice on five
 records first" digs five records in the sandbox before that.
