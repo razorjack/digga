@@ -130,7 +130,7 @@ and runs on the server thread; `GET /api/dumps` lists what the folder holds for 
 ## Backups and exports
 
 `createServer()` copies the database it opens into `paths.backupsDir` (`backups/` in the library) once a
-day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest five (`src/server/db/backup.ts`). The copy
+day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest two (`src/server/db/backup.ts`). The copy
 uses SQLite's online backup, so it runs in steps beside requests and reads a consistent snapshot;
 `stop()` waits for it before closing the database. Restoring is copying a backup over
 `digga.sqlite` while the server is stopped.

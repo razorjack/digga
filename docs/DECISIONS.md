@@ -529,3 +529,7 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      copies the database first and then writes the file in one transaction. The backup wins,
      except over a verdict or track mark made in Digga after it was written; seeds it replaces
      come back when the imports run again, which the README says to do after a restore.
+103. **Two daily database copies, not five.** A full copy is 136 MB for 1994–2008 and would be
+     about 330 MB for every Drum n Bass year. The decisions backup (decision 102) keeps a month of
+     what only the user made at a few MB, so the full copies only need to cover a bad day or two:
+     they restore by copying a file back, with nothing to rebuild.

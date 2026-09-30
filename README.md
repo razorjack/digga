@@ -227,7 +227,7 @@ With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the pa
   changed adds no file, so they cover your last 30 days of digging, and a library with nothing
   decided in it yet writes none. With every Drum n Bass record from 1998 to 2002 judged, about
   60,000 decisions and two tunes heard on each, the file is about 3.5 MB.
-- **`digga-YYYY-MM-DD.sqlite`: the whole database.** Digga keeps the last five. It restores
+- **`digga-YYYY-MM-DD.sqlite`: the whole database.** Digga keeps the last two. It restores
   everything by copying one file back, but is 100 MB or more.
 
 The server writes both when it starts. `npm run digga -- backup` writes both at once.

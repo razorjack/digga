@@ -110,7 +110,7 @@ describe("exports", () => {
     expect(body).toEqual({
       directory: path.join(tmp, "backups"),
       databaseFile: ":memory:",
-      kept: 5,
+      kept: 2,
       backups: [],
       decisions: { kept: 30, backups: [] },
     });
