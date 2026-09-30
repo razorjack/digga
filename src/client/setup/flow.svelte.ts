@@ -291,14 +291,17 @@ export class SetupFlow {
   }
 
   async #refreshJobs(): Promise<void> {
+    const asked = { download: this.download, load: this.load, imports: this.imports };
     const fetch = async (job: Job | null) => (job && isRunning(job) ? api.getJob(job.id) : job);
     const [download, load, ...imports] = await Promise.all(
-      [this.download, this.load, ...this.imports].map(fetch),
+      [asked.download, asked.load, ...asked.imports].map(fetch),
     );
-    this.download = download ?? null;
-    this.load = load ?? null;
+    // A job started or dropped while the answers were on their way replaces the one asked about.
+    if (this.download === asked.download) this.download = download ?? null;
+    if (this.load === asked.load) this.load = load ?? null;
     if (this.loadRunning) this.#followed = true;
-    this.imports = imports.filter((job): job is Job => job !== null);
+    if (this.imports === asked.imports)
+      this.imports = imports.filter((job): job is Job => job !== null);
   }
 
   async #refreshStats(): Promise<void> {
