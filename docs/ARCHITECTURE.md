@@ -24,7 +24,10 @@ The CLI's `serve` command calls it; an Electron main process will call the same 
 
 ## The client
 
-`src/client/api.ts` defines the `Api` interface and its HTTP implementation. The exported `api`
+`src/client/api.ts` defines the `Api` interface and its HTTP implementation. Every request has a
+timeout that covers the body too (`DEFAULT_TIMEOUTS`): 30 s for what the server answers from its
+database, 5 min for requests that wait on a Discogs call, 15 min for reading a Discogs list. The
+exported `api`
 is an `AppApi` facade (`createAppApi`) over one of two implementations: the HTTP api, or
 `createSandboxApi(http)` from `src/client/sandbox.ts`, which keeps the digging writes (verdicts,
 track marks, listens, wantlist pushes and removals, the Maybe list import) in memory and overlays

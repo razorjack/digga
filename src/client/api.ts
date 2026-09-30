@@ -97,6 +97,25 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** How long a request may wait for its answer before it fails. */
+export interface Timeouts {
+  /** Requests the server answers from its own database. */
+  localMs: number;
+  /**
+   * Requests that wait on one Discogs call. The server spaces its Discogs requests, pauses 60 s
+   * when the rate limit runs out and backs off on 429, so an answer can take minutes.
+   */
+  discogsMs: number;
+  /** Reading a Discogs list, which looks up every entry outside the library, a second apart. */
+  listMs: number;
+}
+
+export const DEFAULT_TIMEOUTS: Timeouts = {
+  localMs: 30_000,
+  discogsMs: 5 * 60_000,
+  listMs: 15 * 60_000,
+};
+
 function queryString(params: Record<string, string | number | boolean | undefined>): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params))
@@ -105,8 +124,10 @@ function queryString(params: Record<string, string | number | boolean | undefine
   return encoded === "" ? "" : `?${encoded}`;
 }
 
-export function createHttpApi(baseUrl = "/api"): Api {
-  const call = httpCaller(baseUrl);
+export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIMEOUTS): Api {
+  const call = httpCaller(baseUrl, timeouts.localMs);
+  const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
+  const callList = httpCaller(baseUrl, timeouts.listMs);
   return {
     mode: "live",
     getQueue: ({ filters, scope, ...rest } = {}) =>
@@ -116,7 +137,7 @@ export function createHttpApi(baseUrl = "/api"): Api {
       ),
     searchScopes: (text) => call("GET", `/scopes${queryString({ q: text })}`),
     getRelease: (id) => call("GET", `/releases/${id}`),
-    enrichRelease: (id) => call("POST", `/releases/${id}/enrich`),
+    enrichRelease: (id) => callDiscogs("POST", `/releases/${id}/enrich`),
     attachVideo: (releaseId, url) => call("POST", `/releases/${releaseId}/videos`, { url }),
     postVerdict: (input) => call("POST", "/verdicts", input),
     deleteVerdict: (key) => call("DELETE", `/verdicts/${encodeURIComponent(key)}`),
@@ -143,12 +164,12 @@ export function createHttpApi(baseUrl = "/api"): Api {
     getJobs: () => call("GET", "/jobs"),
     getJob: (id) => call("GET", `/jobs/${id}`),
     cancelJob: (id) => call("POST", `/jobs/${id}/cancel`),
-    pushToWantlist: (releaseId) => call("POST", `/discogs/wantlist/${releaseId}`),
-    removeFromWantlist: (releaseId) => call("DELETE", `/discogs/wantlist/${releaseId}`),
-    getDiscogsAccount: () => call("GET", "/discogs/account"),
-    setDiscogsToken: (token) => call("PUT", "/discogs/token", { token }),
-    getDiscogsLists: () => call("GET", "/discogs/lists"),
-    getDiscogsList: (id) => call("GET", `/discogs/lists/${id}`),
+    pushToWantlist: (releaseId) => callDiscogs("POST", `/discogs/wantlist/${releaseId}`),
+    removeFromWantlist: (releaseId) => callDiscogs("DELETE", `/discogs/wantlist/${releaseId}`),
+    getDiscogsAccount: () => callDiscogs("GET", "/discogs/account"),
+    setDiscogsToken: (token) => callDiscogs("PUT", "/discogs/token", { token }),
+    getDiscogsLists: () => callDiscogs("GET", "/discogs/lists"),
+    getDiscogsList: (id) => callList("GET", `/discogs/lists/${id}`),
     getBackups: () => call("GET", "/backups"),
     exportUrl: (file) => `${baseUrl}/export/${file}`,
   };
@@ -224,14 +245,14 @@ export function createAppApi(
  */
 export const api: AppApi = createAppApi(createHttpApi());
 
-function httpCaller(baseUrl: string) {
+function httpCaller(baseUrl: string, timeoutMs: number) {
   return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const { response, text } = await fetchText(`${baseUrl}${path}`, {
       method,
       headers: body === undefined ? {} : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
+      timeoutMs,
     });
-    const text = await response.text();
     const data: unknown = text === "" ? null : JSON.parse(text);
     if (!response.ok) {
       const error = (data ?? {}) as { error?: string; issues?: unknown };
@@ -243,4 +264,27 @@ function httpCaller(baseUrl: string) {
     }
     return data as T;
   };
+}
+
+/** Fetches and reads the body; the timeout covers both, so a stalled answer fails too. */
+async function fetchText(
+  url: string,
+  request: { method: string; headers: HeadersInit; body: string | undefined; timeoutMs: number },
+): Promise<{ response: Response; text: string }> {
+  const { timeoutMs, ...init } = request;
+  try {
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    return { response, text: await response.text() };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError")
+      throw new Error(`No answer within ${formatWait(timeoutMs)}`);
+    throw error;
+  }
+}
+
+/** 30000 -> "30 s", 300000 -> "5 min". */
+function formatWait(ms: number): string {
+  if (ms >= 60_000) return `${Math.round(ms / 60_000)} min`;
+  if (ms >= 1000) return `${Math.round(ms / 1000)} s`;
+  return `${ms} ms`;
 }

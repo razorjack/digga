@@ -489,3 +489,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
     `DIGGA_DATA_DIR` keeps its dumps inside it, so a throwaway library never writes to the cache.
     A new config starts from the schema defaults, since the app folder has no example to copy.
     There is no migration from `./data`: the only library was moved by hand.
+99. **Every request from the client times out.** A request that never returned left `P` on
+    "asking Discogs…" for good, and a stuck wantlist push would hold up every push after it,
+    since they run one at a time. The timeouts sit above what the server can legitimately take:
+    30 s for database answers; 5 min for a Discogs call, which may wait out a 60 s rate-limit
+    pause or 429 backoffs; 15 min for reading a Discogs list, one lookup a second per entry
+    outside the library. A timed-out request may still finish on the server: a price is then
+    stored and shows next time, and a push reaches the wantlist although the slip says it
+    failed. Twelves reads what the server recorded, so it shows such a want as on the wantlist.
