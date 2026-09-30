@@ -303,7 +303,7 @@
       <p>
         None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy a video's
         link there and press <Key label="⌘V" /> here to attach it, and the record goes back to the queue. A newer
-        dump, or Refresh Twelves under Jobs in Settings, brings back the records Discogs has a video for since.
+        dump brings back the records Discogs has a video for since.
       </p>
     </div>
   {/if}
