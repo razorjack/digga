@@ -290,6 +290,9 @@
     align-items: baseline;
     gap: 10px;
   }
+  .imports input[type="checkbox"] {
+    accent-color: var(--accent);
+  }
   .history {
     display: flex;
     align-items: baseline;
