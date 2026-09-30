@@ -62,6 +62,8 @@ export class TriageSession {
   /** The server has nothing beyond what is buffered. */
   exhausted = $state(false);
   slip = $state.raw<Slip | null>(null);
+  /** The slip whose verdict or undo is still being written. */
+  #savingSlip = $state<number | null>(null);
   flash = $state<string | null>(null);
   round = $state.raw<Round | null>(null);
   /** The label, artist or seller the queue is narrowed to; null digs everything the filters let in. */
@@ -193,6 +195,7 @@ export class TriageSession {
       id,
       push: isWantlistVerdict(status) ? "pending" : null,
     };
+    this.#savingSlip = id;
     stats.session += 1;
     this.#bumpStats(status, previous, 1);
     this.#afterMove();
@@ -209,14 +212,22 @@ export class TriageSession {
     try {
       await client.postVerdict({ key: item.triageKey, status, releaseId: item.id, notes });
     } catch (error) {
+      this.#settleSlip(slipId);
       if (generation !== this.#apiGeneration) return;
       this.#recoverVerdict(entry, error);
       return;
     }
-    if (generation !== this.#apiGeneration) return;
-    stats.refreshSoon();
-    // Discogs writes have their own chain so they cannot delay verdicts.
-    if (isWantlistVerdict(status)) void this.#pushAfterGrace(entry, slipId, client);
+    if (generation === this.#apiGeneration) {
+      stats.refreshSoon();
+      // Discogs writes have their own chain so they cannot delay verdicts.
+      if (isWantlistVerdict(status)) void this.#pushAfterGrace(entry, slipId, client);
+    }
+    // Last, so a settled slip means the push grace is already running.
+    this.#settleSlip(slipId);
+  }
+
+  #settleSlip(slipId: number): void {
+    if (this.#savingSlip === slipId) this.#savingSlip = null;
   }
 
   #recoverVerdict(entry: VerdictEntry, error: unknown): void {
@@ -236,6 +247,11 @@ export class TriageSession {
       returned,
       ...this.upcoming.filter((next) => next.triageKey !== item.triageKey),
     ];
+  }
+
+  /** The slip reports a write the server has not answered yet, or the page has not acted on. */
+  get slipBusy(): boolean {
+    return this.slip !== null && this.#savingSlip === this.slip.id;
   }
 
   /** The record's note: written in this session, else the one its snoozed verdict has. */
@@ -362,19 +378,21 @@ export class TriageSession {
       if (saved) this.#queueBeforeRound = { ...saved, passed: saved.passed.filter(keep) };
     }
     this.#returnToQueue(item);
+    const slipId = ++this.#slipSeq;
     this.slip = {
       kind: "undo",
       item,
       undone: entry.kind === "verdict" ? entry.status : "pass",
-      id: ++this.#slipSeq,
+      id: slipId,
     };
     this.#afterMove();
     if (entry.kind !== "verdict") return;
+    this.#savingSlip = slipId;
     stats.session -= 1;
     this.#bumpStats(entry.status, entry.previous, -1);
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
-    void this.#write(() => this.#saveUndo(entry, client, generation));
+    void this.#write(() => this.#saveUndo(entry, { client, generation, slipId }));
   }
 
   /** Lets a hidden label back into the queue; saving the filters restarts it. */
@@ -390,18 +408,25 @@ export class TriageSession {
     this.slip = { kind: "undo", item: entry.item, undone: "label", id: ++this.#slipSeq };
   }
 
-  async #saveUndo(entry: VerdictEntry, client: Api, generation: number): Promise<void> {
+  async #saveUndo(
+    entry: VerdictEntry,
+    operation: { client: Api; generation: number; slipId: number },
+  ): Promise<void> {
+    const { client, generation, slipId } = operation;
     try {
       if (entry.previous) await client.postVerdict(entry.previous);
       else await client.deleteVerdict(entry.item.triageKey);
     } catch (error) {
+      this.#settleSlip(slipId);
       if (generation !== this.#apiGeneration) return;
       this.#recoverUndo(entry, error);
       return;
     }
-    if (generation !== this.#apiGeneration) return;
-    if (isWantlistVerdict(entry.status)) void this.#takeOffWantlist(entry.item, client);
-    stats.refreshSoon();
+    if (generation === this.#apiGeneration) {
+      if (isWantlistVerdict(entry.status)) void this.#takeOffWantlist(entry.item, client);
+      stats.refreshSoon();
+    }
+    this.#settleSlip(slipId);
   }
 
   #recoverUndo(entry: VerdictEntry, error: unknown): void {
@@ -615,6 +640,7 @@ export class TriageSession {
     this.history = [];
     this.passed = [];
     this.slip = null;
+    this.#savingSlip = null;
     this.details = new Map();
     this.detailErrors = new Map();
     this.#loading = new Set();

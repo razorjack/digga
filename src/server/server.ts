@@ -28,6 +28,10 @@ export interface CreateServerOptions {
   fetchImpl?: typeof fetch;
   /** Where the monthly dumps are listed; data.discogs.com unless a rehearsal points elsewhere. */
   dataDumpsUrl?: string;
+  /** The Discogs API; api.discogs.com unless a stand-in replaces it (tests, rehearsals). */
+  discogsApiUrl?: string;
+  /** YouTube's oEmbed endpoint for pasted links; www.youtube.com unless a stand-in replaces it. */
+  youtubeOembedUrl?: string;
 }
 
 import type { StartInfo } from "./http.ts";
@@ -74,7 +78,11 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       fetchImpl: options.fetchImpl,
       baseUrl: options.dataDumpsUrl,
     }),
-    lookupVideoTitle: createVideoTitleLookup(options.fetchImpl, logger.child("youtube")),
+    lookupVideoTitle: createVideoTitleLookup({
+      fetchImpl: options.fetchImpl,
+      logger: logger.child("youtube"),
+      baseUrl: options.youtubeOembedUrl,
+    }),
     serveStatic: options.serveStatic ?? true,
   });
 
@@ -100,6 +108,7 @@ function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
       discogsToken = token;
       discogs = createDiscogsClient({
         token,
+        baseUrl: options.discogsApiUrl,
         fetchImpl: options.fetchImpl,
         logger: logger.child("discogs"),
       });

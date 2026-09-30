@@ -12,6 +12,7 @@
     nextReady,
     sandbox,
     inRound,
+    busy,
   }: {
     slip: Slip | null;
     next: QueueItem | null;
@@ -21,7 +22,11 @@
     sandbox: boolean;
     /** The slip's release is the last of a snoozed round, so the queue comes next. */
     inRound: boolean;
+    /** The slip's write has not been answered yet; it can still come back as not saved. */
+    busy: boolean;
   } = $props();
+
+  const nextId = $props.id();
 
   const name = (i: QueueItem) => `${i.artistDisplay} – ${i.title}`;
 
@@ -33,7 +38,8 @@
 </script>
 
 <div class="slips">
-  <div class="slip last" aria-live="polite">
+  <!-- Groups, not sections: named sections would add two landmarks to every verdict. -->
+  <div class="slip last" role="group" aria-label="Last action" aria-live="polite" aria-busy={busy}>
     {#if slip === null}
       <p class="quiet">Your verdicts land here. <Key label="Z" /> takes the last one back.</p>
     {:else}
@@ -78,8 +84,8 @@
     {/if}
   </div>
 
-  <div class="slip next">
-    <p class="label">Up next</p>
+  <div class="slip next" role="group" aria-labelledby="{nextId}-label">
+    <p class="label" id="{nextId}-label">Up next</p>
     {#if next}
       <p class="what">
         <span class="catno">{next.catno ?? ""}</span>

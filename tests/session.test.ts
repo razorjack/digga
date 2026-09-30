@@ -279,6 +279,25 @@ describe("session recovery", () => {
     expect(session.error).toBeNull();
   });
 
+  it("keeps the slip busy until the server has answered the verdict, and then the undo", async () => {
+    const { session, http, calls } = await started([1, 2], 1000);
+    const answer = Promise.withResolvers<void>();
+    const postVerdict = http.postVerdict.bind(http);
+    vi.spyOn(http, "postVerdict").mockImplementationOnce(async (input) => {
+      await answer.promise;
+      return postVerdict(input);
+    });
+    session.judge("accepted");
+    expect(session.slipBusy).toBe(true);
+    answer.resolve();
+    await until(() => !session.slipBusy);
+
+    session.undo();
+    expect(session.slipBusy).toBe(true);
+    await until(() => !session.slipBusy);
+    expect(calls).toEqual(["verdict r:1 accepted", "forget r:1"]);
+  });
+
   it("returns a rejected verdict to the queue without pushing it", async () => {
     const { session, http, calls } = await started([1, 2]);
     vi.spyOn(http, "postVerdict").mockRejectedValueOnce(new Error("disk full"));

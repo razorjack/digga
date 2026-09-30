@@ -20,9 +20,12 @@ export function boot() {
   const secrets = createSecrets({ envFile: paths.secretsFile });
   const level = (process.env.DIGGA_LOG_LEVEL as LogLevel | undefined) ?? "info";
   const logger = createLogger({ level });
-  // A stand-in for data.discogs.com, to rehearse the setup (tools/dev/fake-data-dumps.ts).
+  // Stand-ins for data.discogs.com, the Discogs API and YouTube's oEmbed, for rehearsals and the
+  // end-to-end tests (tools/dev/fake-data-dumps.ts, tests/e2e).
   const dataDumpsUrl = fromEnvironment("DIGGA_DUMPS_URL");
-  return { paths, config, secrets, logger, dataDumpsUrl };
+  const discogsApiUrl = fromEnvironment("DIGGA_DISCOGS_API_URL");
+  const youtubeOembedUrl = fromEnvironment("DIGGA_YOUTUBE_OEMBED_URL");
+  return { paths, config, secrets, logger, dataDumpsUrl, discogsApiUrl, youtubeOembedUrl };
 }
 
 /** A .env in the folder digga runs from adds to the environment; variables already set win. */
@@ -39,6 +42,7 @@ function fromEnvironment(name: string): string | undefined {
 export function discogsFor(runtime: Runtime) {
   return createDiscogsClient({
     token: runtime.secrets.getDiscogsToken(),
+    baseUrl: runtime.discogsApiUrl,
     logger: runtime.logger.child("discogs"),
   });
 }

@@ -196,4 +196,12 @@ export async function cmdServe(runtime: Runtime, args: string[]): Promise<void> 
   };
   process.once("SIGINT", shutdown);
   process.once("SIGTERM", shutdown);
+  // A parent with an IPC channel, such as the end-to-end harness, stops the server by message,
+  // which also works on Windows, or by going away.
+  if (process.send) {
+    process.on("message", (message) => {
+      if (message === "shutdown") shutdown();
+    });
+    process.once("disconnect", shutdown);
+  }
 }

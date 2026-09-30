@@ -5,17 +5,25 @@ import type { Logger } from "./logger.ts";
 export type VideoTitleLookup = (videoId: string) => Promise<string>;
 
 const LOOKUP_TIMEOUT_MS = 4000;
+const DEFAULT_OEMBED_URL = "https://www.youtube.com/oembed";
+
+export interface VideoTitleLookupOptions {
+  fetchImpl?: typeof fetch;
+  logger?: Logger;
+  /** YouTube's oEmbed endpoint unless a stand-in replaces it (tests). */
+  baseUrl?: string;
+}
 
 /**
  * Reads the title from YouTube's oEmbed endpoint, which needs no API key. The title lets Digga
  * match a pasted link to a track; without one the video still plays, as an unmatched video.
  */
-export function createVideoTitleLookup(
-  fetchImpl: typeof fetch = fetch,
-  logger?: Logger,
-): VideoTitleLookup {
+export function createVideoTitleLookup(options: VideoTitleLookupOptions = {}): VideoTitleLookup {
+  const { fetchImpl = fetch, logger, baseUrl = DEFAULT_OEMBED_URL } = options;
   return async (videoId) => {
-    const url = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeWatchUrl(videoId))}`;
+    const url = new URL(baseUrl);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("url", youtubeWatchUrl(videoId));
     try {
       const response = await fetchImpl(url, { signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) });
       if (!response.ok) return "";

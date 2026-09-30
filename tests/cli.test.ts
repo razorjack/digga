@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -85,4 +85,57 @@ describe("CLI workflows", () => {
       fs.rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("serves until its IPC parent asks it to stop or goes away", async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "digga-serve-"));
+    const servers: ChildProcess[] = [];
+    try {
+      const asked = startServe(directory);
+      servers.push(asked);
+      const lines = await readServeLines(asked);
+      expect(lines.serving).toMatch(/^digga serving on http:\/\/localhost:\d+$/);
+      expect(lines.library).toBe(`library: ${path.join(directory, "data")}`);
+      asked.send("shutdown");
+      expect(await exitCode(asked)).toBe(0);
+
+      const orphaned = startServe(directory);
+      servers.push(orphaned);
+      await readServeLines(orphaned);
+      orphaned.disconnect();
+      expect(await exitCode(orphaned)).toBe(0);
+    } finally {
+      for (const server of servers) server.kill("SIGKILL");
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });
+
+function startServe(directory: string): ChildProcess {
+  const cli = fileURLToPath(new URL("../src/cli/digga.ts", import.meta.url));
+  return spawn(process.execPath, [cli, "serve", "--port", "0"], {
+    cwd: directory,
+    env: {
+      PATH: process.env.PATH,
+      DIGGA_DATA_DIR: path.join(directory, "data"),
+      DIGGA_CONFIG_FILE: path.join(directory, "config.json"),
+    },
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+  });
+}
+
+/** The two lines the end-to-end harness reads from `digga serve`; log lines come between. */
+async function readServeLines(child: ChildProcess): Promise<{ serving: string; library: string }> {
+  let output = "";
+  for await (const chunk of child.stdout!) {
+    output += String(chunk);
+    const lines = output.split("\n");
+    const serving = lines.find((line) => line.startsWith("digga serving on "));
+    const library = lines.find((line) => line.startsWith("library: "));
+    if (serving && library) return { serving, library };
+  }
+  throw new Error(`digga serve ended before it was serving: ${output}`);
+}
+
+function exitCode(child: ChildProcess): Promise<number | null> {
+  return new Promise((resolve) => child.once("exit", (code) => resolve(code)));
+}

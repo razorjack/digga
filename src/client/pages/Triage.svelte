@@ -469,6 +469,7 @@
         nextReady={player.nextReady}
         sandbox={settings.sandbox}
         inRound={session.round !== null}
+        busy={session.slipBusy}
       />
       <Flash message={session.flash} />
     </aside>

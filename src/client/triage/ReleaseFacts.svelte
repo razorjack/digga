@@ -32,7 +32,7 @@
   const siblings = $derived(detail?.siblings ?? []);
 </script>
 
-<header class="facts">
+<header class="facts" data-release-id={item.id} data-triage-key={item.triageKey}>
   <div class="label-line">
     <Stamp text={catno} seed={item.id} size="lg" />
     <p class="label">
