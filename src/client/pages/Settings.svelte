@@ -7,6 +7,7 @@
     COLOR_SCHEMES,
     type ColorScheme,
     type Config,
+    DISCOGS_CURRENCIES,
     QUEUE_STRATEGIES,
     type QueueStrategy,
     validateConfig,
@@ -31,20 +32,6 @@
   const dumpFiles = new DumpFiles();
   let flashTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const CURRENCIES = [
-    "EUR",
-    "USD",
-    "GBP",
-    "CAD",
-    "AUD",
-    "JPY",
-    "CHF",
-    "MXN",
-    "BRL",
-    "NZD",
-    "SEK",
-    "ZAR",
-  ];
   const STRATEGY_COPY: Record<QueueStrategy, { label: string; hint: string }> = {
     label_sweep: { label: "Label sweep", hint: "label by label, in catalogue order" },
     country: { label: "By country", hint: "then label and catalogue number" },
@@ -711,7 +698,7 @@
           <div class="field narrow">
             <label class="name" for="{id}-currency">Currency</label>
             <select id="{id}-currency" aria-describedby="{id}-currency-hint" bind:value={draft.discogs.currency}>
-              {#each CURRENCIES as c (c)}<option value={c}>{c}</option>{/each}
+              {#each DISCOGS_CURRENCIES as c (c)}<option value={c}>{c}</option>{/each}
             </select>
             <span class="hint" id="{id}-currency-hint">For the lowest price <Key label="P" size="sm" /> shows in Triage.</span>
           </div>

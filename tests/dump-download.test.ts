@@ -28,7 +28,7 @@ const YEAR_2026 = `<pre>
   <a href="?download=data%2F2026%2Fdiscogs_20260801_CHECKSUM.txt">discogs_20260801_CHECKSUM.txt</a>
   <a href="?download=data%2F2026%2Fdiscogs_20260801_releases.xml.gz">discogs_20260801_releases.xml.gz</a>
   <a href="?download=data%2F2026%2Fdiscogs_20260901_labels.xml.gz">discogs_20260901_labels.xml.gz</a>
-  <a href="?download=data%2F2026%2Fdiscogs_20260901_releases.xml.gz">discogs_20260901_releases.xml.gz</a>
+2026-09-01 19:21:51             10.5 GB        <a href="?download=data%2F2026%2Fdiscogs_20260901_releases.xml.gz">discogs_20260901_releases.xml.gz</a>
 </pre>`;
 
 const BODY = Buffer.from("<releases>a whole dump</releases>");
@@ -71,8 +71,12 @@ describe("the data.discogs.com listing", () => {
   it("finds the year pages and the releases dumps, newest first", () => {
     expect(parseDumpListing(ROOT)).toEqual({ years: [2026, 2025], dumps: [] });
     expect(parseDumpListing(YEAR_2026).dumps).toEqual([
-      { date: "2026-09-01", file: "discogs_20260901_releases.xml.gz" },
-      { date: "2026-08-01", file: "discogs_20260801_releases.xml.gz" },
+      {
+        date: "2026-09-01",
+        file: "discogs_20260901_releases.xml.gz",
+        bytes: Math.round(10.5 * 1024 ** 3),
+      },
+      { date: "2026-08-01", file: "discogs_20260801_releases.xml.gz", bytes: null },
     ]);
   });
 
@@ -87,7 +91,7 @@ describe("the data.discogs.com listing", () => {
     site.pages["data/"] = `${ROOT}<a href="?prefix=data%2F2027%2F">2027/</a>`;
     site.pages["data/2027/"] = "<pre></pre>";
     const client = createDataDumpClient({ fetchImpl: fetchFrom(site) });
-    expect(await client.newestReleasesDump()).toEqual({
+    expect(await client.newestReleasesDump()).toMatchObject({
       date: "2026-09-01",
       file: "discogs_20260901_releases.xml.gz",
     });
@@ -146,7 +150,7 @@ describe("downloading the newest dump", () => {
 
   it("refuses to fill the disk", async () => {
     await expect(download(async () => 1024)).rejects.toThrow(
-      /needs 1\.0 GB free in .*, counting 1 GB to spare; it has 1\.0 KB/,
+      /needs 1 GB free in .*, counting 1 GB to spare; it has 1 KB/,
     );
     expect(fs.readdirSync(dumpsDir)).toEqual([]);
   });

@@ -126,6 +126,28 @@ a time. `downloadDump` finds the newest releases dump on data.discogs.com
 hashing it, and renames it only when the SHA-256 matches the published one. It is network-bound
 and runs on the server thread; `GET /api/dumps` lists what the folder holds for Load, and
 `DELETE /api/dumps/:name` deletes a dump the listing names, never while a dump job runs.
+A load can start while its dump downloads: `POST /api/jobs/dump-load` naming the dump the
+running download writes starts beside it, and the loader reads `<file>.part` as it grows
+(`tools/dump/growing.ts`), waiting at the end of what has arrived. It asks the jobs table whether
+the download is still running, finished or failed (`jobs/follow-download.ts`), which the worker's
+own connection can read too. A finished download has renamed the part, and the open handle reads
+the same file to its end; a failed one ends the load with its reason. The dump update still
+downloads first and loads after.
+The loader reports progress every 100,000 releases, logged, and every second in between, with
+the releases it kept per year and the last one it kept, for the setup's progress screen. A load
+that reaches the end of the dump also counts the style census (`tools/dump/census.ts`,
+`docs/STYLE_CENSUS.md`) into the `style_census` table.
+
+## The first run
+
+`docs/FIRST_RUN.md` is the design. `GET /api/setup` (`src/server/setup.ts`) says whether the
+library still needs its first load (no load has finished), which dump data.discogs.com offers,
+with the size its listing shows (read again after an hour), whether the dumps folder has it, the
+free space there and the space the download needs, the styles and years of the imported
+collection and wantlist (`db/seed-tally.ts`), and the browsers with a history to import.
+`GET /api/styles` returns the style census for the style picker: the one the last complete load
+counted, or the one shipped with Digga (`src/server/style-census.json`) before the first.
+`GET /api/discogs/profile` gives the account's collection and wantlist sizes and its currency.
 
 ## Backups and exports
 
@@ -184,4 +206,5 @@ environment (variables already set win) and passes `DIGGA_DATA_DIR`, `DIGGA_DUMP
 `DIGGA_CONFIG_FILE` to `resolvePaths()`; a library placed with `DIGGA_DATA_DIR` keeps its dumps
 inside it. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `secrets.env` in
 the library; Settings saves the token there through `PUT /api/discogs/token`, unless the
-environment sets it.
+environment sets it. The route asks Discogs whose token it is first: it keeps the previous token
+when Discogs refuses the new one, and a library without a Discogs username takes the token's.

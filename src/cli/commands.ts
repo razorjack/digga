@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import {
   downloadDump,
   dumpLoad,
@@ -13,11 +14,15 @@ import { readDecisionsBackup, writeDecisionsBackup } from "../server/decisions-b
 import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
 import { createServer } from "../server/server.ts";
+import { SHIPPED_CENSUS_FILE } from "../server/style-census.ts";
+import { formatStyleCensus } from "../shared/style-census.ts";
+import { countStyleCensus } from "../../tools/dump/census.ts";
 import { computeStats } from "../server/stats.ts";
 import type { SeedImportResult } from "../server/importers/collection.ts";
 import type { ListImportResult } from "../server/importers/list.ts";
 import type { SellerImportResult } from "../server/importers/seller.ts";
 import {
+  parseCensusOptions,
   parseDumpOptions,
   parseImportOptions,
   parseRestoreFile,
@@ -26,6 +31,7 @@ import {
 } from "./options.ts";
 import {
   showBackup,
+  showCensus,
   showDownload,
   showDump,
   showImport,
@@ -87,6 +93,15 @@ export async function cmdDumpLoad(runtime: Runtime, args: string[]): Promise<voi
     );
   });
   showDump(result);
+}
+
+/** Counts a dump's style census into the shipped file, or --out (docs/STYLE_CENSUS.md). */
+export async function cmdDumpCensus(runtime: Runtime, args: string[]): Promise<void> {
+  const { file, out } = parseCensusOptions(args, SHIPPED_CENSUS_FILE);
+  const census = await countStyleCensus(file, { logger: runtime.logger });
+  const text = formatStyleCensus(census);
+  fs.writeFileSync(out, text);
+  showCensus({ census, out, bytes: Buffer.byteLength(text) });
 }
 
 export async function cmdImport(runtime: Runtime, args: string[]): Promise<void> {

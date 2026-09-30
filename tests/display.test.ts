@@ -25,6 +25,8 @@ describe("display formatting", () => {
     expect(formatBytes(950)).toBe("950 B");
     expect(formatBytes(1536)).toBe("1.5 KB");
     expect(formatBytes(129_000_000)).toBe("123 MB");
+    expect(formatBytes(11_252_161_836)).toBe("10.5 GB");
+    expect(formatBytes(12 * 1024 ** 3)).toBe("12 GB");
   });
 
   it("formats ETAs and days", () => {

@@ -6,8 +6,10 @@ import zlib from "node:zlib";
 import type { Db } from "../../src/server/db/db.ts";
 import { writeReleases } from "../../src/server/db/releases.ts";
 import type { Logger } from "../../src/server/logger.ts";
-import { yearFromReleased } from "../../src/shared/normalize.ts";
-import type { DumpLoadProgress } from "../../src/shared/types.ts";
+import { artistDisplay, yearFromReleased } from "../../src/shared/normalize.ts";
+import { type DumpLoadProgress, type KeptRelease, UNDATED_YEAR } from "../../src/shared/types.ts";
+import type { StyleCensusTally } from "./census.ts";
+import { type GrowingFile, openGrowingInput } from "./growing.ts";
 import { dumpReleaseToWrite } from "./convert.ts";
 import { CoverageTracker } from "./coverage.ts";
 import { iterateReleases } from "./parse.ts";
@@ -32,8 +34,10 @@ export interface DumpLoadOptions extends UniverseCriteria {
   /** Stop after this many matches (development aid). */
   limit?: number;
   dryRun?: boolean;
-  /** Emit progress every N scanned releases. */
+  /** Emit and log progress every N scanned releases. */
   progressEvery?: number;
+  /** Also emit progress at least this often, unlogged, so a progress bar moves smoothly. */
+  progressEveryMs?: number;
   /** Rows per write transaction. */
   batchSize?: number;
   /** The dump_loads row of this load; releases it brings into the universe carry it. */
@@ -91,29 +95,39 @@ export interface DumpInput {
   stream: Readable;
   /** Bytes of the file read so far, as stored (compressed); null for stdin. */
   bytesRead(): number | null;
-  /** The file's size as stored; null for stdin. */
-  totalBytes: number | null;
+  /** The file's size as stored; null for stdin, and while a download does not know it yet. */
+  totalBytes(): number | null;
 }
 
-export function openDumpInput(file: string, stdin: Readable): DumpInput {
-  if (file === "-") return { stream: stdin, bytesRead: () => null, totalBytes: null };
+/**
+ * The dump's releases as a stream of XML. A dump that is still downloading, `growing`, is read as
+ * it arrives; one already whole is read as a file.
+ */
+export function openDumpInput(file: string, stdin: Readable, growing?: GrowingFile): DumpInput {
+  if (file === "-") return { stream: stdin, bytesRead: () => null, totalBytes: () => null };
+  if (growing && !fs.existsSync(file)) return openGrowingInput(file, growing);
   const raw = fs.createReadStream(file);
-  const totalBytes = fs.statSync(file).size;
-  const bytesRead = () => raw.bytesRead;
-  if (!file.endsWith(".gz")) return { stream: raw, bytesRead, totalBytes };
+  const size = fs.statSync(file).size;
+  const input = { bytesRead: () => raw.bytesRead, totalBytes: () => size };
+  if (!file.endsWith(".gz")) return { stream: raw, ...input };
   const gunzip = zlib.createGunzip();
   pipeline(raw, gunzip, () => {});
-  return { stream: gunzip, bytesRead, totalBytes };
+  return { stream: gunzip, ...input };
 }
 
 interface DumpLoadHooks {
   onProgress?: (progress: DumpLoadProgress) => void;
   logger?: Logger;
   stdin?: Readable;
+  /** Counts every release of the dump, for the style census. */
+  census?: StyleCensusTally;
+  /** The download writing the dump, when the load starts before it ends. */
+  growing?: GrowingFile;
 }
 
-function reportProgress(progress: DumpLoadProgress, hooks: DumpLoadHooks): void {
+function reportProgress(progress: DumpLoadProgress, hooks: DumpLoadHooks, log: boolean): void {
   hooks.onProgress?.(progress);
+  if (!log) return;
   const { phase, scanned, matched, coverage, upserted, elapsedSeconds } = progress;
   hooks.logger?.info(
     `${phase}: scanned=${scanned} matched=${matched} coverage=${coverage} upserted=${upserted} ${elapsedSeconds.toFixed(0)}s`,
@@ -130,78 +144,89 @@ export async function loadDump(
   options: DumpLoadOptions,
   hooks: DumpLoadHooks = {},
 ): Promise<DumpLoadResult> {
-  const started = Date.now();
-  const dryRun = options.dryRun ?? false;
-  const writer = new BatchWriter(db, options);
-  const coverage = new CoverageTracker(options);
-  const counts = { scanned: 0, matched: 0, coverage: 0 };
-  const elapsed = () => (Date.now() - started) / 1000;
-  const input = openDumpInput(options.file, hooks.stdin ?? (process.stdin as Readable));
-  const report = (phase: DumpLoadProgress["phase"]) =>
-    reportProgress(
-      {
-        ...counts,
-        upserted: writer.upserted,
-        phase,
-        elapsedSeconds: elapsed(),
-        bytesRead: input.bytesRead(),
-        totalBytes: input.totalBytes,
-        added: null,
-        missing: null,
-      },
-      hooks,
-    );
+  const scan: Scan = {
+    options,
+    input: openDumpInput(options.file, hooks.stdin ?? (process.stdin as Readable), hooks.growing),
+    started: Date.now(),
+    coverage: new CoverageTracker(options),
+    writer: new BatchWriter(db, options),
+    counts: { scanned: 0, matched: 0, coverage: 0 },
+    kept: new KeptReleases(),
+    census: hooks.census,
+  };
+  const report = (phase: DumpLoadProgress["phase"], log: boolean) =>
+    reportProgress(progressOf(scan, phase), hooks, log);
 
   let stoppedAtLimit: boolean;
   try {
-    stoppedAtLimit = await scanReleases(input.stream, {
-      options,
-      coverage,
-      writer,
-      counts,
-      report,
-    });
+    const schedule = new ProgressSchedule(options, (log) => report("scanning", log));
+    stoppedAtLimit = await scanReleases(scan, schedule);
   } finally {
-    input.stream.destroy();
+    scan.input.stream.destroy();
   }
   // Shares need the whole dump; a load stopped by its limit keeps no coverage releases.
-  if (!stoppedAtLimit) counts.coverage = keepCoverage(coverage, writer, hooks.logger);
-  writer.flush();
-  report("done");
+  if (!stoppedAtLimit)
+    scan.counts.coverage = keepCoverage(scan.coverage, scan.writer, hooks.logger);
+  scan.writer.flush();
+  report("done", true);
   return {
-    ...counts,
-    upserted: writer.upserted,
-    elapsedSeconds: elapsed(),
+    ...scan.counts,
+    upserted: scan.writer.upserted,
+    elapsedSeconds: elapsedSeconds(scan),
     dumpDate: dumpDateFromFilename(options.file),
-    dryRun,
+    dryRun: options.dryRun ?? false,
     stoppedAtLimit,
   };
 }
 
+/** One load's state while it reads the dump. */
 interface Scan {
   options: DumpLoadOptions;
+  input: DumpInput;
+  started: number;
   coverage: CoverageTracker;
   writer: BatchWriter;
-  counts: { scanned: number; matched: number };
-  report: (phase: DumpLoadProgress["phase"]) => void;
+  counts: { scanned: number; matched: number; coverage: number };
+  kept: KeptReleases;
+  census: StyleCensusTally | undefined;
 }
 
 /**
  * Reads the dump, writing the releases in the styles and handing the others to the coverage
  * pass. True when it stopped at the limit before the end of the dump.
  */
-async function scanReleases(stream: Readable, scan: Scan): Promise<boolean> {
-  const { options, coverage, writer, counts, report } = scan;
-  const progressEvery = options.progressEvery ?? 100_000;
-  for await (const release of iterateReleases(stream)) {
+async function scanReleases(scan: Scan, schedule: ProgressSchedule): Promise<boolean> {
+  const { options, coverage, writer, counts, kept, census } = scan;
+  for await (const release of iterateReleases(scan.input.stream)) {
     counts.scanned += 1;
-    if (counts.scanned % progressEvery === 0) report("scanning");
+    census?.count(release);
+    schedule.tick(counts.scanned);
     if (!admitRelease(release, options, coverage)) continue;
     counts.matched += 1;
+    kept.add(release);
     writer.add(release);
     if (options.limit !== undefined && counts.matched >= options.limit) return true;
   }
   return false;
+}
+
+function progressOf(scan: Scan, phase: DumpLoadProgress["phase"]): DumpLoadProgress {
+  return {
+    ...scan.counts,
+    upserted: scan.writer.upserted,
+    phase,
+    elapsedSeconds: elapsedSeconds(scan),
+    bytesRead: scan.input.bytesRead(),
+    totalBytes: scan.input.totalBytes(),
+    added: null,
+    missing: null,
+    latest: scan.kept.latest,
+    keptByYear: { ...scan.kept.byYear },
+  };
+}
+
+function elapsedSeconds(scan: Scan): number {
+  return (Date.now() - scan.started) / 1000;
 }
 
 /**
@@ -231,6 +256,64 @@ function keepCoverage(coverage: CoverageTracker, writer: BatchWriter, logger?: L
       `coverage left out ${outcome.broad.length} labels and artists that mostly release other styles: ${outcome.broad.join(", ")}`,
     );
   return outcome.releases.length;
+}
+
+/** Scanned releases between looks at the clock, which costs more than counting. */
+const CLOCK_EVERY = 1000;
+
+/**
+ * Reports every `progressEvery` releases, logged, and in between whenever `progressEveryMs` has
+ * passed, unlogged.
+ */
+class ProgressSchedule {
+  #every: number;
+  #everyMs: number;
+  #reportedAt = Date.now();
+  #report: (log: boolean) => void;
+
+  constructor(
+    options: Pick<DumpLoadOptions, "progressEvery" | "progressEveryMs">,
+    report: (log: boolean) => void,
+  ) {
+    this.#every = options.progressEvery ?? 100_000;
+    this.#everyMs = options.progressEveryMs ?? 1000;
+    this.#report = report;
+  }
+
+  tick(scanned: number): void {
+    if (scanned % this.#every === 0) {
+      this.#send(true);
+      return;
+    }
+    if (scanned % CLOCK_EVERY !== 0 || Date.now() - this.#reportedAt < this.#everyMs) return;
+    this.#send(false);
+  }
+
+  #send(log: boolean): void {
+    this.#reportedAt = Date.now();
+    this.#report(log);
+  }
+}
+
+/** The releases in the styles so far, per year, and the last of them, for the progress. */
+class KeptReleases {
+  byYear: Record<string, number> = {};
+  latest: KeptRelease | null = null;
+
+  add(release: DumpRelease): void {
+    const year = yearFromReleased(release.released);
+    const key = year === null ? UNDATED_YEAR : String(year);
+    this.byYear[key] = (this.byYear[key] ?? 0) + 1;
+    const label = release.labels[0];
+    this.latest = {
+      id: release.id,
+      artist: artistDisplay(release.artists),
+      title: release.title,
+      label: label?.name ?? null,
+      catno: label && label.catno !== "" ? label.catno : null,
+      year,
+    };
+  }
 }
 
 /** Writes releases in batches, one transaction each; a dry run writes nothing. */

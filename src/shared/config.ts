@@ -4,6 +4,22 @@ export const QUEUE_STRATEGIES = ["label_sweep", "country", "year", "random"] as 
 export type QueueStrategy = (typeof QUEUE_STRATEGIES)[number];
 
 export const COLOR_SCHEMES = ["system", "light", "dark"] as const;
+
+/** The currencies Discogs' API prices releases in (`curr_abbr`); it has no PLN, for example. */
+export const DISCOGS_CURRENCIES = [
+  "EUR",
+  "USD",
+  "GBP",
+  "CAD",
+  "AUD",
+  "JPY",
+  "CHF",
+  "MXN",
+  "BRL",
+  "NZD",
+  "SEK",
+  "ZAR",
+] as const;
 export type ColorScheme = (typeof COLOR_SCHEMES)[number];
 
 // Genre/style defaults for the owner's use case live here and in

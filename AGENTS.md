@@ -65,6 +65,7 @@ npm run digga -- import seller <username>              # what a seller has for s
 npm run digga -- stats
 npm run digga -- backup                                # copy the database and write the decisions backup now
 npm run digga -- restore decisions-2026-09-30.json.gz  # bring decisions back into a library rebuilt from a dump
+npm run digga -- dump census path/to/discogs_YYYYMMDD_releases.xml.gz  # refresh the shipped style census, see docs/STYLE_CENSUS.md
 ```
 
 ## Layout
@@ -73,17 +74,20 @@ npm run digga -- restore decisions-2026-09-30.json.gz  # bring decisions back in
 digga.config.example.json  the schema defaults a new digga.config.json starts with
 .env.example           DIGGA_DATA_DIR, DIGGA_DUMPS_DIR, DIGGA_CONFIG_FILE, DISCOGS_TOKEN (copy to .env, gitignored)
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
+                       FIRST_RUN (the setup's design) STYLE_CENSUS (what it is, how to refresh the shipped one)
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
-                       the decisions backup format (decisions-backup).
+                       the decisions backup format (decisions-backup), the style census format (style-census).
                        Imports nothing from Node.
 src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
                        context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts,
                        attach-video.ts, youtube.ts (oEmbed titles), enrich.ts (one release, for Triage),
-                       dump-files.ts, decisions-backup.ts and daily-backups.ts (the daily backups)
+                       dump-files.ts, decisions-backup.ts and daily-backups.ts (the daily backups),
+                       setup.ts (what the first run needs), style-census.ts + style-census.json (shipped)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
-                       export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts)
+                       export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts, seed-tally.ts,
+                       style-census.ts)
                        discogs/ (client, transport, types, lists, data-dumps), importers/ (collection, wantlist,
                        history, list, seller, seeds)
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
@@ -93,7 +97,7 @@ src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fa
                        stores.svelte.ts, keymap.ts, styles.css (tokens), components/ (Key, Stamp, Flash, HelpOverlay),
                        player/ (YouTube decks), triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (preview, jobs, Discogs state), pages/
-tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible
+tools/dump/            streaming loader (parse.ts, convert.ts, load.ts), worker-compatible; census.ts (style census)
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```
@@ -319,5 +323,7 @@ client TypeScript and CSS.
 - `docs/CODE_QUALITY_AUDIT.md` for the completed readability audit, fixes and verification.
 - `docs/ROADMAP.md` for the session plan (design + triage UI next).
 - `docs/DESIGN_BRIEF.md` and `docs/KEYMAP.md` for the UI session.
+- `docs/FIRST_RUN.md` for the first run (the setup) being built, and `docs/STYLE_CENSUS.md` for
+  refreshing the style census it ships.
 - `docs/ELECTRON_PLAN.md` for packaging.
 - `docs/DECISIONS.md` for why things are the way they are.

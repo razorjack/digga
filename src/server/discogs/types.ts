@@ -139,6 +139,10 @@ export interface DiscogsUser {
   id: number;
   username: string;
   num_for_sale?: number;
+  num_collection?: number;
+  num_wantlist?: number;
+  /** The account's currency, such as "EUR". */
+  curr_abbr?: string;
 }
 
 /** A marketplace listing; only the fields Digga reads. */

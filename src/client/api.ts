@@ -5,6 +5,7 @@ import {
   type DiscogsAccountResponse,
   type DiscogsListResponse,
   type DiscogsListsResponse,
+  type DiscogsProfileResponse,
   type DumpLoadJobInput,
   type DumpsResponse,
   type ExportFile,
@@ -17,6 +18,7 @@ import {
   type QueueResponse,
   type ReleaseDetail,
   type ScopeSearchResponse,
+  type SetupResponse,
   type Stats,
   type StatsQuery,
   type TrackMarksResponse,
@@ -27,6 +29,7 @@ import {
   type WantlistPushResponse,
 } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
+import type { StyleCensus } from "../shared/style-census.ts";
 import { scopeParam } from "../shared/scope.ts";
 import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
 import { createSandboxApi } from "./sandbox.ts";
@@ -84,6 +87,12 @@ export interface Api {
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
   getBackups(): Promise<BackupsResponse>;
+  /** What the first run needs: whether it is needed, the newest catalogue, suggestions. */
+  getSetup(): Promise<SetupResponse>;
+  /** Releases per style and year in the catalogue, for the style picker. */
+  getStyles(): Promise<StyleCensus>;
+  /** The collection and wantlist sizes and the currency of the connected account. */
+  getDiscogsProfile(): Promise<DiscogsProfileResponse>;
   /** Where the browser downloads an export of the saved decisions. */
   exportUrl(file: ExportFile): string;
 }
@@ -176,6 +185,9 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getDiscogsLists: () => callDiscogs("GET", "/discogs/lists"),
     getDiscogsList: (id) => callList("GET", `/discogs/lists/${id}`),
     getBackups: () => call("GET", "/backups"),
+    getSetup: () => call("GET", "/setup"),
+    getStyles: () => call("GET", "/styles"),
+    getDiscogsProfile: () => callDiscogs("GET", "/discogs/profile"),
     exportUrl: (file) => `${baseUrl}/export/${file}`,
   };
 }
@@ -241,6 +253,9 @@ export function createAppApi(
     getDiscogsLists: () => current.getDiscogsLists(),
     getDiscogsList: (id) => current.getDiscogsList(id),
     getBackups: () => current.getBackups(),
+    getSetup: () => current.getSetup(),
+    getStyles: () => current.getStyles(),
+    getDiscogsProfile: () => current.getDiscogsProfile(),
     exportUrl: (file) => current.exportUrl(file),
   };
 }

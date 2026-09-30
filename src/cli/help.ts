@@ -14,6 +14,9 @@ Commands:
       --dry-run             Count matches without writing
       --labels FILE         Add the label ids in FILE (one per line) to the coverage pass
       --artists FILE        Add the artist ids in FILE to the coverage pass
+  dump census <file>        Count releases per style and year in a dump, for the setup's style
+                            picker; writes the census shipped with Digga (docs/STYLE_CENSUS.md)
+      --out FILE            Write it elsewhere
   import collection         Seed verdicts from your Discogs collection
   import wantlist           Seed verdicts from your Discogs wantlist
   import history            Mark releases you already opened on discogs.com as seen

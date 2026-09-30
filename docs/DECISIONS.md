@@ -538,3 +538,26 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      wrote one backup. The server now checks every hour; a check on a day that has its backups
      costs two file lookups, and one after midnight writes the new day's. `stop()` ends the
      checks and waits for a backup being written before the database closes.
+105. **The first run is a setup in the app, designed in `docs/FIRST_RUN.md`.** It fetches the
+     catalogue, connects Discogs, picks styles and years, and lets the user dig while the load
+     runs. A load of the September 2026 dump showed why that works: the dump is ordered by
+     release id and Discogs catalogued old electronic records early, so 44% of the owner's
+     1998–2002 vinyl records were in the library after 7 seconds and 91% after two minutes.
+106. **Every complete load counts a style census; Digga ships one for the first run.** The setup
+     needs every style's size by year before anything is loaded, and Discogs has no endpoint for
+     it. The loader parses every release anyway, so counting them costs little, and the table
+     it fills keeps the counts current. The shipped file comes from the 1 September 2026 dump
+     through `digga dump census`; `docs/STYLE_CENSUS.md` says how to refresh it. It is excluded
+     from formatting, one style per line, so a refresh reads as a diff.
+107. **Saving a Discogs token asks Discogs whose it is first.** A token Discogs refuses (`401`,
+     `403`) is not kept, and the previous one stays; a library without a username takes the
+     token's, so the setup never asks for it. Settings still asks Discogs whose token it is when
+     it opens: loading the lists only when the Maybe list select opens would leave the select
+     empty or need another click, for about two requests saved per visit.
+108. **A load can read the dump while it downloads.** The download takes about 8 minutes and the
+     load 17, one after the other; read together, they take about as long as the slower of the
+     two, and the first records arrive seconds after the load starts instead of after the whole
+     download. The loader reads the `.part` file as it grows and asks the jobs table how the
+     download is doing, so neither job needs the other's cooperation or a channel between the
+     server thread and the load's worker. A checksum that fails after the load read everything
+     leaves the load unfinished, so the next finished load takes its releases over.

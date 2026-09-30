@@ -6,6 +6,7 @@ import type { BackupFile } from "../server/db/backup.ts";
 import type { RestoreOutcome } from "../server/db/user-data.ts";
 import type { DecisionsBackup } from "../shared/decisions-backup.ts";
 import type { Filters } from "../shared/config.ts";
+import type { StyleCensus } from "../shared/style-census.ts";
 import type { DumpLoadJobResult } from "../server/jobs/dump-load.ts";
 import type { ImportResult } from "./commands.ts";
 
@@ -26,6 +27,14 @@ export function showDownload(result: DumpDownloadResult): void {
     ? "downloaded before"
     : `${formatBytes(result.receivedBytes)}, checksum verified`;
   console.log(`dump download: ${result.path} (${outcome})`);
+}
+
+export function showCensus(written: { census: StyleCensus; out: string; bytes: number }): void {
+  const { census, out, bytes } = written;
+  const date = census.dumpDate ? ` (dump ${census.dumpDate})` : "";
+  console.log(
+    `style census: ${census.styles.length.toLocaleString()} styles in ${census.releases.toLocaleString()} releases${date}, ${formatBytes(bytes)} written to ${out}`,
+  );
 }
 
 export function showDump(result: DumpLoadJobResult): void {

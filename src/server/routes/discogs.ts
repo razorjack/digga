@@ -4,9 +4,11 @@ import {
   type DiscogsAccountResponse,
   type DiscogsListResponse,
   type DiscogsListsResponse,
+  type DiscogsProfileResponse,
   DiscogsTokenInputSchema,
   type WantlistPushResponse,
 } from "../../shared/api.ts";
+import { DISCOGS_CURRENCIES } from "../../shared/config.ts";
 import { getRelease } from "../db/releases.ts";
 import { DiscogsApiError } from "../discogs/client.ts";
 import { listUserLists } from "../discogs/lists.ts";
@@ -28,6 +30,7 @@ export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
   api.get("/discogs/lists", (request) => discogsLists(request, context));
   api.get("/discogs/lists/:id", (request) => discogsList(request, context));
   api.get("/discogs/account", (request) => account(request, context));
+  api.get("/discogs/profile", (request) => profile(request, context));
   api.put("/discogs/token", (request) => saveToken(request, context));
   api.post("/discogs/wantlist/:id", (request) => pushWantlist(request, context));
   api.delete("/discogs/wantlist/:id", (request) => removeWantlist(request, context));
@@ -79,30 +82,51 @@ async function discogsList(request: Context, context: AppContext) {
 }
 
 async function account(request: Context, context: AppContext) {
-  return request.json(await accountResponse(context));
+  const identity = context.getDiscogs().hasToken() ? await askIdentity(context) : null;
+  return request.json(accountResponse(context, identity));
 }
 
-/** Whether a token is set and whose it is; asks Discogs once. */
-async function accountResponse(context: AppContext): Promise<DiscogsAccountResponse> {
-  const discogs = context.getDiscogs();
-  const body: DiscogsAccountResponse = {
-    username: context.getConfig().discogs.username,
-    hasToken: discogs.hasToken(),
-    tokenSource: context.secrets.discogsTokenSource(),
-    tokenUsername: null,
-    error: null,
-  };
-  if (body.hasToken) {
-    try {
-      body.tokenUsername = (await discogs.getIdentity()).username;
-    } catch (error) {
-      body.error = error instanceof DiscogsApiError ? discogsErrorMessage(error) : String(error);
-    }
+/** Whose token it is, from one request to Discogs; `refused` when Discogs rejected the token. */
+type Identity = { username: string } | { error: string; refused: boolean };
+
+async function askIdentity(context: AppContext): Promise<Identity> {
+  try {
+    return { username: (await context.getDiscogs().getIdentity()).username };
+  } catch (error) {
+    if (!(error instanceof DiscogsApiError)) return { error: String(error), refused: false };
+    return { error: discogsErrorMessage(error), refused: [401, 403].includes(error.status) };
   }
-  return body;
 }
 
-/** Setup rather than digging, so the sandbox does not refuse it. */
+/** Whether a token is set and whose it is. */
+function accountResponse(context: AppContext, identity: Identity | null): DiscogsAccountResponse {
+  return {
+    username: context.getConfig().discogs.username,
+    hasToken: context.getDiscogs().hasToken(),
+    tokenSource: context.secrets.discogsTokenSource(),
+    tokenUsername: identity && "username" in identity ? identity.username : null,
+    error: identity && "error" in identity ? identity.error : null,
+  };
+}
+
+/** The collection and wantlist sizes and the currency of the account, for the setup. */
+async function profile(request: Context, context: AppContext) {
+  const { username } = context.getConfig().discogs;
+  if (username === "") return badRequest(request, "Connect your Discogs account first");
+  const user = await context.getDiscogs().getUser(username);
+  const body: DiscogsProfileResponse = {
+    username: user.username,
+    collection: user.num_collection ?? null,
+    wantlist: user.num_wantlist ?? null,
+    currency: DISCOGS_CURRENCIES.find((currency) => currency === user.curr_abbr) ?? null,
+  };
+  return request.json(body);
+}
+
+/**
+ * Setup rather than digging, so the sandbox does not refuse it. A token Discogs refuses is not
+ * kept, and the first token sets the Discogs username, so nobody has to type it.
+ */
 async function saveToken(request: Context, context: AppContext) {
   const body = await parseJson(request, DiscogsTokenInputSchema);
   if (!body.ok) return body.response;
@@ -114,9 +138,28 @@ async function saveToken(request: Context, context: AppContext) {
       } satisfies ApiError,
       409,
     );
-  context.secrets.setDiscogsToken(body.data.token);
-  context.logger.info(body.data.token === null ? "Discogs token removed" : "Discogs token saved");
-  return request.json(await accountResponse(context));
+  const token = body.data.token;
+  const previous = context.secrets.getDiscogsToken() ?? null;
+  context.secrets.setDiscogsToken(token);
+  if (token === null) {
+    context.logger.info("Discogs token removed");
+    return request.json(accountResponse(context, null));
+  }
+
+  const identity = await askIdentity(context);
+  if ("refused" in identity && identity.refused) {
+    context.secrets.setDiscogsToken(previous);
+    return badRequest(request, "Discogs refused this token; copy it again from discogs.com");
+  }
+  if ("username" in identity) adoptUsername(context, identity.username);
+  context.logger.info("Discogs token saved");
+  return request.json(accountResponse(context, identity));
+}
+
+function adoptUsername(context: AppContext, username: string): void {
+  const config = context.getConfig();
+  if (config.discogs.username !== "") return;
+  context.setConfig({ ...config, discogs: { ...config.discogs, username } });
 }
 
 async function pushWantlist(request: Context, context: AppContext) {

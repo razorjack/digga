@@ -25,7 +25,7 @@ export interface DumpDownloadResult extends DumpDownloadProgress {
 }
 
 /** Room left beside the dump, so a download cannot fill the disk to the last byte. */
-const SPARE_BYTES = 1024 ** 3;
+export const SPARE_BYTES = 1024 ** 3;
 const PROGRESS_EVERY_MS = 1000;
 
 /**

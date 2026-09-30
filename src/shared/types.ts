@@ -175,6 +175,23 @@ export interface DumpLoadProgress {
   /** Bytes of the dump file read so far, compressed; null when it comes from stdin. */
   bytesRead: number | null;
   totalBytes: number | null;
+  /** The last release kept in the styles; null before the first. */
+  latest: KeptRelease | null;
+  /** Releases kept in the styles per year, UNDATED_YEAR for those without one. */
+  keptByYear: Record<string, number>;
+}
+
+/** The key of releases without a year in DumpLoadProgress.keptByYear. */
+export const UNDATED_YEAR = "none";
+
+/** A release a load kept, as the setup shows it while the load runs. */
+export interface KeptRelease {
+  id: number;
+  artist: string;
+  title: string;
+  label: string | null;
+  catno: string | null;
+  year: number | null;
 }
 
 /** Downloading the newest dump unless the folder has it, then loading it. */

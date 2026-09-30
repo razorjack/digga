@@ -5,7 +5,9 @@
 Monthly dumps are listed at https://data.discogs.com/ (CC0), one HTML page per year
 (`?prefix=data%2F2026%2F`), each file served with `?download=data%2F2026%2F<file>`. There is no
 JSON index, and the S3 bucket behind it refuses listing, so `dump download` reads the pages for
-their links. Each month also has `discogs_YYYYMMDD_CHECKSUM.txt` with one SHA-256 per file. The
+their links, and the size printed before each link (`10.5 GB`, in powers of 1024), which the
+setup shows before downloading; a `HEAD` request carries no `Content-Length`, the download does.
+Each month also has `discogs_YYYYMMDD_CHECKSUM.txt` with one SHA-256 per file. The
 file is served whole: range requests are answered with the full file, so an interrupted download
 starts over. Digga reads
 `discogs_YYYYMMDD_releases.xml.gz` (~10 GB gzipped) as a stream: `fs.createReadStream ->
@@ -76,8 +78,9 @@ Endpoints used:
 - `GET /users/{u}/collection/folders/0/releases?per_page=100&page=N&sort=added&sort_order=desc`:
   `releases[].{id, instance_id, date_added, rating, notes[], basic_information}`.
 - `GET /users/{u}/wants?per_page=100&page=N`: `wants[].{id, rating, notes, date_added, basic_information}`.
-- `GET /users/{u}`: `{ id, username, num_for_sale }`, the seller behind a shop read; `404` for an
-  unknown username.
+- `GET /users/{u}`: `{ id, username, num_for_sale, num_collection, num_wantlist, curr_abbr }`,
+  the seller behind a shop read, and the collection and wantlist sizes and currency the setup
+  shows; `404` for an unknown username.
 - `GET /users/{u}/inventory?per_page=100&page=N`: `pagination` and
   `listings[].{id, status, release.id, seller.{id, username}}`. No token is needed for a public
   shop, which then lists For Sale items only; the seller's own token also returns drafts and sold
@@ -86,7 +89,8 @@ Endpoints used:
   stops at 10,000 listings and reports how many the shop has. The API has no genre or style
   filter for inventories, so the whole shop is read and matched against the loaded releases.
 - `GET /oauth/identity` for a token check: Settings shows whose token is set, since wantlist
-  writes to `/users/{u}/...` fail when the token belongs to another account.
+  writes to `/users/{u}/...` fail when the token belongs to another account. Saving a token asks
+  it first; `401` means Discogs refused the token, which is then not kept.
 - `GET /users/{u}/lists?per_page=100&page=N`: `lists[].{id, name, public}`; private lists appear
   only with that user's token.
 - `GET /lists/{id}`: `items[].{id, type, display_title, comment, uri}` with `type` in release,

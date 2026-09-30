@@ -4,12 +4,16 @@ import {
   dumpDateFromFilename,
   loadDump,
 } from "../../../tools/dump/load.ts";
+import { StyleCensusTally } from "../../../tools/dump/census.ts";
+import type { GrowingFile } from "../../../tools/dump/growing.ts";
 import type { DumpLoadSummary } from "../../shared/api.ts";
 import type { DumpLoadProgress } from "../../shared/types.ts";
 import { type Db, nowIso, setMeta } from "../db/db.ts";
 import { finishDumpLoadRecord, startDumpLoadRecord } from "../db/dump-loads.ts";
+import { saveStyleCensus } from "../db/style-census.ts";
 import { coverageIds } from "../queue/coverage.ts";
 import { requeueNoAudio } from "../queue/no-audio.ts";
+import { followDownload } from "./follow-download.ts";
 import type { Logger } from "../logger.ts";
 
 export interface DumpLoadDeps {
@@ -20,6 +24,8 @@ export interface DumpLoadDeps {
 export interface DumpLoadJobOptions extends DumpLoadOptions {
   /** Adds the labels and artists of the records the user wants or owns (universe.coverage). */
   coverage: boolean;
+  /** The download job still writing the dump; the load reads it as it arrives. */
+  followJobId?: string;
 }
 
 export interface DumpLoadJobResult extends DumpLoadResult {
@@ -38,12 +44,13 @@ export async function dumpLoad(
   onProgress?: (progress: DumpLoadProgress) => void,
 ): Promise<DumpLoadJobResult> {
   const criteria = options.coverage ? withCoverage(deps, options) : options;
+  const growing = options.followJobId ? followDownload(deps.db, options.followJobId) : undefined;
   if (options.dryRun) {
-    const result = await loadDump(deps.db, criteria, { onProgress, logger: deps.logger });
+    const result = await loadDump(deps.db, criteria, { onProgress, logger: deps.logger, growing });
     return { ...result, load: null };
   }
 
-  const { result, load } = await recordedLoad(deps, criteria, onProgress);
+  const { result, load } = await recordedLoad(deps, criteria, { onProgress, growing });
   recordDumpMeta(deps.db, load);
   logLoad(deps.logger, load);
   const requeued = requeueNoAudio(deps.db);
@@ -54,13 +61,15 @@ export async function dumpLoad(
 
 /**
  * Loads the dump as a recorded load: the releases it brings into the universe carry its id, and
- * its last progress says how many it added and did not find.
+ * its last progress says how many it added and did not find. A complete load also replaces the
+ * style census.
  */
 async function recordedLoad(
   deps: DumpLoadDeps,
   criteria: DumpLoadOptions,
-  onProgress?: (progress: DumpLoadProgress) => void,
+  hooks: { onProgress?: (progress: DumpLoadProgress) => void; growing?: GrowingFile },
 ): Promise<{ result: DumpLoadResult; load: DumpLoadSummary }> {
+  const { onProgress, growing } = hooks;
   const loadId = startDumpLoadRecord(deps.db, {
     file: criteria.file,
     dumpDate: dumpDateFromFilename(criteria.file),
@@ -71,16 +80,19 @@ async function recordedLoad(
     latest.progress = progress;
     onProgress?.(progress);
   };
+  const census = new StyleCensusTally();
   const result = await loadDump(
     deps.db,
     { ...criteria, loadId },
-    { onProgress: remember, logger: deps.logger },
+    { onProgress: remember, logger: deps.logger, census, growing },
   );
+  const finishedAt = nowIso();
   const load = finishDumpLoadRecord(deps.db, loadId, {
     coverage: result.coverage,
     complete: !result.stoppedAtLimit,
-    finishedAt: nowIso(),
+    finishedAt,
   });
+  if (!result.stoppedAtLimit) saveStyleCensus(deps.db, census.finish(result.dumpDate), finishedAt);
   if (latest.progress)
     onProgress?.({ ...latest.progress, added: load.added, missing: load.missing });
   return { result, load };

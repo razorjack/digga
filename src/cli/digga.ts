@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   cmdBackup,
+  cmdDumpCensus,
   cmdDumpDownload,
   cmdDumpLoad,
   cmdDumpUpdate,
@@ -23,8 +24,9 @@ async function main(argv: string[]): Promise<void> {
     case "dump":
       if (args[0] === "download") return cmdDumpDownload(runtime);
       if (args[0] === "update") return cmdDumpUpdate(runtime);
+      if (args[0] === "census") return cmdDumpCensus(runtime, args.slice(1));
       if (args[0] !== "load")
-        throw new Error("usage: digga dump download | update | load <file|->");
+        throw new Error("usage: digga dump download | update | load <file|-> | census <file>");
       return cmdDumpLoad(runtime, args.slice(1));
     case "import":
       return cmdImport(runtime, args);

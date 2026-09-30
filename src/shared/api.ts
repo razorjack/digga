@@ -314,6 +314,52 @@ export interface DumpsResponse {
   files: DumpFile[];
 }
 
+// GET /api/setup: what the first run needs to know
+export interface SetupResponse {
+  /** No dump load has finished yet, so the app opens the setup. */
+  needed: boolean;
+  catalogue: SetupCatalogue;
+  seeds: SeedTally;
+  /** Browsers with a history on this computer. */
+  browsers: HistoryBrowser[];
+}
+
+export interface HistoryBrowser {
+  name: Browser;
+  /** False when the history exists but Digga may not read it, such as without Full Disk Access. */
+  readable: boolean;
+}
+
+export interface SetupCatalogue {
+  /** The newest releases dump on data.discogs.com; null when the listing could not be read. */
+  newest: {
+    date: string;
+    file: string;
+    /** As the listing shows it, rounded; null when it shows none. */
+    bytes: number | null;
+    /** The dumps folder has it already. */
+    downloaded: boolean;
+  } | null;
+  /** Why the listing could not be read. */
+  error: string | null;
+  dumpsDir: string;
+  /** Free space on the disk that holds the dumps folder; null when it cannot be read. */
+  freeBytes: number | null;
+  /** What the download needs free: the dump and 1 GB to spare; null while its size is unknown. */
+  neededBytes: number | null;
+}
+
+/** The styles of the releases the collection and wantlist imports brought in, most first. */
+export interface SeedTally {
+  releases: number;
+  styles: {
+    name: string;
+    releases: number;
+    /** [year, releases], by year; releases without a year are left out. */
+    years: [number, number][];
+  }[];
+}
+
 // POST /api/jobs/import/:kind
 export const IMPORT_KINDS = ["collection", "wantlist", "history", "list", "seller"] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
@@ -350,6 +396,15 @@ export interface DiscogsAccountResponse {
   /** The account the token belongs to; null without a token or when Discogs could not be asked. */
   tokenUsername: string | null;
   error: string | null;
+}
+
+// GET /api/discogs/profile: the account behind the token, for the setup
+export interface DiscogsProfileResponse {
+  username: string;
+  collection: number | null;
+  wantlist: number | null;
+  /** The account's currency when the API prices in it; null otherwise. */
+  currency: string | null;
 }
 
 // PUT /api/discogs/token saves the token, or removes the saved one with null; answers the account

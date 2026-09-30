@@ -81,6 +81,21 @@ export function parseServeOptions(args: string[]) {
   return { port: integerOption(values.port, "port", { max: 65535 }), host: values.host };
 }
 
+/** The dump to count, and where the census goes (by default, the one shipped with Digga). */
+export function parseCensusOptions(
+  args: string[],
+  shippedFile: string,
+): { file: string; out: string } {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: { out: { type: "string" } },
+  });
+  const file = positionals[0];
+  if (!file) throw new Error("usage: digga dump census <file> [--out FILE]");
+  return { file, out: values.out ?? shippedFile };
+}
+
 /** The backup to restore: a path, or the name of one in the backups folder. */
 export function parseRestoreFile(args: string[], backupsDir: string): string {
   const [file, ...rest] = args;

@@ -37,6 +37,18 @@ const DumpLoadProgressSchema = z.object({
   missing: count.nullable().default(null),
   bytesRead: count.nullable().default(null),
   totalBytes: count.nullable().default(null),
+  latest: z
+    .object({
+      id: count,
+      artist: z.string(),
+      title: z.string(),
+      label: z.string().nullable(),
+      catno: z.string().nullable(),
+      year: z.number().int().nullable(),
+    })
+    .nullable()
+    .default(null),
+  keptByYear: z.record(z.string(), count).default({}),
 });
 
 export const JobSchema = z.discriminatedUnion("type", [

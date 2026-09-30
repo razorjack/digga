@@ -8,14 +8,18 @@ import { DEFAULT_USER_AGENT } from "./transport.ts";
 const DEFAULT_BASE_URL = "https://data.discogs.com/";
 
 const YEAR_LINK = /href="\?prefix=data%2F(\d{4})%2F"/g;
+// The listing prints each file's size, such as "10.5 GB", just before its link.
 const RELEASES_LINK =
-  /href="\?download=data%2F\d{4}%2F(discogs_(\d{4})(\d{2})(\d{2})_releases\.xml\.gz)"/g;
+  /(?:(\d+(?:\.\d+)?) (B|KB|MB|GB|TB)\s+)?<a href="\?download=data%2F\d{4}%2F(discogs_(\d{4})(\d{2})(\d{2})_releases\.xml\.gz)"/g;
+const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 export interface DataDump {
   /** YYYY-MM-DD */
   date: string;
   /** discogs_YYYYMMDD_releases.xml.gz */
   file: string;
+  /** The size the listing shows, rounded; null when it shows none. The download has the exact one. */
+  bytes: number | null;
 }
 
 export interface DataDumpDownload {
@@ -43,13 +47,20 @@ export class DataDumpError extends Error {}
 export function parseDumpListing(html: string): { years: number[]; dumps: DataDump[] } {
   const years = [...html.matchAll(YEAR_LINK)].map((match) => Number(match[1]));
   const dumps = [...html.matchAll(RELEASES_LINK)].map((match) => ({
-    date: `${match[2]}-${match[3]}-${match[4]}`,
-    file: match[1]!,
+    date: `${match[4]}-${match[5]}-${match[6]}`,
+    file: match[3]!,
+    bytes: listedBytes(match[1], match[2]),
   }));
   return {
     years: years.sort((left, right) => right - left),
     dumps: dumps.sort((left, right) => right.date.localeCompare(left.date)),
   };
+}
+
+/** "10.5 GB" in bytes; the listing counts in powers of 1024. */
+function listedBytes(size: string | undefined, unit: string | undefined): number | null {
+  if (size === undefined || unit === undefined) return null;
+  return Math.round(Number(size) * 1024 ** UNITS.indexOf(unit));
 }
 
 /** The checksum listed for `file` in a CHECKSUM.txt ("<sha256> <file>" per line). */

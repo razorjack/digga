@@ -147,6 +147,13 @@ releases with that `added_by_load`.
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`
 with error `interrupted`.
 
+## style_census
+
+One row (`id` 1): `dump_date`, `counted_at` and `census_json`, the `StyleCensus` of the newest
+load that read its dump to the end (`src/shared/style-census.ts`, `docs/STYLE_CENSUS.md`). A dry
+run or a load stopped by a limit leaves it. Before the first load, `GET /api/styles` reads the
+census shipped with Digga instead.
+
 ## meta
 
 Key/value: `schema_version`, `dump_date` (from the dump file name), `dump_file`, `dump_loaded_at`.

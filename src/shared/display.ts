@@ -24,7 +24,10 @@ export function formatPrice(amount: number, currency: string | null): string {
   return amount.toFixed(2);
 }
 
-/** 950 -> "950 B", 129_000_000 -> "123 MB" (binary units, whole numbers above 10). */
+/**
+ * 950 -> "950 B", 129_000_000 -> "123 MB", 11_252_161_836 -> "10.5 GB": binary units, whole
+ * numbers above 10 except gigabytes, which keep their tenths as data.discogs.com shows them.
+ */
 export function formatBytes(bytes: number): string {
   const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
@@ -33,8 +36,8 @@ export function formatBytes(bytes: number): string {
     value /= 1024;
     unit += 1;
   }
-  const digits = unit === 0 || value >= 10 ? 0 : 1;
-  return `${value.toFixed(digits)} ${units[unit]}`;
+  const digits = unit === 0 || (value >= 10 && units[unit] !== "GB") ? 0 : 1;
+  return `${value.toFixed(digits).replace(/\.0$/, "")} ${units[unit]}`;
 }
 
 /** "~40 min", "~31 h", "~6 days". */
