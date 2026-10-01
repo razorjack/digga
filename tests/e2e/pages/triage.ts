@@ -1,4 +1,4 @@
-import { expect, type Locator, type Response } from "@playwright/test";
+import { expect, type Locator, type Page, type Response } from "@playwright/test";
 import { TRACK_MARK_KEYS, type TriageStatus, VERDICT_KEYS } from "../../../src/client/keymap.ts";
 import { PLAYER_STATUS_COPY, type PlayerStatus } from "../../../src/client/player/status.ts";
 import { MARK_COPY } from "../../../src/client/twelves/model.ts";
@@ -461,13 +461,10 @@ export class TriagePage {
 
   async #pressAndReload(key: string): Promise<void> {
     await expect(this.record).toBeVisible();
-    let saved = false;
-    const settings = this.#response("PUT", "/api/settings").then((response) => {
-      saved = true;
-      return response;
-    });
-    const queue = this.app.page.waitForResponse(
-      (response) => saved && isRequest(response, "GET", "/api/queue"),
+    const { first: settings, next: queue } = waitForResponses(
+      this.app.page,
+      (response) => isRequest(response, "PUT", "/api/settings"),
+      (response) => isRequest(response, "GET", "/api/queue"),
     );
     await this.app.page.keyboard.press(key);
     await (await settings).finished();
@@ -499,6 +496,29 @@ export class TriagePage {
     expect(response.ok(), `${response.request().method()} ${response.url()}`).toBe(true);
     await response.finished();
   }
+}
+
+/**
+ * Waits for a response, and for the first response after it that passes the second test. The
+ * first test notes its match itself: Playwright runs the predicates in the order the responses
+ * arrive, while a callback chained to the first wait can run after both responses have been
+ * dispatched, when they arrive together, and the second wait would then miss its response.
+ */
+export function waitForResponses(
+  page: Page,
+  first: (response: Response) => boolean,
+  next: (response: Response) => boolean,
+): { first: Promise<Response>; next: Promise<Response> } {
+  let seen = false;
+  const waitForFirst = page.waitForResponse((response) => {
+    if (!first(response)) return false;
+    seen = true;
+    return true;
+  });
+  return {
+    first: waitForFirst,
+    next: page.waitForResponse((response) => seen && next(response)),
+  };
 }
 
 /** Matches the decoded path: the undo's request is /api/verdicts/m%3A601 on the wire. */
