@@ -5,6 +5,7 @@
   import { api } from "../api.ts";
   import { errorMessage, settings } from "../stores.svelte.ts";
 
+  const id = $props.id();
   let backups = $state<BackupsResponse | null>(null);
   let error = $state<string | null>(null);
 
@@ -19,8 +20,8 @@
   });
 </script>
 
-<section class="data">
-  <h2>Backups and exports</h2>
+<section class="data" aria-labelledby="{id}-title">
+  <h2 id="{id}-title">Backups and exports</h2>
   {#if error}
     <p>Backups did not load: {error}</p>
   {:else if backups}

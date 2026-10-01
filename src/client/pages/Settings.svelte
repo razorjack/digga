@@ -69,6 +69,8 @@
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
   const issues = $derived(validation && !validation.ok ? validation.issues : []);
+  const batchProblem = $derived(problemAt("queue.limit"));
+  const seekProblem = $derived(problemAt("player.seekStepSeconds"));
   const startAtPercent = $derived(Math.round((draft?.player.startAtFraction ?? 0) * 100));
   /** The header's sandbox link points here. */
   const highlighted = $derived(getAnchor() === "sandbox");
@@ -269,13 +271,19 @@
     }
   }
 
+  /** The config problem at `path`, such as "queue.limit"; empty when there is none. */
+  function problemAt(path: string): string {
+    return issues.find((issue) => issue.path === path)?.message ?? "";
+  }
+
   /**
    * Reports the config problem at `path` on its field: the constraint validation API drives
-   * `:user-invalid` and blocks submission, `aria-invalid` tells assistive technology.
+   * `:user-invalid` and blocks submission, `aria-invalid` tells assistive technology. The field's
+   * description references the element that shows the message.
    */
   function reportProblem(path: string): Attachment<HTMLInputElement> {
     return (input) => {
-      const message = issues.find((issue) => issue.path === path)?.message ?? "";
+      const message = problemAt(path);
       input.setCustomValidity(message);
       if (message) input.setAttribute("aria-invalid", "true");
       else input.removeAttribute("aria-invalid");
@@ -316,8 +324,14 @@
   {#if !draft}
     <p class="quiet">{settings.error ? `Settings did not load: ${settings.error}` : "Loading…"}</p>
   {:else}
-    <section class="mode" class:highlight={highlighted} id="sandbox" bind:this={modeEl}>
-      <h2>Sandbox</h2>
+    <section
+      class="mode"
+      class:highlight={highlighted}
+      id="sandbox"
+      aria-labelledby="{id}-sandbox-title"
+      bind:this={modeEl}
+    >
+      <h2 id="{id}-sandbox-title">Sandbox</h2>
       {#if settings.sandbox}
         <p>
           <b>On.</b> Verdicts, notes, track marks and heard tunes stay in this browser tab until it reloads,
@@ -390,8 +404,8 @@
       </p>
     </section>
 
-    <section class="library">
-      <h2>Library</h2>
+    <section class="library" aria-labelledby="{id}-library-title">
+      <h2 id="{id}-library-title">Library</h2>
       {#if stats.value}
         {@const summary = stats.value}
         <p>
@@ -610,11 +624,12 @@
             id="{id}-batch"
             min="1"
             max="5000"
-            aria-describedby="{id}-batch-hint"
+            aria-describedby="{id}-batch-hint {id}-batch-problem"
             bind:value={draft.queue.limit}
             {@attach reportProblem("queue.limit")}
           />
           <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
+          <span class="hint problem" id="{id}-batch-problem" hidden={!batchProblem}>{batchProblem}</span>
         </div>
       </section>
 
@@ -643,17 +658,18 @@
               id="{id}-seek"
               min="1"
               max="120"
-              aria-describedby="{id}-seek-hint"
+              aria-describedby="{id}-seek-hint {id}-seek-problem"
               bind:value={draft.player.seekStepSeconds}
               {@attach reportProblem("player.seekStepSeconds")}
             />
             <span class="hint" id="{id}-seek-hint">Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span>
+            <span class="hint problem" id="{id}-seek-problem" hidden={!seekProblem}>{seekProblem}</span>
           </div>
         </div>
       </section>
 
-      <section>
-        <h2>Discogs</h2>
+      <section aria-labelledby="{id}-discogs-title">
+        <h2 id="{id}-discogs-title">Discogs</h2>
         <div class="api-use">
           <p>
             Digga reads the catalogue from the dump, not through your account. It uses the token only for things you
@@ -689,6 +705,7 @@
                 spellcheck="false"
                 required
                 disabled={tokenFromEnvironment}
+                aria-invalid={discogs.tokenError !== null ? "true" : undefined}
                 placeholder={tokenSaved ? "saved; paste another to replace it" : "paste your token"}
                 aria-describedby="{id}-token-status {id}-token-hint"
                 bind:value={tokenDraft}
@@ -852,8 +869,8 @@
     <!-- The token field sits in the settings form but saves at once, so it belongs to this form. -->
     <form id="{id}-token-form" onsubmit={submitToken}></form>
 
-    <section class="jobs">
-      <h2>Jobs</h2>
+    <section class="jobs" aria-labelledby="{id}-jobs-title">
+      <h2 id="{id}-jobs-title">Jobs</h2>
       <p class="hint">
         Jobs run on the server, in the sandbox too, since they set Digga up rather than dig. Closing this page does
         not stop them.{settings.sandbox ? " Only the Maybe list import stays in this tab in the sandbox." : ""}
@@ -992,7 +1009,7 @@
           <tbody>
             {#each jobState.items as job (job.id)}
               {@const progress = jobProgress(job)}
-              <tr class={job.status}>
+              <tr class={job.status} data-job-id={job.id}>
                 <th scope="row" class="job-name" id="{id}-job-{job.id}">{JOB_LABEL[job.type]}</th>
                 <td class="job-status">{job.status}</td>
                 <td class="job-progress">
