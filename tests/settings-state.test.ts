@@ -72,6 +72,38 @@ describe("Settings request ownership", () => {
     expect(jobs.items).toHaveLength(1);
   });
 
+  it("refreshes the counts when a job ends, also one that started and ended between two reads", async () => {
+    vi.useFakeTimers();
+    const job = (id: string, status: string) => ({ id, type: "import_wantlist", status });
+    const getJobs = vi
+      .fn()
+      .mockResolvedValueOnce({ jobs: [job("1", "done")] })
+      .mockResolvedValueOnce({ jobs: [job("2", "done"), job("1", "done")] })
+      .mockResolvedValueOnce({ jobs: [job("3", "running"), job("2", "done"), job("1", "done")] })
+      .mockResolvedValueOnce({ jobs: [job("3", "failed"), job("2", "done"), job("1", "done")] })
+      .mockResolvedValueOnce({ jobs: [job("3", "failed"), job("2", "done"), job("1", "done")] });
+    const http = { mode: "live", getJobs } as unknown as Api;
+    const refreshStats = vi.fn(async () => {});
+    const jobs = new SettingsJobs(
+      createAppApi(http, (inner) => inner),
+      refreshStats,
+    );
+
+    // The page opens on jobs that ended earlier: nothing new to count.
+    await jobs.load();
+    expect(refreshStats).not.toHaveBeenCalled();
+    // A job the page started ended before the page read the jobs again.
+    await jobs.load();
+    expect(refreshStats).toHaveBeenCalledTimes(1);
+    await jobs.load();
+    expect(refreshStats).toHaveBeenCalledTimes(1);
+    await jobs.load();
+    expect(refreshStats).toHaveBeenCalledTimes(2);
+    await jobs.load();
+    expect(refreshStats).toHaveBeenCalledTimes(2);
+    jobs.destroy();
+  });
+
   it("discards the previous account's late list response", async () => {
     const older = deferred<DiscogsListsResponse>();
     const getDiscogsLists = vi

@@ -7,12 +7,15 @@ export class SettingsJobs {
   error = $state<string | null>(null);
   running = $derived(this.items.some((job) => job.status === "running" || job.status === "queued"));
   #api: AppApi;
+  #refreshStats: () => Promise<void>;
   #timer: ReturnType<typeof setTimeout> | null = null;
   #version = 0;
   #closed = false;
+  #loaded = false;
 
-  constructor(client: AppApi = api) {
+  constructor(client: AppApi = api, refreshStats: () => Promise<void> = () => stats.refresh()) {
     this.#api = client;
+    this.#refreshStats = refreshStats;
   }
 
   async load(): Promise<void> {
@@ -20,13 +23,15 @@ export class SettingsJobs {
     if (this.#timer) clearTimeout(this.#timer);
     const version = ++this.#version;
     const generation = this.#api.generation;
-    const wasRunning = this.running;
+    const before = this.#loaded ? this.items : null;
     try {
       const response = await this.#api.getJobs();
       if (!this.#current(version, generation)) return;
       this.items = response.jobs.slice(0, 12);
       this.error = null;
-      if (wasRunning && !this.running) void stats.refresh();
+      // What a job imported or loaded shows in the counts, also when it ended between two reads.
+      if (before && someJobEnded(before, this.items)) void this.#refreshStats();
+      this.#loaded = true;
     } catch (error) {
       if (this.#current(version, generation)) this.error = errorMessage(error);
     } finally {
@@ -49,4 +54,17 @@ export class SettingsJobs {
   #current(version: number, generation: number): boolean {
     return !this.#closed && version === this.#version && generation === this.#api.generation;
   }
+}
+
+/** A job has ended since the earlier read: it was running then, or started and ended in between. */
+function someJobEnded(before: Job[], after: Job[]): boolean {
+  return after.some((job) => {
+    if (!ended(job)) return false;
+    const earlier = before.find((candidate) => candidate.id === job.id);
+    return earlier === undefined || !ended(earlier);
+  });
+}
+
+function ended(job: Job): boolean {
+  return job.status !== "running" && job.status !== "queued";
 }
