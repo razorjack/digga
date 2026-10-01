@@ -1374,8 +1374,8 @@ is one reason to check. `electron` runs every test not tagged `@web`.
 
 **CI** (there is none yet; GitHub Actions is assumed): on each pull request, `vp run verify` and
 `vp run e2e` on Ubuntu with Node 24, with the HTML report and failure artifacts uploaded; sharding
-once the run exceeds its budget. Once `verify` includes `e2e:smoke`, the CI's `e2e` step leaves
-out `@P0` so the smoke set does not run twice. Nightly: P2, and once stable, the other browsers
+once the run exceeds its budget. `verify` includes `e2e:smoke`, so the CI's `e2e` step leaves out
+`@P0` and the smoke set does not run twice. Nightly: P2, and once stable, the other browsers
 and a burn-in with `--repeat-each=5`. With the shell: `electron` on macOS, Windows and Linux.
 
 **Flakiness.** `retries: 0` locally. In CI `retries: 1` with `failOnFlakyTests: true`, so a test
@@ -1438,9 +1438,10 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    Done on 2026-10-01: product changes 3 and 4; data.discogs.com in the fakes module with the
    listing, the checksum, holds at checkpoints and `failAfterBytes`; the checkpoint builder and the
    bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
-   its burn-in; the layout in AGENTS.md. Still to do: the rest of the fake services' settings and
-   of the Discogs API, the move to `tools/dev/fake-services.ts`, the `bulk` template, the rest of
-   the host interface and page objects, and the decision on `e2e:smoke` in `verify`.
+   its burn-in; the layout in AGENTS.md. `e2e:smoke` joined `verify` on 2026-10-01, as the owner
+   decided. Still to do: the rest of the fake services' settings and of the Discogs API, the move
+   to `tools/dev/fake-services.ts`, the `bulk` template, and the rest of the host interface and
+   page objects.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
@@ -1641,7 +1642,7 @@ others in the new `specs/triage-player.e2e.ts`. With them came the catalogue's n
 `embed="false"` in the dump builder and the fake's release data, `diggaOptions.labels`,
 `app.given.listen()`, `end()` and `fail()` on `app.youtube`, Triage page-object actions for
 Space, `J`, `K`, listens, notes, marks, pastes and a held key, and `data-video-id` on the "Other
-videos" rows. The work showed:
+videos" rows. `e2e:smoke` joined `vp run verify`. The work showed:
 
 - **The new records leave the earlier scenarios alone.** The first record gained a third track
   without a video; Echo Chamber gained a release whose three videos are all refused and one whose
@@ -1685,6 +1686,9 @@ videos" rows. The work showed:
   TRI-26 1.0 s, TRI-27 1.0 s, TRI-28's refusals 1.1 s, TRI-03 1.2 s, TRI-06 1.2 s, TRI-04 1.3 s,
   TRI-18 1.3 s and TRI-36 1.6 s. Their medians in the burn-in on 16 workers were 2.7 to 5.2 s,
   against 2.8 s for TRI-02 and 7.7 s for TRI-07 in the same runs.
+- **`verify` with the smoke set.** `vp run verify` took 9.0 s before and 20.4 s after, in three
+  runs out of three; the 14 smoke tests take about 10.5 s of that, and the client build the rest
+  of the difference.
 
 ## Risks and open questions
 
@@ -1706,9 +1710,10 @@ videos" rows. The work showed:
   changed too; ELEC-13 fails first if it is not.
 - **Playwright's Electron support** is experimental, and fuses and keychains limit what runs on
   release builds.
-- **Open:** `e2e:smoke` has passed its burn-in (see "The first-run setup path"). Should it be part
-  of `vp run verify`, which would then take about 13 s longer and need Playwright's Chromium on
-  every machine that commits? Which browsers must the web version support? Is a CI provider other
-  than GitHub Actions planned? Are visual snapshots wanted at all? What does the Electron app do
-  when `safeStorage` cannot encrypt, as on Linux without a keyring: refuse to save the token, or
-  save it with the plain-text key?
+- **`verify` runs the smoke set.** The owner decided on 2026-10-01 that `e2e:smoke` joins
+  `vp run verify`. `verify` now takes about 20 s instead of 9 s, and every machine that commits
+  needs Playwright's Chromium (`npx playwright install chromium`).
+- **Open:** Which browsers must the web version support? Is a CI provider other than GitHub
+  Actions planned? Are visual snapshots wanted at all? What does the Electron app do when
+  `safeStorage` cannot encrypt, as on Linux without a keyring: refuse to save the token, or save
+  it with the plain-text key?

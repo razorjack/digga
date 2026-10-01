@@ -14,7 +14,7 @@
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
     "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",
     "e2e:smoke": "vp build && playwright test --config tests/e2e/playwright.config.ts --grep @P0",
-    "verify": "vp check && vp test && vp run check:portability && vp run check:svelte"
+    "verify": "vp check && vp test && vp run check:portability && vp run check:svelte && vp run e2e:smoke"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",

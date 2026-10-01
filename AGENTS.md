@@ -40,11 +40,12 @@ vp check                         # format + lint + type check (oxfmt, oxlint, ts
 vp test                          # vitest, tests/**/*.test.ts
 vp run check:portability         # Electron-ready rules, see below
 vp run check:svelte              # svelte-check for .svelte files
-vp run verify                    # all four of the above
+vp run verify                    # all four of the above, then vp run e2e:smoke (about 20 s)
 ```
 
 `vp` is the Vite+ CLI. The global `vp` delegates to the project-local `vite-plus`; without it use
 `npx vp <cmd>` or the `npm run` scripts. Every command above must be green before a commit.
+`verify` runs the end-to-end smoke set, so it needs Playwright's Chromium (below).
 
 ### End-to-end tests
 
@@ -54,7 +55,7 @@ with `npx playwright install chromium`.
 
 ```sh
 vp run e2e                       # vp build, then every scenario in tests/e2e/specs/
-vp run e2e:smoke                 # vp build, then the P0 scenarios
+vp run e2e:smoke                 # vp build, then the P0 scenarios (part of vp run verify)
 npx playwright test --config tests/e2e/playwright.config.ts --grep "@TRI-12\b"   # one scenario, after vp build
 npx playwright test --config tests/e2e/playwright.config.ts --repeat-each=10     # a new or changed spec, before its commit
 ```
