@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { FilterPreview } from "../src/client/settings/preview.svelte.ts";
 import { SettingsJobs } from "../src/client/settings/jobs.svelte.ts";
-import { DiscogsSettings } from "../src/client/settings/discogs.svelte.ts";
+import { DiscogsSettings, usernameAfterTokenSave } from "../src/client/settings/discogs.svelte.ts";
 import { createAppApi, type Api } from "../src/client/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { DiscogsAccountResponse, DiscogsListsResponse, Stats } from "../src/shared/api.ts";
@@ -119,5 +119,28 @@ describe("Settings request ownership", () => {
     expect(discogs.tokenSaving).toBe(false);
     expect(discogs.account?.tokenUsername).toBe("dj");
     discogs.destroy();
+  });
+});
+
+describe("the Username field after a token save", () => {
+  const account = (username: string): DiscogsAccountResponse => ({
+    username,
+    hasToken: true,
+    tokenSource: "saved",
+    tokenUsername: "dj",
+    error: null,
+  });
+
+  it("takes the username the server adopted with the first token", () => {
+    expect(usernameAfterTokenSave("", "", account("dj"))).toBe("dj");
+  });
+
+  it("keeps a username typed since the last save, and keeps the field when nothing was saved", () => {
+    expect(usernameAfterTokenSave("someone", "", account("dj"))).toBe("someone");
+    expect(usernameAfterTokenSave("", "", null)).toBe("");
+  });
+
+  it("keeps the saved username, which the server does not replace", () => {
+    expect(usernameAfterTokenSave("dj", "dj", account("dj"))).toBe("dj");
   });
 });

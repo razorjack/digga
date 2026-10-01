@@ -75,6 +75,19 @@ export class DiscogsSettings {
   }
 }
 
+/**
+ * The Username field after a token save. The server adopts the token's account when no username
+ * was saved, so the field shows what the server saved, unless it was edited since the last save.
+ */
+export function usernameAfterTokenSave(
+  field: string,
+  savedBefore: string,
+  account: DiscogsAccountResponse | null,
+): string {
+  if (!account || field !== savedBefore) return field;
+  return account.username;
+}
+
 function accountProblem(account: DiscogsAccountResponse | null): string | null {
   if (!account) return null;
   if (!account.hasToken) return "no Discogs token is set";

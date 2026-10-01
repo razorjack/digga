@@ -21,7 +21,7 @@
 
   import { FilterPreview } from "../settings/preview.svelte.ts";
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
-  import { DiscogsSettings } from "../settings/discogs.svelte.ts";
+  import { DiscogsSettings, usernameAfterTokenSave } from "../settings/discogs.svelte.ts";
   import { DumpFiles, dumpUse } from "../settings/dumps.svelte.ts";
   import Backups from "../settings/Backups.svelte";
   import RequestList from "../setup/RequestList.svelte";
@@ -184,15 +184,30 @@
     }
   }
 
-  /** Saved at once, outside the settings form; private lists need the token, so they reload. */
+  /**
+   * Saved at once, outside the settings form; private lists need the token, so they reload. The
+   * first token also sets the username on the server, which the form then takes.
+   */
   async function saveToken(token: string | null): Promise<void> {
+    const savedUsername = saved?.discogs.username ?? "";
     const stored = await discogs.saveToken(token);
     if (!stored) return;
     tokenDraft = "";
     if (token === null) showFlash("Token removed.");
     else if (discogs.account?.error) showFlash("Token saved, but Discogs did not confirm it.");
     else showFlash("Token saved.");
-    if (discogsUsername) void discogs.loadLists();
+    if (discogs.account && discogs.account.username !== savedUsername) await adoptUsername(savedUsername);
+    else if (discogsUsername) void discogs.loadLists();
+  }
+
+  /**
+   * Reads the settings the token save changed, so a later Save keeps the adopted username; the new
+   * username then loads the lists.
+   */
+  async function adoptUsername(savedUsername: string): Promise<void> {
+    await settings.load();
+    if (!draft) return;
+    draft.discogs.username = usernameAfterTokenSave(draft.discogs.username, savedUsername, discogs.account);
   }
 
   function submitToken(event: SubmitEvent): void {
