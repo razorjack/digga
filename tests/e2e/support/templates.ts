@@ -4,7 +4,7 @@ import { loadConfig, saveConfig } from "../../../src/server/config-file.ts";
 import type { Config } from "../../../src/shared/config.ts";
 import { DJ } from "../fixtures/catalogue.ts";
 import { bulkDump, smallDump, writeDump } from "../fixtures/dump.ts";
-import type { FakeServices } from "./fakes.ts";
+import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import { type DiggaEnvironment, type DiggaLibrary, runDiggaOrThrow } from "./spawn.ts";
 
 /**

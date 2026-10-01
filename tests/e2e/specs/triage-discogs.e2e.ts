@@ -7,7 +7,7 @@ import { DJ, FIRST_RECORD } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
-import { MARKET } from "../support/fakes.ts";
+import { MARKET } from "../../../tools/dev/fake-services.ts";
 import { expect, test } from "../support/test.ts";
 
 // Triage and Discogs: pushes to the wantlist, the market line, and the links out

@@ -5,7 +5,8 @@ Status: proposed on 2026-09-30 and revised the same day after two rounds of revi
 the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, Triage's P1 set: the record, the
 player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
 the wants, Settings' P1 set, Twelves' P1 set with the `bulk` template, and the P1 sets of Shell,
-Sandbox and Persistence with `restartServer()`. The results are recorded in "Spike results". The rest is not built
+Sandbox and Persistence with `restartServer()`; the fake services have moved to
+`tools/dev/fake-services.ts`. The results are recorded in "Spike results". The rest is not built
 yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
@@ -425,7 +426,7 @@ checkpoint, after 10 releases. A July dump with August's releases exists only as
 dumps folder (SET-16). `smallDump(month)` builds each once per worker (`fixtures/dump.ts`). Tracks can
 credit their own artists, as a compilation does, and the builder writes "Various" with Discogs'
 id 194, which Digga does not offer to dig. Every release has the same market data in the fake
-(`MARKET` in `support/fakes.ts`); per-release prices wait for a scenario that compares two.
+(`MARKET` in `tools/dev/fake-services.ts`); per-release prices wait for a scenario that compares two.
 
 **The bulk catalogue** has 1,500 generated Drum n Bass records from 1998 to 2002 on vinyl,
 deterministic from a seed, on 30 labels no other fixture uses, in id order as in a Discogs dump,
@@ -457,9 +458,25 @@ The server talks to three external HTTP services. E2E replaces each with a fake 
 the worker, not in the app, means the fakes work unchanged when the app is an Electron process,
 need no native module, and let tests read and change their state as typed objects.
 
-The same module also runs standalone (`node tools/dev/fake-services.ts`), which replaces
-`tools/dev/fake-data-dumps.ts` for rehearsing the setup by hand. The fakes never answer with a
+The module is `tools/dev/fake-services.ts`. The same module also runs standalone (`node
+tools/dev/fake-services.ts [<dump>] [--port 4567] [--mbps 40] [--checksum <sha256>]`), for
+rehearsing the setup by hand: it serves the Discogs API and oEmbed from the catalogue, so a
+rehearsal can use `e2e-token-dj`, and data.discogs.com with a dump file from disk, which may be
+10 GB, read a chunk at a time and sent at the set rate in MiB per second. Without `--checksum` it
+hashes the file first. It prints the three addresses to start Digga with (`DIGGA_DUMPS_URL`,
+`DIGGA_DISCOGS_API_URL`, `DIGGA_YOUTUBE_OEMBED_URL`), and each request and each problem, such as
+a token that does not start with `e2e-`, as it happens. It replaced an earlier tool that served
+the dump alone. Outside the harness no guard refuses a real host, so a rehearsal
+checks that all three addresses point at it before starting Digga. The fakes never answer with a
 redirect.
+
+The module imports the catalogue and the dump types from `tests/e2e/fixtures/`. That direction
+is acceptable: both folders are for development only, nothing in `src` imports either and
+neither ships, and the fixtures import nothing from the harness or from `tools`, so there is no
+cycle. The catalogue belongs to the suite, whose scenarios name its records; moving it under
+`tools/` would only make the tests read their own data from a tool's folder. `vp check`
+type-checks the module twice, in the node project (`tools/**`, which pulls the fixtures in) and
+in the e2e project through the harness's imports, and `check:portability` scans `tools/`.
 
 Digga's own `/api` is never faked. Tests reach a state by driving the real server into it. The
 only exception is transport failure: a `route()` can abort or delay one request to test the "did
@@ -510,8 +527,10 @@ download with `Content-Length`. Per test: which dumps are listed, the listed siz
 every page, and checkpoints. Built so far (`fakes.dumps`): the listed dump, which the test names
 with `diggaOptions.listedDump` (the bulk dump or the small September dump) so it is listed from
 the app's first request, and without which the fake answers `404`; the listed size (`list(dump, { listedBytes })`, `null` for none); holds at
-checkpoints; `set({ failAfterBytes })`; and `sentBytes`, what the transfer has sent so far. The
-rest comes with the scenarios that need it.
+checkpoints; `set({ failAfterBytes })`; the transfer speed, `set({ bytesPerSecond })`, which the
+standalone mode uses and no test does; and `sentBytes`, what the transfer has sent so far. A
+listed dump is a `DumpSource`: `memoryDump()` wraps one the builder made, `fileDump()` reads a
+file on disk. The rest comes with the scenarios that need it.
 
 A transfer can be held at a checkpoint and released, to the end or to the next checkpoint:
 
@@ -1599,11 +1618,13 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
    its burn-in; the layout in AGENTS.md. `e2e:smoke` joined `verify` on 2026-10-01, as the owner
    decided. The `bulk` template and `app.cli()` followed with Twelves' P1 set on 2026-10-01, and
-   with the Shell, Sandbox and Persistence P1 sets the same day: `restartServer()` in the web
-   host; the dialogs page object (`pages/dialogs.ts`, the Keys dialog; the scope picker stays in
-   `TriagePage`); and aborts that last until lifted. Still to do: the rest of the fake services'
-   settings and of the Discogs API (the masters), the move to `tools/dev/fake-services.ts`, and
-   the practice card's page object.
+   with the Shell, Sandbox and Persistence P1 sets the same day: the move of the fake services to
+   `tools/dev/fake-services.ts`, which replaced the earlier dump-only tool and runs standalone
+   for rehearsals; `restartServer()` in the web host; the dialogs page object (`pages/dialogs.ts`,
+   the Keys dialog; the scope picker stays in `TriagePage`); and aborts that last until lifted.
+   Still to do: the rest of the fake services' settings (a `Content-Length` other than the size, a
+   wrong checksum, `503` for every page) and of the Discogs API (the masters), and the practice
+   card's page object, with the scenarios that need them.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
@@ -2142,7 +2163,7 @@ SHELL-09 in `specs/shell.e2e.ts`, SBX-02, SBX-03, SBX-04, SBX-05 and SBX-07 in
 `specs/sandbox.e2e.ts`, and PER-05 in `specs/persistence.e2e.ts`: eleven tests, tagged P1. With
 them came `restartServer()` in the web host, the Keys dialog's page object (`pages/dialogs.ts`),
 Settings' `switchSandbox()` and `chooseColorScheme()`, Triage's `retryQueue()`, aborts that last
-until lifted. The work showed:
+until lifted, and the move of the fake services to `tools/dev/fake-services.ts`. The work showed:
 
 - **No product bug, and no markup needed.** Each scenario passed against the code as it is. Rows
   corrected: SBX-04 names its template, `small-account` with a saved token, without which no
@@ -2185,6 +2206,28 @@ until lifted. The work showed:
   `locator.evaluate()`; the key press won the race, the hidden dialog no longer matched the
   locator, and SHELL-04 hung until its timeout. The wait is now installed with
   `evaluateHandle()` before the press (see "Synchronisation").
+- **The move.** The harness imports `FakeServices`, `memoryDump()` and `ServiceUrls` from
+  `tools/dev/fake-services.ts`; the harness's own copy and the earlier dump-only tool are gone.
+  The transfer writes at most 1 MiB at a time, more than any test dump (the bulk dump is 81,262
+  bytes today), so a held or failing transfer still sends everything up to its next stop in one
+  write, as before; the whole suite passed on the moved module, 95 of 95, before the burn-in.
+  The standalone mode serves the old tool's URL under `/dumps/` (`DIGGA_DUMPS_URL` was the root
+  before), beside `/discogs` and `/youtube/oembed`.
+- **The rehearsal, with the CLI and no browser.** In a temp folder: a working directory without
+  a `.env`, an environment built from `PATH`, `HOME`, `TZ` and `LANG`, throwaway
+  `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE`, and the three service URLs, checked
+  to point at the fake before the start. The harness's builder wrote the bulk dump,
+  `discogs_20260901_releases.xml.gz`, 81,262 bytes, to a file; `node tools/dev/fake-services.ts
+<file> --port 45678 --mbps 0.02` hashed it and listed it as 79.4 KB. `digga dump update`
+  downloaded it in 3.78 s, 0.0205 MiB/s for the 0.02 asked (the fake's transfer took 3,879 ms),
+  with "checksum verified" (`d976249f…7319`, the file's own SHA-256), and loaded it: 1,500
+  releases scanned, 1,500 matched and 1,500 upserted, 0 by coverage, 0 not found; the whole
+  command took 4.37 s. With `discogs.username` set to `dj` in the throwaway config and
+  `DISCOGS_TOKEN=e2e-token-dj`, `digga import collection` read 1 item and `digga import wantlist`
+  2 from the fake Discogs API. The first try found a bug in the new pacing: the fake waited after
+  writing each chunk, and a chunk was 1 MiB, so the whole dump left at once and the download
+  ended in 1 ms. The fake now waits before each write and writes about a tenth of a second's
+  bytes at a time.
 - **Durations.** On five workers (`vp run e2e`) the 95 tests take 38.6 s, and `vp run e2e` 40.3 s
   with the client build. The new tests take 0.6 to 5.0 s each: SHELL-07 0.6 s, SHELL-03 0.8 s,
   SHELL-05 0.9 s, SHELL-04 1.0 s, SBX-04 1.1 s, SBX-02 1.2 s, SHELL-09 1.3 s, SBX-07 1.3 s,
@@ -2193,7 +2236,7 @@ until lifted. The work showed:
   before it restarts the server.
 - **Stable.** Each group passed `--repeat-each=10` on 16 workers before the next was written
   (the five Shell scenarios 50 of 50, SBX-02 and SBX-03 20 of 20, PER-05 10 of 10, SBX-04,
-  SBX-05 and SBX-07 30 of 30). The whole suite ran at `--repeat-each=20` on 16
+  SBX-05 and SBX-07 30 of 30). After the move the whole suite ran at `--repeat-each=20` on 16
   workers on the 10-core machine, at load averages of about 90 from the run itself. The first
   run passed 1,899 of 1,900 in 10.4 minutes: SET-08, an earlier scenario, timed out once. Its
   trace shows the page stalled: the filter preview's 300 ms timer, set when the first token save

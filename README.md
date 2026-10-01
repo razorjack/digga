@@ -207,8 +207,10 @@ npm run digga -- import history --browser brave   # also chrome or firefox; --pa
 ```
 
 To rehearse the setup without downloading from Discogs, serve a dump you have with
-`node tools/dev/fake-data-dumps.ts <dump.xml.gz>` and start Digga with
-`DIGGA_DUMPS_URL=http://127.0.0.1:4567/` and a throwaway `DIGGA_DATA_DIR`.
+`node tools/dev/fake-services.ts <dump.xml.gz>`, which also fakes the Discogs API (token
+`e2e-token-dj`) and YouTube's oEmbed. Start Digga with the three addresses it prints
+(`DIGGA_DUMPS_URL`, `DIGGA_DISCOGS_API_URL`, `DIGGA_YOUTUBE_OEMBED_URL`) and a throwaway
+`DIGGA_DATA_DIR` and `DIGGA_DUMPS_DIR`.
 
 ## Useful commands
 

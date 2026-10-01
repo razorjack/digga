@@ -83,7 +83,7 @@ test(
     test.slow();
     const point = fakes.dumps.checkpoint("100-to-dig");
     fakes.dumps.holdAt(point.name);
-    const readFraction = point.offset / fakes.dumps.listed.data.length;
+    const readFraction = point.offset / fakes.dumps.listed.bytes;
     const header = new HeaderPage(app);
 
     const setup = await fillTheCrate(app);

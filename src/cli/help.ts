@@ -43,6 +43,8 @@ Environment (also read from a .env in the current folder; variables already set 
   DIGGA_CONFIG_FILE         Config file (default digga.config.json in the library folder)
   DISCOGS_TOKEN             Personal access token; overrides the one saved in Settings
   DIGGA_DUMPS_URL           Another address for data.discogs.com, to rehearse the setup with
-                            tools/dev/fake-data-dumps.ts
+                            tools/dev/fake-services.ts
+  DIGGA_DISCOGS_API_URL     Another address for the Discogs API, the same way
+  DIGGA_YOUTUBE_OEMBED_URL  Another address for YouTube's oEmbed, the same way
   DIGGA_LOG_LEVEL           debug | info | warn | error
 `;

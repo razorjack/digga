@@ -12,9 +12,9 @@ import {
   smallDump,
   writeDump,
 } from "../fixtures/dump.ts";
-import { FakeServices } from "./fakes.ts";
+import { FakeServices, memoryDump, type ServiceUrls } from "../../../tools/dev/fake-services.ts";
 import { WebApp } from "./hosts/web.ts";
-import { type DiggaEnvironment, runDiggaOrThrow, type ServiceUrls } from "./spawn.ts";
+import { type DiggaEnvironment, runDiggaOrThrow } from "./spawn.ts";
 import { copyTemplate, type TemplateName, Templates, updateConfig } from "./templates.ts";
 
 export { expect } from "@playwright/test";
@@ -125,7 +125,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     if (options.template !== "empty")
       updateConfig(library.configFile, (config) => testConfig(config, options));
     for (const month of options.dumpFiles) writeDump(library.dumpsDir, smallDump(month));
-    if (options.listedDump) fakes.dumps.list(LISTED_DUMPS[options.listedDump]());
+    if (options.listedDump) fakes.dumps.list(memoryDump(LISTED_DUMPS[options.listedDump]()));
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
     const environment: DiggaEnvironment = {

@@ -17,7 +17,7 @@ import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { TriagePage } from "../pages/triage.ts";
 import type { DiggaApp } from "../support/app.ts";
-import type { FakeServices } from "../support/fakes.ts";
+import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import { expect, test } from "../support/test.ts";
 
 // Settings without Discogs: the form, the filter preview, the player, the dumps folder and the

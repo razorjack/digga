@@ -117,16 +117,17 @@ src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fa
                        player/ (YouTube decks, status copy), triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (preview, jobs, Discogs state), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts, growing.ts), worker-compatible; census.ts
-tools/dev/             fake-data-dumps.ts: a data.discogs.com stand-in to rehearse the setup (DIGGA_DUMPS_URL)
+tools/dev/             fake-services.ts: the fake Discogs API, oEmbed and data.discogs.com, which the E2E harness
+                       imports and `node tools/dev/fake-services.ts <dump>` serves to rehearse the setup
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwright.config.ts;
                        specs/*.e2e.ts (scenarios, tagged with their IDs and priority); pages/ (page objects:
-                       triage, header, twelves, settings, setup); fixtures/ (catalogue.ts, the one source of releases,
+                       triage, header, twelves, settings, setup, dialogs); fixtures/ (catalogue.ts, the one source of releases,
                        videos and accounts, the generated bulk records included, dump.ts, which writes them
                        as dumps with gzip checkpoints, and decisions.ts, decisions backups for `digga restore`);
                        support/ (test.ts fixtures, app.ts the host interface,
-                       hosts/web.ts, spawn.ts, templates.ts, fakes.ts with data.discogs.com, fake-youtube.ts,
-                       guard.ts and browser-guard.ts, browser-log.ts, fault-routes.ts, global-setup.ts)
+                       hosts/web.ts, spawn.ts, templates.ts, fake-youtube.ts, guard.ts and browser-guard.ts,
+                       browser-log.ts, fault-routes.ts, global-setup.ts); the fake services are tools/dev/fake-services.ts
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```
 

@@ -15,8 +15,10 @@ Where the build differs from the design below:
 - The genres of the first picks come first in the style picker, and every genre starts closed.
 - "Change your picks" cancels the load and calls `DELETE /api/setup/load`, which deletes the
   releases unfinished loads added that have no verdict.
-- `tools/dev/fake-data-dumps.ts` serves a dump from disk at a set speed, as data.discogs.com
-  does, and `DIGGA_DUMPS_URL` points Digga at it, to rehearse the setup.
+- `tools/dev/fake-services.ts` serves a dump from disk at a set speed, as data.discogs.com
+  does, with the end-to-end tests' fake Discogs API and oEmbed; `DIGGA_DUMPS_URL`,
+  `DIGGA_DISCOGS_API_URL` and `DIGGA_YOUTUBE_OEMBED_URL` point Digga at it, to rehearse the
+  setup.
 
 ## Goals
 

@@ -21,7 +21,7 @@ export function boot() {
   const level = (process.env.DIGGA_LOG_LEVEL as LogLevel | undefined) ?? "info";
   const logger = createLogger({ level });
   // Stand-ins for data.discogs.com, the Discogs API and YouTube's oEmbed, for rehearsals and the
-  // end-to-end tests (tools/dev/fake-data-dumps.ts, tests/e2e).
+  // end-to-end tests (tools/dev/fake-services.ts).
   const dataDumpsUrl = fromEnvironment("DIGGA_DUMPS_URL");
   const discogsApiUrl = fromEnvironment("DIGGA_DISCOGS_API_URL");
   const youtubeOembedUrl = fromEnvironment("DIGGA_YOUTUBE_OEMBED_URL");

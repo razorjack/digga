@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { ServiceUrls } from "../../../tools/dev/fake-services.ts";
 
 /**
  * Starts every Digga process the harness needs, with the same isolation: the repository's CLI
@@ -30,12 +31,6 @@ export interface DiggaLibrary {
   dataDir: string;
   dumpsDir: string;
   configFile: string;
-}
-
-export interface ServiceUrls {
-  discogsApi: string;
-  youtubeOembed: string;
-  dataDumps: string;
 }
 
 export interface DiggaEnvironment {

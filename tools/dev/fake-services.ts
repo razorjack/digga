@@ -1,6 +1,12 @@
+import { createHash } from "node:crypto";
+import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { DEFAULT_USER_AGENT } from "../../../src/server/discogs/transport.ts";
+import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
+import { DEFAULT_USER_AGENT } from "../../src/server/discogs/transport.ts";
 import type {
   DiscogsBasicInformation,
   DiscogsIdentity,
@@ -9,21 +15,29 @@ import type {
   DiscogsRelease,
   DiscogsUser,
   DiscogsUserListsPage,
-} from "../../../src/server/discogs/types.ts";
+} from "../../src/server/discogs/types.ts";
 import {
   ACCOUNTS,
   type FixtureAccount,
   releaseById,
   videoCatalogue,
-} from "../fixtures/catalogue.ts";
-import type { DumpCheckpoint, DumpFile } from "../fixtures/dump.ts";
-import type { ServiceUrls } from "./spawn.ts";
+} from "../../tests/e2e/fixtures/catalogue.ts";
+import type { DumpCheckpoint, DumpFile } from "../../tests/e2e/fixtures/dump.ts";
 
 /**
- * Stand-ins for the Discogs API, YouTube's oEmbed and data.discogs.com on one loopback port, the
- * only port the network guard lets Digga reach. Each test gets its own instance, so its state,
- * request log and faults belong to that test (docs/E2E_TESTING.md, "The fake services").
+ * Stand-ins for the Discogs API, YouTube's oEmbed and data.discogs.com on one loopback port
+ * (docs/E2E_TESTING.md, "The fake services"). The end-to-end harness starts one per test, on the
+ * only port its network guard lets Digga reach, so its state, request log and faults belong to
+ * that test. Run as a program, it serves the same fakes for a rehearsal by hand, with a dump
+ * from disk; see USAGE below.
  */
+
+/** The addresses Digga is started with in place of the real services. */
+export interface ServiceUrls {
+  discogsApi: string;
+  youtubeOembed: string;
+  dataDumps: string;
+}
 
 export type FakeService = "discogs" | "youtube" | "dumps" | "unknown";
 
@@ -85,6 +99,15 @@ const DISCOGS_ROUTES = (
   ] satisfies [string, DiscogsHandler][]
 ).map(([pattern, handler]) => ({ pattern: compilePattern(pattern), handler }));
 
+export interface FakeServicesOptions {
+  /** 0, the default, picks a free port. */
+  port?: number;
+  /** Called with each request once it is answered, for a rehearsal's console. */
+  onAnswered?: (request: FakeRequest) => void;
+  /** Called with each problem as it is found, for a rehearsal's console. */
+  onViolation?: (problem: string) => void;
+}
+
 export class FakeServices {
   readonly port: number;
   /** Problems a test must not hide: a real token, an unplanned request. */
@@ -92,20 +115,25 @@ export class FakeServices {
   readonly wantlists = new Map<string, Map<number, string | null>>();
   readonly dumps = new FakeDataDumps();
   #server: http.Server;
+  #options: FakeServicesOptions;
   #log: FakeRequest[] = [];
   #faults: Fault[] = [];
 
-  private constructor(server: http.Server) {
+  private constructor(server: http.Server, options: FakeServicesOptions) {
     this.#server = server;
+    this.#options = options;
     this.port = (server.address() as AddressInfo).port;
     for (const account of ACCOUNTS)
       this.wantlists.set(account.username, new Map(account.wantlist.map((id) => [id, null])));
   }
 
-  static async start(): Promise<FakeServices> {
+  static async start(options: FakeServicesOptions = {}): Promise<FakeServices> {
     const server = http.createServer();
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const fakes = new FakeServices(server);
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(options.port ?? 0, "127.0.0.1", resolve);
+    });
+    const fakes = new FakeServices(server, options);
     server.on("request", (request, response) => void fakes.#answer(request, response));
     return fakes;
   }
@@ -161,18 +189,25 @@ export class FakeServices {
   async #answer(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
     const url = new URL(request.url ?? "/", "http://fake");
     const logged = await this.#record(request, url);
-    if (logged.service === "dumps") {
-      await this.dumps.answer(logged, response);
-      logged.answeredAt = Date.now();
-      return;
-    }
-    const answer = await this.#route(logged);
+    if (logged.service === "dumps") await this.dumps.answer(logged, response);
+    else await this.#answerApi(logged, response);
     logged.answeredAt = Date.now();
+    this.#options.onAnswered?.(logged);
+  }
+
+  /** The Discogs API and oEmbed answer JSON, with Discogs' rate limit header. */
+  async #answerApi(request: FakeRequest, response: http.ServerResponse): Promise<void> {
+    const answer = await this.#route(request);
     response.writeHead(answer.status, {
       "content-type": "application/json",
       "x-discogs-ratelimit-remaining": "59",
     });
     response.end(answer.body === undefined ? "" : JSON.stringify(answer.body));
+  }
+
+  #violation(problem: string): void {
+    this.violations.push(problem);
+    this.#options.onViolation?.(problem);
   }
 
   async #record(request: http.IncomingMessage, url: URL): Promise<FakeRequest> {
@@ -193,7 +228,7 @@ export class FakeServices {
       answeredAt: null,
     };
     if (service === "discogs" && request.headers["user-agent"] !== DEFAULT_USER_AGENT)
-      this.violations.push(`a Discogs request without Digga's User-Agent: ${logged.path}`);
+      this.#violation(`a Discogs request without Digga's User-Agent: ${logged.path}`);
     this.#log.push(logged);
     return logged;
   }
@@ -201,7 +236,7 @@ export class FakeServices {
   #tokenUser(authorization: string | undefined): string | null {
     const token = /^Discogs token=(.+)$/.exec(authorization ?? "")?.[1];
     if (token === undefined) return null;
-    if (!token.startsWith("e2e-")) this.violations.push("a non-test token reached the fake");
+    if (!token.startsWith("e2e-")) this.#violation("a non-test token reached the fake");
     if (token === REFUSED_TOKEN || !token.startsWith("e2e-token-")) return null;
     return token.slice("e2e-token-".length);
   }
@@ -215,7 +250,7 @@ export class FakeServices {
       const params = matchPattern(route.pattern, request.method, request.path);
       if (params) return route.handler(this, { ...request, params });
     }
-    this.violations.push(`an unplanned Discogs request: ${request.method} ${request.path}`);
+    this.#violation(`an unplanned Discogs request: ${request.method} ${request.path}`);
     return { status: 404, body: { message: "The requested resource was not found." } };
   }
 
@@ -237,25 +272,89 @@ export class FakeServices {
 }
 
 /**
+ * A dump data.discogs.com lists: one the harness built in memory, with its checkpoints, or a file
+ * on disk for a rehearsal, which may be 10 GB and is read a chunk at a time.
+ */
+export interface DumpSource {
+  /** discogs_YYYYMMDD_releases.xml.gz */
+  name: string;
+  /** YYYY-MM-DD, the date in the name. */
+  date: string;
+  bytes: number;
+  sha256: string;
+  checkpoints: Record<string, DumpCheckpoint>;
+  read(start: number, end: number): Promise<Buffer>;
+}
+
+/** The most a transfer writes at once, so a file is never read whole. */
+const CHUNK_BYTES = 1024 * 1024;
+/** At a set rate, a transfer writes this much of a second's bytes at a time. */
+const PACED_CHUNK_SECONDS = 0.1;
+
+/** A dump the harness built, served from memory. */
+export function memoryDump(dump: DumpFile): DumpSource {
+  return {
+    name: dump.name,
+    date: dump.date,
+    bytes: dump.data.length,
+    sha256: dump.sha256,
+    checkpoints: dump.checkpoints,
+    read: (start, end) => Promise.resolve(dump.data.subarray(start, end)),
+  };
+}
+
+/**
+ * A dump file on disk, read as the transfer goes; without a checksum it is hashed first. The file
+ * stays open for as long as the program serves it.
+ */
+export async function fileDump(file: string, sha256?: string): Promise<DumpSource> {
+  const name = path.basename(file);
+  const date = /^discogs_(\d{4})(\d{2})(\d{2})_releases\.xml\.gz$/.exec(name);
+  if (!date) throw new Error(`${name} is not named like discogs_YYYYMMDD_releases.xml.gz`);
+  const handle = await fs.promises.open(file);
+  return {
+    name,
+    date: `${date[1]}-${date[2]}-${date[3]}`,
+    bytes: (await handle.stat()).size,
+    sha256: sha256 ?? (await hashFile(file)),
+    checkpoints: {},
+    read: async (start, end) => {
+      const buffer = Buffer.alloc(end - start);
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, start);
+      return buffer.subarray(0, bytesRead);
+    },
+  };
+}
+
+async function hashFile(file: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of fs.createReadStream(file, { highWaterMark: 4 * CHUNK_BYTES }))
+    hash.update(chunk as Buffer);
+  return hash.digest("hex");
+}
+
+/**
  * data.discogs.com as src/server/discogs/data-dumps.ts reads it: the listing pages with the
  * dump's size, CHECKSUM.txt, and the dump with its Content-Length. Nothing is listed until a test
- * lists a dump. A transfer can stop at a checkpoint until the test releases it, or fail part way.
+ * lists a dump. A transfer can stop at a checkpoint until the test releases it, fail part way, or
+ * keep to a byte rate, which is for realism and never for synchronisation.
  */
 export class FakeDataDumps {
-  #listed: DumpFile | null = null;
+  #listed: DumpSource | null = null;
   #listedBytes: number | null = null;
   #holdAt: number | null = null;
   #failAfterBytes: number | null = null;
+  #bytesPerSecond: number | null = null;
   #gate = Promise.withResolvers<void>();
   #sentBytes = 0;
 
   /** Lists the dump as the newest, with the size the listing shows; null shows none. */
-  list(dump: DumpFile, options: { listedBytes?: number | null } = {}): void {
+  list(dump: DumpSource, options: { listedBytes?: number | null } = {}): void {
     this.#listed = dump;
-    this.#listedBytes = options.listedBytes === undefined ? dump.data.length : options.listedBytes;
+    this.#listedBytes = options.listedBytes === undefined ? dump.bytes : options.listedBytes;
   }
 
-  get listed(): DumpFile {
+  get listed(): DumpSource {
     if (!this.#listed) throw new Error("no dump is listed; set diggaOptions.listedDump");
     return this.#listed;
   }
@@ -278,9 +377,13 @@ export class FakeDataDumps {
     this.#gate = Promise.withResolvers();
   }
 
-  /** The transfer closes its connection after this many bytes, as a dropped download does. */
-  set(options: { failAfterBytes: number | null }): void {
-    this.#failAfterBytes = options.failAfterBytes;
+  /**
+   * failAfterBytes closes the transfer's connection after that many bytes, as a dropped download
+   * does; bytesPerSecond keeps each transfer to that rate. Null turns either off.
+   */
+  set(options: { failAfterBytes?: number | null; bytesPerSecond?: number | null }): void {
+    if (options.failAfterBytes !== undefined) this.#failAfterBytes = options.failAfterBytes;
+    if (options.bytesPerSecond !== undefined) this.#bytesPerSecond = options.bytesPerSecond;
   }
 
   /** The bytes of the dump the last transfer has sent so far. */
@@ -307,14 +410,14 @@ export class FakeDataDumps {
     return sendText(response, 404, "not found");
   }
 
-  async #transfer(dump: DumpFile, response: http.ServerResponse): Promise<void> {
-    const size = dump.data.length;
+  async #transfer(dump: DumpSource, response: http.ServerResponse): Promise<void> {
     response.writeHead(200, {
       "content-type": "application/octet-stream",
-      "content-length": String(size),
+      "content-length": String(dump.bytes),
     });
+    const started = Date.now();
     this.#sentBytes = 0;
-    while (this.#sentBytes < size) {
+    while (this.#sentBytes < dump.bytes) {
       if (this.#sentBytes === this.#failAfterBytes) {
         response.destroy();
         return;
@@ -323,19 +426,34 @@ export class FakeDataDumps {
         await this.#gate.promise;
         continue;
       }
-      const until = this.#nextStop(size);
-      if (!(await writeBytes(response, dump.data.subarray(this.#sentBytes, until)))) return;
+      const until = this.#nextStop(dump.bytes);
+      await this.#keepPace(started, until);
+      const bytes = await dump.read(this.#sentBytes, until);
+      if (!(await writeBytes(response, bytes))) return;
       this.#sentBytes = until;
     }
     response.end();
   }
 
-  /** The end, or the hold or failure point before it. */
+  /** The end, the next chunk's end, or the hold or failure point before them. */
   #nextStop(size: number): number {
     const stops = [this.#holdAt, this.#failAfterBytes].filter(
       (stop): stop is number => stop !== null && stop > this.#sentBytes,
     );
-    return Math.min(size, ...stops);
+    return Math.min(size, this.#sentBytes + this.#chunkBytes(), ...stops);
+  }
+
+  #chunkBytes(): number {
+    if (this.#bytesPerSecond === null) return CHUNK_BYTES;
+    const paced = Math.floor(this.#bytesPerSecond * PACED_CHUNK_SECONDS);
+    return Math.max(1, Math.min(CHUNK_BYTES, paced));
+  }
+
+  /** Waits until the rate allows the bytes up to `until` to have left since the transfer started. */
+  async #keepPace(started: number, until: number): Promise<void> {
+    if (this.#bytesPerSecond === null) return;
+    const dueMs = (until / this.#bytesPerSecond) * 1000 - (Date.now() - started);
+    if (dueMs > 0) await sleep(dueMs);
   }
 }
 
@@ -344,7 +462,7 @@ function rootPage(year: string): string {
 }
 
 /** The year's page lists each file after its size, as data.discogs.com does. */
-function yearPage(dump: DumpFile, listedBytes: number | null): string {
+function yearPage(dump: DumpSource, listedBytes: number | null): string {
   const year = dump.date.slice(0, 4);
   const checksum = checksumFile(dump);
   const size = listedBytes === null ? "" : `${listingSize(listedBytes)}   `;
@@ -356,7 +474,7 @@ function yearPage(dump: DumpFile, listedBytes: number | null): string {
   ].join("\n");
 }
 
-function checksumFile(dump: DumpFile): string {
+function checksumFile(dump: DumpSource): string {
   return dump.name.replace("_releases.xml.gz", "_CHECKSUM.txt");
 }
 
@@ -576,4 +694,82 @@ function matchPattern(
   return Object.fromEntries(
     pattern.keys.map((key, index) => [key, decodeURIComponent(match[index + 1]!)]),
   );
+}
+
+const USAGE = `usage: node tools/dev/fake-services.ts [<discogs_YYYYMMDD_releases.xml.gz>]
+         [--port 4567] [--mbps 40] [--checksum <sha256>]
+
+Serves the end-to-end tests' fakes on 127.0.0.1 for a rehearsal by hand: the Discogs API with
+the test accounts (token e2e-token-dj for dj), YouTube's oEmbed, and data.discogs.com listing the
+dump given, sent at --mbps MiB per second. Without --checksum the dump is hashed first. Start
+Digga with the addresses printed and a throwaway DIGGA_DATA_DIR and DIGGA_DUMPS_DIR.`;
+
+/** Run as a program: the fakes until Ctrl-C, with each request and problem on the console. */
+async function serveRehearsal(args: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      port: { type: "string", default: "4567" },
+      mbps: { type: "string", default: "40" },
+      checksum: { type: "string" },
+      help: { type: "boolean", default: false },
+    },
+  });
+  if (values.help) {
+    console.log(USAGE);
+    return;
+  }
+  const port = positiveNumber(values.port, "--port");
+  const bytesPerSecond = positiveNumber(values.mbps, "--mbps") * 1024 * 1024;
+  const file = positionals[0];
+  if (file && !values.checksum) console.log(`hashing ${path.basename(file)}…`);
+  const dump = file ? await fileDump(file, values.checksum) : null;
+
+  const fakes = await FakeServices.start({
+    port,
+    onAnswered: (request) => console.log(requestLine(request)),
+    onViolation: (problem) => console.error(`problem: ${problem}`),
+  });
+  if (dump) {
+    fakes.dumps.list(dump);
+    fakes.dumps.set({ bytesPerSecond });
+  }
+  console.log(rehearsalSummary(fakes, dump, values.mbps));
+}
+
+/** "GET dumps /?download=data/2026/…" once the fake has answered, with the time it took. */
+function requestLine(request: FakeRequest): string {
+  const query = new URLSearchParams(request.query).toString();
+  const target = query === "" ? request.path : `${request.path}?${decodeURIComponent(query)}`;
+  const ms = (request.answeredAt ?? request.arrivedAt) - request.arrivedAt;
+  return `${request.method} ${request.service} ${target} (${ms} ms)`;
+}
+
+function positiveNumber(text: string, option: string): number {
+  const value = Number(text);
+  if (!Number.isFinite(value) || value <= 0)
+    throw new Error(`${option} ${text}: not a positive number\n\n${USAGE}`);
+  return value;
+}
+
+function rehearsalSummary(fakes: FakeServices, dump: DumpSource | null, mbps: string): string {
+  const { urls } = fakes;
+  const listed = dump ? `${dump.name} (${listingSize(dump.bytes)}) at ${mbps} MiB/s` : "nothing";
+  return [
+    `fake services on http://127.0.0.1:${fakes.port}; data.discogs.com lists ${listed}`,
+    `DIGGA_DUMPS_URL=${urls.dataDumps}`,
+    `DIGGA_DISCOGS_API_URL=${urls.discogsApi}`,
+    `DIGGA_YOUTUBE_OEMBED_URL=${urls.youtubeOembed}`,
+  ].join("\n");
+}
+
+const runAsProgram =
+  process.argv[1] !== undefined &&
+  fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
+if (runAsProgram) {
+  serveRehearsal(process.argv.slice(2)).catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
 }
