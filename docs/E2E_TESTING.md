@@ -4,8 +4,8 @@ Status: proposed on 2026-09-30 and revised the same day after two rounds of revi
 (Rollout, step 0) is built, and so is the whole P0 set, with the first-run setup (SETUP-01) and
 the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, Triage's P1 set: the record, the
 player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
-the wants, and Settings' P1 set. The results are recorded in "Spike results". The rest is not
-built yet. This is the design of Digga's end-to-end (E2E) tests: the
+the wants, Settings' P1 set, and Twelves' P1 set with the `bulk` template. The results are
+recorded in "Spike results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
 (`docs/ELECTRON_PLAN.md`).
@@ -185,7 +185,7 @@ export interface DiggaApp {
   /** Web only: restarts the server on the same port while the page and its session stay. */
   restartServer(options?: { crash?: boolean }): Promise<void>;
   /** Runs `digga <args>` against the same library, with the same isolation. */
-  cli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }>;
+  cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }>;
   /** Installs interception, runs the action, and returns the URL the app opened. */
   expectExternalOpen(action: () => Promise<void>): Promise<string>;
   /** Runs the action and waits until the download completes, saved in the test's output folder. */
@@ -207,7 +207,9 @@ export interface DiggaApp {
 ```
 
 **Web host.** It prepares the library, config and fake home, spawns the server, prepares a
-browser context (below) and opens the page. The console, page-error and request collectors are
+browser context (below) and opens the page. Everything above is built in the web host but
+`restartServer()`; `cli()` runs the command through `spawnDigga()` with the test's environment
+and resolves when it exits, with a `null` code when a signal ended it. The console, page-error and request collectors are
 attached to the context. `relaunch()` closes the context first, so no request of the page meets a
 stopped server, then stops the server, and starts both again with the whole preparation and new
 collectors; the port may change. The collectors feed one log per test, so a problem from an
@@ -301,7 +303,9 @@ database that a process still has open.
 | `small-account` | `small`, then `import collection` and `import wantlist` for `dj`; username in config | wantlist, Maybe list, seller tests |
 | `bulk`          | `dump load` of the bulk dump                                                         | paging, strategies                 |
 
-There is no cache across runs: the spike built `small` in 0.2 s and `small-account` in 0.4 s. If
+There is no cache across runs: the spike built `small` in 0.2 s and `small-account` in 0.4 s,
+and `bulk` builds in 0.42 s. The bulk dump has the September small dump's name, so the `bulk`
+build writes it into a fixtures folder of its own. If
 a larger catalogue makes the build slow, a cache keyed by a hash of every input (the catalogue,
 the fake services, the migrations, the loader, the importers and the CLI) can follow, still
 published only after success.
@@ -331,7 +335,9 @@ Per-test state goes on top, through documented paths only:
   `/api` before the page opens. The server refuses digging writes while the sandbox is on, so
   `given` writes with the sandbox off and switches it on afterwards when the test asks for it.
   Built so far: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
-  test can date its snoozes in order, and `given.trackMark()`.
+  test can date its snoozes in order, `given.verdicts()` for several, and `given.trackMark()`.
+  `datedVerdicts()` in `fixtures/decisions.ts` dates a list of verdicts a day apart, the first one
+  newest, so Twelves' newest-first order is the list's order whatever the clock says.
 - **Dump files.** `diggaOptions.dumpFiles` names small dumps by month (`july`, `august`,
   `september`), which the fixture writes into the library's dumps folder before the server
   starts (SET-16). The templates load their dump from a fixtures folder of their own, so a test's
@@ -340,7 +346,16 @@ Per-test state goes on top, through documented paths only:
   (`POST /api/jobs/import/seller`), and `given.sellerShop()` returns once `GET /api/jobs/:id`
   says `done`; a job that ends otherwise fails the test with its error.
 - **Bulk decisions** (1,200 verdicts for paging) go through `digga restore` with a generated
-  decisions backup, the documented restore path.
+  decisions backup, the documented restore path. `diggaOptions.decisionsBackup` takes the backup
+  (`fixtures/decisions.ts` builds one in the format of `src/shared/decisions-backup.ts` and writes
+  it with the server's own `formatDecisionsBackup()`), and the fixture runs `digga restore` on the
+  test's library before the server starts. Restoring while the server runs would work at the
+  SQLite level (WAL, a 5 s busy timeout, and an online backup for the copy `cmdRestore` takes
+  first), but the README tells users to stop the server before a restore, and the server's start
+  writes the day's database copy to the same `digga-YYYY-MM-DD.sqlite.partial` path the restore's
+  copy uses, so a restore straight after the start could interleave the two writes. Restoring
+  first follows the documented path and has no such window; `app.cli()` stays for commands that
+  run beside the server.
 
 Tests never open the SQLite file. Assertions read the UI first and the public API second
 (`/api/twelves`, `/api/stats`, `/api/export/decisions.json`), which keeps them independent of the
@@ -382,13 +397,15 @@ pressing from the main release; Jungle and House records for the style picker an
 release outside the default years for filter tests. The September dump adds three releases and
 drops one, so a load of it has small exact "added" and "missing" counts. Videos
 that YouTube has and no release lists, one titled after a track that has none, are there to be
-pasted (TRI-26).
+pasted (TRI-26), and one titled after the release without videos (TWL-14).
 
 Records that only some scenarios reach sit on labels that sort after those of the first records,
 so the default queue starts as before, and a scenario digs them with `diggaOptions.labels`. The
 catalogue names the records that scenarios refer to (`FIRST_RECORD`, `TRACK_RUN`,
 `SAME_TUNE_ELSEWHERE` and so on) and says in a comment which scenarios they serve. Built so far:
-20 releases in the August dump, the release in no dump (see "The first Triage P1 slice" and "The
+20 releases in the August dump, of which Twelves' scenarios name `THIRD_RECORD`, `IN_COLLECTION`,
+`ON_WANTLIST` (on `dj`'s wantlist, so a want of it given in Digga is on the wantlist) and
+`EVENT_HORIZON`, the release in no dump (see "The first Triage P1 slice" and "The
 second Triage P1 slice"), and the September dump (`SMALL_SEPTEMBER`): the August releases but
 "Brass Knuckle" (1902), and three releases on "Upfront Audio", a label that sorts after every
 other (`SEPTEMBER_ADDITIONS`). The templates load August only, so "Added by the last dump load"
@@ -458,10 +475,12 @@ declares the abort and the console error it causes with `app.expectProblems()`.
 State: accounts (`dj` with a collection of 5, a wantlist of 6 including one release in no dump,
 a private "Maybe" list 9001 and a public list 9002), a seller `shopkeeper` whose shop has a
 repress of a loaded master and a release in no dump, and the catalogue's releases. Built so far:
-every request in the table but `GET /lists/{id}` and `GET /masters/{id}`, which wait for a
-scenario that reaches them; `dj` has a collection of 1, a wantlist of 2, one of them in no dump,
-the private list "Maybe" (9001) and the public list "Played out" (9002), which
-`GET /users/{u}/lists` answers on one page, the private one only for `dj`'s own token;
+every request in the table but `GET /masters/{id}`, which waits for a scenario that reaches it;
+`dj` has a collection of 1, a wantlist of 2, one of them in no dump, the private list "Maybe"
+(9001), which holds the first two records of the small catalogue, and the public list "Played
+out" (9002), which is empty. `GET /users/{u}/lists` answers on one page, and `GET /lists/{id}`
+with the list's releases; both show a private list only to `dj`'s own token, and
+`GET /lists/{id}` answers `404` for it to any other;
 and `shopkeeper`'s two listings, on one page. A Discogs request the fake has no route for fails
 the test as unplanned.
 
@@ -773,6 +792,23 @@ synchronise on completed requests and on the state the app sets after them:
   status line reads the outcome; a job once its row's status cell reads the state the test waits
   for; Cancel once the cancel and the `GET /api/jobs` after it have answered; Delete once
   `DELETE /api/dumps/:name` has answered with the folder's new listing and the row has gone.
+- Twelves' actions end the same way (`pages/twelves.ts`). Its flash shows only after the work it
+  reports: a re-judgement saves the verdict, then adds to or takes from the Discogs wantlist, then
+  shows the flash and loads the shelf again. So a re-judgement ends once `POST /api/verdicts` and
+  the `GET /api/twelves` after it have answered and the flash reads the new verdict; a change to
+  the wantlist has reached the fake by then, since the server answers the page only after the
+  fake has answered it. A note ends once its `POST /api/verdicts` has answered and the flash reads
+  "Note saved." or "Note removed."; a track note the same way with `POST /api/track-verdicts`; `A`
+  or `C` on a want already judged so (a retry) once `POST /api/discogs/wantlist/:id` and the reload
+  after it have answered and the flash says it was added; "add all" once the flash counts what
+  was added, after the last push and the reload; `I` once its `POST /api/jobs/import/list` has
+  answered and the flash says what the list holds, after the job has ended and the shelf has
+  loaded; `Z` once the restored verdict and the reload have answered and the flash says "Undone";
+  a paste once `POST /api/releases/:id/videos` and the reload have answered and the flash says the
+  link is attached; `J`, `K`, the arrows and the page turns once another row has
+  `aria-current="true"`; Enter on a snoozed record once Triage shows the record under the round's
+  banner. A flash with no request behind it, such as a verdict key on the Tracks shelf, comes from
+  the key press itself, so the check that nothing was sent can follow it at once.
 - A response that must follow another is matched in order: the first wait notes its match inside
   its own predicate (`waitForResponses()` in `pages/triage.ts`). Playwright runs predicates in the
   order the responses arrive, but a callback chained to the first wait can run after both
@@ -883,6 +919,10 @@ The Settings P1 slice added the rest of the Settings markup: `data-job-id` on th
 names of the five sections, and the two Settings bullets of accessibility bug 3 (see "Markup
 audit").
 
+The Twelves P1 slice added `data-triage-key` and `data-release-id` on Twelves' rows,
+`data-release-id` and `data-position` on the Tracks shelf's rows, and the pager's name of
+accessibility bug 2 (see "Markup audit").
+
 The setup path built items 3 and 4. `readSetup(deps, { freeBytes })` takes the dependencies it
 reads (`db`, `paths`, `dataDumps`) and the free-space function, whose default is the download's
 `freeBytesIn()`. In the loader, a timer reports whenever a second passes without a report, and
@@ -916,7 +956,7 @@ and some names that are missing or ambiguous.
    stays a `span`.
 2. **`src/client/twelves/Pager.svelte`:** `<nav aria-label="Pages">` repeats the header's
    `<nav aria-label="Pages">`, so Twelves has two navigation landmarks with the same name. Name
-   the pager "Shelf pages".
+   the pager "Shelf pages". Fixed in the Twelves P1 slice; TWL-03 reads the pager by that name.
 3. **Field errors not tied to their fields.** AGENTS.md asks for `aria-invalid` on invalid fields
    and the message attached with `aria-describedby`.
    - The setup's token and username fields (`DiscogsStep.svelte`): a refused token or unknown
@@ -967,6 +1007,9 @@ attributes are handles for tests; they do not replace the ARIA or text a screen 
 | `pages/Twelves.svelte`, each `<tr>`                | `data-triage-key`, `data-release-id` |
 | `twelves/TrackTable.svelte`, each `<tr>`           | `data-release-id`, `data-position`   |
 | `pages/Settings.svelte`, each job `<tr>`           | `data-job-id`                        |
+
+Twelves' rows got theirs in the Twelves P1 slice; the row of a verdict whose release is in no dump
+has no `data-release-id`.
 
 Pages need no handle: there is one `main`, the other pages are unmounted, and the hidden Triage
 page drops out of role queries, so `getByRole("main")` scopes to the visible page.
@@ -1037,7 +1080,9 @@ Priority for finding an element, highest first:
 Never: CSS classes, element structure, `nth-child`, generated ids, or `waitForTimeout`.
 
 `getByRole()` has no option for `aria-current`, so the tracklist's current row is the list item
-that holds an element with `aria-current="true"` (`TriagePage.currentTrack`). The banner above
+that holds an element with `aria-current="true"` (`TriagePage.currentTrack`), and Twelves'
+selected row is the row with `aria-current="true"` (`TwelvesPage.selected`); Twelves' rows are
+found by `data-triage-key`, and the Tracks shelf's by `data-release-id` and `data-position`. The banner above
 the desk during a round or a scope has no role, so `TriagePage.banner` finds it by its opening
 words; the market line is the only `status` in the record's header (`TriagePage.market`).
 
@@ -1265,28 +1310,28 @@ them; scenarios with pushes use `small-account` with a saved token.
 | SBX-06 | The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab                                                                                                                                                                                                                                                                                                                        | P2  |
 | SBX-07 | [`small-account` with a saved token] A want given live with the clock paused, then the sandbox turned on within the grace: the verdict stays saved (export); after `runFor(2000)` the pending push has been dropped with the live history (no `PUT`), and Twelves marks the want as not on the wantlist                                                                                                         | P1  |
 
-### Twelves [`small-account` with given verdicts]
+### Twelves [`small` or `small-account`, with given verdicts]
 
-| ID     | Scenario                                                                                                                                                                                                            | P   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| TWL-01 | Keys `1` to `9` pick the shelves with their counts; Everything leaves out no audio; an empty shelf shows its text                                                                                                   | P1  |
-| TWL-02 | `J`, `K`, `↓`, `↑` move `aria-current` and keep it in view                                                                                                                                                          | P1  |
-| TWL-03 | Paging [`bulk`, 1,200 restored verdicts]: 500 rows a page; `→` and `←` turn; `J` crosses into the next page; "Shelf pages" says "501–1,000 of 1,200 records"                                                        | P1  |
-| TWL-04 | `S` changes the sort, and one order change is visible in the rows                                                                                                                                                   | P1  |
-| TWL-05 | `/` focuses the filter; typing filters by one field; Enter leaves it; Esc clears it; "Nothing matches …"                                                                                                            | P1  |
-| TWL-06 | `E` edits a note; Enter saves ("Note saved."); an empty note removes it; both survive a reload                                                                                                                      | P1  |
-| TWL-07 | Re-judging, each from its own given state: want to grail keeps it on the wantlist; want to skip: the fake gets `DELETE`, and the row leaves the shelves (the export says skip); snooze to want: the fake gets `PUT` | P1  |
-| TWL-08 | Wantlist and owned records refuse re-judging with a flash                                                                                                                                                           | P2  |
-| TWL-09 | Wants missing from the wantlist carry the marker and the banner count; `A` retries a want and `C` a grail; with two or more, "add all N" pushes each and the banner says everything is on the wantlist              | P1  |
-| TWL-10 | Maybe hand-off: without a list, the hint; with one, "N maybes are not on your Discogs Maybe list yet"; `I` reads the list (the fake holds two of them) and their markers go                                         | P1  |
-| TWL-11 | `Z` undoes the last change, including its wantlist request                                                                                                                                                          | P1  |
-| TWL-12 | Enter on a snoozed record starts a round in Triage from it; on another record a flash explains                                                                                                                      | P1  |
-| TWL-13 | The Tracks shelf lists grail and keep marks with release and verdict; `E` edits a track note; verdict keys explain that marks change in Triage                                                                      | P1  |
-| TWL-14 | The No audio shelf: `Y` opens a YouTube search; `app.paste()` attaches a link and the record leaves the shelf for the queue                                                                                         | P1  |
-| TWL-15 | `O` opens the release on discogs.com                                                                                                                                                                                | P2  |
-| TWL-16 | A verdict for a release in no dump reads "Not in the loaded dump (r:…)"                                                                                                                                             | P2  |
-| TWL-17 | `A` then `R` pressed at once end as a skip, off the wantlist (decision 62)                                                                                                                                          | P2  |
-| TWL-18 | Switching the sandbox remounts the shelf in the new mode                                                                                                                                                            | P2  |
+| ID     | Scenario                                                                                                                                                                                                                                                                                                                                                                                                 | P   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| TWL-01 | [`small-account`] Keys `1` to `9` pick the shelves; each option's name has the shelf's count, from the given verdicts, a keep and a meh mark, and `dj`'s imported collection and wantlist; Everything leaves out no audio; an empty shelf (Grail) shows its text                                                                                                                                         | P1  |
+| TWL-02 | `J`, `K`, `↓`, `↑` move `aria-current` and scroll the row into the window. **Gap:** with every small record snoozed, `J` to the last row scrolls it to the window's bottom edge, under the shelf's sticky footer, since `scrollIntoView({ block: "nearest" })` does not allow for the footer; the normal test checks that the row is in the window, its `test.fail` that the row's middle is not covered | P1  |
+| TWL-03 | Paging [`bulk`, 1,200 verdicts restored with `digga restore` before the server starts]: 500 rows a page; `→` and `←` turn; `K` on page 2's first row goes back to page 1's last, and `J` crosses into the next page; "Shelf pages" says "501–1,000 of 1,200 records"; the last page holds 200                                                                                                            | P1  |
+| TWL-04 | `S` changes the sort: three records judged in the reverse of their labels' order go from newest first to label order                                                                                                                                                                                                                                                                                     | P1  |
+| TWL-05 | `/` focuses the filter; typing a label's name filters to its records; Enter leaves it with the text kept; more text says "Nothing matches “…”."; Esc clears it                                                                                                                                                                                                                                           | P1  |
+| TWL-06 | `E` edits a note; Enter saves ("Note saved."); `E` on a record with a note shows it, Esc cancels; an empty note removes it ("Note removed."); both survive a reload                                                                                                                                                                                                                                      | P1  |
+| TWL-07 | [`small-account` with a saved token] Re-judging, each from its own given state: a want of a release on `dj`'s wantlist re-judged a grail stays on it (the fake gets nothing); the same want re-judged a skip: the fake gets `DELETE`, the row leaves the shelves, and the export says skip; a snooze re-judged a want: the fake gets `PUT`                                                               | P1  |
+| TWL-08 | Wantlist and owned records refuse re-judging with a flash                                                                                                                                                                                                                                                                                                                                                | P2  |
+| TWL-09 | [`small-account` with a saved token] Wants and grails missing from the wantlist carry the marker and the banner count; `A` retries a want and `C` a grail; with two or more on the shelf, "add all N" pushes each, in order, and the banner says everything is on the wantlist                                                                                                                           | P1  |
+| TWL-10 | [`small-account`] Maybe hand-off: without a list, the hint, and `I` only flashes; with list 9001 and a saved token, "N maybes are not on your Discogs Maybe list yet"; `I` reads the list (the fake holds two of them) and their markers go                                                                                                                                                              | P1  |
+| TWL-11 | [`small-account` with a saved token] `Z` undoes the last change, a snooze re-judged a want: the snooze comes back with its date, and the fake gets `DELETE` after the `PUT`                                                                                                                                                                                                                              | P1  |
+| TWL-12 | Enter on a snoozed record starts a round in Triage from it, with the snoozed records after it on the shelf; on another record a flash explains                                                                                                                                                                                                                                                           | P1  |
+| TWL-13 | The Tracks shelf lists grail and keep marks, not meh ones, with release and verdict; `E` edits a track note; verdict keys explain that marks change in Triage and send nothing                                                                                                                                                                                                                           | P1  |
+| TWL-14 | [`labels: Echo Chamber`] The No audio shelf: `Y` opens a YouTube search; `app.paste()` attaches a link and the record leaves the shelf for the queue (`/api/queue`)                                                                                                                                                                                                                                      | P1  |
+| TWL-15 | `O` opens the release on discogs.com                                                                                                                                                                                                                                                                                                                                                                     | P2  |
+| TWL-16 | A verdict for a release in no dump reads "Not in the loaded dump (r:…)"                                                                                                                                                                                                                                                                                                                                  | P2  |
+| TWL-17 | `A` then `R` pressed at once end as a skip, off the wantlist (decision 62)                                                                                                                                                                                                                                                                                                                               | P2  |
+| TWL-18 | Switching the sandbox remounts the shelf in the new mode                                                                                                                                                                                                                                                                                                                                                 | P2  |
 
 ### Settings [`small` or `small-account`]
 
@@ -1514,9 +1559,9 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    listing, the checksum, holds at checkpoints and `failAfterBytes`; the checkpoint builder and the
    bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
    its burn-in; the layout in AGENTS.md. `e2e:smoke` joined `verify` on 2026-10-01, as the owner
-   decided. Still to do: the rest of the fake services' settings and of the Discogs API, the move
-   to `tools/dev/fake-services.ts`, the `bulk` template, and the rest of the host interface and
-   page objects.
+   decided. The `bulk` template and `app.cli()` followed with Twelves' P1 set on 2026-10-01. Still
+   to do: the rest of the fake services' settings and of the Discogs API (the masters), the move
+   to `tools/dev/fake-services.ts`, `restartServer()`, and the page objects for dialogs.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
@@ -1530,9 +1575,14 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    SET-17 (with a gap; see "The Settings P1 slice"). With them came the Settings page object,
    `expectDownload()` in the web host, `diggaOptions.environmentToken` and `dumpFiles`,
    `given.trackMark()`, the fake's lists, and the small catalogue's July and September dumps.
-   Next: the other families (Twelves, the rest of Shell, Sandbox, Persistence, Accessibility and
-   the setup's P1 scenarios). Still to do for Triage and Settings: their P2 scenarios, and in the
-   fake `GET /lists/{id}` and the masters, each when a scenario needs it.
+   Twelves' P1 set was done on 2026-10-01: TWL-01, TWL-02 (with a gap), TWL-04, TWL-05, TWL-06,
+   TWL-12, TWL-13 and TWL-14, then TWL-07, TWL-09, TWL-10, TWL-11 and TWL-03 (see "The Twelves
+   P1 slice"). With them came the Twelves page object's actions, the `bulk` template,
+   `app.cli()`, `diggaOptions.decisionsBackup` with `fixtures/decisions.ts`, the fake's
+   `GET /lists/{id}`, and the markup of accessibility bug 2. Next: the other families (the rest of
+   Shell, Sandbox, Persistence, Accessibility and the setup's P1 scenarios). Still to do for
+   Triage, Settings and Twelves: their P2 scenarios, and in the fake the masters, when a scenario
+   needs them.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
    checks of the main screens, on Linux only, where snapshot updates need a human review.
@@ -1949,6 +1999,86 @@ and the Settings markup (see "Markup audit"). The work showed:
 - **`verify` has not grown.** The smoke set is still the P0 set. Timed alternately against a
   worktree of the previous commit, `vp run verify` took 20.8 to 21.0 s against 20.8 to 21.2 s,
   and its smoke set 10.5 to 10.6 s against 10.4 to 10.8 s, in three runs each.
+
+### The Twelves P1 slice (web)
+
+Built on 2026-10-01 on the same machine and versions: TWL-01, TWL-02 (with a gap), TWL-04,
+TWL-05, TWL-06, TWL-12, TWL-13 and TWL-14 in the new `specs/twelves.e2e.ts`, which also holds
+TWL-03, and TWL-07, TWL-09, TWL-10 and TWL-11 in the new `specs/twelves-discogs.e2e.ts`: seventeen
+tests, since TWL-07 has one per given state, TWL-10 runs without and with a Maybe list, and TWL-02
+has a gap test. With them came the Twelves page object's actions (`pages/twelves.ts`), the `bulk`
+template, `app.cli()` in the web host, `diggaOptions.decisionsBackup` with `fixtures/decisions.ts`,
+`given.verdicts()`, the fake's `GET /lists/{id}` with the Maybe list's items, four named records in
+the catalogue and a video to paste for the release without videos, and the markup (see "Markup
+audit"). The work showed:
+
+- **No product bug fixed; one gap.** With every small record snoozed, `J` to the last row scrolls
+  it to the window's bottom edge, where the shelf's sticky footer covers all of it but its top
+  pixels (`scrollIntoView({ block: "nearest" })` in `Twelves.svelte` and `TrackTable.svelte`
+  does not allow for the footer). A trial `scroll-margin-bottom: 64px` on the rows made the gap
+  test pass, so that is the cause; the fix is CSS, which no vitest test can cover, so TWL-02
+  records it as a gap, as TRI-21 did. The normal test checks that the row is in the window; its
+  `test.fail` checks with `document.elementFromPoint()` that the row's middle is the row and not
+  the footer, and failed as expected in every run. Moving back up is not affected: the first row
+  is uncovered after `K`.
+- **The restore runs before the server starts.** See "Libraries" for why. The bulk template builds
+  in 0.42 s (413 to 421 ms over 5 builds: a CLI start and a load of the 81 KB dump, into a
+  1.46 MB database); writing the 1,200-verdict backup takes about 3 ms, and `digga restore` 0.24 s
+  (240 to 246 ms over 5 runs), most of it the CLI's start, the rest the database copy it takes
+  first and one transaction of 1,200 upserts. Copying the template takes about 1 ms. TWL-03 takes
+  3.5 s on five workers, the template build included on the worker that builds it.
+- **Rows corrected.** The section's heading put every scenario on `small-account`; the scenarios
+  that need no account run on `small`, and those that push need a saved token as well (TWL-07, TWL-09, TWL-10
+  with a list, TWL-11), which the rows now say. TWL-07's want "on the wantlist" is a want given in
+  Digga for the release on `dj`'s wantlist (`ON_WANTLIST`): `onWantlist` comes from the wantlist
+  seeds, so a want given only through `POST /api/verdicts` is never on it. TWL-02's row says what
+  "in view" means and records the gap, and TWL-03's how the verdicts arrive and how `J` crosses a
+  page.
+- **Observations, left for the owner.** Triage's session starts when the app opens, also on
+  Twelves, and reads its queue then. A record a pasted link sends back to the queue in Twelves is
+  in `/api/queue` at once, but Triage, opened with `T` afterwards, shows the record after it and
+  offers the requeued one only after a reload or at the end of the queue (a probe with Echo
+  Chamber, the record before it judged). TWL-14 reads the queue through the API. The re-judging
+  copy reads "grail" and "skip" as the stamps do, so "Kestrel – Day Break: skip. Taken off your
+  Discogs wantlist. Z undoes it." is the whole sentence.
+- **Synchronisation follows the flash.** Twelves shows a re-judgement's, a retry's, `I`'s and `Z`'s
+  flash only after the work it reports, so the page object waits for the request, the shelf's
+  reload after it (matched in order with `waitForResponses()`), and the flash; the fake's log is
+  complete by then (see "Synchronisation"). "Add all" pushes one release at a time, each after the
+  server's 1.1 s gap.
+- **Negative checks were tried against broken builds**, restored afterwards: with the undo's
+  wantlist request left out, TWL-11 failed on the missing `DELETE`; with a grail re-judgement that
+  pushed although the want was on the wantlist, TWL-07's grail test failed on the flash, which
+  said it was added again.
+- **Waiting after every key press costs time under load.** The first whole-suite burn-in, at load
+  averages of 170 to 240 from another project's test suite on the same machine, timed out TWL-02
+  twice and TWL-03 twice at 30 s, and failed SET-10 once (its lists read, which waits for the
+  Discogs client's 1.1 s gap, still read "Reading lists…" after 5 s). `move()` waited for each
+  step with `expect.poll()`, which checks at most every 100 ms, and read the selected key twice,
+  so TWL-02's two walks over 19 rows took 8.3 s at the median. Each key press moves the selection
+  in its own handler, so `select()` now presses `J` or `K` as often as needed and waits once, and
+  `move()` waits with a web-first assertion on the selected row's key; TWL-03 re-renders five
+  500-row pages instead of six. TWL-02's median fell to 4.4 s under the same load, and SET-10 did
+  not fail again in 20 more runs.
+- **Durations.** On five workers (`vp run e2e`) the 82 tests take 39.4 s and `vp run e2e` 41.2 s
+  with the client build, against 30.4 s and 32.0 s for the 65 before. The new tests take 0.6 to
+  5.1 s each: TWL-04 0.6 s, TWL-10 without a list 0.8 s, TWL-13 0.8 s, TWL-05 0.8 s, TWL-14 0.8 s,
+  TWL-12 0.9 s, TWL-01 0.9 s, TWL-06 1.0 s, TWL-02 1.1 s, TWL-07's grail 1.3 s, its snooze 1.7 s
+  and its skip 2.0 s, TWL-10 with a list 2.0 s, TWL-11 2.6 s, TWL-03 3.5 s, TWL-02's gap 3.7 s
+  (3 s of it its failing expectation) and TWL-09 5.1 s. TWL-09 pushes four releases, each after
+  the Discogs client's 1.1 s gap; TWL-07, TWL-10 and TWL-11 wait for it once or twice after the
+  saved token's identity check.
+- **Stable.** Each group passed `--repeat-each=10` on 16 workers before the next was written (90
+  of 90 runs, the gap test failing as expected, then 80 of 80), and both Twelves specs 340 of 340
+  at `--repeat-each=20` after the change above. The whole suite then passed 1,640 of 1,640 runs at
+  `--repeat-each=20` on 16 workers on the 10-core machine, in 9.5 minutes, at load averages of 217
+  to 268; SETUP-01's, TRI-21's, SET-17's and TWL-02's `test.fail` failed as expected in every run.
+  The medians of the new tests in that burn-in were 2.8 to 7.9 s (TWL-03 the slowest, then
+  TWL-09 at 7.0 s), against 3.1 s for TRI-02 and 8.4 s for TRI-07.
+- **`verify` has not grown.** The smoke set is still the P0 set; `e2e:smoke` never builds `bulk`.
+  Timed alternately against a worktree of the previous commit, `vp run verify` took 21.2 to
+  21.9 s against 21.3 to 21.9 s, and its smoke set 10.6 to 10.8 s against 10.7 to 10.9 s, in three
+  runs each.
 
 ## Risks and open questions
 
