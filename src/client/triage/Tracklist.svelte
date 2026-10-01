@@ -112,7 +112,7 @@
       {@const playing = index === playingIndex}
       {@const failed = player.failed.has(entry.video.videoId)}
       {@const stray = strayState(playing, failed)}
-      <li class="row" class:playing class:failed>
+      <li data-video-id={entry.video.videoId} class="row" class:playing class:failed>
         <button
           type="button"
           tabindex="-1"
