@@ -2,9 +2,10 @@
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
 (Rollout, step 0) is built, and so is the whole P0 set, with the first-run setup (SETUP-01) and
-the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, and Triage's P1 set: the record, the
+the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, Triage's P1 set: the record, the
 player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
-the wants. The results are recorded in "Spike results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
+the wants, and Settings' P1 set. The results are recorded in "Spike results". The rest is not
+built yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
 (`docs/ELECTRON_PLAN.md`).
@@ -236,9 +237,11 @@ stops tracing and takes the failure screenshot itself.
   helper still reaches the base route and fails the test ("the browser requested …"). The app
   opens with `window.open(url, "_blank", "noopener,noreferrer")`; the context's `page` event
   still sees that window.
-- `expectDownload()` resolves only when the download has completed: in the web host it awaits
-  `download.saveAs()` into the test's output folder; in Electron the `will-download` handler sets
-  that path and the helper waits for `done` with state `completed`.
+- `expectDownload()` resolves only when the download has completed: in the web host it arms the
+  page's `download` event before the action and awaits `download.saveAs()` into `downloads/` in
+  the test's output folder, which resolves once the download has completed and rejects for one
+  that failed; in Electron the `will-download` handler sets that path and the helper waits for
+  `done` with state `completed`. Built in the web host (SET-20).
 - `paste()` dispatches a synthetic `ClipboardEvent` with a `DataTransfer`, which is what Digga's
   `onpaste` handlers read. It needs no clipboard permission and never touches the OS clipboard,
   so it behaves the same in both hosts and in parallel workers. The suite does not press
@@ -294,7 +297,7 @@ database that a process still has open.
 | Template        | Built with                                                                           | Used by                            |
 | --------------- | ------------------------------------------------------------------------------------ | ---------------------------------- |
 | `empty`         | nothing, not even a config file                                                      | the setup                          |
-| `small`         | `dump load` of the August and then the September small dump                          | Triage, Twelves, Settings          |
+| `small`         | `dump load` of the August small dump                                                 | Triage, Twelves, Settings          |
 | `small-account` | `small`, then `import collection` and `import wantlist` for `dj`; username in config | wantlist, Maybe list, seller tests |
 | `bulk`          | `dump load` of the bulk dump                                                         | paging, strategies                 |
 
@@ -309,7 +312,8 @@ Per-test state goes on top, through documented paths only:
   the sandbox on, as for a real new user. For the loaded templates the host writes
   `digga.config.json` from `DEFAULT_CONFIG` with the test's overrides, `sandbox: false` unless the
   test asks for the sandbox, since the setup turns it off and live mode is the path most digging
-  takes. `diggaOptions.labels` digs only the labels it names: the config leaves every other label
+  takes. A test that needs live given state and then the sandbox turns the sandbox on in
+  Settings, as SET-20 does. `diggaOptions.labels` digs only the labels it names: the config leaves every other label
   of the small catalogue out (`filters.excludeLabels`), as `X` would, so a test reaches the
   records it is about without digging past others. `diggaOptions.config` changes any other
   setting, section by section (`{ queue: { limit: 5 } }`), typed against `Config`; the host
@@ -321,12 +325,17 @@ Per-test state goes on top, through documented paths only:
   which goes through `PUT /api/discogs/token` before the page opens, so the token lands wherever
   the host's `Secrets` keeps it: `secrets.env` in the web app, `safeStorage` in Electron. The
   environment token is `DISCOGS_TOKEN` in both hosts; the Electron `Secrets` must give it the
-  same precedence as the CLI's.
+  same precedence as the CLI's. A test asks for it with `diggaOptions.environmentToken`, which the
+  fixture passes to the server only when it starts with `e2e-` (SET-09).
 - **Decisions.** `app.given` writes verdicts, track marks and listens through the app's own
   `/api` before the page opens. The server refuses digging writes while the sandbox is on, so
   `given` writes with the sandbox off and switches it on afterwards when the test asks for it.
-  Built so far: `given.listen()` and `given.verdict()`, which takes the verdict's `decidedAt` so
-  a test can date its snoozes in order.
+  Built so far: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
+  test can date its snoozes in order, and `given.trackMark()`.
+- **Dump files.** `diggaOptions.dumpFiles` names small dumps by month (`july`, `august`,
+  `september`), which the fixture writes into the library's dumps folder before the server
+  starts (SET-16). The templates load their dump from a fixtures folder of their own, so a test's
+  dumps folder is otherwise empty.
 - **Jobs as given state.** A seller's shop is read through the job Settings' "Read shop" starts
   (`POST /api/jobs/import/seller`), and `given.sellerShop()` returns once `GET /api/jobs/:id`
   says `done`; a job that ends otherwise fails the test with its error.
@@ -371,7 +380,7 @@ the dump; a record with a run of tracks for `J`, `K`, `1` to `9` and a video's e
 label the account wants (decision 91); a record the seller `shopkeeper` has in a different
 pressing from the main release; Jungle and House records for the style picker and census; a
 release outside the default years for filter tests. The September dump adds three releases and
-drops one, so the last load has "added" and "missing" counts and a `load:<id>` scope. Videos
+drops one, so a load of it has small exact "added" and "missing" counts. Videos
 that YouTube has and no release lists, one titled after a track that has none, are there to be
 pasted (TRI-26).
 
@@ -379,10 +388,14 @@ Records that only some scenarios reach sit on labels that sort after those of th
 so the default queue starts as before, and a scenario digs them with `diggaOptions.labels`. The
 catalogue names the records that scenarios refer to (`FIRST_RECORD`, `TRACK_RUN`,
 `SAME_TUNE_ELSEWHERE` and so on) and says in a comment which scenarios they serve. Built so far:
-20 releases in one dump, and the release in no dump (see "The first Triage P1 slice" and "The
-second Triage P1 slice"). One dump is enough for "Added by the last dump load": every release came
-from that load, so `F` offers its records still to dig. The September dump waits for a scenario
-that needs a load's "missing" count or records that an earlier load did not have. Tracks can
+20 releases in the August dump, the release in no dump (see "The first Triage P1 slice" and "The
+second Triage P1 slice"), and the September dump (`SMALL_SEPTEMBER`): the August releases but
+"Brass Knuckle" (1902), and three releases on "Upfront Audio", a label that sorts after every
+other (`SEPTEMBER_ADDITIONS`). The templates load August only, so "Added by the last dump load"
+offers every record still to dig, as TRI-20 expects. data.discogs.com lists September for SET-17,
+whose update adds 3 releases and does not find 1; a held transfer stops at its `part-way`
+checkpoint, after 10 releases. A July dump with August's releases exists only as a file in a
+dumps folder (SET-16). `smallDump(month)` builds each once per worker (`fixtures/dump.ts`). Tracks can
 credit their own artists, as a compilation does, and the builder writes "Various" with Discogs'
 id 194, which Digga does not offer to dig. Every release has the same market data in the fake
 (`MARKET` in `support/fakes.ts`); per-release prices wait for a scenario that compares two.
@@ -445,8 +458,10 @@ declares the abort and the console error it causes with `app.expectProblems()`.
 State: accounts (`dj` with a collection of 5, a wantlist of 6 including one release in no dump,
 a private "Maybe" list 9001 and a public list 9002), a seller `shopkeeper` whose shop has a
 repress of a loaded master and a release in no dump, and the catalogue's releases. Built so far:
-every request in the table but the lists and the master: `GET /users/{u}/lists` answers no
-lists, and `GET /lists/{id}` and `GET /masters/{id}` wait for a scenario that reaches them; `dj` has a collection of 1 and a wantlist of 2, one of them in no dump;
+every request in the table but `GET /lists/{id}` and `GET /masters/{id}`, which wait for a
+scenario that reaches them; `dj` has a collection of 1, a wantlist of 2, one of them in no dump,
+the private list "Maybe" (9001) and the public list "Played out" (9002), which
+`GET /users/{u}/lists` answers on one page, the private one only for `dj`'s own token;
 and `shopkeeper`'s two listings, on one page. A Discogs request the fake has no route for fails
 the test as unplanned.
 
@@ -461,8 +476,8 @@ so a real token that leaks into a test run is caught instead of logged. The fake
 download with `Content-Length`. Per test: which dumps are listed, the listed size, the
 `Content-Length` sent, the transfer speed, failing after N bytes, a wrong checksum, `503` for
 every page, and checkpoints. Built so far (`fakes.dumps`): the listed dump, which the test names
-with `diggaOptions.listedDump` so it is listed from the app's first request, and without which
-the fake answers `404`; the listed size (`list(dump, { listedBytes })`, `null` for none); holds at
+with `diggaOptions.listedDump` (the bulk dump or the small September dump) so it is listed from
+the app's first request, and without which the fake answers `404`; the listed size (`list(dump, { listedBytes })`, `null` for none); holds at
 checkpoints; `set({ failAfterBytes })`; and `sentBytes`, what the transfer has sent so far. The
 rest comes with the scenarios that need it.
 
@@ -751,6 +766,21 @@ synchronise on completed requests and on the state the app sets after them:
   `GET /api/scopes` for the typed text has answered and the status no longer reads "Searching…";
   Enter in the picker ends once the `GET /api/queue` with that `scope` has answered, and Esc on a
   scope once the one without it has. A tracklist's retry ends with its `GET /api/releases/:id`.
+- Settings' actions end the same way (`pages/settings.ts`). Save, by button or `ControlOrMeta+S`,
+  ends once `PUT /api/settings` and the `GET /api/queue` the hidden Triage page sends after it have
+  answered and the bar reads "Saved. The queue has reloaded."; a token save once
+  `PUT /api/discogs/token` has answered and the button reads "Save token" again, by when the
+  status line reads the outcome; a job once its row's status cell reads the state the test waits
+  for; Cancel once the cancel and the `GET /api/jobs` after it have answered; Delete once
+  `DELETE /api/dumps/:name` has answered with the folder's new listing and the row has gone.
+- A response that must follow another is matched in order: the first wait notes its match inside
+  its own predicate (`waitForResponses()` in `pages/triage.ts`). Playwright runs predicates in the
+  order the responses arrive, but a callback chained to the first wait can run after both
+  responses have been dispatched, when they arrive together, and the second wait then never
+  matches. The Settings burn-in hung once in 60 runs on exactly that (see "The Settings P1 slice").
+- Settings' Delete asks with `window.confirm()`, and Playwright dismisses a dialog no listener
+  handles. `deleteDump()` registers a `once("dialog")` listener before the click, which records
+  the dialog's type and message and accepts or dismisses as the test says.
 - Some writes leave in a fixed order: the session saves verdicts one at a time, the player posts
   listens in order, and each paste sends its request at once. A request that should not exist
   would then be in the page's log before the answer to a later one, so a negative check waits for
@@ -849,6 +879,10 @@ The first Triage P1 slice added `data-video-id` on the tracklist's "Other videos
 needed no markup: its scenarios locate everything by role, name, `aria-keyshortcuts`, the
 existing handles and visible text.
 
+The Settings P1 slice added the rest of the Settings markup: `data-job-id` on the job rows, the
+names of the five sections, and the two Settings bullets of accessibility bug 3 (see "Markup
+audit").
+
 The setup path built items 3 and 4. `readSetup(deps, { freeBytes })` takes the dependencies it
 reads (`db`, `paths`, `dataDumps`) and the free-space function, whose default is the download's
 `freeBytesIn()`. In the loader, a timer reports whenever a second passes without a report, and
@@ -894,9 +928,13 @@ and some names that are missing or ambiguous.
      in an element the field references, after `style-search-hint`.
    - Settings' `reportProblem()` sets the custom validity and `aria-invalid`, but the message
      appears only in the save bar's status, not attached to the field. Give each problem an
-     element the field references, keeping its hint id.
+     element the field references, keeping its hint id. Fixed in the Settings P1 slice: the
+     batch and seek step fields reference `…-batch-problem` and `…-seek-problem` after their
+     hints, elements that show the field's message and are `hidden` while it has none (SET-03).
    - Settings' token field references its status line, but a refused token only adds the
-     `problem` class; the field gets no `aria-invalid`.
+     `problem` class; the field gets no `aria-invalid`. Fixed in the Settings P1 slice: the
+     field has `aria-invalid="true"` while the status line says why the token was not saved
+     (SET-08).
 4. **Live regions inserted together with their text.** The setup's error paragraphs
    (`{#if flow.error}<p role="alert">` in each step), the space alert in `CatalogueStep.svelte`,
    the "Connected as" status in `DiscogsStep.svelte` and the "stopped loading" notice in
@@ -957,7 +995,7 @@ identity or state to expose, a `data-testid` is the last resort, and the reason 
   `aria-labelledby` on the sections tests scope into (Sandbox, Library, Backups and exports,
   Discogs, Jobs) makes `getByRole("region", { name: "Jobs" })` work and gives screen-reader users
   landmarks on a long page. Discogs is inside the settings form; the form's other sections stay
-  unnamed.
+  unnamed. Built in the Settings P1 slice.
 - **The slips** (`Slip.svelte`): the last slip shows verdicts, passes, hidden labels and undos,
   so its name is "Last action". It becomes `role="group"` with that `aria-label`, keeping its
   `aria-live`. The next slip becomes a group labelled by its visible "Up next". A group gives the
@@ -1252,28 +1290,28 @@ them; scenarios with pushes use `small-account` with a saved token.
 
 ### Settings [`small` or `small-account`]
 
-| ID     | Scenario                                                                                                                                                                                                                                                       | P   |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| SET-01 | The form shows the saved config and "All saved."; a change reads "Unsaved changes."; Revert restores; Save and `ControlOrMeta+S` save ("Saved. The queue has reloaded."); a reload keeps it                                                                    | P1  |
-| SET-02 | The filter preview updates after a change without saving ("These filters match N records, M still to dig")                                                                                                                                                     | P1  |
-| SET-03 | An invalid batch or seek step marks the field (`aria-invalid`, `:invalid`), shows the problem and disables Save. After markup item 3: the message is attached to the field                                                                                     | P1  |
-| SET-04 | Hidden labels: one per line; a saved label leaves the queue; `X`'s labels appear here                                                                                                                                                                          | P1  |
-| SET-05 | Styles checkboxes appear with several universe styles and narrow the queue                                                                                                                                                                                     | P2  |
-| SET-06 | Order: one strategy change changes the first record in Triage; the shuffled order is stable across a reload (its seed is the server's UTC day)                                                                                                                 | P2  |
-| SET-07 | Player: the start-at slider (`aria-valuetext`) and the seek step reach the player (fake `startSeconds`, seek distance)                                                                                                                                         | P1  |
-| SET-08 | Token: saving `e2e-token-dj` says "Token saved." and whose; `e2e-token-refused` says "Not saved: …" and keeps the old one; Remove removes it                                                                                                                   | P1  |
-| SET-09 | A token from the environment: the field is disabled with the hint; `PUT /api/discogs/token` answers `409`                                                                                                                                                      | P1  |
-| SET-10 | [`small-account` with a saved token] Opening Settings costs about two Discogs requests (identity and lists; fake log), matching "Every request Digga makes"; on `small` it costs none                                                                          | P1  |
-| SET-11 | Maybe list: "Read my lists" fills the select with public and private lists; choosing one and saving enables `M` in Triage; later the lists load when Settings opens and the button reads "Reload lists"; a failing read shows the hint                         | P1  |
-| SET-12 | Currency: `P` then asks in the chosen currency and shows its symbol                                                                                                                                                                                            | P2  |
-| SET-13 | Jobs: Collection and Wantlist add a row that runs and ends done with its counts; Twelves shows the imports                                                                                                                                                     | P1  |
-| SET-14 | Jobs: a slow import (a page delayed 2 s at the fake) can be cancelled; the row ends cancelled once the page in flight has returned                                                                                                                             | P1  |
-| SET-15 | Jobs: History reads the fake home's history file; Maybe list is disabled until a list is saved; Read shop needs a username, reads `shopkeeper`, and `F`'s search then offers the seller                                                                        | P2  |
-| SET-16 | Dumps: the folder lists each dump with its size and use; Delete asks first (dismiss keeps it, accept deletes it); buttons are disabled while a dump job runs                                                                                                   | P1  |
-| SET-17 | "Update from the newest dump": one job, download then load; the Library section then counts what the load added and did not find. **Gap:** the header indicator appears only after a reload, since only the app's start and the setup check for a running load | P1  |
-| SET-18 | Load by file name from the datalist, with a limit and a dry run                                                                                                                                                                                                | P2  |
-| SET-19 | Backups: with given verdicts and a `relaunch()`, whose start writes the day's decisions backup, `/api/backups` lists it and Settings shows it. The first start cannot: it runs before the given state exists, and an empty library gets no backup              | P2  |
-| SET-20 | Exports: the three links download (completed, via `expectDownload`) JSON and CSV with the saved verdicts and marks, and without sandbox verdicts                                                                                                               | P1  |
+| ID     | Scenario                                                                                                                                                                                                                                                                                                                                                                            | P   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| SET-01 | The form shows the saved config and "All saved."; a change reads "Unsaved changes."; Revert restores; Save and `ControlOrMeta+S` save ("Saved. The queue has reloaded."); a reload keeps it                                                                                                                                                                                         | P1  |
+| SET-02 | The filter preview updates after a change without saving ("These filters match N records, M still to dig")                                                                                                                                                                                                                                                                          | P1  |
+| SET-03 | An invalid batch or seek step marks the field (`aria-invalid`, `:invalid`), shows the problem in the save bar and under the field, whose description has it after the hint, and disables Save; a valid value clears all of it                                                                                                                                                       | P1  |
+| SET-04 | Hidden labels: one per line; a saved label leaves the queue; `X`'s labels appear here                                                                                                                                                                                                                                                                                               | P1  |
+| SET-05 | Styles checkboxes appear with several universe styles and narrow the queue                                                                                                                                                                                                                                                                                                          | P2  |
+| SET-06 | Order: one strategy change changes the first record in Triage; the shuffled order is stable across a reload (its seed is the server's UTC day)                                                                                                                                                                                                                                      | P2  |
+| SET-07 | Player: the start-at slider (`aria-valuetext`) and the seek step reach the player (fake `startSeconds`, seek distance)                                                                                                                                                                                                                                                              | P1  |
+| SET-08 | [`small`] Token: saving `e2e-token-dj` says "Token saved." and whose, and the form takes the username the server adopted; `e2e-token-refused` says "Not saved: …", marks the field `aria-invalid` and keeps the old one; Remove removes it                                                                                                                                          | P1  |
+| SET-09 | [`small-account`, `DISCOGS_TOKEN=e2e-token-dj`] A token from the environment: the field is disabled with the hint; `PUT /api/discogs/token` answers `409`                                                                                                                                                                                                                           | P1  |
+| SET-10 | [`small-account` with a saved token] Opening Settings costs two Discogs requests, identity and lists (fake log), as "Every request Digga makes" says; on `small` it costs none                                                                                                                                                                                                      | P1  |
+| SET-11 | [`small-account` with a saved token] Maybe list: the lists load when Settings opens; a failing read shows the hint and "Read my lists", which reads them again and fills the select with the private and the public list; choosing one and saving enables `M` in Triage; back in Settings the lists load again, the button reads "Reload lists" and the select shows the saved list | P1  |
+| SET-12 | Currency: `P` then asks in the chosen currency and shows its symbol                                                                                                                                                                                                                                                                                                                 | P2  |
+| SET-13 | [`small` with the username `dj` and a saved token] Jobs: Collection and Wantlist add a row that runs (its page held at the fake) and ends done with its counts; the Library and Twelves show the imports                                                                                                                                                                            | P1  |
+| SET-14 | [`small` with the username `dj` and a saved token] Jobs: an import cancelled while its page is held at the fake reads running until the page has returned, then cancelled                                                                                                                                                                                                           | P1  |
+| SET-15 | Jobs: History reads the fake home's history file; Maybe list is disabled until a list is saved; Read shop needs a username, reads `shopkeeper`, and `F`'s search then offers the seller                                                                                                                                                                                             | P2  |
+| SET-16 | [the July, August and September dumps in the folder] Dumps: the folder lists each dump, newest first, with its size and use; Delete asks first (dismiss keeps it, accept deletes it); while a download held at the fake runs, the dump buttons and each Delete are disabled                                                                                                         | P1  |
+| SET-17 | [the September dump listed, its transfer held part-way] "Update from the newest dump": one job, download then load; the Library section then counts what the load added (3) and did not find (1). **Gap:** the header indicator appears only after a reload, since only the app's start and the setup check for a running load                                                      | P1  |
+| SET-18 | Load by file name from the datalist, with a limit and a dry run                                                                                                                                                                                                                                                                                                                     | P2  |
+| SET-19 | Backups: with given verdicts and a `relaunch()`, whose start writes the day's decisions backup, `/api/backups` lists it and Settings shows it. The first start cannot: it runs before the given state exists, and an empty library gets no backup                                                                                                                                   | P2  |
+| SET-20 | Exports, with given verdicts and a track mark and a verdict in the sandbox: the three links download (completed, via `expectDownload`) JSON and CSV with the saved verdicts and marks, and without the sandbox verdict                                                                                                                                                              | P1  |
 
 ### Persistence and lifecycle
 
@@ -1487,8 +1525,14 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    TRI-08, TRI-09, TRI-14, TRI-15, TRI-19, TRI-20, TRI-21 (with a gap), TRI-23, TRI-25, TRI-30,
    TRI-32, TRI-33, TRI-34, TRI-39, TRI-40 and TRI-42 (see "The second Triage P1 slice"). With them
    came `expectExternalOpen()`, `diggaOptions.config`, `given.verdict()` and `given.sellerShop()`,
-   and the fake's inventory. Next: the other families. Still to do for Triage: its P2 scenarios,
-   the fake's lists and masters, and the September dump, each when a scenario needs it.
+   and the fake's inventory. Settings' P1 set was done on 2026-10-01: SET-01, SET-02, SET-03,
+   SET-04, SET-07, SET-16 and SET-20, then SET-08, SET-09, SET-10, SET-11, SET-13, SET-14 and
+   SET-17 (with a gap; see "The Settings P1 slice"). With them came the Settings page object,
+   `expectDownload()` in the web host, `diggaOptions.environmentToken` and `dumpFiles`,
+   `given.trackMark()`, the fake's lists, and the small catalogue's July and September dumps.
+   Next: the other families (Twelves, the rest of Shell, Sandbox, Persistence, Accessibility and
+   the setup's P1 scenarios). Still to do for Triage and Settings: their P2 scenarios, and in the
+   fake `GET /lists/{id}` and the masters, each when a scenario needs it.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
    checks of the main screens, on Linux only, where snapshot updates need a human review.
@@ -1825,6 +1869,86 @@ work showed:
   Timed alternately against a worktree of the previous commit once the machine was quiet,
   `vp run verify` took 20.9 to 21.1 s against 20.7 to 21.7 s, and its smoke set 10.6 to 10.7 s against
   10.4 to 10.8 s, in three runs each.
+
+### The Settings P1 slice (web)
+
+Built on 2026-10-01 on the same machine and versions: SET-01, SET-02, SET-03, SET-04, SET-07,
+SET-16 and SET-20 in `specs/settings.e2e.ts`, which also holds SET-17 and its gap test, and
+SET-08, SET-09, SET-10, SET-11, SET-13 and SET-14 in the new `specs/settings-discogs.e2e.ts`:
+fifteen tests. With them came the Settings page object (`pages/settings.ts`),
+`expectDownload()` in the web host, `diggaOptions.environmentToken` and `diggaOptions.dumpFiles`,
+`given.trackMark()`, `dj`'s lists in the fake, the small catalogue's July and September dumps,
+and the Settings markup (see "Markup audit"). The work showed:
+
+- **The catalogue's dumps follow the design, and nothing earlier relied on the change.** The
+  templates now load the small catalogue as the August dump (`discogs_20260801_releases.xml.gz`,
+  until now named for 1 September), and the September dump, which drops "Brass Knuckle" and adds
+  three releases on "Upfront Audio", is what data.discogs.com lists for SET-17. The templates do
+  not load September, so "Added by the last dump load" still offers every record to dig on `small`
+  (TRI-20). No earlier test read the dump's date, and the 50 earlier tests passed on the
+  new catalogue and templates before the second group was written. SET-17's update added exactly
+  3 releases and did not find 1 in every run.
+- **Three product bugs, fixed, each with a vitest case that fails without the fix.**
+  - Saving the first token in Settings adopts its account as the username on the server, but
+    the form kept the empty username: the lists never loaded, and the next Save wrote the empty
+    username back over the adopted one. The setup reads the settings again after a token save;
+    Settings did not. `saveToken()` in `Settings.svelte` now reads the settings when the server's
+    username changed, and the form takes it unless the field was edited since
+    (`usernameAfterTokenSave()` in `settings/discogs.svelte.ts`, `tests/settings-state.test.ts`).
+    SET-08 failed on the empty field before the fix.
+  - A job that started and ended between two reads of the jobs never refreshed the counts:
+    `SettingsJobs` refreshed the stats only when a job it had seen running had ended. The
+    Wantlist import, started after the Discogs client's 1.1 s gap had passed, often ended within
+    milliseconds, so the Library kept "Discogs wantlist 0" (SET-13 failed once in 60 runs on 16
+    workers). `SettingsJobs.load()` now refreshes them when any job ended since its last read,
+    and not on the page's first read (`tests/settings-state.test.ts`).
+  - The Library said "It did not find 1 releases loaded before". The sentence is now
+    `missingReleasesNote()` in `src/client/settings/library.ts`, with
+    `tests/settings-library.test.ts`; SET-17 read the wrong copy before the fix.
+- **One harness bug, fixed: two responses in order.** The Triage and Settings page objects
+  waited for `PUT /api/settings` and then for the next `GET /api/queue`, with a flag set in a
+  callback chained to the first wait. When both responses reached Playwright together, both
+  events were dispatched before the callback ran, so the second wait missed its response and the
+  test hung: SET-11's Save hung once in 60 runs, while the page had sent the `GET` and read
+  "Saved. The queue has reloaded.". `waitForResponses()` in `pages/triage.ts` sets the flag in the
+  first predicate, which Playwright runs in event order; Save, Cancel and `X`/`Z` on a label use
+  it (see "Synchronisation").
+- **One gap, confirmed: SET-17's header indicator.** Settings' "Update from the newest dump"
+  does not ask the load status again, so with the transfer held part-way the header shows no
+  indicator until a reload, after which it reads "loading N%". The normal test asserts that; the
+  `test.fail` waits 5 s for the indicator without a reload and failed as expected in every run.
+- **Rows corrected.** SET-11's "Read my lists" shows only while no list has loaded: with a
+  username saved, Settings reads the lists when it opens, so the scenario starts from a failed
+  read (the fake answers `500` once, the page gets a declared `502`). SET-14 holds the import's
+  page at the fake instead of delaying it 2 s: the row read running after the cancel and the
+  next read of the jobs had answered, and cancelled once the page was released, in every run.
+  SET-13 holds its first page too, so the row is seen running. SET-10 counts exactly two requests,
+  identity and lists. SET-08 now names the username the form takes, SET-03 the attached message,
+  and the rows name their templates and given state.
+- **Observations, left for the owner.** Keys pressed in Settings, such as the arrows on the
+  start-at slider, give the page user activation, so Triage then shows the cued video as
+  "paused" rather than "waiting for Space" (SET-07 resumes it with Space). "Read my lists" is
+  enabled by the username typed in the form, but `GET /api/discogs/lists` reads the saved one: with
+  `dj` typed and not saved, a probe got `400` "Set your Discogs username in Settings first".
+- **Downloads work through the base route.** The export links are same-origin, so the base route
+  fetches them with `route.fetch()` and fulfills them; Chromium still treats the
+  `Content-Disposition: attachment` answer as a download, and `saveAs()` wrote all three files in
+  every run.
+- **Durations.** On five workers (`vp run e2e`) the 65 tests take 30.4 s and `vp run e2e` 32.0 s
+  with the client build, against 25.4 s and 26.9 s for the 50 before. The new tests take 0.7 to
+  5.7 s each: SET-03 0.7 s, SET-20 0.9 s, SET-07 0.9 s, SET-04 0.9 s, SET-01 1.0 s, SET-02
+  1.3 s, SET-08 1.4 s, SET-17 2.1 s, SET-16 2.2 s, SET-10 3.0 s, SET-09 3.1 s, SET-11 4.8 s,
+  SET-14 5.1 s, SET-13 5.2 s and SET-17's gap 5.7 s, 5 s of it its failing expectation. SET-09
+  and SET-10 wait for the Discogs client's 1.1 s gap after the saved token's identity check;
+  SET-11, SET-13 and SET-14 wait for it two or three times.
+- **Stable.** The first group passed 70 of 70 runs at `--repeat-each=10` on 16 workers, and both
+  Settings specs 150 of 150 after the fixes above. The whole suite passed 1,300 of 1,300 runs at
+  `--repeat-each=20` on 16 workers on the 10-core machine, in 7.4 minutes; SETUP-01's, TRI-21's and
+  SET-17's `test.fail` failed as expected in every run. The medians of the new tests in that
+  burn-in were 3.7 to 8.0 s (SET-13 the slowest), against 2.9 s for TRI-02 and 8.0 s for TRI-07.
+- **`verify` has not grown.** The smoke set is still the P0 set. Timed alternately against a
+  worktree of the previous commit, `vp run verify` took 20.8 to 21.0 s against 20.8 to 21.2 s,
+  and its smoke set 10.5 to 10.6 s against 10.4 to 10.8 s, in three runs each.
 
 ## Risks and open questions
 
