@@ -1,10 +1,25 @@
 import { expect, type Locator, type Response } from "@playwright/test";
+import type { ColorScheme } from "../../../src/shared/config.ts";
 import type { Job, JobStatus } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
+import { HeaderPage } from "./header.ts";
 import { isRequest, waitForResponses } from "./triage.ts";
 
 /** What the save bar says once a save and the queue's reload have answered. */
 export const SAVED_COPY = "Saved. The queue has reloaded.";
+
+/** What the page says once the sandbox has switched, by the mode it switched to. */
+const SANDBOX_SWITCHED = {
+  on: "Back in the sandbox: verdicts stay in this tab again.",
+  off: "Sandbox off: verdicts are saved from now on.",
+};
+
+/** The Appearance radios' labels; the component holds them, not a module the tests can import. */
+const COLOR_SCHEME_LABEL: Record<ColorScheme, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+};
 
 /** A job's row can wait for Discogs' 1.1 s spacing several times, and a dump job for its worker. */
 const JOB_TIMEOUT_MS = 15_000;
@@ -26,6 +41,21 @@ export class SettingsPage {
 
   get sandbox(): Locator {
     return this.root.getByRole("region", { name: "Sandbox" });
+  }
+
+  /** The Sandbox section's button, which turns the sandbox off or back on. */
+  get sandboxSwitch(): Locator {
+    return this.sandbox.getByRole("button", {
+      name: /^(Turn off the sandbox|Back to the sandbox|Switching…)$/,
+    });
+  }
+
+  get appearance(): Locator {
+    return this.root.getByRole("group", { name: "Appearance" });
+  }
+
+  colorScheme(scheme: ColorScheme): Locator {
+    return this.appearance.getByRole("radio", { name: COLOR_SCHEME_LABEL[scheme] });
   }
 
   get library(): Locator {
@@ -138,6 +168,39 @@ export class SettingsPage {
   /** The same with Cmd+S or Ctrl+S, wherever the focus is. */
   async saveWithShortcut(): Promise<void> {
     await this.#saveBy(() => this.app.page.keyboard.press("ControlOrMeta+s"));
+  }
+
+  /**
+   * The Sandbox section's button. The page saves the mode at once, switches the api, and the
+   * hidden Triage page reads its queue in the new mode; returns once both have answered, the page
+   * says so and the header's sandbox stamp follows.
+   */
+  async switchSandbox(mode: "on" | "off"): Promise<void> {
+    const header = new HeaderPage(this.app);
+    const { first: saved, next: queue } = waitForResponses(
+      this.app.page,
+      (response) => isRequest(response, "PUT", "/api/settings"),
+      (response) => isRequest(response, "GET", "/api/queue"),
+    );
+    const label = mode === "on" ? "Back to the sandbox" : "Turn off the sandbox";
+    await expect(this.sandboxSwitch).toHaveText(label);
+    await this.sandboxSwitch.click();
+    await this.#completed(await saved);
+    await this.#completed(await queue);
+    await expect(this.root.getByText(SANDBOX_SWITCHED[mode], { exact: true })).toBeVisible();
+    if (mode === "on") await expect(header.sandbox).toBeVisible();
+    else await expect(header.sandbox).toBeHidden();
+  }
+
+  /**
+   * An Appearance radio, which the page saves at once without restarting the queue; returns once
+   * the save has answered and the root element carries the scheme.
+   */
+  async chooseColorScheme(scheme: ColorScheme): Promise<void> {
+    const saved = this.#response("PUT", "/api/settings");
+    await this.colorScheme(scheme).check();
+    await this.#completed(await saved);
+    await expect(this.app.page.locator(":root")).toHaveAttribute("data-color-scheme", scheme);
   }
 
   /** Types into a field that takes its value on change, which fires when the field loses focus. */

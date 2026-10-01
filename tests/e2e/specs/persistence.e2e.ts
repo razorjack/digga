@@ -1,8 +1,9 @@
+import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { MARK_COPY } from "../../../src/client/twelves/model.ts";
 import type { DecisionsExport } from "../../../src/shared/api.ts";
 import { releaseById } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { PAST_PUSH_GRACE_MS, TriagePage, verdictKey } from "../pages/triage.ts";
+import { isRequest, PAST_PUSH_GRACE_MS, TriagePage, verdictKey } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -47,6 +48,39 @@ test(
     await app.relaunch();
     await app.open();
     await expectKept(app, kept);
+  },
+);
+
+test(
+  "PER-05 after restartServer() the open page keeps its session without a reload, and the next verdict is saved",
+  { tag: ["@PER-05", "@P1", "@web"] },
+  async ({ app }) => {
+    const triage = new TriagePage(app);
+    const header = new HeaderPage(app);
+    await app.open();
+    const first = await triage.currentKey();
+    // The header reads the stats 0.5 s after a verdict, the last request the verdict causes.
+    const refreshed = app.page.waitForResponse((response) =>
+      isRequest(response, "GET", "/api/stats"),
+    );
+    await triage.judge("rejected");
+    await (await refreshed).finished();
+    await expect(header.root).toContainText("1 dug");
+    const second = await triage.currentKey();
+    const origin = app.origin;
+
+    await app.restartServer();
+    expect(app.servers).toHaveLength(2);
+    expect(app.origin).toBe(origin);
+
+    // No reload: the record, the slip and the session's count are as the old server left them.
+    expect(await triage.currentKey()).toBe(second);
+    await expect(triage.lastAction).toContainText(STATUS_COPY.rejected);
+    await triage.judge("snoozed");
+    await expect(header.root).toContainText("2 dug");
+    await expect(header.root).toContainText("+2 this session");
+    expect(await exportedStatus(app, first)).toBe("rejected");
+    expect(await exportedStatus(app, second)).toBe("snoozed");
   },
 );
 

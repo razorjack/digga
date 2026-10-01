@@ -1,4 +1,4 @@
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Request } from "@playwright/test";
 import { type BrowserGuardLog, emptyGuardLog } from "./browser-guard.ts";
 
 /**
@@ -37,6 +37,9 @@ export class BrowserLog {
     consoleErrors: [],
     pageErrors: [],
   };
+  /** The page's /api requests that have neither finished nor failed yet. */
+  readonly #inFlight = new Set<Request>();
+  #quiet: PromiseWithResolvers<void> | null = null;
   readonly #expected: Required<ExpectedProblems> = {
     aborted: [],
     apiErrors: [],
@@ -45,6 +48,8 @@ export class BrowserLog {
   };
 
   watch(context: BrowserContext): void {
+    // A closed context's requests never settle; only the new page's count.
+    this.#inFlight.clear();
     context.on("weberror", (error) => this.#found.pageErrors.push(String(error.error())));
     context.on("console", (message) => {
       if (message.type() !== "error" || message.text().startsWith(FAILED_RESPONSE_MESSAGE)) return;
@@ -52,8 +57,12 @@ export class BrowserLog {
     });
     context.on("request", (request) => {
       const { pathname } = new URL(request.url());
-      if (pathname.startsWith("/api/")) this.apiRequests.push(`${request.method()} ${pathname}`);
+      if (!pathname.startsWith("/api/")) return;
+      this.apiRequests.push(`${request.method()} ${pathname}`);
+      this.#inFlight.add(request);
     });
+    context.on("requestfinished", (request) => this.#settle(request));
+    context.on("requestfailed", (request) => this.#settle(request));
     context.on("response", (response) => {
       const { pathname } = new URL(response.url());
       if (pathname.startsWith("/api/") && response.status() >= 400)
@@ -61,6 +70,19 @@ export class BrowserLog {
           `${response.request().method()} ${pathname} answered ${response.status()}`,
         );
     });
+  }
+
+  /** Resolves once none of the page's /api requests is on its way. */
+  quiet(): Promise<void> {
+    if (this.#inFlight.size === 0) return Promise.resolve();
+    this.#quiet ??= Promise.withResolvers();
+    return this.#quiet.promise;
+  }
+
+  #settle(request: Request): void {
+    if (!this.#inFlight.delete(request) || this.#inFlight.size > 0) return;
+    this.#quiet?.resolve();
+    this.#quiet = null;
   }
 
   recordAbort(request: string): void {

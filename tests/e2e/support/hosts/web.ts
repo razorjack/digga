@@ -4,7 +4,7 @@ import { videoCatalogue } from "../../fixtures/catalogue.ts";
 import { AppApiClient, type DiggaApp, FakeYouTubeHandle, Given, PageClock } from "../app.ts";
 import { guardContext } from "../browser-guard.ts";
 import { BrowserLog, type ExpectedProblems } from "../browser-log.ts";
-import { abortRequests, type RequestMatch } from "../fault-routes.ts";
+import { type AbortedRequests, abortRequests, type RequestMatch } from "../fault-routes.ts";
 import { fakeYouTubeScript } from "../fake-youtube.ts";
 import {
   type DiggaEnvironment,
@@ -105,6 +105,32 @@ export class WebApp implements DiggaApp {
     await this.#start(async () => {});
   }
 
+  /**
+   * Stops the server and starts a new one on the same port, so the open page and its session
+   * stay. It first waits until none of the page's requests is on its way; a request the page
+   * sends while no server runs fails, as it would for a user, and the test declares it. Another
+   * process can take the port in between, and the restart then fails with that reason instead
+   * of moving to another port, where the page could not follow.
+   */
+  async restartServer(options: { crash?: boolean } = {}): Promise<void> {
+    const launch = this.#current;
+    const { port } = launch.server;
+    await this.log.quiet();
+    if (options.crash) await launch.server.crash();
+    else await launch.server.stop();
+    try {
+      const server = await startDiggaServer(this.#options.environment, { port });
+      this.servers.push(server);
+      this.#launch = { ...launch, server };
+    } catch (error) {
+      if (String(error).includes("EADDRINUSE"))
+        throw new Error(`another process took port ${port} while the server restarted`, {
+          cause: error,
+        });
+      throw error;
+    }
+  }
+
   /** The command runs beside the server, on the same library, with the same isolation. */
   async cli(args: string[]): Promise<DiggaRun> {
     return runDigga(args, this.#options.environment);
@@ -167,8 +193,11 @@ export class WebApp implements DiggaApp {
     return { name, path: file };
   }
 
-  async abortRequests(match: RequestMatch, options: { times?: number } = {}): Promise<void> {
-    await abortRequests(this.context, match, {
+  async abortRequests(
+    match: RequestMatch,
+    options: { times?: number } = {},
+  ): Promise<AbortedRequests> {
+    return abortRequests(this.context, match, {
       times: options.times ?? 1,
       onAbort: (request) => this.log.recordAbort(request),
     });

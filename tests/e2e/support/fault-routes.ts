@@ -7,19 +7,25 @@ export interface RequestMatch {
   path: string;
 }
 
+/** Lets the matching requests through again; the aborts so far stay in the log. */
+export interface AbortedRequests {
+  lift(): Promise<void>;
+}
+
 /**
- * Aborts the page's next `times` requests that match, as a dropped connection would; the
- * transport failure is the one thing a test may fake about Digga's own /api (docs/E2E_TESTING.md,
- * "The fake services"). Registered after the base route, it passes every other request back to
- * it with route.fallback(), since Playwright tries the newest matching route first.
+ * Aborts the page's next `times` requests that match, as a dropped connection would, or every
+ * one until lift() with `times: Infinity`; the transport failure is the one thing a test may fake
+ * about Digga's own /api (docs/E2E_TESTING.md, "The fake services"). Registered after the base
+ * route, it passes every other request back to it with route.fallback(), since Playwright tries
+ * the newest matching route first.
  */
 export async function abortRequests(
   context: BrowserContext,
   match: RequestMatch,
   options: { times: number; onAbort: (request: string) => void },
-): Promise<void> {
+): Promise<AbortedRequests> {
   let remaining = options.times;
-  await context.route("**/*", async (route: Route) => {
+  const handler = async (route: Route) => {
     const request = route.request();
     const path = decodeURIComponent(new URL(request.url()).pathname);
     if (remaining === 0 || request.method() !== match.method || path !== match.path) {
@@ -29,5 +35,7 @@ export async function abortRequests(
     remaining -= 1;
     options.onAbort(`${match.method} ${match.path}`);
     await route.abort("failed");
-  });
+  };
+  await context.route("**/*", handler);
+  return { lift: () => context.unroute("**/*", handler) };
 }

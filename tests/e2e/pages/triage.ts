@@ -365,6 +365,15 @@ export class TriagePage {
     return this.app.expectExternalOpen(() => this.app.page.keyboard.press("s"));
   }
 
+  /** Enter after the queue failed to load: returns once it has loaded and a record shows. */
+  async retryQueue(): Promise<void> {
+    await expect(this.root.getByText("The queue did not load.", { exact: true })).toBeVisible();
+    const loaded = this.#response("GET", "/api/queue");
+    await this.app.page.keyboard.press("Enter");
+    await this.#completed(await loaded);
+    await expect(this.record).toBeVisible();
+  }
+
   /** Enter after the tracklist failed to load: returns once it has loaded and shows. */
   async retryTracklist(): Promise<void> {
     await expect(this.root.getByText(/^The tracklist did not load/)).toBeVisible();

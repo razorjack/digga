@@ -4,8 +4,9 @@ Status: proposed on 2026-09-30 and revised the same day after two rounds of revi
 (Rollout, step 0) is built, and so is the whole P0 set, with the first-run setup (SETUP-01) and
 the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, Triage's P1 set: the record, the
 player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
-the wants, Settings' P1 set, and Twelves' P1 set with the `bulk` template. The results are
-recorded in "Spike results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
+the wants, Settings' P1 set, Twelves' P1 set with the `bulk` template, and the P1 sets of Shell,
+Sandbox and Persistence with `restartServer()`. The results are recorded in "Spike results". The rest is not built
+yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
 (`docs/ELECTRON_PLAN.md`).
@@ -196,26 +197,35 @@ export interface DiggaApp {
   readonly youtube: FakeYouTubeHandle;
   /** The page's /api requests so far, over every launch, as "METHOD /api/path". */
   apiRequests(): string[];
-  /** Aborts the page's next matching requests (one by default), for the current launch. */
+  /**
+   * Aborts the page's next matching requests (one by default), for the current launch; with
+   * `times: Infinity`, every one until the test calls lift().
+   */
   abortRequests(
     match: { method: string; path: string },
     options?: { times?: number },
-  ): Promise<void>;
+  ): Promise<{ lift(): Promise<void> }>;
   /** Declares aborts, /api errors, console errors and page errors the test causes on purpose. */
   expectProblems(problems: ExpectedProblems): void;
 }
 ```
 
 **Web host.** It prepares the library, config and fake home, spawns the server, prepares a
-browser context (below) and opens the page. Everything above is built in the web host but
-`restartServer()`; `cli()` runs the command through `spawnDigga()` with the test's environment
+browser context (below) and opens the page. Everything above is built in the web host; `cli()` runs the command through `spawnDigga()` with the test's environment
 and resolves when it exits, with a `null` code when a signal ended it. The console, page-error and request collectors are
 attached to the context. `relaunch()` closes the context first, so no request of the page meets a
 stopped server, then stops the server, and starts both again with the whole preparation and new
 collectors; the port may change. The collectors feed one log per test, so a problem from an
 earlier launch still fails the test. `restartServer()` keeps the port, so the open page
-reconnects without a reload. Another worker's `--port 0` could take the port in between; the
-helper then fails with that reason rather than retrying on another port.
+reconnects without a reload. It first waits until none of the page's `/api` requests is in
+flight (the browser log counts them from Playwright's `request`, `requestfinished` and
+`requestfailed` events), then stops the server over IPC, or kills it with `crash`, and starts
+`digga serve --port <the same port>`. A request the page sends while no server runs fails: the
+base route records the failed fetch and Chromium logs "Failed to load resource:
+net::ERR_FAILED", which fails the test unless declared. Waiting for timers is the test's part:
+PER-05 waits for the stats refresh its verdict schedules. Another worker's `--port 0` could take
+the port in between; the restart then fails with "another process took port N while the server
+restarted" rather than moving to another port, where the page could not follow.
 
 **Electron host.** `relaunch()` quits the app and launches it again on the same library, with
 the same preparation. `restartServer()` is not available: the server lives in the main process,
@@ -455,7 +465,10 @@ Digga's own `/api` is never faked. Tests reach a state by driving the real serve
 only exception is transport failure: a `route()` can abort or delay one request to test the "did
 not load" and "not saved" states, since a real server does not fail on demand.
 `app.abortRequests({ method, path }, { times })` registers such a route on the context; the test
-declares the abort and the console error it causes with `app.expectProblems()`.
+declares the abort and the console error it causes with `app.expectProblems()`. With
+`times: Infinity` the route aborts every match until the test calls `lift()` on the handle it
+returns, for requests whose number the page's polling makes unknown (SHELL-07). Every abort is
+still recorded and must be declared.
 
 **Discogs API** (`https://api.discogs.com`), every endpoint `src/server/discogs/client.ts` calls:
 
@@ -811,6 +824,29 @@ synchronise on completed requests and on the state the app sets after them:
   `aria-current="true"`; Enter on a snoozed record once Triage shows the record under the round's
   banner. A flash with no request behind it, such as a verdict key on the Tracks shelf, comes from
   the key press itself, so the check that nothing was sent can follow it at once.
+- The Keys dialog's actions (`pages/dialogs.ts`): `?` ends once the dialog is visible. A close,
+  by `?` again, Esc, the close button or a click on the backdrop, ends once the dialog's `close`
+  event has reached a listener the page object added before the action, and the dialog is
+  hidden. The browser hides the dialog before it fires `close`, and the app learns of the close
+  only from that event, so a page key pressed between the two would still find the help open;
+  the app's listener was added first, so it has run by then. The listener goes in through
+  `evaluateHandle()`, which returns at once: a first version started `locator.evaluate()`
+  without awaiting it, the key press won the race, and the hidden dialog no longer matched the
+  locator, so the wait hung.
+- Settings' sandbox switch (`switchSandbox()`) ends once `PUT /api/settings` and the
+  `GET /api/queue` that the hidden Triage page sends in the new mode have answered, the page says
+  it switched, and the header's sandbox stamp shows or has gone. An Appearance radio
+  (`chooseColorScheme()`) ends once its `PUT /api/settings` has answered and the root element
+  carries the scheme in `data-color-scheme`.
+- A key that should do nothing is checked in the page: a page key sets the hash inside its
+  keydown handler, and the handler has run when `keyboard.press()` returns, so `location.hash`
+  read with `evaluate()` straight after is exact (SHELL-03, SHELL-04). `page.url()` follows a hash
+  change through a separate event. Against a build without the guards the hash had changed by
+  then in every run.
+- A negative check after a push grace that a mode switch interrupted (SBX-04, SBX-07) runs the
+  clock past the grace, then waits for the answer to a later request, the `GET /api/queue` that
+  `T` sends. Playwright delivers the browser's events in order, so a request that the grace's end
+  started is in the page's log by then.
 - A response that must follow another is matched in order: the first wait notes its match inside
   its own predicate (`waitForResponses()` in `pages/triage.ts`). Playwright runs predicates in the
   order the responses arrive, but a callback chained to the first wait can run after both
@@ -1195,20 +1231,20 @@ TRI-13, SBX-01, PER-01 and PER-04.
 
 ### Shell and navigation
 
-| ID       | Scenario                                                                                                                                                                                                                                                   | P   |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| SHELL-01 | A loaded library opens on Triage: title "Triage – Digga", header counts dug and to go, the first record                                                                                                                                                    | P0  |
-| SHELL-02 | `T`, `W` and `,` switch pages; `aria-current="page"`, the hash and the title follow                                                                                                                                                                        | P0  |
-| SHELL-03 | Page keys are ignored in a text field, and with Cmd, Ctrl or Alt; they work with a checkbox focused (decision 60)                                                                                                                                          | P1  |
-| SHELL-04 | `?` opens the Keys dialog with the current page's groups; Esc, the close button and the backdrop close it; page keys stay quiet while it is open; focus does not stay inside                                                                               | P1  |
-| SHELL-05 | With the sandbox on, the header stamp links to `#/settings/sandbox`, which highlights and focuses the switch                                                                                                                                               | P1  |
-| SHELL-06 | Opened on `127.0.0.1`, the page shows the warning with the `localhost` link (**web**)                                                                                                                                                                      | P2  |
-| SHELL-07 | Settings load normally; `route` aborts `/api/queue*` and `/api/stats*`: the header reads "Server unreachable" (it does only while stats have never loaded) and Triage "The queue did not load"; once requests pass, Enter loads the queue                  | P1  |
-| SHELL-08 | An unknown hash opens Triage                                                                                                                                                                                                                               | P2  |
-| SHELL-09 | Appearance: System follows the emulated scheme; Light and Dark apply at once (`data-color-scheme`, computed `color-scheme`), survive a reload, and do not restart the Triage queue                                                                         | P1  |
-| SHELL-10 | Browser Back and Forward move between pages and setup steps (**web**; Electron if the window keeps history)                                                                                                                                                | P2  |
-| SHELL-11 | At 840 px wide the Triage columns are stacked (980 px and below) and the header wraps (860 px and below); every control stays reachable                                                                                                                    | P2  |
-| SHELL-12 | **Gap.** `/api/settings` fails when the app opens: today Triage never starts its queue and Enter does nothing, since both wait for settings; the Settings page says "Settings did not load: …" without a retry. Proposed: Triage says so too, with a retry | P2  |
+| ID       | Scenario                                                                                                                                                                                                                                                                                             | P   |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| SHELL-01 | A loaded library opens on Triage: title "Triage – Digga", header counts dug and to go, the first record                                                                                                                                                                                              | P0  |
+| SHELL-02 | `T`, `W` and `,` switch pages; `aria-current="page"`, the hash and the title follow                                                                                                                                                                                                                  | P0  |
+| SHELL-03 | Page keys are ignored in a text field (Settings' username), and with Cmd, Ctrl or Alt; they work with a clicked checkbox focused (decision 60)                                                                                                                                                       | P1  |
+| SHELL-04 | `?` opens the Keys dialog with the current page's groups (Triage's and Twelves'); Esc, the close button, the backdrop and `?` again close it; page and verdict keys stay quiet while it is open; after each close the body has focus                                                                 | P1  |
+| SHELL-05 | With the sandbox on, the header stamp links to `#/settings/sandbox`, which highlights the Sandbox section and focuses the switch. The highlight is drawn only (a background and an inset bar), so the test reads the computed `box-shadow`, and `none` on `#/settings`                               | P1  |
+| SHELL-06 | Opened on `127.0.0.1`, the page shows the warning with the `localhost` link (**web**)                                                                                                                                                                                                                | P2  |
+| SHELL-07 | Settings load normally; `route` aborts `/api/queue*` and `/api/stats*` until lifted: the header reads "Server unreachable" (it does only while stats have never loaded) and Triage "The queue did not load"; once requests pass, Enter loads the queue, and a page change brings the header's counts | P1  |
+| SHELL-08 | An unknown hash opens Triage                                                                                                                                                                                                                                                                         | P2  |
+| SHELL-09 | Appearance: System follows the emulated scheme; Light and Dark apply at once (`data-color-scheme`, computed `color-scheme`), survive a reload, and do not restart the Triage queue                                                                                                                   | P1  |
+| SHELL-10 | Browser Back and Forward move between pages and setup steps (**web**; Electron if the window keeps history)                                                                                                                                                                                          | P2  |
+| SHELL-11 | At 840 px wide the Triage columns are stacked (980 px and below) and the header wraps (860 px and below); every control stays reachable                                                                                                                                                              | P2  |
+| SHELL-12 | **Gap.** `/api/settings` fails when the app opens: today Triage never starts its queue and Enter does nothing, since both wait for settings; the Settings page says "Settings did not load: …" without a retry. Proposed: Triage says so too, with a retry                                           | P2  |
 
 ### First run (`#/setup`) [`empty`, fake data.discogs.com serving the bulk dump]
 
@@ -1308,8 +1344,8 @@ them; scenarios with pushes use `small-account` with a saved token.
 | SBX-01 | [`small-account` with a saved token] With the sandbox on, verdicts, marks, notes, listens, `A` and `Z` send no request to `/api/verdicts`, `/api/track-verdicts`, `/api/listen-log` or `/api/discogs/wantlist`, and the fake Discogs gets no `PUT` or `DELETE`; the slips say "Sandbox: nothing was saved.", and `A` ends with "Added to your wantlist (sandbox: nothing sent).", after which the logs are read | P0  |
 | SBX-02 | Sandbox verdicts show in Twelves and the counts; a reload drops them                                                                                                                                                                                                                                                                                                                                            | P1  |
 | SBX-03 | Turning the sandbox off: the next verdict is saved; the sandbox's verdicts and undo history are gone; turning it on again starts an empty sandbox                                                                                                                                                                                                                                                               | P1  |
-| SBX-04 | A want given in the sandbox with the clock paused, then the sandbox turned off within the grace: after `runFor(2000)` no `PUT` ever reaches the fake (decision 55)                                                                                                                                                                                                                                              | P1  |
-| SBX-05 | Setup work is real in the sandbox: a collection import fills the Owned shelf; `P` reaches the fake                                                                                                                                                                                                                                                                                                              | P1  |
+| SBX-04 | [`small-account` with a saved token] A want given in the sandbox with the clock paused, then the sandbox turned off within the grace: after `runFor(2000)` the page sends no wantlist request and no `PUT` reaches the fake (decision 55); the live queue offers the record again, which has no verdict                                                                                                         | P1  |
+| SBX-05 | [`small` with the username `dj` and a saved token] Setup work is real in the sandbox: a collection import fills the Owned shelf, which a reload keeps; `P` reaches the fake                                                                                                                                                                                                                                     | P1  |
 | SBX-06 | The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab                                                                                                                                                                                                                                                                                                                        | P2  |
 | SBX-07 | [`small-account` with a saved token] A want given live with the clock paused, then the sandbox turned on within the grace: the verdict stays saved (export); after `runFor(2000)` the pending push has been dropped with the live history (no `PUT`), and Twelves marks the want as not on the wantlist                                                                                                         | P1  |
 
@@ -1369,7 +1405,7 @@ them; scenarios with pushes use `small-account` with a saved token.
 | PER-02 | After further changes, `digga backup` writes today's decisions; `digga restore` of that file into a fresh `small` library brings the verdicts back into Twelves                                                                                                                  | P2  |
 | PER-03 | `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful `relaunch()` during one records it cancelled once its page in flight has returned; Settings shows each                                                                              | P2  |
 | PER-04 | [`small-account` with a saved token] The server does not take a want (`route` aborts `POST /api/verdicts` once): "The verdict was not saved: …", the record comes back, and after `runFor(2000)` nothing has reached the fake Discogs; the same key again saves it and pushes it | P0  |
-| PER-05 | `restartServer()` in the middle of a session: the open page keeps working without a reload, and the next verdict is saved (**web**)                                                                                                                                              | P1  |
+| PER-05 | `restartServer()` in the middle of a session, once the verdict's stats refresh has answered: the open page keeps its record, slip and session count without a reload, and the next verdict is saved (**web**)                                                                    | P1  |
 
 ### Accessibility
 
@@ -1562,9 +1598,12 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    listing, the checksum, holds at checkpoints and `failAfterBytes`; the checkpoint builder and the
    bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
    its burn-in; the layout in AGENTS.md. `e2e:smoke` joined `verify` on 2026-10-01, as the owner
-   decided. The `bulk` template and `app.cli()` followed with Twelves' P1 set on 2026-10-01. Still
-   to do: the rest of the fake services' settings and of the Discogs API (the masters), the move
-   to `tools/dev/fake-services.ts`, `restartServer()`, and the page objects for dialogs.
+   decided. The `bulk` template and `app.cli()` followed with Twelves' P1 set on 2026-10-01, and
+   with the Shell, Sandbox and Persistence P1 sets the same day: `restartServer()` in the web
+   host; the dialogs page object (`pages/dialogs.ts`, the Keys dialog; the scope picker stays in
+   `TriagePage`); and aborts that last until lifted. Still to do: the rest of the fake services'
+   settings and of the Discogs API (the masters), the move to `tools/dev/fake-services.ts`, and
+   the practice card's page object.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
@@ -1582,10 +1621,15 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    TWL-12, TWL-13 and TWL-14, then TWL-07, TWL-09, TWL-10, TWL-11 and TWL-03 (see "The Twelves
    P1 slice"). With them came the Twelves page object's actions, the `bulk` template,
    `app.cli()`, `diggaOptions.decisionsBackup` with `fixtures/decisions.ts`, the fake's
-   `GET /lists/{id}`, and the markup of accessibility bug 2. Next: the other families (the rest of
-   Shell, Sandbox, Persistence, Accessibility and the setup's P1 scenarios). Still to do for
-   Triage, Settings and Twelves: their P2 scenarios, and in the fake the masters, when a scenario
-   needs them.
+   `GET /lists/{id}`, and the markup of accessibility bug 2. The P1 sets of Shell, Sandbox and
+   Persistence were done on 2026-10-01: SHELL-03, SHELL-04, SHELL-05, SHELL-07, SHELL-09, SBX-02,
+   SBX-03, SBX-04, SBX-05, SBX-07 and PER-05 (see "The Shell, Sandbox and Persistence P1 slice").
+   With them came `restartServer()`, the Keys dialog's page object, Settings' sandbox switch and
+   Appearance actions, Triage's queue retry, and lasting aborts. Next: the Accessibility family
+   with axe and the setup's P1 scenarios. Still to do for Triage, Settings, Twelves, Shell,
+   Sandbox and Persistence: their P2 scenarios (for these three families SHELL-06, SHELL-08,
+   SHELL-10, SHELL-11, SHELL-12, SBX-06, PER-02 and PER-03), and in the fake the masters, when a
+   scenario needs them.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
    checks of the main screens, on Linux only, where snapshot updates need a human review.
@@ -2090,6 +2134,81 @@ audit"). The work showed:
   Timed alternately against a worktree of the previous commit, `vp run verify` took 21.2 to
   21.9 s against 21.3 to 21.9 s, and its smoke set 10.6 to 10.8 s against 10.7 to 10.9 s, in three
   runs each.
+
+### The Shell, Sandbox and Persistence P1 slice (web)
+
+Built on 2026-10-01 on the same machine and versions: SHELL-03, SHELL-04, SHELL-05, SHELL-07 and
+SHELL-09 in `specs/shell.e2e.ts`, SBX-02, SBX-03, SBX-04, SBX-05 and SBX-07 in
+`specs/sandbox.e2e.ts`, and PER-05 in `specs/persistence.e2e.ts`: eleven tests, tagged P1. With
+them came `restartServer()` in the web host, the Keys dialog's page object (`pages/dialogs.ts`),
+Settings' `switchSandbox()` and `chooseColorScheme()`, Triage's `retryQueue()`, aborts that last
+until lifted. The work showed:
+
+- **No product bug, and no markup needed.** Each scenario passed against the code as it is. Rows
+  corrected: SBX-04 names its template, `small-account` with a saved token, without which no
+  push could happen at all, and SBX-05 its given state; SHELL-04 adds `?` as a fourth way to
+  close the dialog and says where focus goes; SHELL-05 says how the highlight is read; SHELL-07
+  and PER-05 say how they synchronise.
+- **Observation, left for the owner: the Sandbox section's highlight is drawn only.**
+  `#/settings/sandbox` adds a class that draws a background and an inset bar, with no attribute
+  that assistive technology reads; focus moving to the switch is what a screen-reader user gets.
+  SHELL-05 reads the computed `box-shadow`, which is `none` without the anchor.
+- **Negative checks were tried against broken builds**, restored afterwards: without
+  `isTyping()` and `hasCommandModifier()` in `App.svelte`, SHELL-03 failed on the text field's
+  value; without the `ui.helpOpen` guard, SHELL-04 failed on the hash, which read `#/twelves`;
+  with a colour scheme save that bumps `settings.version`, SHELL-09 counted 3 queue reads instead
+  of 1; without the session's mode checks (`#apiGeneration` in `#pushAfterGrace()` and
+  `#syncWantlist()`), SBX-07 failed on `POST /api/discogs/wantlist/1101`, which the server refused
+  with `409`. SBX-04 still passed against that build, since the want's push goes through the
+  sandbox client it was pinned to (decision 55), and a live client would have found no saved
+  want; it failed on the page's `POST` only once the mode checks, the pinned client and the
+  saved-verdict check were all removed.
+- **Lasting aborts.** SHELL-07 aborts `GET /api/queue` and `GET /api/stats` with
+  `times: Infinity`: the app reads the stats at start, on every page change and after verdicts,
+  so a count would be a guess. `lift()` unroutes the handler; the aborts so far stay recorded and
+  declared.
+- **`restartServer()`.** Over 20 restarts in a row on one worker each took 205 to 209 ms (median
+  207 ms): the stop over IPC, a new `digga serve --port <the same port>`, and its first answer to
+  `/api/health`. Binding the same port again never failed in the restarts or the burn-ins. A probe
+  that stopped the server and listened on its port itself made the restart fail with "another
+  process took port … while the server restarted", and the page's next requests then failed with
+  `net::ERR_FAILED` and failed the probe at teardown, as undeclared problems should.
+- **Requests while the server is down: a quiet moment, not declarations.** `restartServer()`
+  waits until none of the page's `/api` requests is in flight, and PER-05 first waits for the
+  stats refresh its verdict schedules 0.5 s later, the only timer behind a request on an idle
+  Triage page: the player waits for Space, and the header polls the jobs only while a dump job
+  runs. A request that still met the stopped server would fail the test as an undeclared
+  `net::ERR_FAILED`, so the choice is checked on every run; declaring those errors would also
+  have hidden a page that kept polling a stopped server.
+- **The Keys dialog closes in two steps.** The browser hides it, then fires `close`, which is
+  when the app learns of it. The page object's first version armed its wait with an unawaited
+  `locator.evaluate()`; the key press won the race, the hidden dialog no longer matched the
+  locator, and SHELL-04 hung until its timeout. The wait is now installed with
+  `evaluateHandle()` before the press (see "Synchronisation").
+- **Durations.** On five workers (`vp run e2e`) the 95 tests take 38.6 s, and `vp run e2e` 40.3 s
+  with the client build. The new tests take 0.6 to 5.0 s each: SHELL-07 0.6 s, SHELL-03 0.8 s,
+  SHELL-05 0.9 s, SHELL-04 1.0 s, SBX-04 1.1 s, SBX-02 1.2 s, SHELL-09 1.3 s, SBX-07 1.3 s,
+  SBX-03 1.5 s, PER-05 2.3 s and SBX-05 5.0 s. SBX-05 runs an import and `P` against the fake
+  Discogs, each after the Discogs client's 1.1 s gap; PER-05 waits 0.5 s for the stats refresh
+  before it restarts the server.
+- **Stable.** Each group passed `--repeat-each=10` on 16 workers before the next was written
+  (the five Shell scenarios 50 of 50, SBX-02 and SBX-03 20 of 20, PER-05 10 of 10, SBX-04,
+  SBX-05 and SBX-07 30 of 30). The whole suite ran at `--repeat-each=20` on 16
+  workers on the 10-core machine, at load averages of about 90 from the run itself. The first
+  run passed 1,899 of 1,900 in 10.4 minutes: SET-08, an earlier scenario, timed out once. Its
+  trace shows the page stalled: the filter preview's 300 ms timer, set when the first token save
+  changed the form, fired about 9 s late, and the refused token's `PUT` left the page 30.5 s after
+  the click, when the test had already timed out; the base route, the server and the fake each
+  answered within milliseconds once asked. That is CPU starvation of the page, of the kind the
+  Twelves slice saw at higher load, not a wait the test lacks. The second run passed 1,900 of
+  1,900 in 10.1 minutes. SETUP-01's, TRI-21's, SET-17's and TWL-02's `test.fail` failed as
+  expected in every run. The medians of the new tests in the second run were 3.0 to 7.5 s (SBX-05
+  the slowest), against 3.0 s for TRI-02 and 8.1 s for TRI-07.
+- **`verify` has not grown.** The smoke set is still the P0 set. Timed alternately against a
+  worktree of the previous commit, `vp run verify` took 20.5 to 21.9 s against 20.4 to 21.5 s,
+  and its smoke set 10.2 to 11.1 s against 10.2 to 10.9 s, in six runs each. In the first three
+  pairs the working tree ran second and was 0.4 to 0.6 s slower; in the three with the order
+  reversed it took 20.5 to 20.8 s against 20.5 to 20.9 s.
 
 ## Risks and open questions
 

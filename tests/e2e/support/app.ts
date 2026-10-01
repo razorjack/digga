@@ -2,14 +2,14 @@ import { expect, type Page } from "@playwright/test";
 import type { ListenLogInput, TrackVerdictInput, VerdictInput } from "../../../src/shared/api.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import type { ExpectedProblems } from "./browser-log.ts";
-import type { RequestMatch } from "./fault-routes.ts";
+import type { AbortedRequests, RequestMatch } from "./fault-routes.ts";
 import type { FakeLoad, FakePlayerSnapshot } from "./fake-youtube.ts";
 import type { DiggaLibrary, DiggaRun } from "./spawn.ts";
 
 /**
  * What a test gets: the window under test and the app's own API, whichever host runs it
- * (docs/E2E_TESTING.md, "The app host"). The web host implements all of it but
- * restartServer(), which waits for a scenario that needs it.
+ * (docs/E2E_TESTING.md, "The app host"). The web host implements all of it; the Electron host
+ * will not have restartServer().
  */
 export interface DiggaApp {
   /** The window under test. A relaunch replaces it; page objects read it on each use. */
@@ -30,6 +30,12 @@ export interface DiggaApp {
    * launch, with a new page that is blank until open(). Given state is not applied again.
    */
   relaunch(options?: { crash?: boolean }): Promise<void>;
+  /**
+   * Web only: stops the server and starts it again on the same port, while the page and its
+   * session stay. The page's requests while it is down fail. Fails, rather than moving to another
+   * port, when another process has taken the port meanwhile.
+   */
+  restartServer(options?: { crash?: boolean }): Promise<void>;
   /** Runs `digga <args>` against the same library, with the same isolation, and waits for its exit. */
   cli(args: string[]): Promise<DiggaRun>;
   /** Dispatches a paste event carrying the text at the focused element. */
@@ -47,8 +53,11 @@ export interface DiggaApp {
   expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }>;
   /** The page's /api requests so far, over every launch, as "METHOD /api/path". */
   apiRequests(): string[];
-  /** Aborts the page's next matching requests (one by default), for the current launch. */
-  abortRequests(match: RequestMatch, options?: { times?: number }): Promise<void>;
+  /**
+   * Aborts the page's next matching requests (one by default), for the current launch; with
+   * `times: Infinity`, every one until the test lifts them.
+   */
+  abortRequests(match: RequestMatch, options?: { times?: number }): Promise<AbortedRequests>;
   /** Declares problems the test causes on purpose, so the fixture does not fail it for them. */
   expectProblems(problems: ExpectedProblems): void;
 }

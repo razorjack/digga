@@ -91,9 +91,13 @@ export async function runDiggaOrThrow(
   return run;
 }
 
-/** `digga serve --port 0`, once it answers /api/health. */
-export async function startDiggaServer(environment: DiggaEnvironment): Promise<DiggaServer> {
-  const child = spawnDigga(["serve", "--port", "0"], environment, { ipc: true });
+/** `digga serve` on a free port, or on the one given, once it answers /api/health. */
+export async function startDiggaServer(
+  environment: DiggaEnvironment,
+  options: { port?: number } = {},
+): Promise<DiggaServer> {
+  const port = String(options.port ?? 0);
+  const child = spawnDigga(["serve", "--port", port], environment, { ipc: true });
   const output = collectOutput(child);
   try {
     const lines = await servingLines(child, output);
