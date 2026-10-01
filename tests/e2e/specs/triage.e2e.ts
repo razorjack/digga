@@ -1,6 +1,7 @@
 import { STATUS_COPY, type TriageStatus } from "../../../src/client/keymap.ts";
 import {
   type DecisionsExport,
+  type QueueResponse,
   type Stats,
   TWELVES_STATUSES,
   type TwelvesResponse,
@@ -9,8 +10,10 @@ import type { Config } from "../../../src/shared/config.ts";
 import { formatCount } from "../../../src/shared/display.ts";
 import { startSeconds } from "../../../src/shared/playlist.ts";
 import { isWantlistVerdict } from "../../../src/shared/wantlist.ts";
-import { releaseById } from "../fixtures/catalogue.ts";
+import { FIRST_RECORD, releaseById, SECOND_RECORD } from "../fixtures/catalogue.ts";
+import { HeaderPage } from "../pages/header.ts";
 import { isRequest, PAST_PUSH_GRACE_MS, TriagePage } from "../pages/triage.ts";
+import { TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
 
 const ACCOUNT = { template: "small-account", savedToken: "e2e-token-dj" } as const;
@@ -183,6 +186,45 @@ test.describe("with a Discogs account and the clock", () => {
 });
 
 test(
+  "TRI-01 the first record in label-sweep order shows its facts, its tracks' videos and what comes next",
+  { tag: ["@TRI-01", "@P1"] },
+  async ({ app }) => {
+    const triage = new TriagePage(app);
+    const queue = await app.api.get<QueueResponse>("/api/queue?limit=2");
+    expect(queue.items.map((item) => item.id)).toEqual([FIRST_RECORD.id, SECOND_RECORD.id]);
+    const { label } = FIRST_RECORD;
+
+    await app.open();
+
+    await expect(triage.record).toHaveAttribute("data-release-id", String(FIRST_RECORD.id));
+    await expect(triage.record.getByText(label.catno, { exact: true })).toBeVisible();
+    await expect(triage.record.getByText(label.name, { exact: true })).toBeVisible();
+    await expect(triage.record.getByRole("heading", { level: 1 })).toHaveText(
+      FIRST_RECORD.artists.join(", "),
+    );
+    await expect(triage.record.getByText(FIRST_RECORD.title, { exact: true })).toBeVisible();
+    const yearAndCountry = `${FIRST_RECORD.year} ${FIRST_RECORD.country}`;
+    await expect(triage.record.getByText(yearAndCountry, { exact: true })).toBeVisible();
+    // Every fixture release is one 12-inch record (fixtures/dump.ts).
+    await expect(triage.record.getByText('Vinyl (12")', { exact: true })).toBeVisible();
+    const styles = FIRST_RECORD.styles.join(", ");
+    await expect(triage.record.getByText(styles, { exact: true })).toBeVisible();
+
+    const [playing, withVideo, withoutVideo] = FIRST_RECORD.tracks.map((track) => track.position);
+    await expect(triage.currentTrack).toHaveAttribute("data-position", playing!);
+    await expect(triage.track(withVideo!)).toContainText("has a video");
+    await expect(triage.track(withoutVideo!)).toContainText("no video");
+    for (const track of FIRST_RECORD.tracks)
+      await expect(triage.track(track.position)).toContainText(track.title);
+
+    await expect(triage.upNext).toContainText(SECOND_RECORD.label.catno);
+    await expect(triage.upNext).toContainText(
+      `${SECOND_RECORD.artists.join(", ")} – ${SECOND_RECORD.title}`,
+    );
+  },
+);
+
+test(
   "TRI-10 Z walks back a verdict, a pass and a hidden label, one per press",
   { tag: ["@TRI-10", "@P0"] },
   async ({ app }) => {
@@ -209,5 +251,66 @@ test(
     await triage.undoLabel();
     await expect(triage.record).toHaveAttribute("data-triage-key", hidden);
     await expect(triage.lastAction).toContainText("undone");
+  },
+);
+
+test(
+  "TRI-11 a verdict key held down judges one record",
+  { tag: ["@TRI-11", "@P1"] },
+  async ({ app }) => {
+    const triage = new TriagePage(app);
+    await app.open();
+    const held = await triage.currentKey();
+
+    await triage.holdVerdictKey("rejected");
+    await expect(triage.record).not.toHaveAttribute("data-triage-key", held);
+    const next = await triage.currentKey();
+    // Verdicts are written in order, so one the repeat made would be saved before this one.
+    await triage.judge("rejected");
+
+    const verdictRequests = app.apiRequests().filter((request) => request === "POST /api/verdicts");
+    expect(verdictRequests).toHaveLength(2);
+    const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+    expect(exported.verdicts.map((verdict) => verdict.key).toSorted()).toEqual(
+      [held, next].toSorted(),
+    );
+  },
+);
+
+test(
+  "TRI-17 E edits the record's note: Enter keeps it, Esc cancels, it survives N and Z, the verdict saves it",
+  { tag: ["@TRI-17", "@P1"] },
+  async ({ app }) => {
+    const triage = new TriagePage(app);
+    const note = "heard on Kool FM, summer 2000";
+    const shownNote = triage.root.getByText(note, { exact: true });
+    await app.open();
+    const key = await triage.currentKey();
+    const release = releaseById(Number(await triage.record.getAttribute("data-release-id")))!;
+
+    await triage.openNote();
+    await expect(triage.noteField).toHaveValue("");
+    await triage.cancelNote();
+    await triage.writeNote(note);
+    await triage.openNote();
+    await expect(triage.noteField).toHaveValue(note);
+    await app.page.keyboard.type(", second set");
+    await triage.cancelNote();
+    await expect(shownNote).toBeVisible();
+
+    await triage.pass();
+    await expect(shownNote).toBeHidden();
+    await triage.undoPass(key);
+    await expect(shownNote).toBeVisible();
+
+    await triage.judge("snoozed");
+    const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+    expect(exported.verdicts).toContainEqual(
+      expect.objectContaining({ key, status: "snoozed", notes: note }),
+    );
+    const twelves = new TwelvesPage(app);
+    await new HeaderPage(app).goTo("twelves");
+    await twelves.showShelf("snoozed");
+    await expect(twelves.row("snoozed", release.title)).toContainText(note);
   },
 );

@@ -452,7 +452,7 @@ function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
       uri: `https://www.youtube.com/watch?v=${video.id}`,
       title: video.title,
       duration: video.seconds,
-      embed: true,
+      embed: video.embed,
     })),
   };
   return { status: 200, body: release };

@@ -130,7 +130,7 @@ function releaseXml(release: FixtureRelease, artistIds: Map<string, number>): st
     release.year === null ? "" : `<released>${release.year}</released>`,
     masterXml(release),
     `<tracklist>${release.tracks.map((track) => `<track><position>${escapeXml(track.position)}</position><title>${escapeXml(track.title)}</title><duration>${track.duration}</duration></track>`).join("")}</tracklist>`,
-    `<videos>${release.videos.map((video) => `<video src="https://www.youtube.com/watch?v=${video.id}" duration="${video.seconds}" embed="true"><title>${escapeXml(video.title)}</title><description></description></video>`).join("")}</videos>`,
+    `<videos>${release.videos.map((video) => `<video src="https://www.youtube.com/watch?v=${video.id}" duration="${video.seconds}" embed="${video.embed}"><title>${escapeXml(video.title)}</title><description></description></video>`).join("")}</videos>`,
     "</release>",
   ].join("\n");
 }

@@ -2,7 +2,8 @@
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
 (Rollout, step 0) is built, and so is the whole P0 set, with the first-run setup (SETUP-01) and
-the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21; the results are recorded in "Spike
+the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, and the first half of Triage's P1
+scenarios (the record, the player and the tracklist); the results are recorded in "Spike
 results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
@@ -302,7 +303,9 @@ Per-test state goes on top, through documented paths only:
   the sandbox on, as for a real new user. For the loaded templates the host writes
   `digga.config.json` from `DEFAULT_CONFIG` with the test's overrides, `sandbox: false` unless the
   test asks for the sandbox, since the setup turns it off and live mode is the path most digging
-  takes.
+  takes. `diggaOptions.labels` digs only the labels it names: the config leaves every other label
+  of the small catalogue out (`filters.excludeLabels`), as `X` would, so a test reaches the
+  records it is about without digging past others.
 - **Credentials.** Templates hold none. The `small-account` build passes `DISCOGS_TOKEN` to its
   import commands only. A test that wants a saved token calls `app.given.savedToken(token)`,
   which goes through `PUT /api/discogs/token` before the page opens, so the token lands wherever
@@ -347,12 +350,21 @@ export const WORMHOLE = release({
 several records for the label sweep and `F`; a master with a main release without video and a
 repress with one (pooled videos, decision 72); two releases sharing a tune on different masters
 (heard greying); a compilation with track artists; a release without videos; one whose only
-video YouTube refuses; one with `embed="false"` from the dump; `Not On Label (Dillinja
-Self-released)` for `X` and bracketed variants; undated records on a label the account wants
-(decision 91); a record the seller `shopkeeper` has in a different pressing from the main
-release; Jungle and House records for the style picker and census; a release outside the
-default years for filter tests. The September dump adds three releases and drops one, so the
-last load has "added" and "missing" counts and a `load:<id>` scope.
+video YouTube refuses; one whose several videos all are refused; one with `embed="false"` from
+the dump; a record with a run of tracks for `J`, `K`, `1` to `9` and a video's end;
+`Not On Label (Dillinja Self-released)` for `X` and bracketed variants; undated records on a
+label the account wants (decision 91); a record the seller `shopkeeper` has in a different
+pressing from the main release; Jungle and House records for the style picker and census; a
+release outside the default years for filter tests. The September dump adds three releases and
+drops one, so the last load has "added" and "missing" counts and a `load:<id>` scope. Videos
+that YouTube has and no release lists, one titled after a track that has none, are there to be
+pasted (TRI-26).
+
+Records that only some scenarios reach sit on labels that sort after those of the first records,
+so the default queue starts as before, and a scenario digs them with `diggaOptions.labels`. The
+catalogue names the records that scenarios refer to (`FIRST_RECORD`, `TRACK_RUN`,
+`SAME_TUNE_ELSEWHERE` and so on) and says in a comment which scenarios they serve. Built so far:
+14 releases in one dump, and the release in no dump (see "The first Triage P1 slice").
 
 **The bulk catalogue** has 1,500 generated Drum n Bass records from 1998 to 2002 on vinyl,
 deterministic from a seed, on 30 labels no other fixture uses, in id order as in a Discogs dump,
@@ -503,7 +515,10 @@ no product code changes. The fake implements the slice of the API `YTPlayer` dec
 - Video ids with an `e150` or `e100` prefix fire `onError` with that code after loading, and
   `getVideoData()` reports the refused id, as the real player does (decision 42). The app shows a
   notice only for the audible deck, so a scenario about the notice puts the refused video where
-  it plays; errors on the hidden decks are silent.
+  it plays; errors on the hidden decks are silent. The hidden decks load the next release's first
+  video and `J`'s next track before either plays, so they find a refused catalogue video first,
+  unless it is the first video a page plays. TRI-28 therefore refuses the playing video with
+  `fail(videoId, 150)`.
 
 **User activation.** The app decides between playing and waiting for Space from
 `navigator.userActivation.hasBeenActive` (`triage-player.svelte.ts`). In Chromium every Playwright
@@ -659,6 +674,12 @@ Rules:
   1 s per 250 ms tick, so `runFor(4500)` produces a logged listen, while `fastForward(4500)`,
   which fires each due timer at most once, would not. Use `fastForward()` only when skipping
   repeated ticks is the point.
+- With the clock paused before playback starts, each tick adds exactly 250 ms, so a listen's
+  seconds are exact: `runFor(4500)` logs a listen of 4 s and leaves 0.5 s, `runFor(5500)` leaves
+  1.5 s to post when the listener leaves the track (TRI-36). The position slider shows the whole
+  seconds of the time the last tick read, up to 250 ms behind the player. TRI-03 runs the clock
+  2,500 ms, so the last tick falls 2.25 to 2.5 s in, inside one whole second whatever the ticks'
+  phase.
 
 ### Synchronisation
 
@@ -693,6 +714,16 @@ synchronise on completed requests and on the state the app sets after them:
   sent).", after the grace, a real `GET /api/releases/:id` and the sandbox's 350 ms delay.
 - A request that must stay in flight while the test acts is held at the fake (TRI-39), never
   delayed by a fixed time.
+- A track mark's stamp shows before its `POST /api/track-verdicts`, and a listen is a
+  `POST /api/listen-log` with nothing on screen until the track is left ("played"). The page
+  object's `markTrack()`, `listenFor()` and `listenLoggedBy()` wait for those requests and return
+  the body the page sent.
+- Some writes leave in a fixed order: the session saves verdicts one at a time, the player posts
+  listens in order, and each paste sends its request at once. A request that should not exist
+  would then be in the page's log before the answer to a later one, so a negative check waits for
+  that answer and counts: one `POST /api/verdicts` per press of a held key (TRI-11), no attachment
+  from a paste of other text or into the note field (TRI-26), no listen for a remainder under 1 s
+  (TRI-36).
 
 ### Determinism
 
@@ -780,6 +811,8 @@ modules, since Node imports neither a component nor a `.svelte.ts` module: the f
 which names "Triage messages" and "Player notices"; `data-position` on the tracklist's track
 rows; `PLAYER_STATUS_COPY` in `src/client/player/status.ts`; the header's pages and their keys
 (`ROUTES`) in `src/client/routes.ts`; and the track-mark keys (`TRACK_MARK_KEYS`) in `keymap.ts`.
+
+The first Triage P1 slice added `data-video-id` on the tracklist's "Other videos" rows.
 
 The setup path built items 3 and 4. `readSetup(deps, { freeBytes })` takes the dependencies it
 reads (`db`, `paths`, `dataDumps`) and the free-space function, whose default is the download's
@@ -929,6 +962,9 @@ Priority for finding an element, highest first:
    message, a state's copy).
 
 Never: CSS classes, element structure, `nth-child`, generated ids, or `waitForTimeout`.
+
+`getByRole()` has no option for `aria-current`, so the tracklist's current row is the list item
+that holds an element with `aria-current="true"` (`TriagePage.currentTrack`).
 
 Copy assertions import the app's own copy (`STATUS_COPY`, `VERDICT_KEYS` and `TRACK_MARK_KEYS`
 from `src/client/keymap.ts`, `SHELVES` and `MARK_COPY` from `src/client/twelves/model.ts`,
@@ -1096,51 +1132,51 @@ TRI-13, SBX-01, PER-01 and PER-04.
 answers `400` ("Set your Discogs username in Settings first"). Tests on `small` judge without
 them; scenarios with pushes use `small-account` with a saved token.
 
-| ID     | Scenario                                                                                                                                                                                                                                                                                                                                                                        | P   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| TRI-01 | The first record in label-sweep order shows its facts (catalogue number, label, artist heading, title, year and country, format, styles), a tracklist with each track's video state, and "Up next"                                                                                                                                                                              | P1  |
-| TRI-02 | Before a key press the player shows the Space key cap and "start listening" (status "waiting for Space"); Space plays with sound at `startAtFraction` of the video (the cued `startSeconds`); the now-playing line and "playing" follow                                                                                                                                         | P0  |
-| TRI-03 | Space pauses and resumes; `←` and `→` seek by the saved seek step; `1` to `9` jump; the position slider follows                                                                                                                                                                                                                                                                 | P1  |
-| TRI-04 | `J` and `K` change track; `J` skips heard tunes and refused videos and falls back to heard ones; `K` skips refused videos but not heard ones; a video's end advances; `J` on the last track says "That was the last track. Judge it."; after the last video ends, "end of the tracks"                                                                                           | P1  |
-| TRI-05 | The next release's first video and the track `J` moves to are loaded muted on the hidden decks; after a verdict the next release plays without a new load (fake `loads()`); "Up next" reads "buffered, starts at once"                                                                                                                                                          | P1  |
-| TRI-06 | After `runFor(4500)` of playback a listen is posted (awaited); once `J` moves on, the track reads "played"; the same tune on another release reads "heard"                                                                                                                                                                                                                      | P1  |
-| TRI-07 | [`small-account` with a saved token] `R`, `A`, `C`, `L` and `D`, each judged and settled: the slip's stamp (`STATUS_COPY`), the record leaves, dug and "this session" count up; the pushes for `A` and `C` end "Added to your Discogs wantlist."; after a reload `/api/export/decisions.json` holds all five; `A`, `C`, `L` and `D` are on their shelves; `R` is on none        | P0  |
-| TRI-08 | `M` without a Maybe list shows the flash that points to Settings and writes nothing; with a list, `M` saves `maybe`, and the verdict bar offers it                                                                                                                                                                                                                              | P1  |
-| TRI-09 | `N` passes: slip "later"; the record returns after the queue, and the end screen offers "go round the N you passed"                                                                                                                                                                                                                                                             | P1  |
-| TRI-10 | `Z` walks back a verdict, `N` and `X` one step per press and returns to each record; slip "undone"; after the `DELETE` answers, the export no longer holds the verdict                                                                                                                                                                                                          | P0  |
-| TRI-11 | A held verdict key (`keyboard.down` twice, then `up`) judges one record                                                                                                                                                                                                                                                                                                         | P1  |
-| TRI-12 | [`small-account` with a saved token] `E` gives the record a note, then `A`: the slip reads "Adding to your Discogs wantlist…", then "Added to your Discogs wantlist."; the fake got `PUT /users/dj/wants/{id}` with the note. A plain `A` sends no body                                                                                                                         | P0  |
-| TRI-13 | [`small-account` with a saved token] With the clock paused, `A`, then `Z` after the verdict has settled and before the grace ends: after the undo has settled and `runFor(2000)`, the page sent no wantlist request and the fake got nothing after `A`. `Z` after the push: the fake gets `DELETE`                                                                              | P0  |
-| TRI-14 | [`small-account` with a saved token] `C` pushes like `A`; the note sent lists the grail and keep tracks and the record's note (decision 70)                                                                                                                                                                                                                                     | P1  |
-| TRI-15 | [`small-account` with a saved token] The push fails (fake `500`, the page's `502` declared): "Saved, but not on the Discogs wantlist."; Twelves marks the record                                                                                                                                                                                                                | P1  |
-| TRI-16 | [`small-account`] Saving `e2e-token-other` keeps the username `dj`, and Settings' sandbox section warns before going live; a push then fails: the fake answers `403`, the page gets `502` (declared)                                                                                                                                                                            | P2  |
-| TRI-17 | `E`: the note field takes focus with the saved text; Enter keeps it; Esc cancels; the note survives `N` and `Z`; the verdict saves it (Twelves shows it)                                                                                                                                                                                                                        | P1  |
-| TRI-18 | `Shift+K`, `Shift+M`, `Shift+C` mark the playing track (its mark stamp, then the `POST /api/track-verdicts` awaited, since the stamp shows first); the same key again clears it; with nothing playing a flash explains; keep and grail marks reach the Tracks shelf, meh does not                                                                                               | P1  |
-| TRI-19 | `X` hides the record's first label: after the settings save and the queue's reload have answered, its records are out of the queue, Settings lists the label, the slip says so; `Z` brings the label back                                                                                                                                                                       | P1  |
-| TRI-20 | `F`: the dialog lists the record's labels and artists, track artists included, and "Added by the last dump load"; Enter digs the first label; the banner counts what is left; only that label's records come; Esc returns to the whole queue                                                                                                                                    | P1  |
-| TRI-21 | `F` search: two letters list matches with record counts; `↓` moves to the options; a seller read in Settings comes first; no match says so                                                                                                                                                                                                                                      | P1  |
-| TRI-22 | A scope dug to the end: "Nothing is left to dig from the label …", "go round", and Esc back                                                                                                                                                                                                                                                                                     | P2  |
-| TRI-23 | `P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, "checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`; works in the sandbox                                                                                                                                                                                                         | P1  |
-| TRI-24 | `P` for a release Discogs no longer has (fake `404`): the flash says Discogs did not return the release; the line keeps no market data                                                                                                                                                                                                                                          | P2  |
-| TRI-25 | `O` opens `discogs.com/release/{id}` and `S` a YouTube search for artist and title (`expectExternalOpen`)                                                                                                                                                                                                                                                                       | P1  |
-| TRI-26 | `app.paste()` of a YouTube link: the server stores it, oEmbed's title matches a track, which plays; an unmatched link plays under "Other videos" (`data-video-id`); other text and a paste inside the note field attach nothing                                                                                                                                                 | P1  |
-| TRI-27 | A release without videos: "No videos on this release." with `S`, `⌘V` and `D`; verdict keys still work                                                                                                                                                                                                                                                                          | P1  |
-| TRI-28 | Refused videos, placed where they would play: one `e150` video is skipped with the notice "… won't play here: the uploader blocks embedding. Skipped."; a release whose only video is refused shows "Its only video won't play here.", and one whose several videos all are "None of its N videos will play here."; `embed="false"` videos show "no embed" and are never loaded | P1  |
-| TRI-29 | Live: `D`, then a link pasted on Twelves' No audio shelf deletes the verdict (export), the record leaves the shelf, and Triage offers it again after a reload. Sandbox: with a saved `D` (given live), a pasted link leaves the saved verdict in the export (decision 74)                                                                                                       | P2  |
-| TRI-30 | The end of the queue: "all dug"; "hear the N snoozed again" starts a round with its banner; a verdict replaces a snooze, `N` leaves it, Esc returns                                                                                                                                                                                                                             | P1  |
-| TRI-31 | No releases loaded (a finished load that kept nothing): "No releases loaded yet." and the settings button                                                                                                                                                                                                                                                                       | P2  |
-| TRI-32 | Filters that match nothing: "Your filters match no records." with the loaded count                                                                                                                                                                                                                                                                                              | P1  |
-| TRI-33 | The release detail request fails once (`route` abort): "The tracklist did not load"; Enter retries                                                                                                                                                                                                                                                                              | P1  |
-| TRI-34 | `queue.limit: 5`: digging past the batch loads the next one without a gap, in live and sandbox mode                                                                                                                                                                                                                                                                             | P1  |
-| TRI-35 | A settings save restarts the queue and keeps the `F` scope; a color scheme change keeps the record on screen                                                                                                                                                                                                                                                                    | P2  |
-| TRI-36 | Leaving Triage pauses the sound (fake `audible()` is null); a listen past 4 s with at least 1 s more is posted on leaving, a shorter remainder is not; returning keeps the record and the undo history                                                                                                                                                                          | P1  |
-| TRI-37 | Pooled videos: the main release without video plays the repress's video at its own position (decision 72)                                                                                                                                                                                                                                                                       | P2  |
-| TRI-38 | Undated records on a wanted label reach the queue under the default filters (decision 91) [`small-account`]. The catalogue puts them in a default style, since `small` is loaded before the account's wants are imported                                                                                                                                                        | P2  |
-| TRI-39 | [`small-account` with a saved token] A push held at the fake, and `Z` while it is in flight: once the fake has received the `PUT`, `Z`; after the undo has settled, the push is released; the fake then gets the `DELETE`, and the release ends off the wantlist                                                                                                                | P1  |
-| TRI-40 | A seller's shop [`small-account`, `shopkeeper` read]: `F` digs the seller; `A` on the record puts the seller's pressing on the wantlist (the fake's `PUT` names that release id, not the main release's)                                                                                                                                                                        | P1  |
-| TRI-41 | Held `→` (`keyboard.down` repeated) seeks once per repeat, while a held verdict key still judges once                                                                                                                                                                                                                                                                           | P2  |
-| TRI-42 | Digging ten records sends no request to the fake Discogs; the first comes with `P`                                                                                                                                                                                                                                                                                              | P1  |
-| TRI-43 | A video the app loads to play while the page has activation stays unstarted (`app.youtube.blockSound()`); after `runFor(3750)` the player reads "waiting for Space"                                                                                                                                                                                                             | P2  |
+| ID     | Scenario                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | P   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| TRI-01 | The first record in label-sweep order shows its facts (catalogue number, label, artist heading, title, year and country, format, styles), a tracklist with each track's video state, and "Up next"                                                                                                                                                                                                                                                                                                 | P1  |
+| TRI-02 | Before a key press the player shows the Space key cap and "start listening" (status "waiting for Space"); Space plays with sound at `startAtFraction` of the video (the cued `startSeconds`); the now-playing line and "playing" follow                                                                                                                                                                                                                                                            | P0  |
+| TRI-03 | Space pauses and resumes; `←` and `→` seek by the saved seek step; `1` to `9` jump; the position slider follows                                                                                                                                                                                                                                                                                                                                                                                    | P1  |
+| TRI-04 | `J` and `K` change track; `J` skips heard tunes and refused videos and falls back to heard ones; `K` skips refused videos but not heard ones; a video's end advances; `J` on the last track says "That was the last track. Judge it."; after the last video ends, "end of the tracks"                                                                                                                                                                                                              | P1  |
+| TRI-05 | The next release's first video and the track `J` moves to are loaded muted on the hidden decks; after a verdict the next release plays without a new load (fake `loads()`); "Up next" reads "buffered, starts at once"                                                                                                                                                                                                                                                                             | P1  |
+| TRI-06 | After `runFor(4500)` of playback a listen is posted (awaited); once `J` moves on, the track reads "played"; the same tune on another release reads "heard"                                                                                                                                                                                                                                                                                                                                         | P1  |
+| TRI-07 | [`small-account` with a saved token] `R`, `A`, `C`, `L` and `D`, each judged and settled: the slip's stamp (`STATUS_COPY`), the record leaves, dug and "this session" count up; the pushes for `A` and `C` end "Added to your Discogs wantlist."; after a reload `/api/export/decisions.json` holds all five; `A`, `C`, `L` and `D` are on their shelves; `R` is on none                                                                                                                           | P0  |
+| TRI-08 | `M` without a Maybe list shows the flash that points to Settings and writes nothing; with a list, `M` saves `maybe`, and the verdict bar offers it                                                                                                                                                                                                                                                                                                                                                 | P1  |
+| TRI-09 | `N` passes: slip "later"; the record returns after the queue, and the end screen offers "go round the N you passed"                                                                                                                                                                                                                                                                                                                                                                                | P1  |
+| TRI-10 | `Z` walks back a verdict, `N` and `X` one step per press and returns to each record; slip "undone"; after the `DELETE` answers, the export no longer holds the verdict                                                                                                                                                                                                                                                                                                                             | P0  |
+| TRI-11 | A held verdict key (`keyboard.down` twice, then `up`) judges one record                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
+| TRI-12 | [`small-account` with a saved token] `E` gives the record a note, then `A`: the slip reads "Adding to your Discogs wantlist…", then "Added to your Discogs wantlist."; the fake got `PUT /users/dj/wants/{id}` with the note. A plain `A` sends no body                                                                                                                                                                                                                                            | P0  |
+| TRI-13 | [`small-account` with a saved token] With the clock paused, `A`, then `Z` after the verdict has settled and before the grace ends: after the undo has settled and `runFor(2000)`, the page sent no wantlist request and the fake got nothing after `A`. `Z` after the push: the fake gets `DELETE`                                                                                                                                                                                                 | P0  |
+| TRI-14 | [`small-account` with a saved token] `C` pushes like `A`; the note sent lists the grail and keep tracks and the record's note (decision 70)                                                                                                                                                                                                                                                                                                                                                        | P1  |
+| TRI-15 | [`small-account` with a saved token] The push fails (fake `500`, the page's `502` declared): "Saved, but not on the Discogs wantlist."; Twelves marks the record                                                                                                                                                                                                                                                                                                                                   | P1  |
+| TRI-16 | [`small-account`] Saving `e2e-token-other` keeps the username `dj`, and Settings' sandbox section warns before going live; a push then fails: the fake answers `403`, the page gets `502` (declared)                                                                                                                                                                                                                                                                                               | P2  |
+| TRI-17 | `E`: the note field takes focus with the saved text; Enter keeps it; Esc cancels; the note survives `N` and `Z`; the verdict saves it (Twelves shows it)                                                                                                                                                                                                                                                                                                                                           | P1  |
+| TRI-18 | `Shift+K`, `Shift+M`, `Shift+C` mark the playing track (its mark stamp, then the `POST /api/track-verdicts` awaited, since the stamp shows first); the same key again clears it; with nothing playing a flash explains; keep and grail marks reach the Tracks shelf, meh does not                                                                                                                                                                                                                  | P1  |
+| TRI-19 | `X` hides the record's first label: after the settings save and the queue's reload have answered, its records are out of the queue, Settings lists the label, the slip says so; `Z` brings the label back                                                                                                                                                                                                                                                                                          | P1  |
+| TRI-20 | `F`: the dialog lists the record's labels and artists, track artists included, and "Added by the last dump load"; Enter digs the first label; the banner counts what is left; only that label's records come; Esc returns to the whole queue                                                                                                                                                                                                                                                       | P1  |
+| TRI-21 | `F` search: two letters list matches with record counts; `↓` moves to the options; a seller read in Settings comes first; no match says so                                                                                                                                                                                                                                                                                                                                                         | P1  |
+| TRI-22 | A scope dug to the end: "Nothing is left to dig from the label …", "go round", and Esc back                                                                                                                                                                                                                                                                                                                                                                                                        | P2  |
+| TRI-23 | `P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, "checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`; works in the sandbox                                                                                                                                                                                                                                                                                                                            | P1  |
+| TRI-24 | `P` for a release Discogs no longer has (fake `404`): the flash says Discogs did not return the release; the line keeps no market data                                                                                                                                                                                                                                                                                                                                                             | P2  |
+| TRI-25 | `O` opens `discogs.com/release/{id}` and `S` a YouTube search for artist and title (`expectExternalOpen`)                                                                                                                                                                                                                                                                                                                                                                                          | P1  |
+| TRI-26 | `app.paste()` of a YouTube link: the server stores it, oEmbed's title matches a track, which plays; an unmatched link plays under "Other videos" (`data-video-id`); other text and a paste inside the note field attach nothing                                                                                                                                                                                                                                                                    | P1  |
+| TRI-27 | A release without videos: "No videos on this release." with `S`, `⌘V` and `D`; verdict keys still work                                                                                                                                                                                                                                                                                                                                                                                             | P1  |
+| TRI-28 | Refused videos: the playing video, refused with `app.youtube.fail(id, 150)`, is skipped with the notice "… won't play here: the uploader blocks embedding. Skipped." (the hidden decks find a refused catalogue video first, silently; see "The fake YouTube IFrame API"); a release whose only video is refused shows "Its only video won't play here.", and one whose several videos all are "None of its N videos will play here."; `embed="false"` videos show "no embed" and are never loaded | P1  |
+| TRI-29 | Live: `D`, then a link pasted on Twelves' No audio shelf deletes the verdict (export), the record leaves the shelf, and Triage offers it again after a reload. Sandbox: with a saved `D` (given live), a pasted link leaves the saved verdict in the export (decision 74)                                                                                                                                                                                                                          | P2  |
+| TRI-30 | The end of the queue: "all dug"; "hear the N snoozed again" starts a round with its banner; a verdict replaces a snooze, `N` leaves it, Esc returns                                                                                                                                                                                                                                                                                                                                                | P1  |
+| TRI-31 | No releases loaded (a finished load that kept nothing): "No releases loaded yet." and the settings button                                                                                                                                                                                                                                                                                                                                                                                          | P2  |
+| TRI-32 | Filters that match nothing: "Your filters match no records." with the loaded count                                                                                                                                                                                                                                                                                                                                                                                                                 | P1  |
+| TRI-33 | The release detail request fails once (`route` abort): "The tracklist did not load"; Enter retries                                                                                                                                                                                                                                                                                                                                                                                                 | P1  |
+| TRI-34 | `queue.limit: 5`: digging past the batch loads the next one without a gap, in live and sandbox mode                                                                                                                                                                                                                                                                                                                                                                                                | P1  |
+| TRI-35 | A settings save restarts the queue and keeps the `F` scope; a color scheme change keeps the record on screen                                                                                                                                                                                                                                                                                                                                                                                       | P2  |
+| TRI-36 | Leaving Triage pauses the sound (fake `audible()` is null); a listen past 4 s with at least 1 s more is posted on leaving, a shorter remainder is not; returning keeps the record and the undo history                                                                                                                                                                                                                                                                                             | P1  |
+| TRI-37 | Pooled videos: the main release without video plays the repress's video at its own position (decision 72)                                                                                                                                                                                                                                                                                                                                                                                          | P2  |
+| TRI-38 | Undated records on a wanted label reach the queue under the default filters (decision 91) [`small-account`]. The catalogue puts them in a default style, since `small` is loaded before the account's wants are imported                                                                                                                                                                                                                                                                           | P2  |
+| TRI-39 | [`small-account` with a saved token] A push held at the fake, and `Z` while it is in flight: once the fake has received the `PUT`, `Z`; after the undo has settled, the push is released; the fake then gets the `DELETE`, and the release ends off the wantlist                                                                                                                                                                                                                                   | P1  |
+| TRI-40 | A seller's shop [`small-account`, `shopkeeper` read]: `F` digs the seller; `A` on the record puts the seller's pressing on the wantlist (the fake's `PUT` names that release id, not the main release's)                                                                                                                                                                                                                                                                                           | P1  |
+| TRI-41 | Held `→` (`keyboard.down` repeated) seeks once per repeat, while a held verdict key still judges once                                                                                                                                                                                                                                                                                                                                                                                              | P2  |
+| TRI-42 | Digging ten records sends no request to the fake Discogs; the first comes with `P`                                                                                                                                                                                                                                                                                                                                                                                                                 | P1  |
+| TRI-43 | A video the app loads to play while the page has activation stays unstarted (`app.youtube.blockSound()`); after `runFor(3750)` the player reads "waiting for Space"                                                                                                                                                                                                                                                                                                                                | P2  |
 
 ### Sandbox
 
@@ -1325,8 +1361,8 @@ tests/e2e/
                 templates.ts, fake-youtube.ts, guard.ts, browser-guard.ts, browser-log.ts (the
                 page's requests and problems, and the declarations), fault-routes.ts
   pages/        triage.ts, twelves.ts, settings.ts, setup.ts, header.ts, dialogs.ts
-  specs/        guard, shell, setup, triage, sandbox, twelves, settings, persistence, a11y,
-                electron
+  specs/        guard, shell, setup, triage, triage-player, sandbox, twelves, settings,
+                persistence, a11y, electron
   contract/     the real-service checks
 tools/dev/fake-services.ts   the fakes, used by the harness and for rehearsals by hand
 ```
@@ -1405,7 +1441,11 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    its burn-in; the layout in AGENTS.md. Still to do: the rest of the fake services' settings and
    of the Discogs API, the move to `tools/dev/fake-services.ts`, the `bulk` template, the rest of
    the host interface and page objects, and the decision on `e2e:smoke` in `verify`.
-2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow.
+2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
+   2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
+   tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
+   TRI-28 and TRI-36 (see "The first Triage P1 slice"). Next: the other half of Triage (verdicts,
+   queue, scope, market, seller and wants), then the other families.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
    checks of the main screens, on Linux only, where snapshot updates need a human review.
@@ -1591,6 +1631,60 @@ pass. The work showed:
   between its four requests and about 4.4 s waiting for the crate's count; the gap test spends
   5 s on its failing expectation. `vp run e2e:smoke` takes 12.6 s with the client build, and
   `vp run e2e` 15.2 s.
+
+### The first Triage P1 slice (web)
+
+Built on 2026-10-01 on the same machine and versions: the record, the player and the tracklist,
+TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27, TRI-28 and TRI-36,
+in thirteen tests (TRI-28 has two). TRI-01, TRI-11 and TRI-17 are in `specs/triage.e2e.ts`, the
+others in the new `specs/triage-player.e2e.ts`. With them came the catalogue's new records,
+`embed="false"` in the dump builder and the fake's release data, `diggaOptions.labels`,
+`app.given.listen()`, `end()` and `fail()` on `app.youtube`, Triage page-object actions for
+Space, `J`, `K`, listens, notes, marks, pastes and a held key, and `data-video-id` on the "Other
+videos" rows. The work showed:
+
+- **The new records leave the earlier scenarios alone.** The first record gained a third track
+  without a video; Echo Chamber gained a release whose three videos are all refused and one whose
+  second video has `embed="false"`; Groundwork holds a record with five tracks, and Hardline
+  Audio a record that repeats the first record's "Pressure Drop" on another master. All sort
+  after the first five records of the default queue, so the queue those scenarios dig starts as
+  before. The 17 earlier tests passed on the new catalogue before any new scenario existed.
+- **No product bug.** Each scenario passed against the code as it is. The TRI-28 row was wrong
+  about where a refused video can reach the notice and is corrected (next point). Three
+  observations, left for the owner: `docs/KEYMAP.md` says videos with `embeddable = 0` "are
+  skipped with a notice", but the player leaves them out of the playlist without one, and the
+  tracklist reads "no embed" (TRI-28 asserts that); the tracklist marks the cued track as current,
+  with ▶ and the hidden text "playing", while the player still waits for Space (TRI-01 asserts
+  only `aria-current`); and after `N` on the last record, the end of the queue reads "Every
+  release under your filters has a verdict." beside "go round the 1 you passed", though the
+  passed record has none (TRI-09 and TRI-30 cover that screen).
+- **A catalogue video that YouTube refuses reaches the notice only as the first video a page
+  plays.** The hidden decks load the next release's first video and `J`'s next track before
+  either plays, so they find the refusal first and the player skips the video silently. TRI-04
+  waits for that: `J` skips B1 only once its row reads "video would not play", which happens as
+  soon as the deck that buffers `J`'s track has tried it. The notice scenario refuses the playing
+  video at runtime with `app.youtube.fail(id, 150)`, which goes through the same `onError` path.
+- **Listens and positions are exact with the clock paused.** In every run the listen logged after
+  `runFor(4500)` said 4 s, the one posted on leaving after `runFor(5500)` said 1.5 s, and the
+  first leaving, 0.5 s past its listen, posted nothing. The position slider showed the start
+  offset, 2 s past it after `runFor(2500)`, the seek step either way, and each tenth after `1` to
+  `9` and a 250 ms run; the fake player's time was the exact sum (202.5 s, then 212.5 s).
+- **Negative checks count requests that leave in order.** Each was tried against a broken build,
+  restored afterwards: without the key-repeat guard in `Triage.svelte`, TRI-11 failed with three
+  `POST /api/verdicts`; with a paste in the note field attaching its link, TRI-26 failed with two
+  attachments; with any remainder posted on leaving, TRI-36 failed with four listens.
+- **A held key needs no helper.** Playwright's `keyboard.down()` on a key that is already down
+  dispatches a keydown with `repeat: true`, as a held key does.
+- **Reaching a record by its label is cheap.** `diggaOptions.labels` writes `excludeLabels` into
+  the copied config before the server starts, so it adds nothing to the run.
+- **Stable and quick.** Each new spec passed `--repeat-each=10` before the next was written (30,
+  20, 20, 10, 40 and 10 runs). The whole suite passed 600 of 600 runs at `--repeat-each=20` on 16
+  workers on the 10-core machine, twice, in 4.2 and 4.0 minutes. On five workers the 30 tests take
+  17.4 s and `vp run e2e` 18.7 s with the client build. The new tests take 0.6 to 1.6 s each on
+  five workers: TRI-11 0.6 s, TRI-05 0.7 s, TRI-01 0.8 s, TRI-17 0.8 s, TRI-28's notice 0.9 s,
+  TRI-26 1.0 s, TRI-27 1.0 s, TRI-28's refusals 1.1 s, TRI-03 1.2 s, TRI-06 1.2 s, TRI-04 1.3 s,
+  TRI-18 1.3 s and TRI-36 1.6 s. Their medians in the burn-in on 16 workers were 2.7 to 5.2 s,
+  against 2.8 s for TRI-02 and 7.7 s for TRI-07 in the same runs.
 
 ## Risks and open questions
 

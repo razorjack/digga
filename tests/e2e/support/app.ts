@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { ListenLogInput } from "../../../src/shared/api.ts";
 import type { ExpectedProblems } from "./browser-log.ts";
 import type { RequestMatch } from "./fault-routes.ts";
 import type { FakeLoad, FakePlayerSnapshot } from "./fake-youtube.ts";
@@ -17,6 +18,8 @@ export interface DiggaApp {
   readonly library: DiggaLibrary;
   /** Calls to the current launch's /api, for given state and read-back. */
   readonly api: AppApiClient;
+  /** Given state, written through the app's own /api before the page opens. */
+  readonly given: Given;
   readonly youtube: FakeYouTubeHandle;
   readonly clock: PageClock;
   /** Opens a hash route such as "#/twelves"; defaults to "#/triage". */
@@ -66,6 +69,23 @@ export class AppApiClient {
   }
 }
 
+/**
+ * Decisions a test starts from, written through the app's own /api as the page would write them,
+ * before the page opens (docs/E2E_TESTING.md, "Libraries").
+ */
+export class Given {
+  readonly #api: () => AppApiClient;
+
+  constructor(api: () => AppApiClient) {
+    this.#api = api;
+  }
+
+  /** A logged listen: the tune reads heard on every release that has it. */
+  async listen(input: ListenLogInput): Promise<void> {
+    await this.#api().send("POST", "/api/listen-log", input);
+  }
+}
+
 /** Reads and drives window.__fakeYouTube in the page. */
 export class FakeYouTubeHandle {
   readonly #page: () => Page;
@@ -88,6 +108,19 @@ export class FakeYouTubeHandle {
 
   hasActivation(): Promise<boolean> {
     return this.#page().evaluate(() => navigator.userActivation.hasBeenActive);
+  }
+
+  /** Plays the audible video to its end, which fires the player's ENDED state at once. */
+  async end(): Promise<void> {
+    await this.#page().evaluate(() => window.__fakeYouTube!.end());
+  }
+
+  /** Refuses the video from now on, with YouTube's error code, also on players holding it. */
+  async fail(videoId: string, code: number): Promise<void> {
+    await this.#page().evaluate(([id, error]) => window.__fakeYouTube!.fail(id, error), [
+      videoId,
+      code,
+    ] as const);
   }
 }
 

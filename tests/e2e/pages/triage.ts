@@ -2,6 +2,7 @@ import { expect, type Locator, type Response } from "@playwright/test";
 import { TRACK_MARK_KEYS, type TriageStatus, VERDICT_KEYS } from "../../../src/client/keymap.ts";
 import { PLAYER_STATUS_COPY, type PlayerStatus } from "../../../src/client/player/status.ts";
 import { MARK_COPY } from "../../../src/client/twelves/model.ts";
+import type { ListenLogInput, TrackVerdictInput } from "../../../src/shared/api.ts";
 import type { TrackMark } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
 
@@ -52,6 +53,21 @@ export class TriagePage {
     return this.root.getByRole("region", { name: "Player" });
   }
 
+  /** The player's messages, such as a video it skipped. */
+  get notices(): Locator {
+    return this.player.getByRole("status", { name: "Player notices" });
+  }
+
+  /** The slider under the video, at the second the player has reached. */
+  get position(): Locator {
+    return this.player.getByRole("slider", { name: "Position in the track" });
+  }
+
+  /** The record after this one. */
+  get upNext(): Locator {
+    return this.root.getByRole("group", { name: "Up next" });
+  }
+
   /** The session's messages, such as a verdict that was not saved. */
   get messages(): Locator {
     return this.root.getByRole("status", { name: "Triage messages" });
@@ -66,10 +82,23 @@ export class TriagePage {
     return this.player.getByText(PLAYER_STATUS_COPY[status], { exact: true });
   }
 
+  get tracklist(): Locator {
+    return this.root.getByRole("list", { name: "Tracklist" });
+  }
+
   track(position: string): Locator {
-    return this.root
-      .getByRole("list", { name: "Tracklist" })
-      .locator(`[data-position="${position}"]`);
+    return this.tracklist.locator(`[data-position="${position}"]`);
+  }
+
+  /** A video under "Other videos", which matches no track. */
+  otherVideo(videoId: string): Locator {
+    return this.tracklist.locator(`[data-video-id="${videoId}"]`);
+  }
+
+  /** The row of the track or video the player is on: its button is the current one. */
+  get currentTrack(): Locator {
+    const current = this.app.page.locator('[aria-current="true"]');
+    return this.tracklist.getByRole("listitem").filter({ has: current });
   }
 
   /** The mark's stamp on a track row. */
@@ -92,6 +121,59 @@ export class TriagePage {
     await expect(this.playerStatus("playing")).toBeVisible();
   }
 
+  /** Space while the player plays; returns once it has paused. */
+  async pause(): Promise<void> {
+    await this.#pressSpace("playing", "paused");
+  }
+
+  /** Space while the player is paused; returns once it plays again. */
+  async resume(): Promise<void> {
+    await this.#pressSpace("paused", "playing");
+  }
+
+  /** J; returns the position of the track it moved to, once that track plays. */
+  async nextTrack(): Promise<string> {
+    return this.#changeTrack("j");
+  }
+
+  /** K; returns the position of the track it moved to, once that track plays. */
+  async previousTrack(): Promise<string> {
+    return this.#changeTrack("k");
+  }
+
+  /**
+   * Lets the page's clock run while the player plays, at least the 4 s after which it logs a
+   * listen; returns that listen once the server has saved it.
+   */
+  async listenFor(ms = LOGGED_LISTEN_MS): Promise<ListenLogInput> {
+    await expect(this.playerStatus("playing")).toBeVisible();
+    return this.listenLoggedBy(() => this.app.clock.runFor(ms));
+  }
+
+  /** Runs the action; returns the listen it made the player log, once the server has saved it. */
+  async listenLoggedBy(action: () => Promise<void>): Promise<ListenLogInput> {
+    const logged = this.#response("POST", "/api/listen-log");
+    await action();
+    const response = await logged;
+    expect(response.ok(), "POST /api/listen-log").toBe(true);
+    await response.finished();
+    return response.request().postDataJSON() as ListenLogInput;
+  }
+
+  /**
+   * Pastes a YouTube link on the page; returns once the server has attached it to the record and
+   * the page says so.
+   */
+  async attachVideo(url: string): Promise<void> {
+    const releaseId = await this.record.getAttribute("data-release-id");
+    const attached = this.#response("POST", `/api/releases/${releaseId}/videos`);
+    await this.app.paste(url);
+    const response = await attached;
+    expect(response.ok(), `POST /api/releases/${releaseId}/videos`).toBe(true);
+    await response.finished();
+    await expect(this.messages).toHaveText("Attached to this release; it plays here from now on.");
+  }
+
   /**
    * Presses the verdict's key; returns once the server has saved it and the page has acted. A key
    * pressed before a record is on screen does nothing, so it waits for one first.
@@ -101,6 +183,20 @@ export class TriagePage {
     const saved = this.#response("POST", "/api/verdicts");
     await this.app.page.keyboard.press(verdictKey(status));
     await this.#settled(await saved);
+  }
+
+  /**
+   * Holds the verdict's key down until it repeats, then lets go; returns once the verdict of the
+   * first press is saved and the key is up.
+   */
+  async holdVerdictKey(status: TriageStatus): Promise<void> {
+    await expect(this.record).toBeVisible();
+    const saved = this.#response("POST", "/api/verdicts");
+    await this.app.page.keyboard.down(verdictKey(status));
+    await this.#settled(await saved);
+    // A key that is down already sends a keydown with repeat set, as a held key does.
+    await this.app.page.keyboard.down(verdictKey(status));
+    await this.app.page.keyboard.up(verdictKey(status));
   }
 
   /** The sandbox sends no verdict request: returns once the record has changed and the slip settled. */
@@ -118,25 +214,41 @@ export class TriagePage {
     await expect(this.record).not.toHaveAttribute("data-triage-key", key);
   }
 
-  /** E, the text and Enter: the record shows the note, which its verdict will save. */
-  async writeNote(text: string): Promise<void> {
+  /** E: returns once the note field has focus. */
+  async openNote(): Promise<void> {
     await expect(this.record).toBeVisible();
     await this.app.page.keyboard.press("e");
     await expect(this.noteField).toBeFocused();
+  }
+
+  /** E, the text and Enter: the record shows the note, which its verdict will save. */
+  async writeNote(text: string): Promise<void> {
+    await this.openNote();
     await this.app.page.keyboard.type(text);
     await this.app.page.keyboard.press("Enter");
     await expect(this.noteField).toBeHidden();
     await expect(this.root.getByText(text, { exact: true })).toBeVisible();
   }
 
-  /** Marks the playing track; returns once the server has saved the mark. */
-  async markTrack(mark: TrackMark): Promise<void> {
+  /** Esc in the note field: returns once the field has closed. */
+  async cancelNote(): Promise<void> {
+    await expect(this.noteField).toBeFocused();
+    await this.app.page.keyboard.press("Escape");
+    await expect(this.noteField).toBeHidden();
+  }
+
+  /**
+   * The mark's key on the playing track, which sets the mark, or clears it when the track has it;
+   * returns what was saved, once the server has saved it. The stamp shows before the request.
+   */
+  async markTrack(mark: TrackMark): Promise<TrackVerdictInput> {
     await expect(this.playerStatus("playing")).toBeVisible();
     const saved = this.#response("POST", "/api/track-verdicts");
     await this.app.page.keyboard.press(trackMarkKey(mark));
     const response = await saved;
     expect(response.ok(), "POST /api/track-verdicts").toBe(true);
     await response.finished();
+    return response.request().postDataJSON() as TrackVerdictInput;
   }
 
   /** The sandbox keeps the mark in the tab: returns once the track shows it. */
@@ -167,6 +279,34 @@ export class TriagePage {
   /** Z on a hidden label: once the filters are saved and the queue has reloaded with it. */
   async undoLabel(): Promise<void> {
     await this.#pressAndReload("z");
+  }
+
+  async #pressSpace(from: PlayerStatus, to: PlayerStatus): Promise<void> {
+    await expect(this.playerStatus(from)).toBeVisible();
+    await this.app.page.keyboard.press("Space");
+    await expect(this.playerStatus(to)).toBeVisible();
+  }
+
+  /**
+   * The current row and the status change in the same update, so once another row is current,
+   * "playing" is the new track's.
+   */
+  async #changeTrack(key: "j" | "k"): Promise<string> {
+    const before = await this.#currentPosition();
+    await this.app.page.keyboard.press(key);
+    await expect.poll(() => this.#currentPosition()).not.toBe(before);
+    await expect(this.playerStatus("playing")).toBeVisible();
+    const position = await this.#currentPosition();
+    if (position === null) throw new Error(`${key.toUpperCase()} moved to a video without a track`);
+    return position;
+  }
+
+  /** The current track's position; null when no track row is current. Never waits. */
+  async #currentPosition(): Promise<string | null> {
+    const positions = await this.currentTrack.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-position")),
+    );
+    return positions[0] ?? null;
   }
 
   async #pressAndReload(key: string): Promise<void> {

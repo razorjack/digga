@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type TestInfo } from "@playwright/test";
+import type { Config } from "../../../src/shared/config.ts";
+import { labelsBesides } from "../fixtures/catalogue.ts";
 import { bulkDump, type DumpFile } from "../fixtures/dump.ts";
 import { FakeServices } from "./fakes.ts";
 import { WebApp } from "./hosts/web.ts";
@@ -16,6 +18,11 @@ export interface DiggaOptions {
   template: TemplateName;
   /** Ignored for `empty`, which starts with the schema defaults, the sandbox on. */
   sandbox: boolean;
+  /**
+   * The only labels the queue digs: the config leaves every other label of the small catalogue
+   * out (filters.excludeLabels), as X would. Null digs them all.
+   */
+  labels: string[] | null;
   /** A token saved through the API before the page opens. */
   savedToken: string | null;
   /** Replaces a service's address, as GUARD-01 does; the guard still allows only the fakes. */
@@ -29,6 +36,7 @@ export interface DiggaOptions {
 const DEFAULT_OPTIONS: DiggaOptions = {
   template: "small",
   sandbox: false,
+  labels: null,
   savedToken: null,
   serviceUrls: {},
   clock: false,
@@ -84,7 +92,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       path.join(folder, "library"),
     );
     if (options.template !== "empty")
-      updateConfig(library.configFile, (config) => ({ ...config, sandbox: options.sandbox }));
+      updateConfig(library.configFile, (config) => testConfig(config, options));
     if (options.listedDump) fakes.dumps.list(LISTED_DUMPS[options.listedDump]());
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
@@ -112,6 +120,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     expect(problems, "problems the test did not declare").toEqual([]);
   },
 });
+
+/** The test's settings on top of the template's config: the sandbox, and the labels it digs. */
+function testConfig(config: Config, options: DiggaOptions): Config {
+  if (options.labels === null) return { ...config, sandbox: options.sandbox };
+  const filters = { ...config.filters, excludeLabels: labelsBesides(options.labels) };
+  return { ...config, sandbox: options.sandbox, filters };
+}
 
 /** Text an agent can read without a trace viewer (docs/E2E_TESTING.md, "Failure artifacts"). */
 async function attachArtifacts(

@@ -14,6 +14,8 @@ export interface FixtureVideo {
   id: string;
   title: string;
   seconds: number;
+  /** False writes embed="false" in the dump: the uploader turned embedding off. */
+  embed: boolean;
 }
 
 export interface FixtureRelease {
@@ -41,9 +43,14 @@ function track(position: string, title: string, duration: string): FixtureTrack 
 }
 
 /** Video ids have YouTube's shape; an `e150` or `e100` prefix makes the fake player refuse them. */
-function video(id: string, title: string, seconds: number): FixtureVideo {
+function video(
+  id: string,
+  title: string,
+  seconds: number,
+  options: { embed?: boolean } = {},
+): FixtureVideo {
   if (!/^[\w-]{11}$/.test(id)) throw new Error(`${id} is not an 11-character YouTube id`);
-  return { id, title, seconds };
+  return { id, title, seconds, embed: options.embed ?? true };
 }
 
 function release(fields: Omit<FixtureRelease, "master"> & Partial<FixtureRelease>): FixtureRelease {
@@ -54,42 +61,172 @@ const AXIS_PLATE = { id: 30, name: "Axis Plate" };
 const BASSLINE_THEORY = { id: 10, name: "Bassline Theory" };
 const COLD_STORAGE = { id: 20, name: "Cold Storage" };
 const DARK_MATTER = { id: 40, name: "Dark Matter Audio" };
-const ECHO_CHAMBER = { id: 50, name: "Echo Chamber" };
+/** The label whose records have no audio: no videos, or videos YouTube will not play. */
+export const ECHO_CHAMBER = { id: 50, name: "Echo Chamber" };
 const FRONTLINE = { id: 60, name: "Frontline" };
+/** The label of the record with a run of tracks for the player's keys. */
+export const GROUNDWORK = { id: 70, name: "Groundwork" };
+/** The label of a record that repeats a tune of the first record. */
+export const HARDLINE_AUDIO = { id: 80, name: "Hardline Audio" };
 
 const DNB = ["Drum n Bass", "Techstep"];
 
 /**
- * The small catalogue. Labels sort alphabetically, so the default label sweep digs them in this
- * order; Cold Storage's records are the account's collection and wantlist.
+ * The first record in label-sweep order. Track C has no video, so the tracklist shows each video
+ * state, and a pasted link to that tune finds its track (TRI-01, TRI-26).
+ */
+export const FIRST_RECORD = release({
+  id: 1101,
+  master: { id: 601, main: true },
+  artists: ["Nautic Unit"],
+  title: "Pressure Drop",
+  label: { ...AXIS_PLATE, catno: "AXP 001" },
+  year: 1998,
+  country: "UK",
+  styles: DNB,
+  tracks: [
+    track("A", "Pressure Drop", "6:40"),
+    track("B", "Undertow", "6:05"),
+    track("C", "Low Tide", "6:30"),
+  ],
+  videos: [
+    video("nauticpress", "Nautic Unit - Pressure Drop", 400),
+    video("nauticunder", "Nautic Unit - Undertow", 365),
+  ],
+});
+
+/** The second record in label-sweep order. */
+export const SECOND_RECORD = release({
+  id: 1201,
+  artists: ["Sub Frame"],
+  title: "Cold Logic",
+  label: { ...BASSLINE_THEORY, catno: "BLT 010" },
+  year: 1999,
+  country: "UK",
+  styles: ["Drum n Bass", "Neurofunk"],
+  tracks: [track("A", "Cold Logic", "7:02"), track("AA", "Relay", "6:48")],
+  videos: [video("subframecld", "Sub Frame - Cold Logic", 422)],
+});
+
+/** The second of Echo Chamber's records: no videos at all (TRI-27). */
+export const WITHOUT_VIDEOS = release({
+  id: 1502,
+  artists: ["Relic"],
+  title: "Static",
+  label: { ...ECHO_CHAMBER, catno: "ECHO 02" },
+  year: 2002,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Static", "6:12")],
+  videos: [],
+});
+
+/** Its only video YouTube refuses. */
+export const ONLY_VIDEO_REFUSED = release({
+  id: 1503,
+  artists: ["Mirage"],
+  title: "Second Sight",
+  label: { ...ECHO_CHAMBER, catno: "ECHO 03" },
+  year: 1999,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Second Sight", "6:36")],
+  videos: [video("e150mirage1", "Mirage - Second Sight", 396)],
+});
+
+/** Several videos, each refused, for one reason or another (TRI-28). */
+export const EVERY_VIDEO_REFUSED = release({
+  id: 1504,
+  artists: ["Relic"],
+  title: "Dead Air",
+  label: { ...ECHO_CHAMBER, catno: "ECHO 04" },
+  year: 2000,
+  country: "UK",
+  styles: DNB,
+  tracks: [
+    track("A", "Dead Air", "6:20"),
+    track("B", "White Noise", "6:05"),
+    track("C", "Carrier Wave", "5:50"),
+  ],
+  videos: [
+    video("e150deadair", "Relic - Dead Air", 380),
+    video("e100whitenz", "Relic - White Noise", 365),
+    video("e150carrier", "Relic - Carrier Wave", 350),
+  ],
+});
+
+/** B's video has embed="false" in the dump, so the player never loads it (TRI-28). */
+export const EMBEDDING_OFF = release({
+  id: 1505,
+  artists: ["Mirage"],
+  title: "Undertone",
+  label: { ...ECHO_CHAMBER, catno: "ECHO 05" },
+  year: 2001,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Half Light", "6:30"), track("B", "Undertone", "6:45")],
+  videos: [
+    video("miragehalfl", "Mirage - Half Light", 390),
+    video("mirageunder", "Mirage - Undertone", 405, { embed: false }),
+  ],
+});
+
+/**
+ * A run of tracks for J, K and a video's end: given listens make A2 and B3 heard, and YouTube
+ * refuses B1 (TRI-04); the playable ones take track marks (TRI-18).
+ */
+export const TRACK_RUN = release({
+  id: 1701,
+  artists: ["Torsion"],
+  title: "Moving Parts",
+  label: { ...GROUNDWORK, catno: "GRW 001" },
+  year: 2001,
+  country: "UK",
+  styles: DNB,
+  tracks: [
+    track("A1", "Gearbox", "6:10"),
+    track("A2", "Flywheel", "6:25"),
+    track("B1", "Camshaft", "5:55"),
+    track("B2", "Piston", "6:40"),
+    track("B3", "Crankcase", "7:05"),
+  ],
+  videos: [
+    video("torsiongear", "Torsion - Gearbox", 370),
+    video("torsionflyw", "Torsion - Flywheel", 385),
+    video("e150torsncm", "Torsion - Camshaft", 355),
+    video("torsionpist", "Torsion - Piston", 400),
+    video("torsioncrnk", "Torsion - Crankcase", 425),
+  ],
+});
+
+/**
+ * The first record's "Pressure Drop" again, on another label and master, so a listen to it there
+ * greys it out here (TRI-06).
+ */
+export const SAME_TUNE_ELSEWHERE = release({
+  id: 1801,
+  master: { id: 801, main: true },
+  artists: ["Nautic Unit"],
+  title: "Second Wave",
+  label: { ...HARDLINE_AUDIO, catno: "HARD 005" },
+  year: 2000,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Pressure Drop", "6:40"), track("B", "Riptide", "6:15")],
+  videos: [
+    video("secondwvprd", "Nautic Unit - Pressure Drop", 400),
+    video("secondwvrip", "Nautic Unit - Riptide", 375),
+  ],
+});
+
+/**
+ * The small catalogue, in id order as in a Discogs dump. Labels sort alphabetically, so the default
+ * label sweep digs them in this order; Cold Storage's records are the account's collection and
+ * wantlist. The labels after Frontline hold records only the scenarios that dig them reach.
  */
 export const SMALL: FixtureRelease[] = [
-  release({
-    id: 1101,
-    master: { id: 601, main: true },
-    artists: ["Nautic Unit"],
-    title: "Pressure Drop",
-    label: { ...AXIS_PLATE, catno: "AXP 001" },
-    year: 1998,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Pressure Drop", "6:40"), track("B", "Undertow", "6:05")],
-    videos: [
-      video("nauticpress", "Nautic Unit - Pressure Drop", 400),
-      video("nauticunder", "Nautic Unit - Undertow", 365),
-    ],
-  }),
-  release({
-    id: 1201,
-    artists: ["Sub Frame"],
-    title: "Cold Logic",
-    label: { ...BASSLINE_THEORY, catno: "BLT 010" },
-    year: 1999,
-    country: "UK",
-    styles: ["Drum n Bass", "Neurofunk"],
-    tracks: [track("A", "Cold Logic", "7:02"), track("AA", "Relay", "6:48")],
-    videos: [video("subframecld", "Sub Frame - Cold Logic", 422)],
-  }),
+  FIRST_RECORD,
+  SECOND_RECORD,
   release({
     id: 1202,
     artists: ["Hollow Circuit"],
@@ -145,28 +282,10 @@ export const SMALL: FixtureRelease[] = [
     tracks: [track("A", "Signal Lost", "6:44")],
     videos: [video("relicsignal", "Relic - Signal Lost", 404)],
   }),
-  release({
-    id: 1502,
-    artists: ["Relic"],
-    title: "Static",
-    label: { ...ECHO_CHAMBER, catno: "ECHO 02" },
-    year: 2002,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Static", "6:12")],
-    videos: [],
-  }),
-  release({
-    id: 1503,
-    artists: ["Mirage"],
-    title: "Second Sight",
-    label: { ...ECHO_CHAMBER, catno: "ECHO 03" },
-    year: 1999,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Second Sight", "6:36")],
-    videos: [video("e150mirage1", "Mirage - Second Sight", 396)],
-  }),
+  WITHOUT_VIDEOS,
+  ONLY_VIDEO_REFUSED,
+  EVERY_VIDEO_REFUSED,
+  EMBEDDING_OFF,
   release({
     id: 1601,
     artists: ["Vector"],
@@ -178,7 +297,24 @@ export const SMALL: FixtureRelease[] = [
     tracks: [track("A", "Old School", "5:58")],
     videos: [video("vectoroldsc", "Vector - Old School", 358)],
   }),
+  TRACK_RUN,
+  SAME_TUNE_ELSEWHERE,
 ];
+
+/**
+ * Videos YouTube has that no release lists, for pasting: one whose title names the first record's
+ * track C, and one that matches none of its tracks.
+ */
+export const YOUTUBE_ONLY = {
+  lowTide: video("nautictide1", "Nautic Unit - Low Tide", 390),
+  liveSet: video("nauticlive9", "Nautic Unit live at the Blue Note, 1999", 1800),
+};
+
+/** Every label of the small catalogue but these; a test that digs only them leaves the rest out. */
+export function labelsBesides(names: string[]): string[] {
+  const labels = new Set(SMALL.map((fixture) => fixture.label.name));
+  return [...labels].filter((name) => !names.includes(name));
+}
 
 /** A release on the account's wantlist that no dump has. */
 export const NOT_IN_ANY_DUMP = release({
@@ -232,9 +368,9 @@ export function releaseById(id: number): FixtureRelease | undefined {
 /** The fake YouTube player's titles and durations, by video id. */
 export function videoCatalogue(): Record<string, { title: string; seconds: number }> {
   const videos: Record<string, { title: string; seconds: number }> = {};
-  for (const fixture of ALL_RELEASES)
-    for (const entry of fixture.videos)
-      videos[entry.id] = { title: entry.title, seconds: entry.seconds };
+  const listed = ALL_RELEASES.flatMap((fixture) => fixture.videos);
+  for (const entry of [...listed, ...Object.values(YOUTUBE_ONLY)])
+    videos[entry.id] = { title: entry.title, seconds: entry.seconds };
   return videos;
 }
 

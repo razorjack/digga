@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
 import { videoCatalogue } from "../../fixtures/catalogue.ts";
-import { AppApiClient, type DiggaApp, FakeYouTubeHandle, PageClock } from "../app.ts";
+import { AppApiClient, type DiggaApp, FakeYouTubeHandle, Given, PageClock } from "../app.ts";
 import { guardContext } from "../browser-guard.ts";
 import { BrowserLog, type ExpectedProblems } from "../browser-log.ts";
 import { abortRequests, type RequestMatch } from "../fault-routes.ts";
@@ -45,6 +45,7 @@ interface Launch {
  */
 export class WebApp implements DiggaApp {
   readonly library: DiggaLibrary;
+  readonly given: Given;
   readonly youtube: FakeYouTubeHandle;
   readonly clock: PageClock;
   readonly log = new BrowserLog();
@@ -56,6 +57,7 @@ export class WebApp implements DiggaApp {
   private constructor(options: WebAppOptions) {
     this.#options = options;
     this.library = options.environment.library;
+    this.given = new Given(() => this.api);
     this.youtube = new FakeYouTubeHandle(() => this.page);
     this.clock = new PageClock(() => this.page, options.clock);
   }
