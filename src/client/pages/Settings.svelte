@@ -23,6 +23,7 @@
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
   import { DiscogsSettings, usernameAfterTokenSave } from "../settings/discogs.svelte.ts";
   import { DumpFiles, dumpUse } from "../settings/dumps.svelte.ts";
+  import { missingReleasesNote } from "../settings/library.ts";
   import Backups from "../settings/Backups.svelte";
   import RequestList from "../setup/RequestList.svelte";
   import { parseInteger } from "../../shared/integer.ts";
@@ -400,15 +401,14 @@
         </p>
         {#if summary.dump.lastLoad}
           {@const load = summary.dump.lastLoad}
+          {@const missing = missingReleasesNote(load.missing)}
           <p>
             The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
             added <b>{formatCount(load.added)}</b> {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
             {#if load.toDig > 0}
               <b>{formatCount(load.toDig)}</b> records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
             {/if}
-            {#if load.missing}
-              It did not find {formatCount(load.missing)} releases loaded before, which stay in the library.
-            {/if}
+            {#if missing}{missing}{/if}
           </p>
         {/if}
         <p>
