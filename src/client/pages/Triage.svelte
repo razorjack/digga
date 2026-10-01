@@ -27,6 +27,7 @@
   import { loadStatus } from "../load-status.svelte.ts";
   import { TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
+  import { endOfQueueHeadline } from "../triage/end-of-queue.ts";
   import Tracklist from "../triage/Tracklist.svelte";
   import NoteLine from "../triage/NoteLine.svelte";
   import VerdictBar from "../triage/VerdictBar.svelte";
@@ -406,7 +407,7 @@
       {:else if session.finished}
         <div class="state finished">
           <Stamp text="all dug" tone="accent" size="xl" seed={1} slam />
-          <p class="headline">Every release under your filters has a verdict.</p>
+          <p class="headline">{endOfQueueHeadline(session.passed.length)}</p>
           <p class="quiet">
             {stats.value ? `${formatCount(stats.value.dug)} dug so far.` : ""}
             Widen the years, formats or countries in settings to dig further.
