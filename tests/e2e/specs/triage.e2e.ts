@@ -12,7 +12,7 @@ import { startSeconds } from "../../../src/shared/playlist.ts";
 import { isWantlistVerdict } from "../../../src/shared/wantlist.ts";
 import { FIRST_RECORD, releaseById, SECOND_RECORD } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { isRequest, PAST_PUSH_GRACE_MS, TriagePage } from "../pages/triage.ts";
+import { isRequest, PAST_PUSH_GRACE_MS, TriagePage, verdictKey } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
 
@@ -314,3 +314,53 @@ test(
     await expect(twelves.row("snoozed", release.title)).toContainText(note);
   },
 );
+
+test(
+  "TRI-08 without a Discogs Maybe list, M points to Settings and saves nothing",
+  { tag: ["@TRI-08", "@P1"] },
+  async ({ app }) => {
+    const triage = new TriagePage(app);
+    await app.open();
+    const key = await triage.currentKey();
+    await expect(triage.verdictButton("accepted")).toBeVisible();
+    await expect(triage.verdictButton("maybe")).toHaveCount(0);
+
+    await app.page.keyboard.press(verdictKey("maybe"));
+    await expect(triage.messages).toHaveText(
+      "M needs your Discogs Maybe list: pick it in Settings, under Discogs.",
+    );
+    await expect(triage.record).toHaveAttribute("data-triage-key", key);
+    // Verdicts are written in order, so one M had sent would be saved before this one.
+    await triage.judge("rejected");
+
+    const verdictRequests = app.apiRequests().filter((request) => request === "POST /api/verdicts");
+    expect(verdictRequests).toHaveLength(1);
+    const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+    expect(exported.verdicts).toEqual([expect.objectContaining({ key, status: "rejected" })]);
+  },
+);
+
+test.describe("with a Discogs Maybe list", () => {
+  // dj's private Maybe list in the fake's design; Triage only needs a list to be chosen.
+  test.use({ diggaOptions: { config: { discogs: { maybeListId: 9001 } } } });
+
+  test(
+    "TRI-08 with a Discogs Maybe list, the verdict bar offers M, which saves a maybe",
+    { tag: ["@TRI-08", "@P1"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      await app.open();
+      const key = await triage.currentKey();
+      await expect(triage.verdictButton("maybe")).toBeVisible();
+
+      await triage.judge("maybe");
+      await expect(triage.lastAction).toContainText(STATUS_COPY.maybe);
+      await expect(triage.lastAction).toContainText(
+        "On the Maybe shelf; add it to your Discogs list from Twelves.",
+      );
+      await expect(triage.record).not.toHaveAttribute("data-triage-key", key);
+      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+      expect(exported.verdicts).toEqual([expect.objectContaining({ key, status: "maybe" })]);
+    },
+  );
+});

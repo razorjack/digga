@@ -2,9 +2,9 @@
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
 (Rollout, step 0) is built, and so is the whole P0 set, with the first-run setup (SETUP-01) and
-the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, and the first half of Triage's P1
-scenarios (the record, the player and the tracklist); the results are recorded in "Spike
-results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
+the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, and Triage's P1 set: the record, the
+player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
+the wants. The results are recorded in "Spike results". The rest is not built yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
 (`docs/ELECTRON_PLAN.md`).
@@ -229,7 +229,13 @@ stops tracing and takes the failure screenshot itself.
 
 - `expectExternalOpen()` installs its interception before the action: in the web host a context
   route that answers the external URL with an empty page and the `page` event that captures the
-  popup; in Electron a stub of `shell.openExternal`. It returns once the URL is known.
+  popup; in Electron a stub of `shell.openExternal`. It returns once the URL is known. The web
+  host's route matches every URL outside the app's origin, answers the window's page and nothing
+  else the window asks for (`404`), and is removed once the window is closed, so the URL neither
+  reaches the network nor counts as refused, while an external URL the app opens outside the
+  helper still reaches the base route and fails the test ("the browser requested …"). The app
+  opens with `window.open(url, "_blank", "noopener,noreferrer")`; the context's `page` event
+  still sees that window.
 - `expectDownload()` resolves only when the download has completed: in the web host it awaits
   `download.saveAs()` into the test's output folder; in Electron the `will-download` handler sets
   that path and the helper waits for `done` with state `completed`.
@@ -305,7 +311,11 @@ Per-test state goes on top, through documented paths only:
   test asks for the sandbox, since the setup turns it off and live mode is the path most digging
   takes. `diggaOptions.labels` digs only the labels it names: the config leaves every other label
   of the small catalogue out (`filters.excludeLabels`), as `X` would, so a test reaches the
-  records it is about without digging past others.
+  records it is about without digging past others. `diggaOptions.config` changes any other
+  setting, section by section (`{ queue: { limit: 5 } }`), typed against `Config`; the host
+  merges it into the copied config and parses the result with `ConfigSchema`, so a value the app
+  would refuse fails before the server starts. One function writes all of it, before the server
+  starts, so a test's config has a single source.
 - **Credentials.** Templates hold none. The `small-account` build passes `DISCOGS_TOKEN` to its
   import commands only. A test that wants a saved token calls `app.given.savedToken(token)`,
   which goes through `PUT /api/discogs/token` before the page opens, so the token lands wherever
@@ -315,6 +325,11 @@ Per-test state goes on top, through documented paths only:
 - **Decisions.** `app.given` writes verdicts, track marks and listens through the app's own
   `/api` before the page opens. The server refuses digging writes while the sandbox is on, so
   `given` writes with the sandbox off and switches it on afterwards when the test asks for it.
+  Built so far: `given.listen()` and `given.verdict()`, which takes the verdict's `decidedAt` so
+  a test can date its snoozes in order.
+- **Jobs as given state.** A seller's shop is read through the job Settings' "Read shop" starts
+  (`POST /api/jobs/import/seller`), and `given.sellerShop()` returns once `GET /api/jobs/:id`
+  says `done`; a job that ends otherwise fails the test with its error.
 - **Bulk decisions** (1,200 verdicts for paging) go through `digga restore` with a generated
   decisions backup, the documented restore path.
 
@@ -364,7 +379,13 @@ Records that only some scenarios reach sit on labels that sort after those of th
 so the default queue starts as before, and a scenario digs them with `diggaOptions.labels`. The
 catalogue names the records that scenarios refer to (`FIRST_RECORD`, `TRACK_RUN`,
 `SAME_TUNE_ELSEWHERE` and so on) and says in a comment which scenarios they serve. Built so far:
-14 releases in one dump, and the release in no dump (see "The first Triage P1 slice").
+20 releases in one dump, and the release in no dump (see "The first Triage P1 slice" and "The
+second Triage P1 slice"). One dump is enough for "Added by the last dump load": every release came
+from that load, so `F` offers its records still to dig. The September dump waits for a scenario
+that needs a load's "missing" count or records that an earlier load did not have. Tracks can
+credit their own artists, as a compilation does, and the builder writes "Various" with Discogs'
+id 194, which Digga does not offer to dig. Every release has the same market data in the fake
+(`MARKET` in `support/fakes.ts`); per-release prices wait for a scenario that compares two.
 
 **The bulk catalogue** has 1,500 generated Drum n Bass records from 1998 to 2002 on vinyl,
 deterministic from a seed, on 30 labels no other fixture uses, in id order as in a Discogs dump,
@@ -422,8 +443,12 @@ declares the abort and the console error it causes with `app.expectProblems()`.
 | `GET /masters/{id}`                            | The master's main release                                                                    |
 
 State: accounts (`dj` with a collection of 5, a wantlist of 6 including one release in no dump,
-a private "Maybe" list 9001 and a public list 9002), a seller `shopkeeper` with 20 listings, and
-the catalogue's releases.
+a private "Maybe" list 9001 and a public list 9002), a seller `shopkeeper` whose shop has a
+repress of a loaded master and a release in no dump, and the catalogue's releases. Built so far:
+every request in the table but the lists and the master: `GET /users/{u}/lists` answers no
+lists, and `GET /lists/{id}` and `GET /masters/{id}` wait for a scenario that reaches them; `dj` has a collection of 1 and a wantlist of 2, one of them in no dump;
+and `shopkeeper`'s two listings, on one page. A Discogs request the fake has no route for fails
+the test as unplanned.
 
 Tokens: `e2e-token-<username>` identifies as that user; `e2e-token-refused` gets `401`. Any token
 not starting with `e2e-` makes the fake fail the test with "a non-test token reached the fake",
@@ -718,6 +743,14 @@ synchronise on completed requests and on the state the app sets after them:
   `POST /api/listen-log` with nothing on screen until the track is left ("played"). The page
   object's `markTrack()`, `listenFor()` and `listenLoggedBy()` wait for those requests and return
   the body the page sent.
+- Triage's other actions end the same way. A push with time flowing ends once
+  `POST /api/discogs/wantlist/:id` has answered, which happens after the server's call to the
+  fake, and the slip shows how it ended. `P` ends once `POST /api/releases/:id/enrich` has
+  answered and the market line is no longer `aria-busy`. `X` and `Z` on a label end once
+  `PUT /api/settings` and the `GET /api/queue` after it have answered. `F`'s search ends once the
+  `GET /api/scopes` for the typed text has answered and the status no longer reads "Searching…";
+  Enter in the picker ends once the `GET /api/queue` with that `scope` has answered, and Esc on a
+  scope once the one without it has. A tracklist's retry ends with its `GET /api/releases/:id`.
 - Some writes leave in a fixed order: the session saves verdicts one at a time, the player posts
   listens in order, and each paste sends its request at once. A request that should not exist
   would then be in the page's log before the answer to a later one, so a negative check waits for
@@ -812,7 +845,9 @@ which names "Triage messages" and "Player notices"; `data-position` on the track
 rows; `PLAYER_STATUS_COPY` in `src/client/player/status.ts`; the header's pages and their keys
 (`ROUTES`) in `src/client/routes.ts`; and the track-mark keys (`TRACK_MARK_KEYS`) in `keymap.ts`.
 
-The first Triage P1 slice added `data-video-id` on the tracklist's "Other videos" rows.
+The first Triage P1 slice added `data-video-id` on the tracklist's "Other videos" rows. The second
+needed no markup: its scenarios locate everything by role, name, `aria-keyshortcuts`, the
+existing handles and visible text.
 
 The setup path built items 3 and 4. `readSetup(deps, { freeBytes })` takes the dependencies it
 reads (`db`, `paths`, `dataDumps`) and the free-space function, whose default is the download's
@@ -964,7 +999,9 @@ Priority for finding an element, highest first:
 Never: CSS classes, element structure, `nth-child`, generated ids, or `waitForTimeout`.
 
 `getByRole()` has no option for `aria-current`, so the tracklist's current row is the list item
-that holds an element with `aria-current="true"` (`TriagePage.currentTrack`).
+that holds an element with `aria-current="true"` (`TriagePage.currentTrack`). The banner above
+the desk during a round or a scope has no role, so `TriagePage.banner` finds it by its opening
+words; the market line is the only `status` in the record's header (`TriagePage.market`).
 
 Copy assertions import the app's own copy (`STATUS_COPY`, `VERDICT_KEYS` and `TRACK_MARK_KEYS`
 from `src/client/keymap.ts`, `SHELVES` and `MARK_COPY` from `src/client/twelves/model.ts`,
@@ -1142,7 +1179,7 @@ them; scenarios with pushes use `small-account` with a saved token.
 | TRI-06 | After `runFor(4500)` of playback a listen is posted (awaited); once `J` moves on, the track reads "played"; the same tune on another release reads "heard"                                                                                                                                                                                                                                                                                                                                         | P1  |
 | TRI-07 | [`small-account` with a saved token] `R`, `A`, `C`, `L` and `D`, each judged and settled: the slip's stamp (`STATUS_COPY`), the record leaves, dug and "this session" count up; the pushes for `A` and `C` end "Added to your Discogs wantlist."; after a reload `/api/export/decisions.json` holds all five; `A`, `C`, `L` and `D` are on their shelves; `R` is on none                                                                                                                           | P0  |
 | TRI-08 | `M` without a Maybe list shows the flash that points to Settings and writes nothing; with a list, `M` saves `maybe`, and the verdict bar offers it                                                                                                                                                                                                                                                                                                                                                 | P1  |
-| TRI-09 | `N` passes: slip "later"; the record returns after the queue, and the end screen offers "go round the N you passed"                                                                                                                                                                                                                                                                                                                                                                                | P1  |
+| TRI-09 | `N` passes: slip "later"; the record returns after the queue; the end screen offers "go round the N you passed", and its headline says every release has a verdict "apart from the N you passed"                                                                                                                                                                                                                                                                                                   | P1  |
 | TRI-10 | `Z` walks back a verdict, `N` and `X` one step per press and returns to each record; slip "undone"; after the `DELETE` answers, the export no longer holds the verdict                                                                                                                                                                                                                                                                                                                             | P0  |
 | TRI-11 | A held verdict key (`keyboard.down` twice, then `up`) judges one record                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
 | TRI-12 | [`small-account` with a saved token] `E` gives the record a note, then `A`: the slip reads "Adding to your Discogs wantlist…", then "Added to your Discogs wantlist."; the fake got `PUT /users/dj/wants/{id}` with the note. A plain `A` sends no body                                                                                                                                                                                                                                            | P0  |
@@ -1154,7 +1191,7 @@ them; scenarios with pushes use `small-account` with a saved token.
 | TRI-18 | `Shift+K`, `Shift+M`, `Shift+C` mark the playing track (its mark stamp, then the `POST /api/track-verdicts` awaited, since the stamp shows first); the same key again clears it; with nothing playing a flash explains; keep and grail marks reach the Tracks shelf, meh does not                                                                                                                                                                                                                  | P1  |
 | TRI-19 | `X` hides the record's first label: after the settings save and the queue's reload have answered, its records are out of the queue, Settings lists the label, the slip says so; `Z` brings the label back                                                                                                                                                                                                                                                                                          | P1  |
 | TRI-20 | `F`: the dialog lists the record's labels and artists, track artists included, and "Added by the last dump load"; Enter digs the first label; the banner counts what is left; only that label's records come; Esc returns to the whole queue                                                                                                                                                                                                                                                       | P1  |
-| TRI-21 | `F` search: two letters list matches with record counts; `↓` moves to the options; a seller read in Settings comes first; no match says so                                                                                                                                                                                                                                                                                                                                                         | P1  |
+| TRI-21 | `F` search: two letters list matches with record counts; `↓` moves to the options; a seller read in Settings comes first; no match says so. **Gap:** with text in the search field, Esc clears it (Chromium's `type="search"` field) and a second Esc closes the picker; `docs/KEYMAP.md` says Esc cancels, and its `test.fail` expects one Esc to close it                                                                                                                                        | P1  |
 | TRI-22 | A scope dug to the end: "Nothing is left to dig from the label …", "go round", and Esc back                                                                                                                                                                                                                                                                                                                                                                                                        | P2  |
 | TRI-23 | `P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, "checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`; works in the sandbox                                                                                                                                                                                                                                                                                                                            | P1  |
 | TRI-24 | `P` for a release Discogs no longer has (fake `404`): the flash says Discogs did not return the release; the line keeps no market data                                                                                                                                                                                                                                                                                                                                                             | P2  |
@@ -1173,9 +1210,9 @@ them; scenarios with pushes use `small-account` with a saved token.
 | TRI-37 | Pooled videos: the main release without video plays the repress's video at its own position (decision 72)                                                                                                                                                                                                                                                                                                                                                                                          | P2  |
 | TRI-38 | Undated records on a wanted label reach the queue under the default filters (decision 91) [`small-account`]. The catalogue puts them in a default style, since `small` is loaded before the account's wants are imported                                                                                                                                                                                                                                                                           | P2  |
 | TRI-39 | [`small-account` with a saved token] A push held at the fake, and `Z` while it is in flight: once the fake has received the `PUT`, `Z`; after the undo has settled, the push is released; the fake then gets the `DELETE`, and the release ends off the wantlist                                                                                                                                                                                                                                   | P1  |
-| TRI-40 | A seller's shop [`small-account`, `shopkeeper` read]: `F` digs the seller; `A` on the record puts the seller's pressing on the wantlist (the fake's `PUT` names that release id, not the main release's)                                                                                                                                                                                                                                                                                           | P1  |
+| TRI-40 | A seller's shop [`small-account` with a saved token, `shopkeeper` read]: `F` digs the seller; `A` on the record puts the seller's pressing on the wantlist (the fake's `PUT` names that release id, not the main release's)                                                                                                                                                                                                                                                                        | P1  |
 | TRI-41 | Held `→` (`keyboard.down` repeated) seeks once per repeat, while a held verdict key still judges once                                                                                                                                                                                                                                                                                                                                                                                              | P2  |
-| TRI-42 | Digging ten records sends no request to the fake Discogs; the first comes with `P`                                                                                                                                                                                                                                                                                                                                                                                                                 | P1  |
+| TRI-42 | [`small-account` with a saved token] Digging ten records sends no request to the fake Discogs; the first comes with `P`                                                                                                                                                                                                                                                                                                                                                                            | P1  |
 | TRI-43 | A video the app loads to play while the page has activation stays unstarted (`app.youtube.blockSound()`); after `runFor(3750)` the player reads "waiting for Space"                                                                                                                                                                                                                                                                                                                                | P2  |
 
 ### Sandbox
@@ -1445,8 +1482,13 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
-   TRI-28 and TRI-36 (see "The first Triage P1 slice"). Next: the other half of Triage (verdicts,
-   queue, scope, market, seller and wants), then the other families.
+   TRI-28 and TRI-36 (see "The first Triage P1 slice"). Triage's P1 set was done on 2026-10-01
+   with the other half, the verdicts, the queue, scopes, the market, the seller and the wants:
+   TRI-08, TRI-09, TRI-14, TRI-15, TRI-19, TRI-20, TRI-21 (with a gap), TRI-23, TRI-25, TRI-30,
+   TRI-32, TRI-33, TRI-34, TRI-39, TRI-40 and TRI-42 (see "The second Triage P1 slice"). With them
+   came `expectExternalOpen()`, `diggaOptions.config`, `given.verdict()` and `given.sellerShop()`,
+   and the fake's inventory. Next: the other families. Still to do for Triage: its P2 scenarios,
+   the fake's lists and masters, and the September dump, each when a scenario needs it.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
    checks of the main screens, on Linux only, where snapshot updates need a human review.
@@ -1658,7 +1700,7 @@ videos" rows. `e2e:smoke` joined `vp run verify`. The work showed:
   with ▶ and the hidden text "playing", while the player still waits for Space (TRI-01 asserts
   only `aria-current`); and after `N` on the last record, the end of the queue reads "Every
   release under your filters has a verdict." beside "go round the 1 you passed", though the
-  passed record has none (TRI-09 and TRI-30 cover that screen).
+  passed record has none (TRI-09 and TRI-30 cover that screen; the second slice fixed it).
 - **A catalogue video that YouTube refuses reaches the notice only as the first video a page
   plays.** The hidden decks load the next release's first video and `J`'s next track before
   either plays, so they find the refusal first and the player skips the video silently. TRI-04
@@ -1690,13 +1732,110 @@ videos" rows. `e2e:smoke` joined `vp run verify`. The work showed:
   runs out of three; the 14 smoke tests take about 10.5 s of that, and the client build the rest
   of the difference.
 
+### The second Triage P1 slice (web)
+
+Built on 2026-10-01 on the same machine and versions: the verdicts, the queue, scopes, the market,
+the seller and the wants, TRI-08, TRI-09, TRI-14, TRI-15, TRI-19, TRI-20, TRI-21, TRI-23, TRI-25,
+TRI-30, TRI-32, TRI-33, TRI-34, TRI-39, TRI-40 and TRI-42, in twenty tests: TRI-08 runs without
+and with a Maybe list, TRI-23 and TRI-34 live and in the sandbox, and TRI-21 has a gap test. TRI-08
+is in `specs/triage.e2e.ts`; the queue, scopes and the seller (TRI-09, TRI-19, TRI-20, TRI-21,
+TRI-30, TRI-32, TRI-33, TRI-34 and TRI-40) in the new `specs/triage-queue.e2e.ts`; the pushes, the
+market and the links (TRI-14, TRI-15, TRI-23, TRI-25, TRI-39 and TRI-42) in the new
+`specs/triage-discogs.e2e.ts`. With them came `expectExternalOpen()` in the web host,
+`diggaOptions.config`, `given.verdict()` and `given.sellerShop()`, the fake's
+`GET /users/{u}/inventory` and the account `shopkeeper`, track artists and Various in the dump
+builder, and Triage page-object actions for pushes, rounds, `F`, `P`, `O`, `S` and the retry. The
+work showed:
+
+- **The new records leave the earlier scenarios alone.** Six releases on three labels that sort
+  after Hardline Audio: two self-releases on "Not On Label (Dillinja Self-released)", whose
+  catalogue number "none" reads "no cat"; a compilation that credits Kestrel, Sub Frame and
+  Vantage on its tracks, and a second record on its label, Rollers Archive; and the main release
+  and a repress of one master on Tempest Audio, the repress in `shopkeeper`'s shop. The 30
+  earlier tests passed on the new catalogue before any new scenario existed. The default queue
+  has 18 records on `small` and 16 on `small-account`, enough for a batch of five and for ten
+  verdicts.
+- **One product bug, fixed.** After `N` on the last record, the end of the queue said "Every
+  release under your filters has a verdict." while the passed record, which has none, waited
+  behind "go round the 1 you passed". `docs/KEYMAP.md` says the release "stays in the queue and
+  comes back later", and the design brief puts the way to go round on the ALL DUG screen, so the
+  stamp and the button are as designed and the sentence was wrong. The headline now comes from
+  `endOfQueueHeadline()` in `src/client/triage/end-of-queue.ts` and reads "…, apart from the 1
+  you passed." while there are passes; `tests/end-of-queue.test.ts` covers it. TRI-09 reads the
+  headline with a pass, TRI-30 without.
+- **One gap: Esc in `F`'s search field.** The field is `type="search"`. In Chromium, Esc in it
+  clears the text and the dialog stays open; a second Esc closes it. With an empty field one Esc
+  closes it. `docs/KEYMAP.md` says Esc cancels. The fix would be a keydown handler in
+  `ScopePicker.svelte`, which no vitest test can cover, so TRI-21 records it as a gap: its normal
+  test presses Esc twice, and its `test.fail` expects one Esc to close the picker. The behaviour
+  belongs to the browser's search field, so other engines may differ; the Firefox and WebKit
+  projects will show it.
+- **Rows corrected.** TRI-40 pushes, so it needs a saved token as well as `small-account`.
+  TRI-42 runs on `small-account` with a saved token, where the server could call Discogs with
+  the account's token; that is what "no request" is about. The fake's state said `shopkeeper` has
+  20 listings; the shop has the two TRI-40 needs, a repress of a loaded master and a release in no
+  dump. TRI-09's row now names the headline.
+- **The seller's pressing is the one wanted.** The whole queue shows the main release, 2101, for
+  the master; digging `shopkeeper` shows the repress, 2102, since the scope filters releases
+  before the queue picks one per master, and the fake's `PUT` names 2102.
+- **Config and decisions as given state cost nothing visible.** `diggaOptions.config` writes
+  `queue.limit`, impossible years and `discogs.maybeListId` into the copied config, as labels
+  are written; TRI-32 takes 1.0 s. `given.verdict()` dates TRI-30's snoozes a day apart, so the
+  round's order does not depend on the clock. `given.sellerShop()` takes about 2.2 s, all of it
+  the Discogs client's spacing (below).
+- **`expectExternalOpen()` keeps the guard's promise.** `window.open()` with `noopener` still
+  raises the context's `page` event, and the route answered the window's page, so TRI-25 saw no
+  refusal and nothing left the machine. Pressing `O` outside the helper failed a probe test with
+  "the browser requested https://www.discogs.com/release/1101".
+- **Negative checks were tried against broken builds**, restored afterwards: with the session's
+  refill threshold at 0, both TRI-34 tests failed on the fifth record, whose "Up next" read
+  nothing; without the Maybe-list guard in `Triage.svelte`, TRI-08 without a list failed, since `M`
+  judged the record instead of showing the flash; without the tracks' artists in
+  `scopesOfRelease()`, TRI-20 failed with one option on the record instead of four.
+- **The held requests make in-flight states exact.** With `GET /releases/:id` held at the fake,
+  the market line read "asking Discogs…" with `aria-busy="true"` in every run (TRI-23). With the
+  `PUT` held, `Z` settled first, and the fake's `DELETE` arrived after the `PUT` had been answered
+  (TRI-39).
+- **The cost of the Discogs interval.** From the fake's log over three runs of each scenario on
+  five workers: the 1.1 s gap binds when one request follows another at once. Reading the shop
+  waits twice, 2.2 s in TRI-21 and TRI-40 (the token's identity check, then the profile and the
+  inventory page, 1.09 to 1.11 s apart); TRI-39 waits 1.1 s before its `DELETE`; TRI-42's `P`
+  waits up to 1.1 s, since its ten verdicts take less than that after the token was saved; TRI-12
+  and TRI-13 wait 2.2 s each with the clock paused. A push with time flowing comes after the
+  1.5 s grace and waits for nothing: TRI-07's, TRI-14's and TRI-15's requests were 1.8 to 2.6 s
+  apart. In this slice the spacing costs about 6.6 s of the 40 s its twenty tests take on five
+  workers, two thirds of it in TRI-21 and TRI-40. A `discogsMinIntervalMs` option would save
+  that much; it does not decide the suite's time yet.
+- **Durations.** On five workers (`vp run e2e`) the 50 tests take 25.4 s, against 18.6 s for the
+  30 before, and `vp run e2e` 26.9 s with the client build. The new tests take 0.7 to 6.3 s each:
+  TRI-23 0.7 s (1.0 s in the sandbox), TRI-08 1.0 s and 1.0 s, TRI-32 1.0 s, TRI-25 1.1 s, TRI-33
+  1.2 s, TRI-09 1.4 s, TRI-19 1.4 s, TRI-20 1.6 s, TRI-30 1.6 s, TRI-42 1.6 s, TRI-34 1.8 s in the
+  sandbox and 2.1 s live, TRI-14 2.4 s, TRI-15 2.4 s, TRI-21's gap 2.5 s, TRI-39 3.5 s, TRI-21
+  4.7 s and TRI-40 6.3 s. TRI-40 reads the shop and waits for a push's grace, which makes it the
+  slowest Triage test on five workers, ahead of TRI-07's 5.3 s.
+- **Stable.** Each group passed `--repeat-each=10` on 16 workers before the next was written (100
+  of 100 runs each). The whole suite passed 1,000 of 1,000 runs at `--repeat-each=20` on 16
+  workers on the 10-core machine, in 7.5 minutes, and again on the final code in 5.7 minutes.
+  TRI-21's and SETUP-01's `test.fail` failed as expected in every run. Another project's test suite ran on the machine at the same
+  time (load averages of 115 to 216), so these times are slower than the earlier slices'. The
+  medians of the new tests in the first burn-in were 2.7 to 7.9 s, against 3.5 s for TRI-02 and
+  8.0 s for TRI-07 in the same runs; the slowest single runs were TRI-15 at 13.7 s and TRI-14 at
+  13.3 s, inside the 30 s timeout.
+- **`verify` has not grown.** The smoke set is still the P0 set; the slice adds P1 tests only.
+  Timed alternately against a worktree of the previous commit once the machine was quiet,
+  `vp run verify` took 20.9 to 21.1 s against 20.7 to 21.7 s, and its smoke set 10.6 to 10.7 s against
+  10.4 to 10.8 s, in three runs each.
+
 ## Risks and open questions
 
 - **Per-test server processes** keep tests isolated but cost a Node start each, about 200 ms in
   the spike.
 - **Real timers on the server.** The Discogs client's 1.1 s gap makes tests that touch Discogs
   several times slower. If the suite exceeds its budget, a `discogsMinIntervalMs` server option
-  set by the harness would help, at the cost of not running production spacing in E2E.
+  set by the harness would help, at the cost of not running production spacing in E2E. Measured
+  in the second Triage slice: the gap binds only where requests follow each other at once, and
+  costs about 6.6 s of that slice's 40 s of test time, 2.2 s each in the scenarios that read a
+  seller's shop; a push after the 1.5 s grace does not wait for it.
 - **Real disk space** stays a precondition of the run rather than something the tests control;
   see "Disk space".
 - **Fakes drift from the services.** The contract checks catch drift, but only when someone runs
