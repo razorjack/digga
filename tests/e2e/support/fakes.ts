@@ -4,10 +4,16 @@ import { DEFAULT_USER_AGENT } from "../../../src/server/discogs/transport.ts";
 import type {
   DiscogsBasicInformation,
   DiscogsIdentity,
+  DiscogsInventoryPage,
   DiscogsRelease,
   DiscogsUser,
 } from "../../../src/server/discogs/types.ts";
-import { ACCOUNTS, releaseById, videoCatalogue } from "../fixtures/catalogue.ts";
+import {
+  ACCOUNTS,
+  type FixtureAccount,
+  releaseById,
+  videoCatalogue,
+} from "../fixtures/catalogue.ts";
 import type { DumpCheckpoint, DumpFile } from "../fixtures/dump.ts";
 import type { ServiceUrls } from "./spawn.ts";
 
@@ -70,6 +76,7 @@ const DISCOGS_ROUTES = (
     ["GET /users/:user/wants", wantlistPage],
     ["PUT /users/:user/wants/:id", addWant],
     ["DELETE /users/:user/wants/:id", removeWant],
+    ["GET /users/:user/inventory", inventoryPage],
     ["GET /users/:user/lists", noLists],
     ["GET /releases/:id", marketRelease],
   ] satisfies [string, DiscogsHandler][]
@@ -381,7 +388,7 @@ function identity(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
 }
 
 function profile(fakes: FakeServices, request: FakeRequest): FakeAnswer {
-  const account = ACCOUNTS.find((candidate) => candidate.username === request.params.user);
+  const account = accountNamed(request.params.user);
   if (!account) return { status: 404, body: { message: "User does not exist." } };
   const user: DiscogsUser = {
     id: 1,
@@ -394,7 +401,7 @@ function profile(fakes: FakeServices, request: FakeRequest): FakeAnswer {
 }
 
 function collectionPage(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
-  const account = ACCOUNTS.find((candidate) => candidate.username === request.params.user);
+  const account = accountNamed(request.params.user);
   if (!account) return { status: 404, body: { message: "User does not exist." } };
   const releases = account.collection.map((id, index) => ({
     id,
@@ -432,6 +439,23 @@ function removeWant(fakes: FakeServices, request: FakeRequest): FakeAnswer {
   return removed ? { status: 204 } : { status: 404, body: { message: "Release not in wantlist." } };
 }
 
+/** The seller's For Sale listings, all on one page. */
+function inventoryPage(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
+  const account = accountNamed(request.params.user);
+  if (!account) return { status: 404, body: { message: "User does not exist." } };
+  const listings = account.inventory.map((id, index) => ({
+    id: 70_000 + index,
+    status: "For Sale",
+    release: { id },
+  }));
+  const page: DiscogsInventoryPage = { pagination: pagination(1, listings.length), listings };
+  return { status: 200, body: page };
+}
+
+function accountNamed(username: string | undefined): FixtureAccount | undefined {
+  return ACCOUNTS.find((candidate) => candidate.username === username);
+}
+
 function refuseOtherAccount(request: FakeRequest): FakeAnswer | null {
   if (!request.authenticatedAs) return { status: 401, body: { message: "You must authenticate." } };
   if (request.authenticatedAs !== request.params.user)
@@ -439,15 +463,18 @@ function refuseOtherAccount(request: FakeRequest): FakeAnswer | null {
   return null;
 }
 
+/** What the fake Discogs says of every release's market, in the currency asked for. */
+export const MARKET = { lowestPrice: 12.5, numForSale: 3, have: 400, want: 900 };
+
 function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
   const fixture = releaseById(Number(request.params.id));
   if (!fixture) return { status: 404, body: { message: "Release not found." } };
   const release: DiscogsRelease = {
     id: fixture.id,
     title: fixture.title,
-    lowest_price: 12.5,
-    num_for_sale: 3,
-    community: { have: 400, want: 900 },
+    lowest_price: MARKET.lowestPrice,
+    num_for_sale: MARKET.numForSale,
+    community: { have: MARKET.have, want: MARKET.want },
     videos: fixture.videos.map((video) => ({
       uri: `https://www.youtube.com/watch?v=${video.id}`,
       title: video.title,

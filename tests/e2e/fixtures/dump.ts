@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { BULK, BULK_CHECKPOINTS, type FixtureRelease } from "./catalogue.ts";
+import { BULK, BULK_CHECKPOINTS, type FixtureRelease, type FixtureTrack } from "./catalogue.ts";
 
 /** A releases dump as data.discogs.com publishes it: gzipped XML, with its checksum. */
 export interface DumpFile {
@@ -129,16 +129,32 @@ function releaseXml(release: FixtureRelease, artistIds: Map<string, number>): st
     `<country>${escapeXml(release.country)}</country>`,
     release.year === null ? "" : `<released>${release.year}</released>`,
     masterXml(release),
-    `<tracklist>${release.tracks.map((track) => `<track><position>${escapeXml(track.position)}</position><title>${escapeXml(track.title)}</title><duration>${track.duration}</duration></track>`).join("")}</tracklist>`,
+    `<tracklist>${release.tracks.map((track) => trackXml(track, artistIds)).join("")}</tracklist>`,
     `<videos>${release.videos.map((video) => `<video src="https://www.youtube.com/watch?v=${video.id}" duration="${video.seconds}" embed="${video.embed}"><title>${escapeXml(video.title)}</title><description></description></video>`).join("")}</videos>`,
     "</release>",
   ].join("\n");
 }
 
+function trackXml(track: FixtureTrack, artistIds: Map<string, number>): string {
+  const credits = track.artists.map((name, index) =>
+    artistXml(name, index < track.artists.length - 1, artistIds),
+  );
+  const artists = credits.length === 0 ? "" : `<artists>${credits.join("")}</artists>`;
+  return `<track><position>${escapeXml(track.position)}</position><title>${escapeXml(track.title)}</title><duration>${track.duration}</duration>${artists}</track>`;
+}
+
 function artistXml(name: string, joined: boolean, artistIds: Map<string, number>): string {
-  if (!artistIds.has(name)) artistIds.set(name, artistIds.size + 1);
   const join = joined ? "&amp;" : "";
-  return `<artist><id>${artistIds.get(name)}</id><name>${escapeXml(name)}</name><anv></anv><join>${join}</join><role></role><tracks></tracks></artist>`;
+  return `<artist><id>${artistId(name, artistIds)}</id><name>${escapeXml(name)}</name><anv></anv><join>${join}</join><role></role><tracks></tracks></artist>`;
+}
+
+/** Discogs' id for Various, which Digga does not offer as an artist to dig. */
+const VARIOUS = { name: "Various", id: 194 };
+
+function artistId(name: string, artistIds: Map<string, number>): number {
+  if (name === VARIOUS.name) return VARIOUS.id;
+  if (!artistIds.has(name)) artistIds.set(name, artistIds.size + 1);
+  return artistIds.get(name)!;
 }
 
 function masterXml(release: FixtureRelease): string {

@@ -1,3 +1,5 @@
+import { triageKeyFor } from "../../../src/shared/triage-key.ts";
+
 /**
  * Every release, label, track, video and Discogs account the end-to-end tests use. The dump
  * files, the fake Discogs API and the fake YouTube player all read it, so the three agree
@@ -8,6 +10,8 @@ export interface FixtureTrack {
   position: string;
   title: string;
   duration: string;
+  /** A compilation credits its artists on the tracks; empty for the release's artists. */
+  artists: string[];
 }
 
 export interface FixtureVideo {
@@ -36,10 +40,17 @@ export interface FixtureAccount {
   collection: number[];
   /** Release ids; one of them is in no dump. */
   wantlist: number[];
+  /** Release ids of the account's For Sale listings. */
+  inventory: number[];
 }
 
-function track(position: string, title: string, duration: string): FixtureTrack {
-  return { position, title, duration };
+function track(
+  position: string,
+  title: string,
+  duration: string,
+  artists: string[] = [],
+): FixtureTrack {
+  return { position, title, duration, artists };
 }
 
 /** Video ids have YouTube's shape; an `e150` or `e100` prefix makes the fake player refuse them. */
@@ -68,6 +79,12 @@ const FRONTLINE = { id: 60, name: "Frontline" };
 export const GROUNDWORK = { id: 70, name: "Groundwork" };
 /** The label of a record that repeats a tune of the first record. */
 export const HARDLINE_AUDIO = { id: 80, name: "Hardline Audio" };
+/** Self-releases, as Discogs names their label: the label X hides (TRI-19). */
+export const SELF_RELEASED = { id: 100, name: "Not On Label (Dillinja Self-released)" };
+/** The label of a compilation and one more record, to dig with F (TRI-20). */
+export const ROLLERS_ARCHIVE = { id: 110, name: "Rollers Archive" };
+/** The label of a record whose repress the seller shopkeeper has (TRI-40). */
+export const TEMPEST_AUDIO = { id: 120, name: "Tempest Audio" };
 
 const DNB = ["Drum n Bass", "Techstep"];
 
@@ -219,6 +236,67 @@ export const SAME_TUNE_ELSEWHERE = release({
   ],
 });
 
+/** The first of two records on a self-release label; X hides both (TRI-19). */
+export const SELF_RELEASE = release({
+  id: 1901,
+  artists: ["Dillinja"],
+  title: "Iron Lung",
+  label: { ...SELF_RELEASED, catno: "none" },
+  year: 1999,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Iron Lung", "7:20")],
+  videos: [video("dillinjairn", "Dillinja - Iron Lung", 440)],
+});
+
+/**
+ * A compilation that credits its artists on the tracks, which F offers to dig (TRI-20). Kestrel
+ * has two records of their own, so the search counts three for them (TRI-21).
+ */
+export const COMPILATION = release({
+  id: 2001,
+  artists: ["Various"],
+  title: "Archive Volume One",
+  label: { ...ROLLERS_ARCHIVE, catno: "RA 001" },
+  year: 2000,
+  country: "UK",
+  styles: DNB,
+  tracks: [
+    track("A", "Cold Front", "6:40", ["Kestrel"]),
+    track("B", "Gridiron", "6:15", ["Sub Frame"]),
+    track("C", "Pulsar", "6:55", ["Vantage"]),
+  ],
+  videos: [
+    video("kestrelcold", "Kestrel - Cold Front", 400),
+    video("subframegrd", "Sub Frame - Gridiron", 375),
+    video("vantagepuls", "Vantage - Pulsar", 415),
+  ],
+});
+
+/** The main release of a master: the whole queue shows it for the master (TRI-40). */
+export const MAIN_PRESSING = release({
+  id: 2101,
+  master: { id: 902, main: true },
+  artists: ["Hollow Circuit"],
+  title: "Kinetic Drift",
+  label: { ...TEMPEST_AUDIO, catno: "TMP 001" },
+  year: 1999,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Kinetic Drift", "6:50"), track("B", "Fault Line", "6:20")],
+  videos: [video("hollowkinet", "Hollow Circuit - Kinetic Drift", 410)],
+});
+
+/** The repress of the same master, which the seller shopkeeper has for sale (TRI-40). */
+export const SHOP_PRESSING = release({
+  ...MAIN_PRESSING,
+  id: 2102,
+  master: { id: 902, main: false },
+  label: { ...TEMPEST_AUDIO, catno: "TMP 001R" },
+  year: 2001,
+  videos: [video("hollowkinrp", "Hollow Circuit - Kinetic Drift (Repress)", 410)],
+});
+
 /**
  * The small catalogue, in id order as in a Discogs dump. Labels sort alphabetically, so the default
  * label sweep digs them in this order; Cold Storage's records are the account's collection and
@@ -299,6 +377,32 @@ export const SMALL: FixtureRelease[] = [
   }),
   TRACK_RUN,
   SAME_TUNE_ELSEWHERE,
+  SELF_RELEASE,
+  release({
+    id: 1902,
+    artists: ["Dillinja"],
+    title: "Brass Knuckle",
+    label: { ...SELF_RELEASED, catno: "none" },
+    year: 2000,
+    country: "UK",
+    styles: DNB,
+    tracks: [track("A", "Brass Knuckle", "6:58")],
+    videos: [video("dillinjabrs", "Dillinja - Brass Knuckle", 418)],
+  }),
+  COMPILATION,
+  release({
+    id: 2002,
+    artists: ["Vantage"],
+    title: "Pulsar Remixes",
+    label: { ...ROLLERS_ARCHIVE, catno: "RA 002" },
+    year: 2001,
+    country: "UK",
+    styles: DNB,
+    tracks: [track("A", "Pulsar (Torsion Remix)", "7:05")],
+    videos: [video("vantagermx1", "Vantage - Pulsar (Torsion Remix)", 425)],
+  }),
+  MAIN_PRESSING,
+  SHOP_PRESSING,
 ];
 
 /**
@@ -329,9 +433,26 @@ export const NOT_IN_ANY_DUMP = release({
   videos: [],
 });
 
-export const DJ: FixtureAccount = { username: "dj", collection: [1301], wantlist: [1302, 9001] };
+export const DJ: FixtureAccount = {
+  username: "dj",
+  collection: [1301],
+  wantlist: [1302, 9001],
+  inventory: [],
+};
 
-export const ACCOUNTS: FixtureAccount[] = [DJ, { username: "other", collection: [], wantlist: [] }];
+/** A seller whose shop has a repress of a loaded master and a release no dump has (TRI-40). */
+export const SHOPKEEPER: FixtureAccount = {
+  username: "shopkeeper",
+  collection: [],
+  wantlist: [],
+  inventory: [SHOP_PRESSING.id, NOT_IN_ANY_DUMP.id],
+};
+
+export const ACCOUNTS: FixtureAccount[] = [
+  DJ,
+  { username: "other", collection: [], wantlist: [], inventory: [] },
+  SHOPKEEPER,
+];
 
 /** Records in the bulk catalogue, all of them to dig. */
 const BULK_RECORDS = 1500;
@@ -360,6 +481,11 @@ export const BULK_CHECKPOINTS = { "100-to-dig": 100, "600-to-dig": 600 };
 export const BULK: FixtureRelease[] = generateBulk();
 
 export const ALL_RELEASES: FixtureRelease[] = [...SMALL, NOT_IN_ANY_DUMP, ...BULK];
+
+/** The key Digga digs the release under: its master's, else its own. */
+export function triageKeyOf(fixture: FixtureRelease): string {
+  return triageKeyFor({ id: fixture.id, masterId: fixture.master?.id ?? null });
+}
 
 export function releaseById(id: number): FixtureRelease | undefined {
   return ALL_RELEASES.find((candidate) => candidate.id === id);

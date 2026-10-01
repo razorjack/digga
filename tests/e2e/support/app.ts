@@ -1,5 +1,6 @@
-import type { Page } from "@playwright/test";
-import type { ListenLogInput } from "../../../src/shared/api.ts";
+import { expect, type Page } from "@playwright/test";
+import type { ListenLogInput, VerdictInput } from "../../../src/shared/api.ts";
+import type { Job } from "../../../src/shared/types.ts";
 import type { ExpectedProblems } from "./browser-log.ts";
 import type { RequestMatch } from "./fault-routes.ts";
 import type { FakeLoad, FakePlayerSnapshot } from "./fake-youtube.ts";
@@ -31,6 +32,12 @@ export interface DiggaApp {
   relaunch(options?: { crash?: boolean }): Promise<void>;
   /** Dispatches a paste event carrying the text at the focused element. */
   paste(text: string): Promise<void>;
+  /**
+   * Runs the action and returns the external URL it opened in a new window, which gets an empty
+   * page instead of the site; the window is closed again. Outside this helper the guard refuses
+   * an external URL and fails the test.
+   */
+  expectExternalOpen(action: () => Promise<void>): Promise<string>;
   /** The page's /api requests so far, over every launch, as "METHOD /api/path". */
   apiRequests(): string[];
   /** Aborts the page's next matching requests (one by default), for the current launch. */
@@ -83,6 +90,25 @@ export class Given {
   /** A logged listen: the tune reads heard on every release that has it. */
   async listen(input: ListenLogInput): Promise<void> {
     await this.#api().send("POST", "/api/listen-log", input);
+  }
+
+  /** A verdict as Triage saves one; `decidedAt` dates it, else it is dated now. */
+  async verdict(input: VerdictInput): Promise<void> {
+    await this.#api().send("POST", "/api/verdicts", input);
+  }
+
+  /** Reads a seller's shop through the job Settings' "Read shop" starts; returns once it is done. */
+  async sellerShop(username: string): Promise<void> {
+    const started = await this.#api().send<Job>("POST", "/api/jobs/import/seller", { username });
+    let job = started;
+    await expect
+      .poll(async () => {
+        job = await this.#api().get<Job>(`/api/jobs/${started.id}`);
+        return job.status;
+      }, `reading ${username}'s shop`)
+      .not.toMatch(/^(queued|running)$/);
+    if (job.status !== "done")
+      throw new Error(`reading ${username}'s shop ended ${job.status}: ${job.error ?? ""}`);
   }
 }
 

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type TestInfo } from "@playwright/test";
-import type { Config } from "../../../src/shared/config.ts";
+import { type Config, ConfigSchema } from "../../../src/shared/config.ts";
 import { labelsBesides } from "../fixtures/catalogue.ts";
 import { bulkDump, type DumpFile } from "../fixtures/dump.ts";
 import { FakeServices } from "./fakes.ts";
@@ -14,10 +14,17 @@ export { expect } from "@playwright/test";
 /** Dumps the fake data.discogs.com can list as the newest. */
 const LISTED_DUMPS: Record<"bulk", () => DumpFile> = { bulk: bulkDump };
 
+/** Settings a test changes, section by section, on top of the template's config. */
+export type ConfigOverride = {
+  [Section in Exclude<keyof Config, "sandbox">]?: Partial<Config[Section]>;
+};
+
 export interface DiggaOptions {
   template: TemplateName;
   /** Ignored for `empty`, which starts with the schema defaults, the sandbox on. */
   sandbox: boolean;
+  /** Written into the copied config before the server starts; ignored for `empty`. */
+  config: ConfigOverride;
   /**
    * The only labels the queue digs: the config leaves every other label of the small catalogue
    * out (filters.excludeLabels), as X would. Null digs them all.
@@ -36,6 +43,7 @@ export interface DiggaOptions {
 const DEFAULT_OPTIONS: DiggaOptions = {
   template: "small",
   sandbox: false,
+  config: {},
   labels: null,
   savedToken: null,
   serviceUrls: {},
@@ -121,11 +129,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 });
 
-/** The test's settings on top of the template's config: the sandbox, and the labels it digs. */
+/**
+ * The test's settings on top of the template's config: the sandbox, the sections it changes and
+ * the labels it digs. The schema parses the result, so a value the app would refuse fails here.
+ */
 function testConfig(config: Config, options: DiggaOptions): Config {
-  if (options.labels === null) return { ...config, sandbox: options.sandbox };
-  const filters = { ...config.filters, excludeLabels: labelsBesides(options.labels) };
-  return { ...config, sandbox: options.sandbox, filters };
+  const merged: Record<string, unknown> = { ...config, sandbox: options.sandbox };
+  for (const [section, values] of Object.entries(options.config))
+    merged[section] = { ...config[section as keyof ConfigOverride], ...values };
+  const parsed = ConfigSchema.parse(merged);
+  if (options.labels === null) return parsed;
+  const filters = { ...parsed.filters, excludeLabels: labelsBesides(options.labels) };
+  return { ...parsed, filters };
 }
 
 /** Text an agent can read without a trace viewer (docs/E2E_TESTING.md, "Failure artifacts"). */

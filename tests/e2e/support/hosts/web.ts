@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, BrowserContextOptions, Page } from "@playwright/test";
+import type { Browser, BrowserContext, BrowserContextOptions, Page, Route } from "@playwright/test";
 import { videoCatalogue } from "../../fixtures/catalogue.ts";
 import { AppApiClient, type DiggaApp, FakeYouTubeHandle, Given, PageClock } from "../app.ts";
 import { guardContext } from "../browser-guard.ts";
@@ -109,6 +109,36 @@ export class WebApp implements DiggaApp {
         new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
       );
     }, text);
+  }
+
+  /**
+   * A route registered before the action answers the window's page, so the URL never reaches the
+   * network or the guard. The route goes with the window: an external URL opened later is refused
+   * and fails the test.
+   */
+  async expectExternalOpen(action: () => Promise<void>): Promise<string> {
+    const { context } = this;
+    const opened = Promise.withResolvers<string>();
+    const isExternal = (url: URL) => url.origin !== this.origin;
+    const answer = async (route: Route) => {
+      const request = route.request();
+      // Only the window's page is the URL the app opened; what that page asks for gets nothing.
+      if (!request.isNavigationRequest()) return route.fulfill({ status: 404 });
+      opened.resolve(request.url());
+      await route.fulfill({ status: 200, contentType: "text/html", body: "" });
+    };
+    const popup = context.waitForEvent("page");
+    // An action that fails leaves the wait to time out unobserved.
+    popup.catch(() => {});
+    await context.route(isExternal, answer);
+    try {
+      await action();
+      const [url, page] = await Promise.all([opened.promise, popup]);
+      await page.close();
+      return url;
+    } finally {
+      await context.unroute(isExternal, answer);
+    }
   }
 
   async abortRequests(match: RequestMatch, options: { times?: number } = {}): Promise<void> {

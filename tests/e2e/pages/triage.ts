@@ -9,6 +9,9 @@ import type { DiggaApp } from "../support/app.ts";
 /** Past the session's 1.5 s grace before a wantlist push, for runFor(). */
 export const PAST_PUSH_GRACE_MS = 2000;
 
+/** The slip's last word on a push to the Discogs wantlist, whichever way it went. */
+const PUSH_ENDED = /Added to your Discogs wantlist\.|Saved, but not on the Discogs wantlist\./;
+
 /** The player logs a listen after 4 s of playback and adds at most 1 s per 250 ms tick. */
 export const LOGGED_LISTEN_MS = 4500;
 
@@ -75,6 +78,41 @@ export class TriagePage {
 
   get noteField(): Locator {
     return this.root.getByRole("textbox", { name: "Note on this record" });
+  }
+
+  /** The verdict's button in the bar under the record; the bar offers M only with a Maybe list. */
+  verdictButton(status: TriageStatus): Locator {
+    const bar = this.root.getByRole("group", { name: "Verdicts" });
+    return bar.locator(`[aria-keyshortcuts="${verdictKey(status).toUpperCase()}"]`);
+  }
+
+  /** The record's price, copies for sale and have/want, and when Discogs was asked. */
+  get market(): Locator {
+    return this.record.getByRole("status");
+  }
+
+  /** The strip above the desk while a round of snoozed records or a scope runs. */
+  get banner(): Locator {
+    return this.root.getByText(/^(Digging|Hearing snoozed records again)/);
+  }
+
+  /** F's dialog: the record's labels and artists, the last load's records, and a search. */
+  get scopePicker(): Locator {
+    return this.app.page.getByRole("dialog", { name: "Dig one label, artist or seller" });
+  }
+
+  get scopeSearch(): Locator {
+    return this.scopePicker.getByRole("searchbox", { name: "Label, artist or seller" });
+  }
+
+  /** What the picker says about its options: their number, a search in progress, no match. */
+  get scopeStatus(): Locator {
+    return this.scopePicker.getByRole("status");
+  }
+
+  /** At the end of the queue, or of a scope, the button that brings back the records passed. */
+  get goRoundButton(): Locator {
+    return this.root.getByRole("button", { name: /^go round the \d+ you passed$/ });
   }
 
   /** The player's status line while it reads the status's copy. */
@@ -207,11 +245,123 @@ export class TriagePage {
     await expect(this.lastAction).not.toHaveAttribute("aria-busy", "true");
   }
 
+  /**
+   * A or C with time flowing: returns once the server has answered the push, which it does after
+   * its call to Discogs, and the slip shows how the push ended.
+   */
+  async judgeAndPush(status: "accepted" | "candidate"): Promise<Response> {
+    const releaseId = await this.record.getAttribute("data-release-id");
+    const pushed = this.#response("POST", `/api/discogs/wantlist/${releaseId}`);
+    await this.judge(status);
+    const response = await pushed;
+    await response.finished();
+    await expect(this.lastAction).toContainText(PUSH_ENDED);
+    return response;
+  }
+
   /** N: the record stays undecided and the next one shows. */
   async pass(): Promise<void> {
     const key = await this.currentKey();
     await this.app.page.keyboard.press("n");
     await expect(this.record).not.toHaveAttribute("data-triage-key", key);
+  }
+
+  /** N at the end of the queue: the records passed come round again. */
+  async goRound(): Promise<void> {
+    await expect(this.goRoundButton).toBeVisible();
+    await this.app.page.keyboard.press("n");
+    await expect(this.record).toBeVisible();
+  }
+
+  /** The end of the queue's button: returns once the snoozed records have loaded as a round. */
+  async hearSnoozed(): Promise<void> {
+    const loaded = this.#response("GET", "/api/twelves");
+    await this.root.getByRole("button", { name: /^hear the \d+ snoozed again$/ }).click();
+    await this.#completed(await loaded);
+    await expect(this.banner).toContainText("Hearing snoozed records again");
+  }
+
+  /** Esc in a round of snoozed records: the queue is back where it was, without the banner. */
+  async leaveRound(): Promise<void> {
+    await expect(this.banner).toBeVisible();
+    await this.app.page.keyboard.press("Escape");
+    await expect(this.banner).toBeHidden();
+  }
+
+  /** F: returns once the picker is open with its search field focused. */
+  async openScopePicker(): Promise<void> {
+    await expect(this.record).toBeVisible();
+    await this.app.page.keyboard.press("f");
+    await expect(this.scopeSearch).toBeFocused();
+  }
+
+  /** Types into the picker's search; returns once the server has answered and the page shows it. */
+  async searchScopes(text: string): Promise<void> {
+    const searched = this.app.page.waitForResponse(
+      (response) =>
+        isRequest(response, "GET", "/api/scopes") &&
+        new URL(response.url()).searchParams.get("q") === text,
+    );
+    await this.scopeSearch.fill(text);
+    await this.#completed(await searched);
+    await expect(this.scopeStatus).not.toHaveText("Searching…");
+  }
+
+  /** Enter in the picker: returns once the queue of the chosen scope has loaded. */
+  async digScope(): Promise<void> {
+    await expect(this.scopePicker).toBeVisible();
+    const loaded = this.#queueLoaded((scope) => scope !== null);
+    await this.app.page.keyboard.press("Enter");
+    await this.#completed(await loaded);
+    await expect(this.scopePicker).toBeHidden();
+  }
+
+  /** Esc in the picker: it closes and the queue stays as it was. */
+  async closeScopePicker(): Promise<void> {
+    await expect(this.scopePicker).toBeVisible();
+    await this.app.page.keyboard.press("Escape");
+    await expect(this.scopePicker).toBeHidden();
+  }
+
+  /** Esc while a scope runs: returns once the whole queue has loaded again. */
+  async leaveScope(): Promise<void> {
+    await expect(this.banner).toBeVisible();
+    const loaded = this.#queueLoaded((scope) => scope === null);
+    await this.app.page.keyboard.press("Escape");
+    await this.#completed(await loaded);
+    await expect(this.banner).toBeHidden();
+  }
+
+  /** P: returns once the server has the release's market data and the line shows it. */
+  async askMarket(): Promise<void> {
+    const releaseId = await this.record.getAttribute("data-release-id");
+    const asked = this.#response("POST", `/api/releases/${releaseId}/enrich`);
+    await this.app.page.keyboard.press("p");
+    await this.#completed(await asked);
+    await expect(this.market).toHaveAttribute("aria-busy", "false");
+    await expect(this.market).toContainText("checked");
+  }
+
+  /** O: returns the address the app opened, the release on discogs.com. */
+  async openOnDiscogs(): Promise<string> {
+    await expect(this.record).toBeVisible();
+    return this.app.expectExternalOpen(() => this.app.page.keyboard.press("o"));
+  }
+
+  /** S: returns the address the app opened, a YouTube search for the record. */
+  async searchYouTube(): Promise<string> {
+    await expect(this.record).toBeVisible();
+    return this.app.expectExternalOpen(() => this.app.page.keyboard.press("s"));
+  }
+
+  /** Enter after the tracklist failed to load: returns once it has loaded and shows. */
+  async retryTracklist(): Promise<void> {
+    await expect(this.root.getByText(/^The tracklist did not load/)).toBeVisible();
+    const releaseId = await this.record.getAttribute("data-release-id");
+    const loaded = this.#response("GET", `/api/releases/${releaseId}`);
+    await this.app.page.keyboard.press("Enter");
+    await this.#completed(await loaded);
+    await expect(this.tracklist).toBeVisible();
   }
 
   /** E: returns once the note field has focus. */
@@ -324,6 +474,15 @@ export class TriagePage {
     await (await queue).finished();
   }
 
+  /** The queue's next answer whose scope, "label:110" or null for none, passes the test. */
+  #queueLoaded(test: (scope: string | null) => boolean): Promise<Response> {
+    return this.app.page.waitForResponse(
+      (response) =>
+        isRequest(response, "GET", "/api/queue") &&
+        test(new URL(response.url()).searchParams.get("scope")),
+    );
+  }
+
   /** Waits for the app's response to the request an action causes; arm it before the action. */
   #response(method: string, path: string): Promise<Response> {
     return this.app.page.waitForResponse((response) => isRequest(response, method, path));
@@ -331,9 +490,14 @@ export class TriagePage {
 
   /** The body has arrived and the slip is no longer busy: the page has acted on the answer. */
   async #settled(response: Response): Promise<void> {
+    await this.#completed(response);
+    await expect(this.lastAction).not.toHaveAttribute("aria-busy", "true");
+  }
+
+  /** The request succeeded and its whole body has arrived, so the page can act on it. */
+  async #completed(response: Response): Promise<void> {
     expect(response.ok(), `${response.request().method()} ${response.url()}`).toBe(true);
     await response.finished();
-    await expect(this.lastAction).not.toHaveAttribute("aria-busy", "true");
   }
 }
 
