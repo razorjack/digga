@@ -7,6 +7,7 @@ import type {
   DiscogsInventoryPage,
   DiscogsRelease,
   DiscogsUser,
+  DiscogsUserListsPage,
 } from "../../../src/server/discogs/types.ts";
 import {
   ACCOUNTS,
@@ -77,7 +78,7 @@ const DISCOGS_ROUTES = (
     ["PUT /users/:user/wants/:id", addWant],
     ["DELETE /users/:user/wants/:id", removeWant],
     ["GET /users/:user/inventory", inventoryPage],
-    ["GET /users/:user/lists", noLists],
+    ["GET /users/:user/lists", userLists],
     ["GET /releases/:id", marketRelease],
   ] satisfies [string, DiscogsHandler][]
 ).map(([pattern, handler]) => ({ pattern: compilePattern(pattern), handler }));
@@ -485,8 +486,16 @@ function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
   return { status: 200, body: release };
 }
 
-function noLists(): FakeAnswer {
-  return { status: 200, body: { pagination: pagination(1, 0), lists: [] } };
+/** The account's lists, its private ones only for its own token, all on one page. */
+function userLists(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
+  const account = accountNamed(request.params.user);
+  if (!account) return { status: 404, body: { message: "User does not exist." } };
+  const own = request.authenticatedAs === account.username;
+  const lists = account.lists
+    .filter((list) => list.public || own)
+    .map((list) => ({ id: list.id, name: list.name, public: list.public }));
+  const page: DiscogsUserListsPage = { pagination: pagination(1, lists.length), lists };
+  return { status: 200, body: page };
 }
 
 function oembed(query: Record<string, string>): FakeAnswer {

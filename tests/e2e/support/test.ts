@@ -3,7 +3,13 @@ import path from "node:path";
 import { test as base, expect, type TestInfo } from "@playwright/test";
 import { type Config, ConfigSchema } from "../../../src/shared/config.ts";
 import { labelsBesides } from "../fixtures/catalogue.ts";
-import { bulkDump, type DumpFile } from "../fixtures/dump.ts";
+import {
+  bulkDump,
+  type DumpFile,
+  type SmallDumpMonth,
+  smallDump,
+  writeDump,
+} from "../fixtures/dump.ts";
 import { FakeServices } from "./fakes.ts";
 import { WebApp } from "./hosts/web.ts";
 import type { ServiceUrls } from "./spawn.ts";
@@ -12,7 +18,10 @@ import { copyTemplate, type TemplateName, Templates, updateConfig } from "./temp
 export { expect } from "@playwright/test";
 
 /** Dumps the fake data.discogs.com can list as the newest. */
-const LISTED_DUMPS: Record<"bulk", () => DumpFile> = { bulk: bulkDump };
+const LISTED_DUMPS: Record<"bulk" | "september", () => DumpFile> = {
+  bulk: bulkDump,
+  september: () => smallDump("september"),
+};
 
 /** Settings a test changes, section by section, on top of the template's config. */
 export type ConfigOverride = {
@@ -32,12 +41,16 @@ export interface DiggaOptions {
   labels: string[] | null;
   /** A token saved through the API before the page opens. */
   savedToken: string | null;
+  /** DISCOGS_TOKEN in the server's environment, which wins over a saved token; fake tokens only. */
+  environmentToken: string | null;
   /** Replaces a service's address, as GUARD-01 does; the guard still allows only the fakes. */
   serviceUrls: Partial<ServiceUrls>;
   /** Installs Playwright's clock before the app starts, so the test can pause and run it. */
   clock: boolean;
   /** The dump data.discogs.com lists, from the app's first request on; none answers 404. */
   listedDump: keyof typeof LISTED_DUMPS | null;
+  /** Small dumps in the library's dumps folder before the server starts. */
+  dumpFiles: SmallDumpMonth[];
 }
 
 const DEFAULT_OPTIONS: DiggaOptions = {
@@ -46,9 +59,11 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   config: {},
   labels: null,
   savedToken: null,
+  environmentToken: null,
   serviceUrls: {},
   clock: false,
   listedDump: null,
+  dumpFiles: [],
 };
 
 interface TestFixtures {
@@ -101,6 +116,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     );
     if (options.template !== "empty")
       updateConfig(library.configFile, (config) => testConfig(config, options));
+    for (const month of options.dumpFiles) writeDump(library.dumpsDir, smallDump(month));
     if (options.listedDump) fakes.dumps.list(LISTED_DUMPS[options.listedDump]());
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
@@ -108,6 +124,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       browser,
       savedToken: options.savedToken,
       clock: options.clock,
+      outputDir: testInfo.outputDir,
       environment: {
         root: runRoot,
         cwd: work,
@@ -115,6 +132,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         library,
         allowedPort: fakes.port,
         serviceUrls: { ...fakes.urls, ...options.serviceUrls },
+        token: checkedToken(options.environmentToken),
       },
     });
 
@@ -128,6 +146,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     expect(problems, "problems the test did not declare").toEqual([]);
   },
 });
+
+/** Only a fake token may reach a Digga process (docs/E2E_TESTING.md, "Secrets"). */
+function checkedToken(token: string | null): string | undefined {
+  if (token === null) return undefined;
+  if (!token.startsWith("e2e-")) throw new Error("only e2e- tokens reach a test's environment");
+  return token;
+}
 
 /**
  * The test's settings on top of the template's config: the sandbox, the sections it changes and

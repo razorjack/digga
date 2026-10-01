@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import type { ListenLogInput, VerdictInput } from "../../../src/shared/api.ts";
+import type { ListenLogInput, TrackVerdictInput, VerdictInput } from "../../../src/shared/api.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import type { ExpectedProblems } from "./browser-log.ts";
 import type { RequestMatch } from "./fault-routes.ts";
@@ -38,6 +38,11 @@ export interface DiggaApp {
    * an external URL and fails the test.
    */
   expectExternalOpen(action: () => Promise<void>): Promise<string>;
+  /**
+   * Runs the action and returns the file it downloaded, once the download has completed and the
+   * file is saved in the test's output folder.
+   */
+  expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }>;
   /** The page's /api requests so far, over every launch, as "METHOD /api/path". */
   apiRequests(): string[];
   /** Aborts the page's next matching requests (one by default), for the current launch. */
@@ -95,6 +100,11 @@ export class Given {
   /** A verdict as Triage saves one; `decidedAt` dates it, else it is dated now. */
   async verdict(input: VerdictInput): Promise<void> {
     await this.#api().send("POST", "/api/verdicts", input);
+  }
+
+  /** A track mark as Triage saves one. */
+  async trackMark(input: TrackVerdictInput): Promise<void> {
+    await this.#api().send("POST", "/api/track-verdicts", input);
   }
 
   /** Reads a seller's shop through the job Settings' "Read shop" starts; returns once it is done. */

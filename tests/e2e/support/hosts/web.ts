@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Browser, BrowserContext, BrowserContextOptions, Page, Route } from "@playwright/test";
 import { videoCatalogue } from "../../fixtures/catalogue.ts";
 import { AppApiClient, type DiggaApp, FakeYouTubeHandle, Given, PageClock } from "../app.ts";
@@ -29,6 +30,8 @@ export interface WebAppOptions {
   savedToken: string | null;
   /** Installs Playwright's clock in every context before the app starts. */
   clock: boolean;
+  /** The test's output folder, where downloads are saved. */
+  outputDir: string;
 }
 
 /** One start of the app: its server process and the browser context that talks to it. */
@@ -139,6 +142,22 @@ export class WebApp implements DiggaApp {
     } finally {
       await context.unroute(isExternal, answer);
     }
+  }
+
+  /**
+   * Arms the download event before the action; saveAs() resolves only once the download has
+   * completed and the file is written, and a failed download has no file to save.
+   */
+  async expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }> {
+    const started = this.page.waitForEvent("download");
+    // An action that fails leaves the wait to time out unobserved.
+    started.catch(() => {});
+    await action();
+    const download = await started;
+    const name = download.suggestedFilename();
+    const file = path.join(this.#options.outputDir, "downloads", name);
+    await download.saveAs(file);
+    return { name, path: file };
   }
 
   async abortRequests(match: RequestMatch, options: { times?: number } = {}): Promise<void> {

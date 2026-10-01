@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, saveConfig } from "../../../src/server/config-file.ts";
 import type { Config } from "../../../src/shared/config.ts";
-import { DJ, SMALL } from "../fixtures/catalogue.ts";
-import { writeDump } from "../fixtures/dump.ts";
+import { DJ } from "../fixtures/catalogue.ts";
+import { smallDump, writeDump } from "../fixtures/dump.ts";
 import type { FakeServices } from "./fakes.ts";
 import { type DiggaEnvironment, type DiggaLibrary, runDigga } from "./spawn.ts";
 
@@ -79,8 +79,7 @@ export function updateConfig(configFile: string, change: (config: Config) => Con
 }
 
 async function buildSmall(templates: Templates, environment: DiggaEnvironment): Promise<void> {
-  const dump = path.join(templates.root, "fixtures", "discogs_20260901_releases.xml.gz");
-  writeDump(dump, SMALL);
+  const dump = writeDump(path.join(templates.root, "fixtures"), smallDump("august"));
   await runOrThrow(["dump", "load", dump], environment);
 }
 

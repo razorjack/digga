@@ -42,6 +42,14 @@ export interface FixtureAccount {
   wantlist: number[];
   /** Release ids of the account's For Sale listings. */
   inventory: number[];
+  /** The account's Discogs lists; a private one shows only to the account's own token. */
+  lists: FixtureList[];
+}
+
+export interface FixtureList {
+  id: number;
+  name: string;
+  public: boolean;
 }
 
 function track(
@@ -85,6 +93,8 @@ export const SELF_RELEASED = { id: 100, name: "Not On Label (Dillinja Self-relea
 export const ROLLERS_ARCHIVE = { id: 110, name: "Rollers Archive" };
 /** The label of a record whose repress the seller shopkeeper has (TRI-40). */
 export const TEMPEST_AUDIO = { id: 120, name: "Tempest Audio" };
+/** The label of the releases the September dump adds (SET-17). */
+export const UPFRONT_AUDIO = { id: 130, name: "Upfront Audio" };
 
 const DNB = ["Drum n Bass", "Techstep"];
 
@@ -298,7 +308,8 @@ export const SHOP_PRESSING = release({
 });
 
 /**
- * The small catalogue, in id order as in a Discogs dump. Labels sort alphabetically, so the default
+ * The small catalogue as the August dump has it, which the templates load, in id order as in a
+ * Discogs dump. Labels sort alphabetically, so the default
  * label sweep digs them in this order; Cold Storage's records are the account's collection and
  * wantlist. The labels after Frontline hold records only the scenarios that dig them reach.
  */
@@ -405,6 +416,55 @@ export const SMALL: FixtureRelease[] = [
   SHOP_PRESSING,
 ];
 
+/** The release the September dump no longer has; the library keeps it (SET-17). */
+export const DROPPED_IN_SEPTEMBER = 1902;
+
+/**
+ * The releases the September dump adds, on a label that sorts after every other, each a record to
+ * dig under the default filters (SET-17).
+ */
+export const SEPTEMBER_ADDITIONS: FixtureRelease[] = [
+  release({
+    id: 2201,
+    artists: ["Kestrel"],
+    title: "Late Arrival",
+    label: { ...UPFRONT_AUDIO, catno: "UPF 001" },
+    year: 2000,
+    country: "UK",
+    styles: DNB,
+    tracks: [track("A", "Late Arrival", "6:30")],
+    videos: [video("kestrellate", "Kestrel - Late Arrival", 390)],
+  }),
+  release({
+    id: 2202,
+    artists: ["Torsion"],
+    title: "Overdrive",
+    label: { ...UPFRONT_AUDIO, catno: "UPF 002" },
+    year: 2001,
+    country: "UK",
+    styles: DNB,
+    tracks: [track("A", "Overdrive", "6:45")],
+    videos: [video("torsionovdr", "Torsion - Overdrive", 405)],
+  }),
+  release({
+    id: 2203,
+    artists: ["Vantage"],
+    title: "Parallax",
+    label: { ...UPFRONT_AUDIO, catno: "UPF 003" },
+    year: 2002,
+    country: "UK",
+    styles: DNB,
+    tracks: [track("A", "Parallax", "7:00")],
+    videos: [video("vantageprlx", "Vantage - Parallax", 420)],
+  }),
+];
+
+/** The small catalogue as the September dump has it: three releases more, one fewer. */
+export const SMALL_SEPTEMBER: FixtureRelease[] = [
+  ...SMALL.filter((fixture) => fixture.id !== DROPPED_IN_SEPTEMBER),
+  ...SEPTEMBER_ADDITIONS,
+];
+
 /**
  * Videos YouTube has that no release lists, for pasting: one whose title names the first record's
  * track C, and one that matches none of its tracks.
@@ -433,11 +493,17 @@ export const NOT_IN_ANY_DUMP = release({
   videos: [],
 });
 
+/** dj's private list for maybes (SET-11). */
+export const MAYBE_LIST: FixtureList = { id: 9001, name: "Maybe", public: false };
+/** A public list of dj's, which any token can read. */
+export const PUBLIC_LIST: FixtureList = { id: 9002, name: "Played out", public: true };
+
 export const DJ: FixtureAccount = {
   username: "dj",
   collection: [1301],
   wantlist: [1302, 9001],
   inventory: [],
+  lists: [MAYBE_LIST, PUBLIC_LIST],
 };
 
 /** A seller whose shop has a repress of a loaded master and a release no dump has (TRI-40). */
@@ -446,11 +512,12 @@ export const SHOPKEEPER: FixtureAccount = {
   collection: [],
   wantlist: [],
   inventory: [SHOP_PRESSING.id, NOT_IN_ANY_DUMP.id],
+  lists: [],
 };
 
 export const ACCOUNTS: FixtureAccount[] = [
   DJ,
-  { username: "other", collection: [], wantlist: [], inventory: [] },
+  { username: "other", collection: [], wantlist: [], inventory: [], lists: [] },
   SHOPKEEPER,
 ];
 
@@ -480,7 +547,12 @@ export const BULK_CHECKPOINTS = { "100-to-dig": 100, "600-to-dig": 600 };
  */
 export const BULK: FixtureRelease[] = generateBulk();
 
-export const ALL_RELEASES: FixtureRelease[] = [...SMALL, NOT_IN_ANY_DUMP, ...BULK];
+export const ALL_RELEASES: FixtureRelease[] = [
+  ...SMALL,
+  ...SEPTEMBER_ADDITIONS,
+  NOT_IN_ANY_DUMP,
+  ...BULK,
+];
 
 /** The key Digga digs the release under: its master's, else its own. */
 export function triageKeyOf(fixture: FixtureRelease): string {

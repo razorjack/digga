@@ -2,7 +2,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { BULK, BULK_CHECKPOINTS, type FixtureRelease, type FixtureTrack } from "./catalogue.ts";
+import {
+  BULK,
+  BULK_CHECKPOINTS,
+  type FixtureRelease,
+  type FixtureTrack,
+  SMALL,
+  SMALL_SEPTEMBER,
+} from "./catalogue.ts";
 
 /** A releases dump as data.discogs.com publishes it: gzipped XML, with its checksum. */
 export interface DumpFile {
@@ -63,16 +70,18 @@ export function buildDump(options: DumpOptions): DumpFile {
 }
 
 /**
- * Writes the releases as a dump file for a template to load. The file is written beside its final
- * name and renamed, so a parallel worker never reads half of it.
+ * Writes the dump into the folder under its own name, unless it is there, and returns the path.
+ * The file is written beside its final name and renamed, so a parallel worker never reads half of
+ * it.
  */
-export function writeDump(file: string, releases: FixtureRelease[]): void {
-  if (fs.existsSync(file)) return;
-  const dump = buildDump({ date: "2026-09-01", releases });
+export function writeDump(folder: string, dump: DumpFile): string {
+  const file = path.join(folder, dump.name);
+  if (fs.existsSync(file)) return file;
   const part = `${file}.${process.pid}.part`;
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.mkdirSync(folder, { recursive: true });
   fs.writeFileSync(part, dump.data);
   fs.renameSync(part, file);
+  return file;
 }
 
 /**
@@ -168,6 +177,32 @@ function escapeXml(text: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+/**
+ * The small catalogue's monthly dumps (docs/E2E_TESTING.md, "The fixture catalogue"). The templates
+ * load August; September adds three releases and drops one, and data.discogs.com lists it for the
+ * update (SET-17), which a test can hold at its checkpoint; July is an older dump that only lies in
+ * a dumps folder (SET-16).
+ */
+export type SmallDumpMonth = "july" | "august" | "september";
+
+const SMALL_DUMP_OPTIONS: Record<SmallDumpMonth, DumpOptions> = {
+  july: { date: "2026-07-01", releases: SMALL },
+  august: { date: "2026-08-01", releases: SMALL },
+  september: { date: "2026-09-01", releases: SMALL_SEPTEMBER, checkpoints: { "part-way": 10 } },
+};
+
+const smallDumps = new Map<SmallDumpMonth, DumpFile>();
+
+/** The month's small dump, built once per worker. */
+export function smallDump(month: SmallDumpMonth): DumpFile {
+  let dump = smallDumps.get(month);
+  if (!dump) {
+    dump = buildDump(SMALL_DUMP_OPTIONS[month]);
+    smallDumps.set(month, dump);
+  }
+  return dump;
 }
 
 let bulk: DumpFile | null = null;
