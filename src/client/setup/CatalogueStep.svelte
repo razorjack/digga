@@ -77,30 +77,33 @@
     </li>
   </ol>
 
-  {#if shortOfSpace && catalogue}
+  <!-- The alerts stay in the page, empty until they have something to say, so they are announced. -->
+  <div class="outcome">
     <p class="problem" role="alert">
-      The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} free, counting 1 GB to spare, and the disk with
-      <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(catalogue.freeBytes ?? 0)}. Free some space, or put
-      the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in <code>.env</code> and start Digga again.
+      {#if shortOfSpace && catalogue}
+        The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} free, counting 1 GB to spare, and the disk with
+        <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(catalogue.freeBytes ?? 0)}. Free some space, or
+        put the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in <code>.env</code> and start Digga again.
+      {/if}
     </p>
-  {/if}
-  {#if flow.error}<p class="problem" role="alert">{flow.error}</p>{/if}
+    <p class="problem" role="alert">{flow.error ?? ""}</p>
 
-  <div class="actions">
-    {#if flow.download?.status === "running"}
-      <p class="quiet">The catalogue is downloading.</p>
-      <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
-    {:else if newest?.downloaded}
-      <p class="quiet">Digga has the {formatDumpDate(newest.date)} catalogue already.</p>
-      <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
-    {:else if newest}
-      <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}>Fetch the catalogue</Action>
-    {/if}
-    {#if catalogue?.error || shortOfSpace}
-      <Action onclick={() => void flow.open()} disabled={flow.busy}>
-        {shortOfSpace ? "Check again" : "Try again"}
-      </Action>
-    {/if}
+    <div class="actions">
+      {#if flow.download?.status === "running"}
+        <p class="quiet">The catalogue is downloading.</p>
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
+      {:else if newest?.downloaded}
+        <p class="quiet">Digga has the {formatDumpDate(newest.date)} catalogue already.</p>
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
+      {:else if newest}
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}>Fetch the catalogue</Action>
+      {/if}
+      {#if catalogue?.error || shortOfSpace}
+        <Action onclick={() => void flow.open()} disabled={flow.busy}>
+          {shortOfSpace ? "Check again" : "Try again"}
+        </Action>
+      {/if}
+    </div>
   </div>
 </section>
 
@@ -161,12 +164,19 @@
   .problem {
     color: var(--fg-accent);
   }
+  .outcome {
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+  }
+  .outcome .problem:not(:empty) {
+    margin-bottom: 22px;
+  }
   .actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 16px;
-    margin-top: 8px;
   }
   @media (max-width: 860px) {
     .plan li {

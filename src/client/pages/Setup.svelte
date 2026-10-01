@@ -6,8 +6,9 @@
   import CrateStep from "../setup/CrateStep.svelte";
   import DiscogsStep from "../setup/DiscogsStep.svelte";
   import DownloadStrip from "../setup/DownloadStrip.svelte";
-  import { isSetupStep, SETUP_STEPS, SetupFlow } from "../setup/flow.svelte.ts";
+  import { SetupFlow } from "../setup/flow.svelte.ts";
   import SoundStep from "../setup/SoundStep.svelte";
+  import { isSetupStep, SETUP_STEPS } from "../setup/steps.ts";
   import { stats } from "../stores.svelte.ts";
 
   const flow = new SetupFlow();

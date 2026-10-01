@@ -1,5 +1,6 @@
 <script lang="ts">
   /** Step 3: the styles and years the load keeps and Triage digs, with what they come to. */
+  import { tick } from "svelte";
   import { formatBytes, formatCount } from "../../shared/display.ts";
   import Action from "./Action.svelte";
   import type { SetupFlow } from "./flow.svelte.ts";
@@ -24,6 +25,7 @@
   let chosenLoadYears = $state<YearSpan | null>(null);
   let vinylOnly = $state(true);
   let search = $state<HTMLInputElement | null>(null);
+  let styleProblem = $state("");
   let suggestionsApplied = false;
 
   const census = $derived(flow.census);
@@ -61,10 +63,12 @@
     chosenLoadYears = index === 0 ? [year, loadYears[1]] : [loadYears[0], year];
   }
 
-  function fill(event: SubmitEvent): void {
+  async function fill(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (picks.length === 0) {
-      search?.setCustomValidity("Pick at least one style");
+      styleProblem = "Pick at least one style";
+      // The field's description holds the message once the page shows it.
+      await tick();
       search?.reportValidity();
       return;
     }
@@ -89,7 +93,7 @@
   {#if census}
     <fieldset class="styles">
       <legend>Styles</legend>
-      <StylePicker {census} bind:picks bind:search />
+      <StylePicker {census} bind:picks bind:search bind:problem={styleProblem} />
     </fieldset>
 
     <fieldset class="years">
@@ -138,6 +142,7 @@
                 />
               </label>
               <label>
+                <span class="visually-hidden">load</span>
                 to
                 <input
                   type="number"
@@ -172,11 +177,13 @@
     <p class="hint" aria-busy="true">Counting Discogs' styles…</p>
   {/if}
 
-  {#if flow.error}<p class="problem" role="alert">{flow.error}</p>{/if}
+  <div class="outcome">
+    <p class="problem" role="alert">{flow.error ?? ""}</p>
 
-  <div class="actions">
-    <Action primary type="submit" keys="Enter" disabled={flow.busy || !census}>Fill the crate</Action>
-    <button type="button" class="back" onclick={() => flow.goTo("discogs")}>Back</button>
+    <div class="actions">
+      <Action primary type="submit" keys="Enter" disabled={flow.busy || !census}>Fill the crate</Action>
+      <button type="button" class="back" onclick={() => flow.goTo("discogs")}>Back</button>
+    </div>
   </div>
 </form>
 
@@ -269,6 +276,13 @@
   }
   .problem {
     color: var(--fg-accent);
+  }
+  .outcome {
+    display: flex;
+    flex-direction: column;
+  }
+  .outcome .problem:not(:empty) {
+    margin-bottom: 24px;
   }
   .actions {
     display: flex;

@@ -3,9 +3,11 @@
   import type { Browser } from "../../shared/api.ts";
   import { DISCOGS_CURRENCIES } from "../../shared/config.ts";
   import { formatCount } from "../../shared/display.ts";
+  import { tick } from "svelte";
   import { isTyping } from "../keymap.ts";
   import { settings } from "../stores.svelte.ts";
   import Action from "./Action.svelte";
+  import { describedBy, reportProblem } from "./field-problem.ts";
   import type { SetupFlow } from "./flow.svelte.ts";
   import { importSeconds } from "./model.ts";
   import RequestList from "./RequestList.svelte";
@@ -15,6 +17,9 @@
   let token = $state("");
   let username = $state("");
   let tokenField = $state<HTMLInputElement | null>(null);
+  let usernameField = $state<HTMLInputElement | null>(null);
+  /** The step's error is about the field that was refused, until the field is edited. */
+  let refused = $state<"token" | "username" | null>(null);
   let seeds = $state(true);
   let readHistory = $state(false);
   let browser = $state<Browser | null>(null);
@@ -33,21 +38,30 @@
     Math.round(importSeconds(flow.profile?.collection ?? 0) + importSeconds(flow.profile?.wantlist ?? 0)),
   );
   const blocked = $derived(browsers.find((entry) => entry.name === chosenBrowser)?.readable === false);
+  const tokenProblem = $derived(refused === "token" ? (flow.error ?? "") : "");
+  const usernameProblem = $derived(refused === "username" ? (flow.error ?? "") : "");
 
   async function connect(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    tokenField?.setCustomValidity("");
+    refused = null;
     if (await flow.connect(token.trim())) {
       token = "";
       return;
     }
-    tokenField?.setCustomValidity(flow.error ?? "Discogs did not accept the token");
-    tokenField?.reportValidity();
+    await reportRefusal("token", tokenField);
   }
 
   async function useUsername(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    await flow.useUsername(username.trim());
+    refused = null;
+    if (!(await flow.useUsername(username.trim()))) await reportRefusal("username", usernameField);
+  }
+
+  /** The field takes the step's error once the page shows it, so its description is complete. */
+  async function reportRefusal(field: "token" | "username", input: HTMLInputElement | null): Promise<void> {
+    refused = field;
+    await tick();
+    input?.reportValidity();
   }
 
   function continueToSound(): void {
@@ -90,53 +104,67 @@
     <RequestList />
   </div>
 
-  {#if connectedAs}
+  <div class="account">
+    <!-- The status stays in the page, empty until connected, so the account is announced. -->
     <div class="connected" role="status">
-      <p>
-        Connected as <b>{connectedAs}</b>{#if flow.profile?.collection !== null && flow.profile?.collection !== undefined}:
-          {formatCount(flow.profile.collection)} in your collection, {formatCount(flow.profile.wantlist ?? 0)} wants{/if}.
-        {#if fromEnvironment}The token comes from <code>DISCOGS_TOKEN</code>.{/if}
-      </p>
-    </div>
-  {:else}
-    <form class="token" onsubmit={connect}>
-      <p class="hint" id="token-hint">
-        The token stays on this computer. Get one on discogs.com under Settings › Developers › Generate new token.
-        <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener noreferrer">Open discogs.com</a>
-      </p>
-      <label for="token">Token</label>
-      <div class="field">
-        <input
-          id="token"
-          type="password"
-          autocomplete="off"
-          spellcheck="false"
-          required
-          aria-describedby="token-hint"
-          bind:value={token}
-          bind:this={tokenField}
-          oninput={() => tokenField?.setCustomValidity("")}
-        />
-        <Action type="submit" disabled={flow.busy || token.trim() === ""}>
-          {flow.busy ? "Checking…" : "Connect"}
-        </Action>
-      </div>
-    </form>
-    <details class="username">
-      <summary>No token? Use your username</summary>
-      <form onsubmit={useUsername}>
-        <p class="hint" id="username-hint">
-          Digga can read a public collection and wantlist by username, more slowly. Wants you add with
-          <kbd>A</kbd> then stay in Digga, and Twelves marks them for adding on discogs.com.
+      {#if connectedAs}
+        <p>
+          Connected as <b>{connectedAs}</b>{#if flow.profile?.collection !== null && flow.profile?.collection !== undefined}:
+            {formatCount(flow.profile.collection)} in your collection, {formatCount(flow.profile.wantlist ?? 0)} wants{/if}.
+          {#if fromEnvironment}The token comes from <code>DISCOGS_TOKEN</code>.{/if}
         </p>
-        <label for="username">Discogs username</label>
+      {/if}
+    </div>
+    {#if !connectedAs}
+      <form class="token" onsubmit={connect}>
+        <p class="hint" id="token-hint">
+          The token stays on this computer. Get one on discogs.com under Settings › Developers › Generate new token.
+          <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener noreferrer">Open discogs.com</a>
+        </p>
+        <label for="token">Token</label>
         <div class="field">
-          <input id="username" autocomplete="username" required aria-describedby="username-hint" bind:value={username} />
-          <Action type="submit" disabled={flow.busy || username.trim() === ""}>Use it</Action>
+          <input
+            id="token"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+            aria-describedby={describedBy("token-hint", "discogs-error", tokenProblem)}
+            bind:value={token}
+            bind:this={tokenField}
+            oninput={() => (refused = null)}
+            {@attach reportProblem(tokenProblem)}
+          />
+          <Action type="submit" disabled={flow.busy || token.trim() === ""}>
+            {flow.busy ? "Checking…" : "Connect"}
+          </Action>
         </div>
       </form>
-    </details>
-  {/if}
+      <details class="username">
+        <summary>No token? Use your username</summary>
+        <form onsubmit={useUsername}>
+          <p class="hint" id="username-hint">
+            Digga can read a public collection and wantlist by username, more slowly. Wants you add with
+            <kbd>A</kbd> then stay in Digga, and Twelves marks them for adding on discogs.com.
+          </p>
+          <label for="username">Discogs username</label>
+          <div class="field">
+            <input
+              id="username"
+              autocomplete="username"
+              required
+              aria-describedby={describedBy("username-hint", "discogs-error", usernameProblem)}
+              bind:value={username}
+              bind:this={usernameField}
+              oninput={() => (refused = null)}
+              {@attach reportProblem(usernameProblem)}
+            />
+            <Action type="submit" disabled={flow.busy || username.trim() === ""}>Use it</Action>
+          </div>
+        </form>
+      </details>
+    {/if}
+  </div>
 
   {#if connectedAs || browsers.length > 0}
     <fieldset class="imports">
@@ -184,14 +212,16 @@
     </fieldset>
   {/if}
 
-  {#if flow.error}<p class="problem" role="alert">{flow.error}</p>{/if}
+  <div class="outcome">
+    <p class="problem" role="alert" id="discogs-error">{flow.error ?? ""}</p>
 
-  <div class="actions">
-    <Action primary keys="Enter" onclick={continueToSound} disabled={flow.busy}>Continue</Action>
-    {#if !connectedAs}
-      <Action onclick={() => flow.goTo("sound")}>Skip</Action>
-    {/if}
-    <button type="button" class="back" onclick={() => flow.goTo("catalogue")}>Back</button>
+    <div class="actions">
+      <Action primary keys="Enter" onclick={continueToSound} disabled={flow.busy}>Continue</Action>
+      {#if !connectedAs}
+        <Action onclick={() => flow.goTo("sound")}>Skip</Action>
+      {/if}
+      <button type="button" class="back" onclick={() => flow.goTo("catalogue")}>Back</button>
+    </div>
   </div>
 </section>
 
@@ -230,6 +260,13 @@
     font-family: var(--mono);
     font-weight: 600;
     color: var(--fg-accent);
+  }
+  .account {
+    display: flex;
+    flex-direction: column;
+  }
+  .account .username {
+    margin-top: 24px;
   }
   .token,
   .username form {
@@ -306,6 +343,13 @@
   }
   .problem {
     color: var(--fg-accent);
+  }
+  .outcome {
+    display: flex;
+    flex-direction: column;
+  }
+  .outcome .problem:not(:empty) {
+    margin-bottom: 24px;
   }
   .actions {
     display: flex;

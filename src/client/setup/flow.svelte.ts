@@ -11,19 +11,7 @@ import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
 import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
 import { DIG_THRESHOLD, type YearSpan } from "./model.ts";
-
-export type SetupStep = "catalogue" | "discogs" | "sound" | "crate";
-
-export function isSetupStep(value: string | null): value is SetupStep {
-  return SETUP_STEPS.some((entry) => entry.step === value);
-}
-
-export const SETUP_STEPS: { step: SetupStep; title: string }[] = [
-  { step: "catalogue", title: "Fetch the catalogue" },
-  { step: "discogs", title: "Bring your Discogs" },
-  { step: "sound", title: "Pick your sound" },
-  { step: "crate", title: "Fill the crate" },
-];
+import type { SetupStep } from "./steps.ts";
 
 export interface Picks {
   styles: string[];
@@ -131,11 +119,14 @@ export class SetupFlow {
   }
 
   /** Step 2 without a token: a public collection and wantlist can be read by username. */
-  async useUsername(username: string): Promise<void> {
+  async useUsername(username: string): Promise<boolean> {
+    let found = false;
     await this.#act(async () => {
       await this.#saveSettings({ username });
       this.profile = await api.getDiscogsProfile();
+      found = true;
     });
+    return found;
   }
 
   /** Step 2: starts the chosen imports and moves on while they run. */

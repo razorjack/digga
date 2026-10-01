@@ -6,17 +6,21 @@
   import { untrack } from "svelte";
   import { formatCount } from "../../shared/display.ts";
   import type { StyleCensus } from "../../shared/style-census.ts";
+  import { describedBy, reportProblem } from "./field-problem.ts";
   import { styleGroups, togetherWith } from "./model.ts";
 
   let {
     census,
     picks = $bindable(),
     search = $bindable(null),
+    problem = $bindable(""),
   }: {
     census: StyleCensus;
     picks: string[];
     /** The search field, where the step reports a missing pick. */
     search?: HTMLInputElement | null;
+    /** What is wrong with the picks, shown on the search field; a pick clears it. */
+    problem?: string;
   } = $props();
 
   /** Matches shown for a search; a few letters can match hundreds of styles. */
@@ -38,7 +42,7 @@
 
   function toggle(name: string, on: boolean): void {
     picks = on ? [...picks.filter((pick) => pick !== name), name] : picks.filter((pick) => pick !== name);
-    search?.setCustomValidity("");
+    problem = "";
   }
 
   /** Enter picks the first match and clears the search, instead of submitting the step. */
@@ -59,12 +63,14 @@
     type="search"
     placeholder="jungle, deep house, hard bop…"
     autocomplete="off"
-    aria-describedby="style-search-hint"
+    aria-describedby={describedBy("style-search-hint", "style-search-problem", problem)}
     bind:value={query}
     bind:this={search}
     onkeydown={onSearchKey}
+    {@attach reportProblem(problem)}
   />
   <p class="hint" id="style-search-hint">Enter picks the first match. Pick as many as you like.</p>
+  <p class="problem" id="style-search-problem" hidden={!problem}>{problem}</p>
 
   {#if picks.length > 0}
     <ul class="picked" aria-label="Picked styles">
@@ -151,6 +157,10 @@
   }
   .hint {
     color: var(--fg-faint);
+    font-size: var(--text-sm);
+  }
+  .problem {
+    color: var(--fg-accent);
     font-size: var(--text-sm);
   }
   .picked {
