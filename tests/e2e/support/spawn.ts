@@ -80,6 +80,17 @@ export async function runDigga(args: string[], environment: DiggaEnvironment): P
   return { code, stdout: output.stdout(), stderr: output.stderr() };
 }
 
+/** Runs a command to the end; one that does not exit with 0 throws with its output. */
+export async function runDiggaOrThrow(
+  args: string[],
+  environment: DiggaEnvironment,
+): Promise<DiggaRun> {
+  const run = await runDigga(args, environment);
+  if (run.code !== 0)
+    throw new Error(`digga ${args.join(" ")} failed (${run.code}):\n${run.stdout}${run.stderr}`);
+  return run;
+}
+
 /** `digga serve --port 0`, once it answers /api/health. */
 export async function startDiggaServer(environment: DiggaEnvironment): Promise<DiggaServer> {
   const child = spawnDigga(["serve", "--port", "0"], environment, { ipc: true });

@@ -4,12 +4,12 @@ import type { Job } from "../../../src/shared/types.ts";
 import type { ExpectedProblems } from "./browser-log.ts";
 import type { RequestMatch } from "./fault-routes.ts";
 import type { FakeLoad, FakePlayerSnapshot } from "./fake-youtube.ts";
-import type { DiggaLibrary } from "./spawn.ts";
+import type { DiggaLibrary, DiggaRun } from "./spawn.ts";
 
 /**
  * What a test gets: the window under test and the app's own API, whichever host runs it
- * (docs/E2E_TESTING.md, "The app host"). The web host implements the part the P0 scenarios
- * need, apart from the first-run setup.
+ * (docs/E2E_TESTING.md, "The app host"). The web host implements all of it but
+ * restartServer(), which waits for a scenario that needs it.
  */
 export interface DiggaApp {
   /** The window under test. A relaunch replaces it; page objects read it on each use. */
@@ -30,6 +30,8 @@ export interface DiggaApp {
    * launch, with a new page that is blank until open(). Given state is not applied again.
    */
   relaunch(options?: { crash?: boolean }): Promise<void>;
+  /** Runs `digga <args>` against the same library, with the same isolation, and waits for its exit. */
+  cli(args: string[]): Promise<DiggaRun>;
   /** Dispatches a paste event carrying the text at the focused element. */
   paste(text: string): Promise<void>;
   /**
@@ -100,6 +102,11 @@ export class Given {
   /** A verdict as Triage saves one; `decidedAt` dates it, else it is dated now. */
   async verdict(input: VerdictInput): Promise<void> {
     await this.#api().send("POST", "/api/verdicts", input);
+  }
+
+  /** Verdicts saved one after the other, in the list's order. */
+  async verdicts(inputs: VerdictInput[]): Promise<void> {
+    for (const input of inputs) await this.verdict(input);
   }
 
   /** A track mark as Triage saves one. */

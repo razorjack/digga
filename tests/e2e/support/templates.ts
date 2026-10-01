@@ -3,9 +3,9 @@ import path from "node:path";
 import { loadConfig, saveConfig } from "../../../src/server/config-file.ts";
 import type { Config } from "../../../src/shared/config.ts";
 import { DJ } from "../fixtures/catalogue.ts";
-import { smallDump, writeDump } from "../fixtures/dump.ts";
+import { bulkDump, smallDump, writeDump } from "../fixtures/dump.ts";
 import type { FakeServices } from "./fakes.ts";
-import { type DiggaEnvironment, type DiggaLibrary, runDigga } from "./spawn.ts";
+import { type DiggaEnvironment, type DiggaLibrary, runDiggaOrThrow } from "./spawn.ts";
 
 /**
  * Libraries built once per run with the real CLI, which each test copies (docs/E2E_TESTING.md,
@@ -13,7 +13,7 @@ import { type DiggaEnvironment, type DiggaLibrary, runDigga } from "./spawn.ts";
  * and renamed into place; a worker that finds it there already discards its copy.
  */
 
-export type TemplateName = "empty" | "small" | "small-account";
+export type TemplateName = "empty" | "small" | "small-account" | "bulk";
 
 const BUILDERS: Record<
   TemplateName,
@@ -23,6 +23,7 @@ const BUILDERS: Record<
   empty: async () => {},
   small: buildSmall,
   "small-account": buildSmallAccount,
+  bulk: buildBulk,
 };
 
 export class Templates {
@@ -80,7 +81,13 @@ export function updateConfig(configFile: string, change: (config: Config) => Con
 
 async function buildSmall(templates: Templates, environment: DiggaEnvironment): Promise<void> {
   const dump = writeDump(path.join(templates.root, "fixtures"), smallDump("august"));
-  await runOrThrow(["dump", "load", dump], environment);
+  await runDiggaOrThrow(["dump", "load", dump], environment);
+}
+
+/** The bulk catalogue, for paging; its dump shares September's name, so it has a folder of its own. */
+async function buildBulk(templates: Templates, environment: DiggaEnvironment): Promise<void> {
+  const dump = writeDump(path.join(templates.root, "fixtures", "bulk"), bulkDump());
+  await runDiggaOrThrow(["dump", "load", dump], environment);
 }
 
 async function buildSmallAccount(
@@ -96,14 +103,8 @@ async function buildSmallAccount(
   }));
   // The token reaches these imports only; templates keep no credentials.
   const withToken = { ...environment, token: `e2e-token-${DJ.username}` };
-  await runOrThrow(["import", "collection"], withToken);
-  await runOrThrow(["import", "wantlist"], withToken);
-}
-
-async function runOrThrow(args: string[], environment: DiggaEnvironment): Promise<void> {
-  const run = await runDigga(args, environment);
-  if (run.code !== 0)
-    throw new Error(`digga ${args.join(" ")} failed (${run.code}):\n${run.stdout}${run.stderr}`);
+  await runDiggaOrThrow(["import", "collection"], withToken);
+  await runDiggaOrThrow(["import", "wantlist"], withToken);
 }
 
 function publish(build: string, target: string): void {

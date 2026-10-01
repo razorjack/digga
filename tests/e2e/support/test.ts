@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type TestInfo } from "@playwright/test";
 import { type Config, ConfigSchema } from "../../../src/shared/config.ts";
+import type { DecisionsBackup } from "../../../src/shared/decisions-backup.ts";
 import { labelsBesides } from "../fixtures/catalogue.ts";
+import { writeDecisionsBackup } from "../fixtures/decisions.ts";
 import {
   bulkDump,
   type DumpFile,
@@ -12,7 +14,7 @@ import {
 } from "../fixtures/dump.ts";
 import { FakeServices } from "./fakes.ts";
 import { WebApp } from "./hosts/web.ts";
-import type { ServiceUrls } from "./spawn.ts";
+import { type DiggaEnvironment, runDiggaOrThrow, type ServiceUrls } from "./spawn.ts";
 import { copyTemplate, type TemplateName, Templates, updateConfig } from "./templates.ts";
 
 export { expect } from "@playwright/test";
@@ -51,6 +53,11 @@ export interface DiggaOptions {
   listedDump: keyof typeof LISTED_DUMPS | null;
   /** Small dumps in the library's dumps folder before the server starts. */
   dumpFiles: SmallDumpMonth[];
+  /**
+   * Decisions too many to give through the API, restored with `digga restore` before the server
+   * starts, as the README says to restore: with the server stopped.
+   */
+  decisionsBackup: DecisionsBackup | null;
 }
 
 const DEFAULT_OPTIONS: DiggaOptions = {
@@ -64,6 +71,7 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   clock: false,
   listedDump: null,
   dumpFiles: [],
+  decisionsBackup: null,
 };
 
 interface TestFixtures {
@@ -120,20 +128,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     if (options.listedDump) fakes.dumps.list(LISTED_DUMPS[options.listedDump]());
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
+    const environment: DiggaEnvironment = {
+      root: runRoot,
+      cwd: work,
+      home: path.join(folder, "home"),
+      library,
+      allowedPort: fakes.port,
+      serviceUrls: { ...fakes.urls, ...options.serviceUrls },
+      token: checkedToken(options.environmentToken),
+    };
+    if (options.decisionsBackup) {
+      const file = writeDecisionsBackup(path.join(folder, "given"), options.decisionsBackup);
+      await runDiggaOrThrow(["restore", file], environment);
+    }
     const app = await WebApp.launch({
       browser,
       savedToken: options.savedToken,
       clock: options.clock,
       outputDir: testInfo.outputDir,
-      environment: {
-        root: runRoot,
-        cwd: work,
-        home: path.join(folder, "home"),
-        library,
-        allowedPort: fakes.port,
-        serviceUrls: { ...fakes.urls, ...options.serviceUrls },
-        token: checkedToken(options.environmentToken),
-      },
+      environment,
     });
 
     await use(app);

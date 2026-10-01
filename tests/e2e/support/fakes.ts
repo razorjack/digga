@@ -5,6 +5,7 @@ import type {
   DiscogsBasicInformation,
   DiscogsIdentity,
   DiscogsInventoryPage,
+  DiscogsList,
   DiscogsRelease,
   DiscogsUser,
   DiscogsUserListsPage,
@@ -79,6 +80,7 @@ const DISCOGS_ROUTES = (
     ["DELETE /users/:user/wants/:id", removeWant],
     ["GET /users/:user/inventory", inventoryPage],
     ["GET /users/:user/lists", userLists],
+    ["GET /lists/:id", listItems],
     ["GET /releases/:id", marketRelease],
   ] satisfies [string, DiscogsHandler][]
 ).map(([pattern, handler]) => ({ pattern: compilePattern(pattern), handler }));
@@ -496,6 +498,33 @@ function userLists(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
     .map((list) => ({ id: list.id, name: list.name, public: list.public }));
   const page: DiscogsUserListsPage = { pagination: pagination(1, lists.length), lists };
   return { status: 200, body: page };
+}
+
+/** A list and its releases; a private list is found only with its owner's token. */
+function listItems(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
+  const id = Number(request.params.id);
+  const owner = ACCOUNTS.find((account) => account.lists.some((list) => list.id === id));
+  const list = owner?.lists.find((candidate) => candidate.id === id);
+  if (!owner || !list || (!list.public && request.authenticatedAs !== owner.username))
+    return { status: 404, body: { message: "The requested resource was not found." } };
+  const body: DiscogsList = {
+    id: list.id,
+    name: list.name,
+    public: list.public,
+    items: list.items.map((releaseId) => listItem(releaseId)),
+  };
+  return { status: 200, body };
+}
+
+function listItem(releaseId: number): DiscogsList["items"][number] {
+  const fixture = releaseById(releaseId);
+  if (!fixture) throw new Error(`release ${releaseId} is not in the fixture catalogue`);
+  return {
+    id: releaseId,
+    type: "release",
+    display_title: `${fixture.artists.join(", ")} - ${fixture.title}`,
+    comment: "",
+  };
 }
 
 function oembed(query: Record<string, string>): FakeAnswer {

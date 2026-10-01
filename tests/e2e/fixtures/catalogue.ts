@@ -50,6 +50,8 @@ export interface FixtureList {
   id: number;
   name: string;
   public: boolean;
+  /** Release ids on the list, in its order. */
+  items: number[];
 }
 
 function track(
@@ -133,6 +135,61 @@ export const SECOND_RECORD = release({
   styles: ["Drum n Bass", "Neurofunk"],
   tracks: [track("A", "Cold Logic", "7:02"), track("AA", "Relay", "6:48")],
   videos: [video("subframecld", "Sub Frame - Cold Logic", 422)],
+});
+
+/** The second record on Bassline Theory, so a label filters to two records (TWL-05). */
+export const THIRD_RECORD = release({
+  id: 1202,
+  artists: ["Hollow Circuit"],
+  title: "Grid Lock",
+  label: { ...BASSLINE_THEORY, catno: "BLT 011" },
+  year: 2000,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Grid Lock", "6:30"), track("B", "Brownout", "6:10")],
+  videos: [video("hollowgridl", "Hollow Circuit - Grid Lock", 390)],
+});
+
+/** In dj's collection: the Owned shelf. */
+export const IN_COLLECTION = release({
+  id: 1301,
+  artists: ["Kestrel"],
+  title: "Night Shift",
+  label: { ...COLD_STORAGE, catno: "COLD 004" },
+  year: 2000,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Night Shift", "6:00")],
+  videos: [video("kestrelnigh", "Kestrel - Night Shift", 360)],
+});
+
+/**
+ * On dj's Discogs wantlist, so a want of it given in Digga is on the wantlist: re-judging it in
+ * Twelves keeps it there or takes it off (TWL-07).
+ */
+export const ON_WANTLIST = release({
+  id: 1302,
+  artists: ["Kestrel"],
+  title: "Day Break",
+  label: { ...COLD_STORAGE, catno: "COLD 005" },
+  year: 2001,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Day Break", "6:20")],
+  videos: [video("kestreldayb", "Kestrel - Day Break", 380)],
+});
+
+/** A record on a label of its own, after the first two labels in every order (TWL-04). */
+export const EVENT_HORIZON = release({
+  id: 1401,
+  artists: ["Vantage"],
+  title: "Event Horizon",
+  label: { ...DARK_MATTER, catno: "DMA 002" },
+  year: 2001,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Event Horizon", "7:10"), track("B", "Singularity", "6:55")],
+  videos: [video("vantageevhz", "Vantage - Event Horizon", 430)],
 });
 
 /** The second of Echo Chamber's records: no videos at all (TRI-27). */
@@ -316,50 +373,10 @@ export const SHOP_PRESSING = release({
 export const SMALL: FixtureRelease[] = [
   FIRST_RECORD,
   SECOND_RECORD,
-  release({
-    id: 1202,
-    artists: ["Hollow Circuit"],
-    title: "Grid Lock",
-    label: { ...BASSLINE_THEORY, catno: "BLT 011" },
-    year: 2000,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Grid Lock", "6:30"), track("B", "Brownout", "6:10")],
-    videos: [video("hollowgridl", "Hollow Circuit - Grid Lock", 390)],
-  }),
-  release({
-    id: 1301,
-    artists: ["Kestrel"],
-    title: "Night Shift",
-    label: { ...COLD_STORAGE, catno: "COLD 004" },
-    year: 2000,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Night Shift", "6:00")],
-    videos: [video("kestrelnigh", "Kestrel - Night Shift", 360)],
-  }),
-  release({
-    id: 1302,
-    artists: ["Kestrel"],
-    title: "Day Break",
-    label: { ...COLD_STORAGE, catno: "COLD 005" },
-    year: 2001,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Day Break", "6:20")],
-    videos: [video("kestreldayb", "Kestrel - Day Break", 380)],
-  }),
-  release({
-    id: 1401,
-    artists: ["Vantage"],
-    title: "Event Horizon",
-    label: { ...DARK_MATTER, catno: "DMA 002" },
-    year: 2001,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Event Horizon", "7:10"), track("B", "Singularity", "6:55")],
-    videos: [video("vantageevhz", "Vantage - Event Horizon", 430)],
-  }),
+  THIRD_RECORD,
+  IN_COLLECTION,
+  ON_WANTLIST,
+  EVENT_HORIZON,
   release({
     id: 1501,
     artists: ["Relic"],
@@ -467,11 +484,12 @@ export const SMALL_SEPTEMBER: FixtureRelease[] = [
 
 /**
  * Videos YouTube has that no release lists, for pasting: one whose title names the first record's
- * track C, and one that matches none of its tracks.
+ * track C, one that matches none of its tracks, and one of the release without videos (TWL-14).
  */
 export const YOUTUBE_ONLY = {
   lowTide: video("nautictide1", "Nautic Unit - Low Tide", 390),
   liveSet: video("nauticlive9", "Nautic Unit live at the Blue Note, 1999", 1800),
+  staticTrack: video("relicstatic", "Relic - Static", 372),
 };
 
 /** Every label of the small catalogue but these; a test that digs only them leaves the rest out. */
@@ -493,15 +511,20 @@ export const NOT_IN_ANY_DUMP = release({
   videos: [],
 });
 
-/** dj's private list for maybes (SET-11). */
-export const MAYBE_LIST: FixtureList = { id: 9001, name: "Maybe", public: false };
+/** dj's private list for maybes (SET-11); it holds the first two records (TWL-10). */
+export const MAYBE_LIST: FixtureList = {
+  id: 9001,
+  name: "Maybe",
+  public: false,
+  items: [FIRST_RECORD.id, SECOND_RECORD.id],
+};
 /** A public list of dj's, which any token can read. */
-export const PUBLIC_LIST: FixtureList = { id: 9002, name: "Played out", public: true };
+export const PUBLIC_LIST: FixtureList = { id: 9002, name: "Played out", public: true, items: [] };
 
 export const DJ: FixtureAccount = {
   username: "dj",
-  collection: [1301],
-  wantlist: [1302, 9001],
+  collection: [IN_COLLECTION.id],
+  wantlist: [ON_WANTLIST.id, NOT_IN_ANY_DUMP.id],
   inventory: [],
   lists: [MAYBE_LIST, PUBLIC_LIST],
 };

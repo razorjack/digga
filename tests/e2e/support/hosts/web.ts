@@ -9,7 +9,9 @@ import { fakeYouTubeScript } from "../fake-youtube.ts";
 import {
   type DiggaEnvironment,
   type DiggaLibrary,
+  type DiggaRun,
   type DiggaServer,
+  runDigga,
   startDiggaServer,
 } from "../spawn.ts";
 
@@ -101,6 +103,11 @@ export class WebApp implements DiggaApp {
   async relaunch(options: { crash?: boolean } = {}): Promise<void> {
     await this.#stop(options);
     await this.#start(async () => {});
+  }
+
+  /** The command runs beside the server, on the same library, with the same isolation. */
+  async cli(args: string[]): Promise<DiggaRun> {
+    return runDigga(args, this.#options.environment);
   }
 
   async paste(text: string): Promise<void> {
