@@ -1,6 +1,6 @@
 import { queueItem } from "./helpers/catalog.ts";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { type Api, createAppApi } from "../src/client/api.ts";
+import { type Api, type AppApi, createAppApi } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
 import { stats } from "../src/client/stores.svelte.ts";
 import type {
@@ -39,6 +39,14 @@ function fakeServer(queue: number[], labelName: string | null = null) {
   const verdicts = new Map<string, Verdict>();
   const queries: QueueQuery[] = [];
   const state = { pushDelayMs: 0, enrichDelayMs: 0 };
+  const detail = (id: number): ReleaseDetail => ({
+    release: { id, triageKey: `r:${id}` } as ReleaseRecord,
+    tracks: [],
+    videos: [],
+    verdict: verdicts.get(`r:${id}`) ?? null,
+    trackVerdicts: [],
+    siblings: [],
+  });
   const http = {
     mode: "live",
     getQueue: async (query: QueueQuery = {}) => {
@@ -53,14 +61,13 @@ function fakeServer(queue: number[], labelName: string | null = null) {
         filters: DEFAULT_CONFIG.filters,
       };
     },
-    getRelease: async (id: number): Promise<ReleaseDetail> => ({
-      release: { id, triageKey: `r:${id}` } as ReleaseRecord,
-      tracks: [],
-      videos: [],
-      verdict: verdicts.get(`r:${id}`) ?? null,
-      trackVerdicts: [],
-      siblings: [],
-    }),
+    getRelease: async (id: number): Promise<ReleaseDetail> => detail(id),
+    attachVideo: async (id: number): Promise<ReleaseDetail> => {
+      calls.push(`attach ${id}`);
+      // As the server does: a new video sends a record marked no audio back to the queue.
+      if (verdicts.get(`r:${id}`)?.status === "no_audio") verdicts.delete(`r:${id}`);
+      return detail(id);
+    },
     postVerdict: async (input: VerdictInput) => {
       calls.push(
         `verdict ${input.key} ${input.status}${input.decidedAt ? ` ${input.decidedAt}` : ""}`,
@@ -351,6 +358,195 @@ describe("session recovery", () => {
     pending.reject(new Error("old detail failed"));
     await wait();
     expect(session.detailErrors.size).toBe(0);
+  });
+});
+
+describe("reading the queue again", () => {
+  /** D on the record on screen, saved, and then a link pasted on it in Twelves. */
+  async function sentBack(session: TriageSession, app: AppApi): Promise<number> {
+    const id = session.current!.id;
+    session.judge("no_audio");
+    await until(() => !session.slipBusy);
+    await app.attachVideo(id, "https://youtu.be/relicstatic");
+    return id;
+  }
+
+  const ids = (session: TriageSession) => session.upcoming.map((item) => item.id);
+
+  it("puts a record sent back from Twelves after the one on screen, in the queue's order", async () => {
+    const { session, app } = await started([1, 2, 3, 4]);
+    await sentBack(session, app);
+    expect(ids(session)).toEqual([2, 3, 4]);
+
+    await session.readAgain();
+    expect(ids(session)).toEqual([2, 1, 3, 4]);
+    expect(session.next?.id).toBe(1);
+  });
+
+  it("offers it at the end of the queue too, once the verdict has gone from the server", async () => {
+    const { session, app } = await started([1]);
+    await sentBack(session, app);
+    expect(session.finished).toBe(true);
+
+    await session.lookAgain();
+    expect(session.finished).toBe(false);
+    expect(session.current?.id).toBe(1);
+  });
+
+  it("keeps the list as it is when the queue's order has not changed", async () => {
+    const { session, queries } = await started([1, 2, 3]);
+    const upcoming = session.upcoming;
+    await session.readAgain();
+    expect(queries).toHaveLength(2);
+    expect(session.upcoming).toBe(upcoming);
+  });
+
+  it("leaves passes out until the end of the queue, and keeps the scope", async () => {
+    const { session, queries } = await started([1, 2, 3]);
+    const label: QueueScope = { kind: "label", id: 88, name: "Moving Shadow" };
+    await session.setScope(label);
+    session.pass();
+    await session.readAgain();
+    expect(ids(session)).toEqual([2, 3]);
+    expect(session.passed.map((item) => item.id)).toEqual([1]);
+    expect(queries.at(-1)?.scope).toEqual(label);
+    session.destroy();
+  });
+
+  it("reads nothing during a round of snoozed records", async () => {
+    const { session, queries } = await started([1, 2]);
+    session.startRound([snoozed(9, "2026-01-02T03:04:05.000Z")]);
+    await session.readAgain();
+    expect(queries).toHaveLength(1);
+    expect(ids(session)).toEqual([9]);
+  });
+
+  it("keeps out a record whose verdict the server has not answered", async () => {
+    const { session, http } = await started([1, 2, 3]);
+    const answer = Promise.withResolvers<void>();
+    const postVerdict = http.postVerdict.bind(http);
+    vi.spyOn(http, "postVerdict").mockImplementationOnce(async (input) => {
+      await answer.promise;
+      return postVerdict(input);
+    });
+    session.judge("rejected");
+    await session.readAgain();
+    expect(ids(session)).toEqual([2, 3]);
+    answer.resolve();
+  });
+
+  it("keeps out a record judged while the queue was being read, though its write answered first", async () => {
+    const { session, http } = await started([1, 2, 3]);
+    const answer = Promise.withResolvers<void>();
+    const getQueue = http.getQueue.bind(http);
+    vi.spyOn(http, "getQueue").mockImplementationOnce(async (query) => {
+      // The server read the queue before the verdict arrived.
+      const response = await getQueue(query);
+      await answer.promise;
+      return response;
+    });
+    const reading = session.readAgain();
+    session.judge("rejected");
+    await until(() => !session.slipBusy);
+    answer.resolve();
+    await reading;
+    expect(ids(session)).toEqual([2, 3]);
+  });
+
+  it("waits for a refill in flight, and a refill asked for meanwhile waits for it", async () => {
+    const { session, http, queries } = await started([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    const answer = Promise.withResolvers<void>();
+    const getQueue = http.getQueue.bind(http);
+    vi.spyOn(http, "getQueue").mockImplementationOnce(async (query) => {
+      await answer.promise;
+      return getQueue(query);
+    });
+    // Below eight buffered records, a verdict starts a refill.
+    session.judge("rejected");
+    session.judge("rejected");
+    const reading = session.readAgain();
+    session.judge("rejected");
+    answer.resolve();
+    await reading;
+    expect(queries).toHaveLength(3);
+    expect(ids(session)).toEqual([4, 5, 6, 7, 8, 9]);
+  });
+
+  it("drops a restarted session's read", async () => {
+    const { session, http } = await started([1, 2, 3]);
+    const answer = Promise.withResolvers<void>();
+    const getQueue = http.getQueue.bind(http);
+    const asked = vi.spyOn(http, "getQueue").mockImplementationOnce(async (query) => {
+      await answer.promise;
+      return { ...(await getQueue(query)), items: [] };
+    });
+    const reading = session.readAgain();
+    expect(asked).toHaveBeenCalledOnce();
+    await session.start(50);
+    answer.resolve();
+    await reading;
+    expect(ids(session)).toEqual([1, 2, 3]);
+  });
+
+  it("forgets the record's verdict in the undo history, and loads its details again", async () => {
+    const { session, app, http, calls } = await started([1, 2, 3]);
+    await until(() => session.details.has(1));
+    const details = vi.spyOn(http, "getRelease");
+    await sentBack(session, app);
+    await session.readAgain();
+    await until(() => details.mock.calls.flat().includes(1));
+
+    session.judge("rejected");
+    session.judge("snoozed");
+    await until(() => !session.slipBusy);
+    session.undo();
+    session.undo();
+    await until(() => !session.slipBusy);
+    expect(session.current?.id).toBe(2);
+    session.undo();
+    expect(session.flash).toBe("Nothing to undo.");
+    expect(calls.filter((call) => call.startsWith("forget"))).toEqual(["forget r:1", "forget r:2"]);
+  });
+
+  it("undoes a later verdict on a snoozed record sent back without restoring the snooze", async () => {
+    const queue = [1, 2];
+    const { session, app, calls } = await started(queue);
+    session.startRound([snoozed(9, "2026-01-02T03:04:05.000Z")]);
+    await sentBack(session, app);
+    // Its snooze is gone with the no-audio verdict, so the queue has the record.
+    queue.unshift(9);
+    await session.readAgain();
+    expect(ids(session)).toEqual([1, 9, 2]);
+
+    session.pass();
+    session.judge("rejected");
+    await until(() => !session.slipBusy);
+    session.undo();
+    await until(() => !session.slipBusy);
+    expect(calls.at(-1)).toBe("forget r:9");
+  });
+
+  it("offers a record sent back in the sandbox, whose queue leaves out the sandbox's verdicts", async () => {
+    const { http } = fakeServer([1, 2, 3]);
+    const app = createAppApi(http);
+    const session = new TriageSession(app, { pushGraceMs: 0 });
+    await session.start(50);
+    expect(app.mode).toBe("sandbox");
+    await sentBack(session, app);
+    expect(ids(session)).toEqual([2, 3]);
+
+    await session.readAgain();
+    expect(ids(session)).toEqual([2, 1, 3]);
+  });
+
+  it("keeps a sandbox verdict out of the queue", async () => {
+    const { http } = fakeServer([1, 2, 3]);
+    const session = new TriageSession(createAppApi(http), { pushGraceMs: 0 });
+    await session.start(50);
+    session.judge("rejected");
+    await until(() => !session.slipBusy);
+    await session.readAgain();
+    expect(ids(session)).toEqual([2, 3]);
   });
 });
 

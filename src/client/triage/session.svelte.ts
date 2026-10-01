@@ -39,6 +39,17 @@ export interface Round {
   total: number;
 }
 
+/**
+ * An answer from the queue, and the records it may be wrong about: those with a verdict or undo
+ * unanswered when it was asked for, or written since.
+ */
+interface QueueRead {
+  items: QueueItem[];
+  /** The server has nothing beyond these. */
+  complete: boolean;
+  unsettled: Set<string>;
+}
+
 /** Fetch more of the queue when fewer releases than this are buffered. */
 const REFILL_BELOW = 8;
 /** Release details fetched ahead of the cursor (the next one also feeds the preloading deck). */
@@ -87,7 +98,12 @@ export class TriageSession {
   #marketData = new Map<number, ReleaseSnapshot>();
   #loading = new Set<number>();
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
-  #refilling: Promise<void> | null = null;
+  /** The queue read in flight, a refill or a read after the page is shown again. */
+  #reading: Promise<void> | null = null;
+  /** Verdicts and undos the server has not answered yet, counted by triage key. */
+  #unanswered = new Map<string, number>();
+  /** For each queue read in flight, the keys written since it was sent. */
+  #openReads = new Set<Set<string>>();
   /** Bumped by start(); a refill from an older generation drops its result. */
   #generation = 0;
   /** The api mode the history and details belong to; see AppApi.generation. */
@@ -131,7 +147,7 @@ export class TriageSession {
     if (this.#queueBeforeRound) this.passed = this.#queueBeforeRound.passed;
     this.#batch = batch;
     const generation = ++this.#generation;
-    this.#refilling = null;
+    this.#reading = null;
     this.status = "loading";
     this.error = null;
     this.upcoming = [];
@@ -161,6 +177,25 @@ export class TriageSession {
     } catch (error) {
       if (generation === this.#generation)
         this.#flash(`Could not look for new records: ${errorMessage(error)}`);
+    }
+  }
+
+  /**
+   * The page is shown again, and Twelves may have sent records back to the queue meanwhile. The
+   * record on screen stays; the records after it follow the queue's order again.
+   */
+  async readAgain(): Promise<void> {
+    if (this.status !== "ready" || this.round) return;
+    const generation = this.#generation;
+    const inFlight = this.#reading;
+    try {
+      await this.#claimRead(async () => {
+        if (inFlight) await inFlight.catch(() => {});
+        await this.#rebuildAfterCurrent();
+      });
+    } catch (error) {
+      if (generation === this.#generation)
+        this.#flash(`Could not read the queue again: ${errorMessage(error)}`);
     }
   }
 
@@ -200,7 +235,10 @@ export class TriageSession {
     this.#bumpStats(status, previous, 1);
     this.#afterMove();
     const generation = this.#apiGeneration;
-    void this.#write(() => this.#saveVerdict(entry, { client, generation, slipId: id }));
+    const answered = this.#startWrite(item.triageKey);
+    void this.#write(() =>
+      this.#saveVerdict(entry, { client, generation, slipId: id }).finally(answered),
+    );
   }
 
   async #saveVerdict(
@@ -392,7 +430,8 @@ export class TriageSession {
     this.#bumpStats(entry.status, entry.previous, -1);
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
-    void this.#write(() => this.#saveUndo(entry, { client, generation, slipId }));
+    const answered = this.#startWrite(item.triageKey);
+    void this.#write(() => this.#saveUndo(entry, { client, generation, slipId }).finally(answered));
   }
 
   /** Lets a hidden label back into the queue; saving the filters restarts it. */
@@ -647,6 +686,7 @@ export class TriageSession {
     this.#trackWrites.clear();
     this.flash = null;
     this.#onWantlist.clear();
+    this.#unanswered = new Map();
     this.#roundVerdicts.clear();
     this.notes = new Map();
     this.round = null;
@@ -660,6 +700,22 @@ export class TriageSession {
     const run = this.#writes.then(fn);
     this.#writes = run.catch(() => {});
     return run;
+  }
+
+  /**
+   * A verdict or undo on its way: until the server answers it, a queue read may not reflect it.
+   * Returns what to call once it has answered.
+   */
+  #startWrite(key: string): () => void {
+    // Captured: a write of the other api mode must not count in this one.
+    const unanswered = this.#unanswered;
+    unanswered.set(key, (unanswered.get(key) ?? 0) + 1);
+    for (const written of this.#openReads) written.add(key);
+    return () => {
+      const left = (unanswered.get(key) ?? 1) - 1;
+      if (left > 0) unanswered.set(key, left);
+      else unanswered.delete(key);
+    };
   }
 
   #bumpStats(status: TriageStatus, previous: Verdict | null, delta: number): void {
@@ -706,32 +762,98 @@ export class TriageSession {
   }
 
   #refill(): Promise<void> {
-    if (this.#refilling) return this.#refilling;
-    const generation = this.#generation;
-    const run = (async () => {
-      // A verdict may not have reached the server yet. A pass stays out while it is in `passed`.
-      const judged = this.history.filter((entry) => entry.kind === "verdict");
-      const known = new Set(
-        [...this.upcoming, ...this.passed, ...judged.map((entry) => entry.item)].map(
-          (item) => item.triageKey,
-        ),
-      );
-      const res = await this.#api.getQueue({
-        limit: Math.min(MAX_QUEUE_LIMIT, this.#batch + this.upcoming.length + this.passed.length),
-        scope: this.scope ?? undefined,
-      });
-      // A round took over meanwhile; the queue refills again when it ends.
-      if (generation !== this.#generation || this.round) return;
-      const fresh = res.items.filter((i) => !known.has(i.triageKey));
-      this.exhausted = fresh.length === 0;
-      this.upcoming = [...this.upcoming, ...fresh];
-      this.#prefetch();
-    })();
-    const tracked: Promise<void> = run.finally(() => {
-      if (this.#refilling === tracked) this.#refilling = null;
+    return this.#reading ?? this.#claimRead(() => this.#appendFresh());
+  }
+
+  /** Queue reads run one at a time; a refill asked for meanwhile waits for the read in flight. */
+  #claimRead(read: () => Promise<void>): Promise<void> {
+    const tracked: Promise<void> = read().finally(() => {
+      if (this.#reading === tracked) this.#reading = null;
     });
-    this.#refilling = tracked;
+    this.#reading = tracked;
     return tracked;
+  }
+
+  /** Appends the queue's records that are not buffered, passed or being written. */
+  async #appendFresh(): Promise<void> {
+    const generation = this.#generation;
+    const read = await this.#readQueue();
+    // A round took over meanwhile; the queue refills again when it ends.
+    if (generation !== this.#generation || this.round) return;
+    this.#forgetVerdictsGone(read);
+    const known = new Set([...read.unsettled, ...keysOf(this.upcoming), ...keysOf(this.passed)]);
+    const fresh = read.items.filter((item) => !known.has(item.triageKey));
+    this.exhausted = fresh.length === 0;
+    this.upcoming = [...this.upcoming, ...fresh];
+    this.#prefetch();
+  }
+
+  /** Rebuilds the records after the one on screen in the queue's current order. */
+  async #rebuildAfterCurrent(): Promise<void> {
+    const generation = this.#generation;
+    const read = await this.#readQueue();
+    if (generation !== this.#generation || this.round) return;
+    this.#forgetVerdictsGone(read);
+    const upcoming = this.#inQueueOrder(read);
+    this.exhausted = read.complete;
+    // An unchanged order keeps the list, so the hidden decks keep what they loaded.
+    if (!sameItems(upcoming, this.upcoming)) this.upcoming = upcoming;
+    this.#prefetch();
+  }
+
+  /**
+   * The record on screen and the records after it whose undo is still being written, then the
+   * queue's records in its order, passes left out. Buffered records keep their market data.
+   */
+  #inQueueOrder(read: QueueRead): QueueItem[] {
+    const [current, ...after] = this.upcoming;
+    const undoing = after.filter((item) => read.unsettled.has(item.triageKey));
+    const head = current ? [current, ...undoing] : [];
+    const leftOut = new Set([...read.unsettled, ...keysOf(head), ...keysOf(this.passed)]);
+    const buffered = new Map(this.upcoming.map((item) => [item.triageKey, item]));
+    const queued = read.items
+      .filter((item) => !leftOut.has(item.triageKey))
+      .map((item) => buffered.get(item.triageKey) ?? item);
+    return [...head, ...queued];
+  }
+
+  /** Asks for what is buffered and a batch more. */
+  async #readQueue(): Promise<QueueRead> {
+    const unsettled = new Set(this.#unanswered.keys());
+    const limit = Math.min(
+      MAX_QUEUE_LIMIT,
+      this.#batch + this.upcoming.length + this.passed.length,
+    );
+    this.#openReads.add(unsettled);
+    try {
+      const response = await this.#api.getQueue({ limit, scope: this.scope ?? undefined });
+      return { items: response.items, complete: response.items.length < limit, unsettled };
+    } finally {
+      this.#openReads.delete(unsettled);
+    }
+  }
+
+  /**
+   * The queue offers only records the server has no verdict for. A verdict this session gave one
+   * of them is gone, as when a link pasted in Twelves deletes a no-audio verdict: undo would
+   * write over what the server has now, and the record's details predate the change.
+   */
+  #forgetVerdictsGone(read: QueueRead): void {
+    const offered = new Set(keysOf(read.items).filter((key) => !read.unsettled.has(key)));
+    const gone = this.history.filter(
+      (entry) => entry.kind === "verdict" && offered.has(entry.item.triageKey),
+    );
+    if (gone.length === 0) return;
+    this.history = this.history.filter((entry) => !gone.includes(entry));
+    const details = new Map(this.details);
+    const detailErrors = new Map(this.detailErrors);
+    for (const { item } of gone) {
+      details.delete(item.id);
+      detailErrors.delete(item.id);
+      this.#roundVerdicts.delete(item.triageKey);
+    }
+    this.details = details;
+    this.detailErrors = detailErrors;
   }
 
   /** Shows a record's fresh market data; its fresh videos too, unless it is playing already. */
@@ -788,6 +910,14 @@ export class TriageSession {
       this.flash = null;
     }, 6000);
   }
+}
+
+function keysOf(items: QueueItem[]): string[] {
+  return items.map((item) => item.triageKey);
+}
+
+function sameItems(left: QueueItem[], right: QueueItem[]): boolean {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 
 function withMarketData(item: QueueItem, snapshot: ReleaseSnapshot): QueueItem {

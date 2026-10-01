@@ -17,9 +17,6 @@ Where the build differs from the design below:
   releases unfinished loads added that have no verdict.
 - `tools/dev/fake-data-dumps.ts` serves a dump from disk at a set speed, as data.discogs.com
   does, and `DIGGA_DUMPS_URL` points Digga at it, to rehearse the setup.
-- Triage reads its queue when the picks are saved, before the first records arrive, and during
-  the load looks again every 10 seconds, so "Start digging" can open on "You have dug everything
-  loaded so far." until its next look (SETUP-01's gap in `docs/E2E_TESTING.md`).
 
 ## Goals
 

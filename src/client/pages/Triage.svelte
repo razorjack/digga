@@ -167,6 +167,19 @@
     untrack(() => player.suspend(hidden));
   });
 
+  // Shown again: Twelves may have sent records back to the queue. A page shown from the start
+  // has only just read it.
+  let wasHidden = false;
+  $effect(() => {
+    if (!active) {
+      wasHidden = true;
+      return;
+    }
+    if (!wasHidden) return;
+    wasHidden = false;
+    untrack(() => void session.readAgain());
+  });
+
   function judge(status: TriageStatus): void {
     if (!session.current) return;
     if (status === "maybe" && !hasMaybeList) {

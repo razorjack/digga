@@ -5,6 +5,7 @@ import { MARK_COPY } from "../../../src/client/twelves/model.ts";
 import type { ListenLogInput, TrackVerdictInput } from "../../../src/shared/api.ts";
 import type { TrackMark } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
+import { HeaderPage } from "./header.ts";
 
 /** Past the session's 1.5 s grace before a wantlist push, for runFor(). */
 export const PAST_PUSH_GRACE_MS = 2000;
@@ -150,6 +151,16 @@ export class TriagePage {
     const key = await this.record.getAttribute("data-triage-key");
     if (key === null) throw new Error("the record has no triage key");
     return key;
+  }
+
+  /**
+   * T from another page: returns once Triage is the page shown and has read its queue again. The
+   * records after the one on screen then follow the queue's order.
+   */
+  async showAgain(): Promise<void> {
+    const read = this.#response("GET", "/api/queue");
+    await new HeaderPage(this.app).goTo("triage");
+    await this.#completed(await read);
   }
 
   /** Space on a record that waits for it; returns once the player plays. */

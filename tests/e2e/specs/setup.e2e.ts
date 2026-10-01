@@ -14,9 +14,6 @@ import { expect, test } from "../support/test.ts";
 /** A new user's library, and data.discogs.com offering the bulk dump. */
 const FIRST_RUN = { template: "empty", listedDump: "bulk" } as const;
 
-/** While a load runs, Triage looks for new records at the end of its queue every 10 s. */
-const LOOK_AGAIN_MS = 10_000;
-
 test.use({ diggaOptions: FIRST_RUN });
 
 test.describe("with the clock", () => {
@@ -43,9 +40,6 @@ test.describe("with the clock", () => {
 
       await setup.waitForRecordsToDig(point.recordsToDig);
       await setup.startDigging();
-      // Gap: Triage digs the queue it read when the picks were saved, before the first records
-      // came, until it looks again.
-      await app.clock.runFor(LOOK_AGAIN_MS);
       const key = await triage.currentKey();
       await triage.judge("rejected");
 
@@ -56,8 +50,8 @@ test.describe("with the clock", () => {
     },
   );
 
-  test.fail(
-    "SETUP-01 gap: Triage opened during the load digs the records counted, without looking again",
+  test(
+    "SETUP-01 Triage opened with T during the load digs the records counted, without looking again",
     { tag: ["@SETUP-01", "@P0"] },
     async ({ app, fakes }) => {
       test.slow();
@@ -69,7 +63,7 @@ test.describe("with the clock", () => {
       await setup.fetchCatalogue();
       await setup.skipDiscogs();
       await setup.pickStyle("Drum n Bass");
-      // Paused, Triage cannot look again: it has only the queue it reads when the picks are saved.
+      // Paused, Triage cannot look again at the end of its queue; it reads the queue when shown.
       await app.clock.pause();
       await setup.fillCrate();
       await expect

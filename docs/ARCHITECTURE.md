@@ -41,7 +41,8 @@ answers `409` to digging writes while `sandbox` is on.
 
 - `src/client/triage/session.svelte.ts` holds the queue buffer, prefetches release details,
   applies verdicts optimistically, keeps the undo history and passes, and serialises writes so
-  an undo never overtakes its verdict. `P` has the server fetch the record on screen from
+  an undo never overtakes its verdict. When the Triage page is shown again it reads the queue
+  again and orders the records after the one on screen as the server does (decision 112). `P` has the server fetch the record on screen from
   Discogs (`POST /api/releases/:id/enrich`) and shows its market data; the record keeps the
   videos it is playing until it comes up again.
 - `src/client/player/` wraps the YouTube IFrame API: `deck.ts` is one player, and

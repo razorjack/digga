@@ -576,3 +576,24 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      again every 10 seconds. The label sweep can return to a label once, for releases that
      arrived after it passed; in the owner's dump 91% of the records arrive in the first two
      minutes, so this is rare.
+112. **Triage reads its queue again when it is shown.** The page stays mounted while hidden, and
+     its session read the queue only when it started, when fewer than eight records were
+     buffered, and at the end of the queue during a load, and it appended what it found after
+     everything buffered. A record that a link pasted on Twelves' No audio shelf sent back to the
+     queue therefore came after the whole batch, up to `queue.limit` records, and one judged in
+     the same session not before a reload, since refills left out every record with a verdict
+     in the undo history. Showing the page now reads the queue again, also the first time when
+     the app opened on another page; a page shown from the start has just read it. The record on
+     screen and its player stay, and the records after it follow the server's order, in the same
+     `F` scope and with the passes still left out until the end of the queue. An unchanged order
+     keeps the buffered list, so the hidden decks keep what they loaded. Nothing is read during a
+     round of snoozed records or while `start()` reads, and a refill asked for meanwhile waits
+     for the read. Only a verdict or undo whose write the server has not answered keeps a record
+     out, and so does one written while a read was out, whose answer may predate it; once the
+     write is answered, the server's queue decides, and in the sandbox the sandbox's queue, which
+     leaves out its own verdicts. A record the queue offers has no verdict on the server, so the
+     session drops that record's verdicts from the undo history, with a snooze kept from a round
+     and the cached details. `Z` would otherwise delete a verdict the server no longer has, or
+     restore an old snooze over the verdict given since, and the record would come back with the
+     videos it had before the link. This also closes SETUP-01's gap: "Start digging" opens on a
+     record without waiting for the next look.

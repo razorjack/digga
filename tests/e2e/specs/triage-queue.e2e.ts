@@ -2,8 +2,10 @@ import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { endOfQueueHeadline } from "../../../src/client/triage/end-of-queue.ts";
 import type { DecisionsExport, QueueItem, QueueResponse, Stats } from "../../../src/shared/api.ts";
 import { formatCount } from "../../../src/shared/display.ts";
+import { youtubeWatchUrl } from "../../../src/shared/youtube.ts";
 import {
   COMPILATION,
+  ECHO_CHAMBER,
   FIRST_RECORD,
   MAIN_PRESSING,
   ROLLERS_ARCHIVE,
@@ -13,9 +15,13 @@ import {
   SHOPKEEPER,
   TEMPEST_AUDIO,
   triageKeyOf,
+  WITHOUT_VIDEOS,
+  YOUTUBE_ONLY,
 } from "../fixtures/catalogue.ts";
+import { datedVerdicts } from "../fixtures/decisions.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { TriagePage } from "../pages/triage.ts";
+import { isRequest, TriagePage } from "../pages/triage.ts";
+import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
@@ -282,6 +288,70 @@ test.describe("in the sandbox, with a queue batch of five", () => {
       expect(app.apiRequests()).not.toContain("POST /api/verdicts");
     },
   );
+});
+
+test.describe("digging Echo Chamber", () => {
+  test.use({ diggaOptions: { labels: [ECHO_CHAMBER.name] } });
+
+  const sentBack = triageKeyOf(WITHOUT_VIDEOS);
+  const sentBackName = `${WITHOUT_VIDEOS.artists.join(", ")} – ${WITHOUT_VIDEOS.title}`;
+
+  test(
+    "TRI-44 a record judged D in Triage and given a link in Twelves comes next when Triage is shown again",
+    { tag: ["@TRI-44", "@P1"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      await app.open();
+      await triage.judge("rejected");
+      expect(await triage.currentKey()).toBe(sentBack);
+      await triage.judge("no_audio");
+      const onScreen = await triage.currentKey();
+
+      await new HeaderPage(app).goTo("twelves");
+      await attachLinkOnNoAudioShelf(app);
+      await triage.showAgain();
+
+      await expectSentBackNext(triage, onScreen);
+    },
+  );
+
+  test(
+    "TRI-44 a record judged D before Triage opened and given a link in Twelves comes next when Triage is shown",
+    { tag: ["@TRI-44", "@P1"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      await app.given.verdicts(datedVerdicts([{ release: WITHOUT_VIDEOS, status: "no_audio" }]));
+      // Triage reads its queue when the app opens, also on another page.
+      const queueRead = app.page.waitForResponse((response) =>
+        isRequest(response, "GET", "/api/queue"),
+      );
+      await new TwelvesPage(app).open();
+      await (await queueRead).finished();
+
+      await attachLinkOnNoAudioShelf(app);
+      await triage.showAgain();
+
+      await expectSentBackNext(triage, await triage.currentKey());
+    },
+  );
+
+  async function attachLinkOnNoAudioShelf(app: DiggaApp): Promise<void> {
+    const twelves = new TwelvesPage(app);
+    await twelves.showShelf("no_audio");
+    expect(await twelves.selectedKey()).toBe(sentBack);
+    await twelves.attachVideo(youtubeWatchUrl(YOUTUBE_ONLY.staticTrack.id));
+  }
+
+  /** The record on screen stays, the record sent back is next, and it has the pasted video. */
+  async function expectSentBackNext(triage: TriagePage, onScreen: string): Promise<void> {
+    await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
+    await expect(triage.upNext).toContainText(sentBackName);
+    await triage.judge("rejected");
+    await expect(triage.record).toHaveAttribute("data-triage-key", sentBack);
+    await expect(triage.track(WITHOUT_VIDEOS.tracks[0]!.position)).toContainText(
+      /has a video|playing/,
+    );
+  }
 });
 
 /** The first ten records of the queue, more than two batches of five. */
