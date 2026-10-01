@@ -18,7 +18,7 @@
   const keepFocus = (event: MouseEvent) => event.preventDefault();
 </script>
 
-<nav class="pager" aria-label="Pages">
+<nav class="pager" aria-label="Shelf pages">
   <button
     type="button"
     tabindex="-1"

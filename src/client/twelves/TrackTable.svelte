@@ -72,7 +72,13 @@
       {@const isSelected = key === selectedKey}
       <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-      <tr class:selected={isSelected} aria-current={isSelected ? "true" : undefined} onclick={() => onselect(key)}>
+      <tr
+        class:selected={isSelected}
+        aria-current={isSelected ? "true" : undefined}
+        data-release-id={track.mark.releaseId}
+        data-position={track.mark.position}
+        onclick={() => onselect(key)}
+      >
         <td class="catno">{release?.catno ?? ""}</td>
         <td class="pos">{track.mark.position}</td>
         <td class="track">

@@ -365,6 +365,8 @@
           <tr
             class:selected={isSelected}
             aria-current={isSelected ? "true" : undefined}
+            data-triage-key={item.verdict.key}
+            data-release-id={release?.id}
             onclick={() => (shelfState.selectedKey = item.verdict.key)}
           >
             <td class="catno">{release?.catno ?? ""}</td>
