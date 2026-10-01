@@ -1,4 +1,5 @@
 import type { DecisionsExport } from "../../../src/shared/api.ts";
+import { rejudgedSentence } from "../../../src/client/twelves/model.ts";
 import {
   DJ,
   EVENT_HORIZON,
@@ -52,7 +53,9 @@ test.describe("with a Discogs account", () => {
 
       await twelves.rejudge("candidate");
 
-      await expect(twelves.messages).toHaveText(`${nameOf(ON_WANTLIST)}: grail. Z undoes it.`);
+      await expect(twelves.messages).toHaveText(
+        `${rejudgedSentence(nameOf(ON_WANTLIST), "candidate")} Z undoes it.`,
+      );
       await twelves.showShelf("candidate");
       await expect(twelves.stamp(twelves.record(key), "candidate")).toBeVisible();
       await expect(twelves.record(key)).not.toContainText(NOT_ON_WANTLIST);
@@ -75,7 +78,7 @@ test.describe("with a Discogs account", () => {
       await twelves.rejudge("rejected");
 
       await expect(twelves.messages).toHaveText(
-        `${nameOf(ON_WANTLIST)}: skip. Taken off your Discogs wantlist. Z undoes it.`,
+        `${rejudgedSentence(nameOf(ON_WANTLIST), "rejected")} Taken off your Discogs wantlist. Z undoes it.`,
       );
       await expect(twelves.record(key)).toHaveCount(0);
       await twelves.showShelf("all");
@@ -106,7 +109,7 @@ test.describe("with a Discogs account", () => {
       await twelves.rejudge("accepted");
 
       await expect(twelves.messages).toHaveText(
-        `${nameOf(FIRST_RECORD)}: want. Added to your Discogs wantlist. Z undoes it.`,
+        `${rejudgedSentence(nameOf(FIRST_RECORD), "accepted")} Added to your Discogs wantlist. Z undoes it.`,
       );
       expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([
         expect.objectContaining({ params: { user: DJ.username, id: String(FIRST_RECORD.id) } }),

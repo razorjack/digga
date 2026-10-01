@@ -797,9 +797,9 @@ synchronise on completed requests and on the state the app sets after them:
 - Twelves' actions end the same way (`pages/twelves.ts`). Its flash shows only after the work it
   reports: a re-judgement saves the verdict, then adds to or takes from the Discogs wantlist, then
   shows the flash and loads the shelf again. So a re-judgement ends once `POST /api/verdicts` and
-  the `GET /api/twelves` after it have answered and the flash reads the new verdict; a change to
-  the wantlist has reached the fake by then, since the server answers the page only after the
-  fake has answered it. A note ends once its `POST /api/verdicts` has answered and the flash reads
+  the `GET /api/twelves` after it have answered and the flash says where the record went; a
+  change to the wantlist has reached the fake by then, since the server answers the page only
+  after the fake has answered it. A note ends once its `POST /api/verdicts` has answered and the flash reads
   "Note saved." or "Note removed."; a track note the same way with `POST /api/track-verdicts`; `A`
   or `C` on a want already judged so (a retry) once `POST /api/discogs/wantlist/:id` and the reload
   after it have answered and the flash says it was added; "add all" once the flash counts what
@@ -2048,7 +2048,10 @@ audit"). The work showed:
   (`TriageSession.readAgain()` in `src/client/triage/session.svelte.ts`, decision 112), which
   TRI-44 covers and which also closed SETUP-01's gap. The re-judging copy reads "grail" and
   "skip" as the stamps do, so "Kestrel – Day Break: skip. Taken off your Discogs wantlist. Z
-  undoes it." is the whole sentence.
+  undoes it." is the whole sentence. The owner changed it: the flash now says where the
+  record went, by the shelf's name from `SHELVES`, as in "Kestrel – Day Break skipped, off the
+  shelves. Taken off your Discogs wantlist. Z undoes it." or "… moved to Grail."
+  (`rejudgedSentence()` in `src/client/twelves/model.ts`), and TWL-07 and TWL-11 read it.
 - **Synchronisation follows the flash.** Twelves shows a re-judgement's, a retry's, `I`'s and `Z`'s
   flash only after the work it reports, so the page object waits for the request, the shelf's
   reload after it (matched in order with `waitForResponses()`), and the flash; the fake's log is

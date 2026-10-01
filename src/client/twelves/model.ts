@@ -123,8 +123,11 @@ export function turnedPageStart(
 
 export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${track.mark.position}`;
 
+/** The verdicts a re-judgement in Twelves can write. */
+export type JudgedStatus = "accepted" | "maybe" | "candidate" | "rejected" | "snoozed" | "no_audio";
+
 /** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
-export const JUDGE_KEYS: Record<string, VerdictStatus> = {
+export const JUDGE_KEYS: Record<string, JudgedStatus> = {
   a: "accepted",
   m: "maybe",
   c: "candidate",
@@ -159,6 +162,29 @@ export const releaseIdOf = (i: TwelvesItem) => i.verdict.releaseId ?? i.release?
 
 export const nameOf = (i: TwelvesItem) =>
   i.release ? `${i.release.artistDisplay} – ${i.release.title}` : i.verdict.key;
+
+/** The shelf a re-judgement puts the record on; a skip takes it off the shelves. */
+const JUDGED_SHELF: Record<JudgedStatus, ShelfId | null> = {
+  accepted: "accepted",
+  maybe: "maybe",
+  candidate: "candidate",
+  snoozed: "snoozed",
+  no_audio: "no_audio",
+  rejected: null,
+};
+
+/** The flash's sentence for a re-judged record: where it went, by the shelf's own name. */
+export function rejudgedSentence(name: string, status: JudgedStatus): string {
+  const shelf = JUDGED_SHELF[status];
+  if (shelf === null) return `${name} skipped, off the shelves.`;
+  return `${name} moved to ${shelfLabel(shelf)}.`;
+}
+
+function shelfLabel(id: ShelfId): string {
+  const shelf = SHELVES.find((candidate) => candidate.id === id);
+  if (!shelf) throw new Error(`there is no ${id} shelf`);
+  return shelf.label;
+}
 
 export function countShelves(items: TwelvesItem[], tracks: MarkedTrack[]): Record<ShelfId, number> {
   return {

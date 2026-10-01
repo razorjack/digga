@@ -2,6 +2,8 @@ import { expect, type Locator, type Response } from "@playwright/test";
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import {
   JUDGE_KEYS,
+  type JudgedStatus,
+  rejudgedSentence,
   type ShelfId,
   SHELVES,
   type SortId,
@@ -266,7 +268,7 @@ export class TwelvesPage {
    * loaded again and says what changed; a change that adds to or takes from the Discogs wantlist
    * says so only after the server has answered, which it does after the fake has.
    */
-  async rejudge(status: VerdictStatus): Promise<void> {
+  async rejudge(status: JudgedStatus): Promise<void> {
     await expect(this.selected).toHaveCount(1);
     const { first: saved, next: reloaded } = waitForResponses(
       this.app.page,
@@ -276,9 +278,9 @@ export class TwelvesPage {
     await this.app.page.keyboard.press(judgeKey(status));
     await completed(await saved);
     await completed(await reloaded);
-    await expect(this.messages).toHaveText(
-      new RegExp(`: ${escapeRegExp(STATUS_COPY[status])}\\.( .+)? Z undoes it\\.$`),
-    );
+    // The sentence starts with the record's name, which is not known here.
+    const sentence = escapeRegExp(rejudgedSentence("", status));
+    await expect(this.messages).toHaveText(new RegExp(`.${sentence}( .+)? Z undoes it\\.$`));
   }
 
   /**

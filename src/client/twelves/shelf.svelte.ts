@@ -4,7 +4,6 @@ import { api as appApi, type Api, type AppApi } from "../api.ts";
 import { waitForJob } from "../jobs.ts";
 import { formatCount } from "../../shared/display.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
-import { STATUS_COPY } from "../keymap.ts";
 import { errorMessage, stats, settings } from "../stores.svelte.ts";
 import {
   type ShelfId,
@@ -16,7 +15,9 @@ import {
   notOnList,
   notOnWantlist,
   releaseIdOf,
+  type JudgedStatus,
   nameOf,
+  rejudgedSentence,
   countShelves,
   pageAround,
   trackKey,
@@ -264,7 +265,7 @@ export class TwelvesShelf {
       );
   }
 
-  rejudge(selectedItem: TwelvesItem, status: VerdictStatus): void {
+  rejudge(selectedItem: TwelvesItem, status: JudgedStatus): void {
     this.enqueue(selectedItem.verdict.key, async (item) => {
       if (!TRIAGE_STATUSES.has(item.verdict.status)) {
         this.showFlash("Wantlist and owned records come from Discogs; change them there.");
@@ -274,11 +275,7 @@ export class TwelvesShelf {
         if (notOnWantlist(item)) await this.addToWantlist([item]);
         return;
       }
-      await this.write(
-        item,
-        { status, source: "triage" },
-        `${nameOf(item)}: ${STATUS_COPY[status]}.`,
-      );
+      await this.write(item, { status, source: "triage" }, rejudgedSentence(nameOf(item), status));
     });
   }
 

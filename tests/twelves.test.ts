@@ -6,6 +6,7 @@ import {
   countShelves,
   pageAround,
   PAGE_SIZE,
+  rejudgedSentence,
   turnedPageStart,
   visibleItems,
   visibleTracks,
@@ -168,6 +169,29 @@ describe("Twelves changes", () => {
     expect(sandboxWrites.pushToWantlist).toHaveBeenCalledTimes(1);
     expect(http.postVerdict).not.toHaveBeenCalled();
     expect(http.pushToWantlist).not.toHaveBeenCalled();
+  });
+});
+
+describe("the flash after re-judging", () => {
+  it("says which shelf the record moved to, or that a skip took it off the shelves", () => {
+    const name = "Kestrel – Day Break";
+    expect(rejudgedSentence(name, "accepted")).toBe("Kestrel – Day Break moved to Want.");
+    expect(rejudgedSentence(name, "candidate")).toBe("Kestrel – Day Break moved to Grail.");
+    expect(rejudgedSentence(name, "maybe")).toBe("Kestrel – Day Break moved to Maybe.");
+    expect(rejudgedSentence(name, "snoozed")).toBe("Kestrel – Day Break moved to Snoozed.");
+    expect(rejudgedSentence(name, "no_audio")).toBe("Kestrel – Day Break moved to No audio.");
+    expect(rejudgedSentence(name, "rejected")).toBe(
+      "Kestrel – Day Break skipped, off the shelves.",
+    );
+  });
+
+  it("follows the re-judgement with the wantlist change and the undo", async () => {
+    const { shelf } = await setup();
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.changes;
+    expect(shelf.flash).toBe(
+      `${rejudgedSentence("Artist 1 – Title 1", "accepted")} Added to your Discogs wantlist. Z undoes it.`,
+    );
   });
 });
 
