@@ -65,7 +65,11 @@ leaves the shelves, and the export says skip; a snooze re-judged a want: the fak
 
 Priority: **P2**.
 
-Wantlist and owned records refuse re-judging with a flash
+Given: `small-account`.
+
+Wantlist and owned records refuse re-judging with a flash: `R` on `dj`'s want and `A` on the
+collected release say "Wantlist and owned records come from Discogs; change them there.", the
+stamps stay, and no `POST /api/verdicts` is sent
 
 ## TWL-09
 
@@ -123,19 +127,28 @@ the shelf for the queue (`/api/queue`)
 
 Priority: **P2**.
 
-`O` opens the release on discogs.com
+`O` opens the selected release on discogs.com (`expectExternalOpen`)
 
 ## TWL-16
 
 Priority: **P2**.
 
-A verdict for a release in no dump reads "Not in the loaded dump (r:…)"
+Given: a decisions backup restored before the server starts, with a snooze for `NOT_IN_ANY_DUMP`
+(`r:9001`, `dj`'s second want, which no dump has).
+
+A verdict for a release in no dump reads "Not in the loaded dump (r:…)", with the verdict's own
+key, and its row has no `data-release-id`; Enter on it says Triage cannot play it
 
 ## TWL-17
 
 Priority: **P2**.
 
-`A` then `R` pressed at once end as a skip, off the wantlist (decision 62)
+Given: `small-account` with a saved token, and a snooze.
+
+`A` then `R` pressed at once end as a skip, off the wantlist (decision 62): the page sends the
+want's verdict and push, then the skip's verdict and the wantlist removal, in that order; the fake
+gets the `DELETE` after the `PUT` has answered, the export says skip, and the flash says the record
+was taken off the wantlist
 
 ## TWL-18
 
@@ -165,4 +178,7 @@ the tab
   link is attached; `J`, `K`, the arrows and the page turns once another row has
   `aria-current="true"`; Enter on a snoozed record once Triage shows the record under the round's
   banner. A flash with no request behind it, such as a verdict key on the Tracks shelf, comes from
-  the key press itself, so the check that nothing was sent can follow it at once.
+  the key press itself, so the check that nothing was sent can follow it at once. Changes pressed
+  without a wait run one after the other (TWL-17), so the last one's requests and the flash after
+  it end them all: for a want re-judged a skip, the wantlist removal and the `GET /api/twelves`
+  after it.

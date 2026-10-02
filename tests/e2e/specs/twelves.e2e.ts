@@ -8,6 +8,7 @@ import {
 import type { DecisionsExport, QueueResponse } from "../../../src/shared/api.ts";
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { rejudgedSentence } from "../../../src/client/twelves/model.ts";
+import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
 import { formatCount } from "../../../src/shared/display.ts";
 import { youtubeSearchUrl, youtubeWatchUrl } from "../../../src/shared/youtube.ts";
 import {
@@ -16,6 +17,7 @@ import {
   ECHO_CHAMBER,
   EVENT_HORIZON,
   FIRST_RECORD,
+  NOT_IN_ANY_DUMP,
   SECOND_RECORD,
   SMALL,
   THIRD_RECORD,
@@ -399,6 +401,61 @@ test.describe("on Echo Chamber", () => {
       expect(exported.verdicts).not.toContainEqual(expect.objectContaining({ key }));
       const queue = await app.api.get<QueueResponse>("/api/queue?limit=50");
       expect(queue.items.map((item) => item.triageKey)).toContain(key);
+    },
+  );
+});
+
+test("TWL-15 O opens the release on discogs.com", { tag: ["@TWL-15", "@P2"] }, async ({ app }) => {
+  const twelves = new TwelvesPage(app);
+  await app.given.verdicts(
+    datedVerdicts([
+      { release: FIRST_RECORD, status: "snoozed" },
+      { release: SECOND_RECORD, status: "maybe" },
+    ]),
+  );
+  await twelves.open();
+  await twelves.select(triageKeyOf(SECOND_RECORD));
+
+  const opened = await app.expectExternalOpen(() => app.page.keyboard.press("o"));
+
+  expect(opened).toBe(discogsReleaseUrl(SECOND_RECORD.id));
+});
+
+test.describe("with a verdict restored for a release no dump has", () => {
+  // dj's second want; a decisions backup restored before the server starts names it.
+  test.use({
+    diggaOptions: {
+      decisionsBackup: decisionsBackup([
+        {
+          key: triageKeyOf(NOT_IN_ANY_DUMP),
+          status: "snoozed",
+          source: "triage",
+          notes: null,
+          releaseId: NOT_IN_ANY_DUMP.id,
+          decidedAt: "2026-09-29T12:00:00.000Z",
+        },
+      ]),
+    },
+  });
+
+  test(
+    "TWL-16 a verdict for a release in no dump reads Not in the loaded dump, with its key",
+    { tag: ["@TWL-16", "@P2"] },
+    async ({ app }) => {
+      const twelves = new TwelvesPage(app);
+      const key = triageKeyOf(NOT_IN_ANY_DUMP);
+      expect(key).toBe(`r:${NOT_IN_ANY_DUMP.id}`);
+      await twelves.open();
+
+      const row = twelves.record(key);
+      await expect(row).toContainText(`Not in the loaded dump (${key})`);
+      await expect(row).not.toHaveAttribute("data-release-id");
+      await expect(twelves.stamp(row, "snoozed")).toBeVisible();
+      expect(await twelves.selectedKey()).toBe(key);
+      await app.page.keyboard.press("Enter");
+      await expect(twelves.messages).toHaveText(
+        "This record is not in the loaded dump, so Triage cannot play it.",
+      );
     },
   );
 });

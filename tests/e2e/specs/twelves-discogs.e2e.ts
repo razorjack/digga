@@ -5,6 +5,7 @@ import {
   EVENT_HORIZON,
   FIRST_RECORD,
   type FixtureRelease,
+  IN_COLLECTION,
   MAYBE_LIST,
   ON_WANTLIST,
   SECOND_RECORD,
@@ -12,7 +13,8 @@ import {
   triageKeyOf,
 } from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
-import { TwelvesPage } from "../pages/twelves.ts";
+import { isRequest, waitForResponses } from "../pages/triage.ts";
+import { judgeKey, TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
 
 // Twelves and Discogs: re-judging, retried pushes, the Maybe list and undo, with dj's collection
@@ -177,6 +179,57 @@ test.describe("with a Discogs account", () => {
   );
 
   test(
+    "TWL-17 A then R pressed at once end as a skip, off the Discogs wantlist, one change after the other",
+    { tag: ["@TWL-17", "@P2"] },
+    async ({ app, fakes }) => {
+      const twelves = new TwelvesPage(app);
+      const key = triageKeyOf(FIRST_RECORD);
+      const wantlist = `/api/discogs/wantlist/${FIRST_RECORD.id}`;
+      await app.given.verdicts(datedVerdicts([{ release: FIRST_RECORD, status: "snoozed" }]));
+      await twelves.open();
+      expect(await twelves.selectedKey()).toBe(key);
+      const requestsBefore = app.apiRequests().length;
+      const { first: removed, next: reloaded } = waitForResponses(
+        app.page,
+        (response) => isRequest(response, "DELETE", wantlist),
+        (response) => isRequest(response, "GET", "/api/twelves"),
+      );
+
+      await app.page.keyboard.press(judgeKey("accepted"));
+      await app.page.keyboard.press(judgeKey("rejected"));
+
+      expect((await removed).ok()).toBe(true);
+      expect((await reloaded).ok()).toBe(true);
+      await expect(twelves.messages).toHaveText(
+        `${rejudgedSentence(nameOf(FIRST_RECORD), "rejected")} Taken off your Discogs wantlist. Z undoes it.`,
+      );
+      // Decision 62: one change at a time, and re-judging a want always sends the removal.
+      expect(
+        app
+          .apiRequests()
+          .slice(requestsBefore)
+          .filter((request) => !request.startsWith("GET ")),
+      ).toEqual([
+        "POST /api/verdicts",
+        `POST ${wantlist}`,
+        "POST /api/verdicts",
+        `DELETE ${wantlist}`,
+      ]);
+      const [put] = fakes.requests("PUT /users/:user/wants/:id");
+      const [removal] = fakes.requests("DELETE /users/:user/wants/:id");
+      expect(put).toMatchObject({ params: { id: String(FIRST_RECORD.id) } });
+      expect(removal).toMatchObject({ params: { id: String(FIRST_RECORD.id) } });
+      expect(removal!.arrivedAt).toBeGreaterThanOrEqual(put!.answeredAt!);
+      expect(onWantlist(fakes)).not.toContain(FIRST_RECORD.id);
+      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+      expect(exported.verdicts).toContainEqual(
+        expect.objectContaining({ key, status: "rejected" }),
+      );
+      await expect(twelves.record(key)).toHaveCount(0);
+    },
+  );
+
+  test(
     "TWL-11 Z undoes the last change, its wantlist request included",
     { tag: ["@TWL-11", "@P1"] },
     async ({ app, fakes }) => {
@@ -204,6 +257,34 @@ test.describe("with a Discogs account", () => {
       expect(exported.verdicts).toContainEqual(
         expect.objectContaining({ key, status: "snoozed", decidedAt: snooze!.decidedAt }),
       );
+    },
+  );
+});
+
+test.describe("on an account's library", () => {
+  test.use({ diggaOptions: { template: "small-account" } });
+
+  test(
+    "TWL-08 wantlist and owned records refuse re-judging with a flash",
+    { tag: ["@TWL-08", "@P2"] },
+    async ({ app }) => {
+      const twelves = new TwelvesPage(app);
+      const refusal = "Wantlist and owned records come from Discogs; change them there.";
+      await twelves.open();
+
+      for (const [shelf, fixture, status] of [
+        ["wantlist", ON_WANTLIST, "rejected"],
+        ["collection", IN_COLLECTION, "accepted"],
+      ] as const) {
+        await twelves.showShelf(shelf);
+        const row = twelves.record(triageKeyOf(fixture));
+        await twelves.select(triageKeyOf(fixture));
+        await app.page.keyboard.press(judgeKey(status));
+        await expect(twelves.messages).toHaveText(refusal);
+        await expect(twelves.stamp(row, shelf)).toBeVisible();
+        // The refusal comes from the queued change itself, which sends nothing.
+        expect(app.apiRequests()).not.toContain("POST /api/verdicts");
+      }
     },
   );
 });
