@@ -233,8 +233,10 @@ the running layers against a second loopback listener the test owns, never port 
 
 **Filesystem.** `HOME`, `USERPROFILE` and the other folder variables point into a fake home in
 the temp folder. `readSetup()` looks for browser history there (`discoverHistoryFiles()` defaults
-to `os.homedir()`), so the setup never sees the developer's Brave or Firefox, and history tests
-place fixture `History` databases there.
+to `os.homedir()`), so the setup never sees the developer's Brave or Firefox. History tests place
+fixture databases there with `diggaOptions.browserHistory`, and lock a browser's folder with
+`diggaOptions.unreadableBrowsers`; the fixture gives the permissions back before it deletes the
+folder ([Browser history](FIXTURES.md#browser-history)).
 
 ### Disk space
 

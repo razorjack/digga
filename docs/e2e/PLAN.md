@@ -33,7 +33,7 @@ scenario needs them; `GET /masters/{id}` is still absent from the fake Discogs A
 | Family                                  | Remaining IDs                                                                  |
 | --------------------------------------- | ------------------------------------------------------------------------------ |
 | [Shell](scenarios/shell.md)             | SHELL-06, SHELL-08, SHELL-10, SHELL-11                                         |
-| [Setup](scenarios/setup.md)             | SETUP-10, SETUP-12, SETUP-20                                                   |
+| [Setup](scenarios/setup.md)             | SETUP-10, SETUP-20                                                             |
 | [Triage](scenarios/triage.md)           | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
 | [Sandbox](scenarios/sandbox.md)         | SBX-06                                                                         |
 | [Twelves](scenarios/twelves.md)         | TWL-08, TWL-15, TWL-16, TWL-17, TWL-18                                         |

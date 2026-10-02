@@ -75,6 +75,11 @@ Per-test state goes on top, through documented paths only:
   first follows the documented path and has no such window; `app.cli()` stays for commands that
   run beside the server.
 
+- **Browser history.** `diggaOptions.browserHistory` writes a history database for each browser
+  it names into the fake home before the server starts, and `diggaOptions.unreadableBrowsers`
+  takes the permissions from a browser's folder once the server runs (see
+  [Browser history](#browser-history)).
+
 Tests never open the SQLite file. Assertions read the UI first and the public API second
 (`/api/twelves`, `/api/stats`, `/api/export/decisions.json`), which keeps them independent of the
 schema and lets the Electron host run them unchanged.
@@ -143,6 +148,35 @@ Wait for the committed count through the UI or `/api/stats` before releasing the
 The fake's sent-byte count or byte rate does not prove that the loader committed, and a page
 clock cannot advance the worker. [Historical measurements](HISTORY.md#the-first-run-setup-path-web)
 record the checkpoint validation and costs.
+
+### Browser history
+
+[history.ts](../../tests/e2e/fixtures/history.ts) writes the databases the setup finds and the
+history import reads (`discoverHistoryFiles()` and `readHistoryUrls()` in
+`src/server/importers/history.ts`). The folders are written out per platform in the fixture,
+not taken from the importer, so a change to where Digga looks fails the tests:
+
+| Browser | Folder Digga lists, on macOS                              | On Linux                              | On Windows                                            |
+| ------- | --------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
+| Brave   | `Library/Application Support/BraveSoftware/Brave-Browser` | `.config/BraveSoftware/Brave-Browser` | `AppData/Local/BraveSoftware/Brave-Browser/User Data` |
+| Chrome  | `Library/Application Support/Google/Chrome`               | `.config/google-chrome`               | `AppData/Local/Google/Chrome/User Data`               |
+| Firefox | `Library/Application Support/Firefox/Profiles`            | `.mozilla/firefox`                    | `AppData/Roaming/Mozilla/Firefox/Profiles`            |
+
+The fixture writes Chromium's history as `Default/History` and Firefox's as
+`e2e.default-release/places.sqlite` inside that folder, under the fake home.
+
+A Chromium history is the `urls` table with `last_visit_time` in microseconds since 1601, and
+Firefox's the `moz_places` table with `last_visit_date` in microseconds since 1970; each has the
+columns Digga reads and a few that Chrome and Firefox also have. `releaseVisit(release, time)` is
+a visit to the release's page on discogs.com, as a browser records it. The databases are opened
+through `openDb()` with `foreign: true`, so the native module stays behind `db/db.ts`, and are
+not in WAL mode, so a copy of the one file is complete.
+
+`lockBrowserFolder()` sets the browser's folder, the one Digga lists profiles from, to mode
+`000`, as macOS answers a process without Full Disk Access: Digga finds the folder and cannot
+list it, so the setup lists the browser as unreadable. It locks after the server has started and
+gives the permissions back before the test's folder is deleted. It means nothing on Windows or
+to root, so SETUP-12's test of it skips there.
 
 ## The fake services
 

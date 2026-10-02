@@ -98,9 +98,11 @@ import job
 Priority: **P2**.
 
 Browser history: the checkbox and browser list appear only for browsers with a history file in the
-fake home; a browser folder the harness makes unreadable (`chmod 000` on the root it lists, POSIX,
-not as root, restored in cleanup) is listed too, with the Full Disk Access hint; the import marks
-the fixture's visited releases as seen
+fake home (Brave and Firefox, not Chrome); a browser folder the harness makes unreadable (`chmod 000`
+on the root it lists, POSIX, not as root, restored in cleanup) is listed too, with the Full Disk
+Access hint when it is chosen; the import of Brave's history marks the two bulk releases it opened
+as seen (`seed:history`, dated by the last visit), and nothing for the artist page, the page off
+Discogs or Firefox's release
 
 ## SETUP-13
 

@@ -95,6 +95,16 @@ export class SetupPage {
     return this.root.getByRole("status").filter({ hasText: "Connected as" });
   }
 
+  /** Step 2's offer to mark the releases opened on discogs.com as seen. */
+  get historyCheckbox(): Locator {
+    return this.root.getByRole("checkbox", { name: /^Mark releases I opened on discogs\.com/ });
+  }
+
+  /** The browsers whose history step 2 found. */
+  get historyBrowser(): Locator {
+    return this.root.getByRole("combobox", { name: "Browser" });
+  }
+
   get currency(): Locator {
     return this.root.getByRole("combobox", { name: "Prices in" });
   }

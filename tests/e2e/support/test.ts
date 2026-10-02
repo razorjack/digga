@@ -1,10 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test as base, expect, type TestInfo } from "@playwright/test";
+import type { Browser } from "../../../src/shared/api.ts";
 import { type Config, ConfigSchema } from "../../../src/shared/config.ts";
 import type { DecisionsBackup } from "../../../src/shared/decisions-backup.ts";
 import { labelsBesides } from "../fixtures/catalogue.ts";
 import { writeDecisionsBackup } from "../fixtures/decisions.ts";
+import {
+  type BrowserHistory,
+  lockBrowserFolder,
+  writeBrowserHistory,
+} from "../fixtures/history.ts";
 import {
   bulkDump,
   type DumpFile,
@@ -58,6 +64,13 @@ export interface DiggaOptions {
    * starts, as the README says to restore: with the server stopped.
    */
   decisionsBackup: DecisionsBackup | null;
+  /** History databases in the fake home, where the setup and the history import look. */
+  browserHistory: BrowserHistory[];
+  /**
+   * Browsers whose folder in the fake home has no permissions while the test runs, as without
+   * Full Disk Access on macOS. POSIX only, and not as root, whom permissions do not stop.
+   */
+  unreadableBrowsers: Browser[];
 }
 
 const DEFAULT_OPTIONS: DiggaOptions = {
@@ -72,6 +85,8 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   listedDump: null,
   dumpFiles: [],
   decisionsBackup: null,
+  browserHistory: [],
+  unreadableBrowsers: [],
 };
 
 interface TestFixtures {
@@ -128,10 +143,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     if (options.listedDump) fakes.dumps.list(memoryDump(LISTED_DUMPS[options.listedDump]()));
     const work = path.join(folder, "work");
     fs.mkdirSync(work);
+    const home = path.join(folder, "home");
+    for (const history of options.browserHistory) writeBrowserHistory(home, history);
     const environment: DiggaEnvironment = {
       root: runRoot,
       cwd: work,
-      home: path.join(folder, "home"),
+      home,
       library,
       allowedPort: fakes.port,
       serviceUrls: { ...fakes.urls, ...options.serviceUrls },
@@ -148,9 +165,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       outputDir: testInfo.outputDir,
       environment,
     });
+    // Locked once the server runs, which reads the folders only when the page asks.
+    const unlocks = options.unreadableBrowsers.map((browser) => lockBrowserFolder(home, browser));
 
     await use(app);
 
+    // A folder without permissions could not be deleted.
+    for (const unlock of unlocks) unlock();
     const problems = [...app.log.undeclared(), ...fakes.violations];
     if (problems.length > 0 || testInfo.status !== testInfo.expectedStatus)
       await attachArtifacts(app, fakes, testInfo);
