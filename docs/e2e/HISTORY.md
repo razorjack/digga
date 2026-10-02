@@ -962,6 +962,84 @@ when the branch's workflow fixups were folded in before the merge. The work show
   compute, and the workflow's `repeat_each` input and burn-in step were removed; this was the
   only CI burn-in.
 
+### The remaining P2 scenarios outside Triage (web)
+
+Built on 2026-10-03 from `50bd227` and measured at `f98c45e`, on the same 10-core Mac (macOS
+27.0.1), Node 24.18.0 and Playwright 1.63.0 with its Chromium. Eight commits: the browser guard
+lets the app's port through on `127.0.0.1` (`6f7e98f`); SHELL-06, SHELL-08, SHELL-10 and SHELL-11
+(`02b7143`); SBX-06 and TWL-18 (`4c44f13`); a second library for a test, with PER-02 (`353c929`);
+the job runner's stop log (`d3a0429`) and PER-03 (`a4701f8`); TWL-08, TWL-15, TWL-16 and TWL-17
+(`82fa11b`); SET-05, SET-06, SET-12, SET-15, SET-18 and SET-19 (`f98c45e`). All are P2. That
+completes every family but Triage. The work showed:
+
+- **No product bug.** Every scenario passed against the code as it was. One product change makes a
+  stop observable: `JobRunner.stop()` logs "stopping: cancelled N running job(s), waiting for
+  them" after aborting the jobs, with a case in `tests/jobs.test.ts`. No gap was recorded.
+- **SHELL-06 needed the guard.** The base route let only `http://localhost:<port>` through, so
+  the page on `127.0.0.1` was refused. It now passes the same port on `127.0.0.1` too; Chromium's
+  resolver rule already kept that address. The warning's link leads to the same hash on localhost,
+  where the warning is gone.
+- **SHELL-11's row was wrong about the header.** At 840 px the default header (wordmark, three
+  page links, two counts) fits one row on macOS; it wrapped onto two only with the sandbox stamp
+  and a session count. The test uses that state and checks what holds on one row or two: each
+  item whole inside the window, no two overlapping. Against a build without the 860 px
+  `flex-wrap`, "+1 this session" ended at 858 px of 840 and the test failed; at 1600 px the stacked
+  check failed (the player started at 86 px, above the tracklist's end at 835 px). The rest
+  compares boxes too: no horizontal scroll, the verdict bar's buttons whole, uncovered and keyed,
+  and each Tab stop in the window. Fonts on CI's Linux differ, so there the header may stay on one
+  row; then a missing wrap would go unnoticed unless the items overflow.
+- **TWL-18 is about the first load.** The app starts in the sandbox until the settings arrive, so
+  Twelves opened at `#/twelves` mounts first in the sandbox and again in live mode, as the
+  header's stamp goes. Without the `{#key settings.sandbox}` block the live re-judgement sent no
+  `POST /api/verdicts` and the test timed out at it. Switching the sandbox in Settings remounts
+  the shelf by the route anyway; the test checks that case's empty undo history and kept-in-tab
+  re-judgement as well. The row now says so.
+- **PER-02 needed a second library.** `newLibrary(template)` copies a template into the test's
+  folder, `app.cli(args, { library })` runs a command on it and `app.relaunch({ library })` moves
+  the app to it ([HARNESS](HARNESS.md#the-app-host)). The test folder became its own fixture, so it
+  is deleted after the app has stopped. The test waits for the server's start copy of the
+  database before `digga backup`, which writes the day's copy to the same `.partial` path, then
+  restores the file the command named into a fresh `small` library.
+- **PER-03: a graceful stop waits for the page in flight.** `stopServer()` closes the listener,
+  then `jobs.stop()` aborts the import and waits for it, and the Discogs request takes no signal.
+  The test releases the held page once the stopping server has logged the abort, while
+  `relaunch()` is still pending; a release before the abort would let the import end done. The
+  job then reads cancelled after one page request. The crash variant reads failed, "interrupted".
+- **TWL-16's verdict comes from a decisions backup.** The verdict for a release in no dump is a
+  snooze for `NOT_IN_ANY_DUMP` (`r:9001`, dj's second want), restored with `digga restore` before
+  the server starts (`diggaOptions.decisionsBackup`). The wantlist import cannot give one: it
+  writes a stub release from what Discogs sends (`applySeedItem()`), so that verdict has a release. The row reads "Not in
+  the loaded dump (r:9001)", has no `data-release-id`, and Enter says Triage cannot play it.
+- **TWL-17.** `A` and `R` pressed without a wait ran one after the other: the page sent
+  `POST /api/verdicts`, `POST /api/discogs/wantlist/1101`, `POST /api/verdicts` and
+  `DELETE /api/discogs/wantlist/1101` in that order, the fake got the `DELETE` after the `PUT` had
+  answered, and the export said skip.
+- **Rows corrected or completed.** SHELL-11 (above). SET-06: every small record is from the UK
+  and the label sweep's first record is also the oldest, so neither By country nor By year moves
+  it on all labels; the test digs Cold Storage and Echo Chamber, where By year starts on Echo
+  Chamber's 1999 record. Its shuffle check compares two reads with the same `seed` and starts
+  again when UTC midnight passed between reads. SBX-06, TWL-08, TWL-15 to TWL-18, PER-02, PER-03,
+  SET-05, SET-12, SET-15 and SET-18 now say what they read back.
+- **A new observation.** A collection import cancelled while its page was held read cancelled with
+  "page 1 of 1, 1 items", and the collected release had its `seed:collection` verdict: the
+  importer applies the page it received before it checks the signal. Recorded in
+  [PLAN](PLAN.md#observations-awaiting-a-decision); SET-14 and PER-03 do not depend on it.
+- **No rehearsal.** The fake services did not change, so no manual run of the CLI was needed.
+- **Durations.** On five workers (`vp run e2e --workers 5`) the 164 tests take 1.4 minutes, and
+  the command 84.0 s with the client build, against 1.3 minutes and 76.6 s for the 144 before. The
+  new tests take 0.6 to 5.9 s: TWL-08 0.6 s, SHELL-08 0.8 s, TWL-15 0.9 s, SHELL-06 1.0 s, SHELL-10
+  1.1 s (pages) and 1.2 s (setup steps), TWL-18 1.2 s, SET-06 1.3 s, TWL-16 1.3 s, SHELL-11 1.4 s,
+  SET-19 1.4 s, SET-05 1.5 s, PER-02 2.3 s, SET-18 2.3 s, TWL-17 2.7 s (Discogs' 1.1 s spacing
+  between the `PUT` and the `DELETE`), SET-12 3.7 s, SBX-06 4.1 s, PER-03 4.5 s (crash) and 4.9 s
+  (graceful), SET-15 5.9 s.
+- **Stable.** Each new or changed spec passed `--repeat-each=10` on 11 workers before its commit
+  (`shell.e2e.ts` 140 of 140; `sandbox.e2e.ts` with `twelves.e2e.ts` 180 of 180; `persistence.e2e.ts`
+  40 and 60 of 60; both Twelves specs 220 of 220; both Settings specs 210 of 210). The whole suite
+  then passed 1,640 of 1,640 at `--repeat-each=10` on 11 workers in 10.4 minutes, at one-minute load
+  averages up to about 60 from the run itself; nothing else ran.
+- **`verify` has not grown.** The smoke set is still the 14 P0 tests, 11.3 to 11.5 s inside
+  `vp run verify` in this session's runs.
+
 ## Original status on 2026-10-02
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike

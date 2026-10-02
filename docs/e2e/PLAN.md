@@ -7,8 +7,10 @@ start with the [E2E guide](../E2E_TESTING.md) and the relevant
 
 Reconciled against the scenario tags and source on 2026-10-02, at `e1fa6aa` before the
 documentation split, and again after the setup's remaining scenarios and the Accessibility
-family, which completed the Setup and Accessibility families. The web host and the web P0 set are
-implemented. No current spec uses `test.fail` or `test.fixme`; the one `test.skip` is SETUP-12's
+family, which completed the Setup and Accessibility families. On 2026-10-03 the remaining P2
+scenarios outside Triage completed the Shell, Sandbox, Twelves, Settings and Persistence families
+([history](HISTORY.md#the-remaining-p2-scenarios-outside-triage-web)). The web host and the web
+P0 set are implemented. No current spec uses `test.fail` or `test.fixme`; the one `test.skip` is SETUP-12's
 unreadable folder on Windows or as root, where permissions do not stop Digga. That does not mean
 coverage is complete: the entries below are specified but unimplemented, and the observations
 below still need decisions.
@@ -29,14 +31,9 @@ Do not treat an observation as a confirmed gap without checking it.
 The links lead to the requirements. Add fixture records or fake endpoints only when the
 scenario needs them; `GET /masters/{id}` is still absent from the fake Discogs API.
 
-| Family                                  | Remaining IDs                                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------------ |
-| [Shell](scenarios/shell.md)             | SHELL-06, SHELL-08, SHELL-10, SHELL-11                                         |
-| [Triage](scenarios/triage.md)           | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
-| [Sandbox](scenarios/sandbox.md)         | SBX-06                                                                         |
-| [Twelves](scenarios/twelves.md)         | TWL-08, TWL-15, TWL-16, TWL-17, TWL-18                                         |
-| [Settings](scenarios/settings.md)       | SET-05, SET-06, SET-12, SET-15, SET-18, SET-19                                 |
-| [Persistence](scenarios/persistence.md) | PER-02, PER-03                                                                 |
+| Family                        | Remaining IDs                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| [Triage](scenarios/triage.md) | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
 
 The original catalogue design included pooled-video pressings, undated wanted-label records,
 House releases and additional records in other styles. Check the current
@@ -49,13 +46,14 @@ These are observations from earlier runs, not approved implementation tasks or e
 coverage. Reproduce against current code when taking one up. Resolved observations, including
 Triage's stale queue and Twelves' re-judging copy, remain in history only.
 
-| Observation                                                                               | Evidence and decision needed                                                                                                                                                  |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Videos with `embeddable = 0` are omitted without a notice, while KEYMAP promises a notice | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide whether copy or behavior changes.                                                                      |
-| A cued track is marked current and says "playing" while the player waits for Space        | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide the track's accessible state before playback.                                                          |
-| Keys used in Settings activate the page, so Triage's cued video can read "paused"         | [Settings slice](HISTORY.md#the-settings-p1-slice-web). Decide whether the existing activation behavior needs any change.                                                     |
-| Read my lists is enabled by the typed username but requests the saved username            | [Settings slice](HISTORY.md#the-settings-p1-slice-web). An unsaved first username produced `400`; decide when the action should be available.                                 |
-| Resuming setup with a saved token waits for the account check behind a held import page   | [SETUP-28 finding](HISTORY.md#closing-the-gaps-web). The earlier estimate was up to about 15 s with a 13-page wantlist; decide whether account lookup should delay the setup. |
+| Observation                                                                               | Evidence and decision needed                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Videos with `embeddable = 0` are omitted without a notice, while KEYMAP promises a notice | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide whether copy or behavior changes.                                                                                                                                                          |
+| A cued track is marked current and says "playing" while the player waits for Space        | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide the track's accessible state before playback.                                                                                                                                              |
+| Keys used in Settings activate the page, so Triage's cued video can read "paused"         | [Settings slice](HISTORY.md#the-settings-p1-slice-web). Decide whether the existing activation behavior needs any change.                                                                                                                                         |
+| Read my lists is enabled by the typed username but requests the saved username            | [Settings slice](HISTORY.md#the-settings-p1-slice-web). An unsaved first username produced `400`; decide when the action should be available.                                                                                                                     |
+| A cancelled import keeps the page that was in flight                                      | [Remaining P2 outside Triage](HISTORY.md#the-remaining-p2-scenarios-outside-triage-web). A collection import cancelled with its page held read cancelled, "page 1 of 1, 1 items", and saved the collected seed. Decide whether a cancel should discard that page. |
+| Resuming setup with a saved token waits for the account check behind a held import page   | [SETUP-28 finding](HISTORY.md#closing-the-gaps-web). The earlier estimate was up to about 15 s with a 13-page wantlist; decide whether account lookup should delay the setup.                                                                                     |
 
 ## Breadth and release checks
 
