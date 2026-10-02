@@ -154,6 +154,10 @@
   th.day {
     width: calc(5em + 26px);
   }
+  /* The page's sticky footer covers the bottom of the window (Twelves.svelte). */
+  tbody tr {
+    scroll-margin-bottom: var(--foot-height, 0px);
+  }
   td {
     padding: 12px 10px;
     border-bottom: 1px solid var(--rule-soft);

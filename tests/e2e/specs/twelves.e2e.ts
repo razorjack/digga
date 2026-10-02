@@ -119,27 +119,43 @@ test(
     expect(await twelves.move("k")).toBe(keys[1]);
     expect(await twelves.move("ArrowUp")).toBe(keys[0]);
 
-    // The gap: the last row is scrolled to the window's bottom edge, under the shelf's footer.
+    // The rows stop above the shelf's sticky footer, which covers the window's bottom edge.
     await twelves.select(keys.at(-1)!);
     await expect(twelves.selected).toBeInViewport();
+    await expect.poll(() => twelves.isUncovered(twelves.selected)).toBe(true);
     await twelves.select(keys[0]!);
     await expect(twelves.selected).toBeInViewport();
     await expect.poll(() => twelves.isUncovered(twelves.selected)).toBe(true);
   },
 );
 
-test.fail(
-  "TWL-02 gap: a row J selects at the bottom stays above the shelf's footer",
+test(
+  "TWL-02 a track J selects at the bottom of a short window stays above the shelf's footer",
   { tag: ["@TWL-02", "@P1"] },
   async ({ app }) => {
     const twelves = new TwelvesPage(app);
-    const keys = await snoozeEverySmallRecord(app);
+    await app.given.verdicts(datedVerdicts([{ release: TRACK_RUN, status: "accepted" }]));
+    for (const track of TRACK_RUN.tracks)
+      await app.given.trackMark({
+        releaseId: TRACK_RUN.id,
+        position: track.position,
+        mark: "keep",
+      });
+    // Five rows fill a short window, so the last one has to scroll.
+    await app.page.setViewportSize({ width: 1600, height: 480 });
     await twelves.open();
+    await twelves.showShelf("tracks");
 
-    await twelves.select(keys.at(-1)!);
+    const rows = twelves.root.locator(`tr[data-release-id="${TRACK_RUN.id}"]`);
+    await expect(rows).toHaveCount(TRACK_RUN.tracks.length);
+    const last = rows.last();
+    await expect(last).not.toBeInViewport();
+    for (let step = 1; step < TRACK_RUN.tracks.length; step += 1)
+      await app.page.keyboard.press("j");
+    await expect(last).toHaveAttribute("aria-current", "true");
 
-    await expect(twelves.selected).toBeInViewport();
-    await expect.poll(() => twelves.isUncovered(twelves.selected), { timeout: 3000 }).toBe(true);
+    await expect(last).toBeInViewport();
+    await expect.poll(() => twelves.isUncovered(last)).toBe(true);
   },
 );
 

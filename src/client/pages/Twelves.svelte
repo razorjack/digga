@@ -46,6 +46,8 @@
   let filterInput = $state<HTMLInputElement | null>(null);
 
   let table = $state<HTMLTableElement | null>(null);
+  /** The sticky footer covers the bottom of the window, so a row scrolled into view stops above it. */
+  let footHeight = $state(0);
 
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
   const shelfLabel = $derived(SHELVES.find((option) => option.id === shelfState.shelf)!.label);
@@ -202,7 +204,7 @@
 
 <svelte:window {onkeydown} {onpaste} />
 
-<div class="twelves">
+<div class="twelves" style:--foot-height="{footHeight}px">
   <header class="head">
     <h1>Twelves</h1>
     <p class="lede">
@@ -433,7 +435,7 @@
     </table>
   {/if}
 
-  <footer class="foot">
+  <footer class="foot" bind:offsetHeight={footHeight}>
     <p class="hints">
       <span><Key label="J" /><Key label="K" /> move</span>
       <span><Key label="O" /> discogs</span>
@@ -570,6 +572,9 @@
   }
   th.day {
     width: calc(5em + 26px);
+  }
+  tbody tr {
+    scroll-margin-bottom: var(--foot-height, 0px);
   }
   td {
     padding: 12px 10px;

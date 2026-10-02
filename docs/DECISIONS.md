@@ -603,3 +603,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      other engines differ. The picker's keydown handler now cancels Esc's default action and
      closes the dialog itself, which works the same in every engine. The field stays
      `type="search"` for its `searchbox` role, and the picker opens again with it empty.
+114. **Twelves' rows scroll into view above the footer's measured height.** The shelf's footer is
+     sticky, so `scrollIntoView({ block: "nearest" })` put a row selected at the bottom under it.
+     The footer's height changes with its hints, the pager and the window's width, so a fixed
+     margin would be right for one layout only. `Twelves.svelte` binds the footer's
+     `offsetHeight` to `--foot-height`, and the rows of both tables take it as
+     `scroll-margin-bottom`.
