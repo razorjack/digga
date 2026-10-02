@@ -16,6 +16,7 @@ export interface DiggaApp {
   readonly page: Page;
   /** http://localhost:<port>, fixed for one launch. */
   readonly origin: string;
+  /** The library the app runs on; a relaunch may move it to another (newLibrary). */
   readonly library: DiggaLibrary;
   /** Calls to the current launch's /api, for given state and read-back. */
   readonly api: AppApiClient;
@@ -26,18 +27,22 @@ export interface DiggaApp {
   /** Opens a hash route such as "#/twelves"; defaults to "#/triage". */
   open(hash?: string): Promise<void>;
   /**
-   * Stops the whole app and starts it again on the same library, prepared as at the first
-   * launch, with a new page that is blank until open(). Given state is not applied again.
+   * Stops the whole app and starts it again on the same library, or on the one given, prepared
+   * as at the first launch, with a new page that is blank until open(). Given state is not
+   * applied again.
    */
-  relaunch(options?: { crash?: boolean }): Promise<void>;
+  relaunch(options?: { crash?: boolean; library?: DiggaLibrary }): Promise<void>;
   /**
    * Web only: stops the server and starts it again on the same port, while the page and its
    * session stay. The page's requests while it is down fail. Fails, rather than moving to another
    * port, when another process has taken the port meanwhile.
    */
   restartServer(options?: { crash?: boolean }): Promise<void>;
-  /** Runs `digga <args>` against the same library, with the same isolation, and waits for its exit. */
-  cli(args: string[]): Promise<DiggaRun>;
+  /**
+   * Runs `digga <args>` against the app's library, or the one given, with the same isolation,
+   * and waits for its exit.
+   */
+  cli(args: string[], options?: { library?: DiggaLibrary }): Promise<DiggaRun>;
   /** Dispatches a paste event carrying the text at the focused element. */
   paste(text: string): Promise<void>;
   /**

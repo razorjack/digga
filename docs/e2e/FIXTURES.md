@@ -75,6 +75,10 @@ Per-test state goes on top, through documented paths only:
   first follows the documented path and has no such window; `app.cli()` stays for commands that
   run beside the server.
 
+- **A second library.** `newLibrary(template)` copies a template beside the app's library with
+  the default test config; a test prepares it with `app.cli(args, { library })` and moves the app
+  to it with `app.relaunch({ library })` ([The app host](HARNESS.md#the-app-host), PER-02).
+
 - **Browser history.** `diggaOptions.browserHistory` writes a history database for each browser
   it names into the fake home before the server starts, and `diggaOptions.unreadableBrowsers`
   takes the permissions from a browser's folder once the server runs (see

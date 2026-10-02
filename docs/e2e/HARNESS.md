@@ -133,6 +133,15 @@ the supported setup paths. `apiRequests()` includes all launches in the test.
 `times: Infinity` lasts until lifted. Declare deliberate failures with `expectProblems()`
 ([failure artifacts](AUTHORING.md#failure-artifacts)).
 
+**A second library.** A test has one app, and one library unless it asks for another: the
+`newLibrary(template)` fixture copies a template into the test's folder with the default test
+config (sandbox off) and returns its `DiggaLibrary`. `app.cli(args, { library })` runs a command
+on it, and `app.relaunch({ library })` stops the app and starts it on that library, which
+`app.library` then names; the fake home, the working directory and the fakes stay. A library is
+prepared before the relaunch, as the README says a restore is done with the server stopped. PER-02
+restores the decisions backup `digga backup` wrote into a fresh `small` library this way. The
+test's folder, with every library in it, is deleted after the app has stopped.
+
 **Web host.** It prepares the library, config and fake home, spawns the server, prepares a
 browser context (below) and opens the page. `cli()` runs through `spawnDigga()` with the test's
 environment and resolves on exit, with a `null` code when a signal ended it. Console, page-error

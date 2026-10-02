@@ -20,7 +20,7 @@ import {
 } from "../fixtures/dump.ts";
 import { FakeServices, memoryDump, type ServiceUrls } from "../../../tools/dev/fake-services.ts";
 import { WebApp } from "./hosts/web.ts";
-import { type DiggaEnvironment, runDiggaOrThrow } from "./spawn.ts";
+import { type DiggaEnvironment, type DiggaLibrary, runDiggaOrThrow } from "./spawn.ts";
 import { copyTemplate, type TemplateName, Templates, updateConfig } from "./templates.ts";
 
 export { expect } from "@playwright/test";
@@ -93,7 +93,15 @@ interface TestFixtures {
   /** What a test changes from DEFAULT_OPTIONS. */
   diggaOptions: Partial<DiggaOptions>;
   fakes: FakeServices;
+  /** The test's folder in the run's temp root, deleted after the app has stopped. */
+  testFolder: string;
   app: WebApp;
+  /**
+   * Another library in the test's folder, copied from a template with the default test config, the
+   * sandbox off. `app.cli(args, { library })` prepares it and `app.relaunch({ library })` moves
+   * the app to it (PER-02).
+   */
+  newLibrary: (template: TemplateName) => Promise<DiggaLibrary>;
 }
 
 interface WorkerFixtures {
@@ -130,9 +138,18 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     await fakes.stop();
   },
 
-  app: async ({ browser, fakes, templates, runRoot, diggaOptions }, use, testInfo) => {
-    const options = { ...DEFAULT_OPTIONS, ...diggaOptions };
+  testFolder: async ({ runRoot }, use) => {
     const folder = fs.mkdtempSync(path.join(runRoot, "test-"));
+    await use(folder);
+    fs.rmSync(folder, { recursive: true, force: true });
+  },
+
+  app: async (
+    { browser, fakes, templates, runRoot, testFolder: folder, diggaOptions },
+    use,
+    testInfo,
+  ) => {
+    const options = { ...DEFAULT_OPTIONS, ...diggaOptions };
     const library = copyTemplate(
       await templates.folder(options.template),
       path.join(folder, "library"),
@@ -176,8 +193,21 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     if (problems.length > 0 || testInfo.status !== testInfo.expectedStatus)
       await attachArtifacts(app, fakes, testInfo);
     await app.close();
-    fs.rmSync(folder, { recursive: true, force: true });
     expect(problems, "problems the test did not declare").toEqual([]);
+  },
+
+  newLibrary: async ({ templates, testFolder }, use) => {
+    let count = 0;
+    await use(async (template) => {
+      count += 1;
+      const folder = path.join(testFolder, `library-${count + 1}`);
+      const library = copyTemplate(await templates.folder(template), folder);
+      if (template !== "empty")
+        updateConfig(library.configFile, (config) =>
+          testConfig(config, { ...DEFAULT_OPTIONS, template }),
+        );
+      return library;
+    });
   },
 });
 

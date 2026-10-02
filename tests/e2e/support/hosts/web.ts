@@ -49,7 +49,6 @@ interface Launch {
  * relaunch replaces both; the library, the problem log and the list of servers stay.
  */
 export class WebApp implements DiggaApp {
-  readonly library: DiggaLibrary;
   readonly given: Given;
   readonly youtube: FakeYouTubeHandle;
   readonly clock: PageClock;
@@ -57,11 +56,13 @@ export class WebApp implements DiggaApp {
   /** Every server this test started, the current one last, for the failure artifacts. */
   readonly servers: DiggaServer[] = [];
   readonly #options: WebAppOptions;
+  /** The options' environment, on the library a relaunch moved to. */
+  #environment: DiggaEnvironment;
   #launch: Launch | null = null;
 
   private constructor(options: WebAppOptions) {
     this.#options = options;
-    this.library = options.environment.library;
+    this.#environment = options.environment;
     this.given = new Given(() => this.api);
     this.youtube = new FakeYouTubeHandle(() => this.page);
     this.clock = new PageClock(() => this.page, options.clock);
@@ -74,6 +75,10 @@ export class WebApp implements DiggaApp {
         await api.send("PUT", "/api/discogs/token", { token: options.savedToken });
     });
     return app;
+  }
+
+  get library(): DiggaLibrary {
+    return this.#environment.library;
   }
 
   get page(): Page {
@@ -100,8 +105,9 @@ export class WebApp implements DiggaApp {
     await this.page.goto(`${this.origin}/${hash}`);
   }
 
-  async relaunch(options: { crash?: boolean } = {}): Promise<void> {
+  async relaunch(options: { crash?: boolean; library?: DiggaLibrary } = {}): Promise<void> {
     await this.#stop(options);
+    if (options.library) this.#environment = { ...this.#environment, library: options.library };
     await this.#start(async () => {});
   }
 
@@ -119,7 +125,7 @@ export class WebApp implements DiggaApp {
     if (options.crash) await launch.server.crash();
     else await launch.server.stop();
     try {
-      const server = await startDiggaServer(this.#options.environment, { port });
+      const server = await startDiggaServer(this.#environment, { port });
       this.servers.push(server);
       this.#launch = { ...launch, server };
     } catch (error) {
@@ -131,9 +137,9 @@ export class WebApp implements DiggaApp {
     }
   }
 
-  /** The command runs beside the server, on the same library, with the same isolation. */
-  async cli(args: string[]): Promise<DiggaRun> {
-    return runDigga(args, this.#options.environment);
+  /** The command runs beside the server, on its library unless told another, with the same isolation. */
+  async cli(args: string[], options: { library?: DiggaLibrary } = {}): Promise<DiggaRun> {
+    return runDigga(args, { ...this.#environment, library: options.library ?? this.library });
   }
 
   async paste(text: string): Promise<void> {
@@ -228,7 +234,7 @@ export class WebApp implements DiggaApp {
 
   /** Starts the server, applies the given state, then prepares the context the page opens in. */
   async #start(given: (api: AppApiClient) => Promise<void>): Promise<void> {
-    const server = await startDiggaServer(this.#options.environment);
+    const server = await startDiggaServer(this.#environment);
     this.servers.push(server);
     try {
       const api = new AppApiClient(server.port);

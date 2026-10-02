@@ -15,7 +15,11 @@ A live snooze (`L`) with a note (`E`), and a keep mark on a track (`Shift+K`, it
 Priority: **P2**.
 
 After further changes, `digga backup` writes today's decisions; `digga restore` of that file into a
-fresh `small` library brings the verdicts back into Twelves
+fresh `small` library brings the verdicts back into Twelves. Given two verdicts and a keep mark,
+the changes are a note and a re-judgement in Twelves; `/api/backups` then lists the day's decisions
+backup, and after `relaunch({ library })` on the fresh library its Snoozed shelf holds both records,
+the note included, and its Tracks shelf the mark. The test waits for the database copy the server's
+start writes before `digga backup`, which writes the day's copy to the same path
 
 ## PER-03
 

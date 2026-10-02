@@ -1,7 +1,8 @@
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { MARK_COPY } from "../../../src/client/twelves/model.ts";
-import type { DecisionsExport } from "../../../src/shared/api.ts";
-import { releaseById } from "../fixtures/catalogue.ts";
+import type { BackupsResponse, DecisionsExport } from "../../../src/shared/api.ts";
+import { FIRST_RECORD, releaseById, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
+import { datedVerdicts } from "../fixtures/decisions.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { isRequest, TriagePage, verdictKey } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
@@ -48,6 +49,56 @@ test(
     await app.relaunch();
     await app.open();
     await expectKept(app, kept);
+  },
+);
+
+test(
+  "PER-02 digga backup writes today's decisions, which digga restore brings into a fresh library",
+  { tag: ["@PER-02", "@P2"] },
+  async ({ app, newLibrary }) => {
+    const twelves = new TwelvesPage(app);
+    const [kept] = FIRST_RECORD.tracks;
+    const note = "hear it at the weekend";
+    await app.given.verdicts(
+      datedVerdicts([
+        { release: FIRST_RECORD, status: "snoozed" },
+        { release: SECOND_RECORD, status: "maybe" },
+      ]),
+    );
+    await app.given.trackMark({
+      releaseId: FIRST_RECORD.id,
+      position: kept!.position,
+      mark: "keep",
+    });
+    await twelves.open();
+    expect(await twelves.selectedKey()).toBe(triageKeyOf(FIRST_RECORD));
+    await twelves.writeNote(note);
+    await twelves.move("j");
+    await twelves.rejudge("snoozed");
+    // The server's start copied the database; digga backup must not write the copy beside it.
+    await expect.poll(async () => (await backups(app)).backups).toHaveLength(1);
+
+    const backup = await app.cli(["backup"]);
+    expect(backup.code, backup.stderr).toBe(0);
+    const written = /^backup: (\S+decisions-(\d{4}-\d{2}-\d{2})\.json\.gz) /m.exec(backup.stdout);
+    expect(written, backup.stdout).not.toBeNull();
+    const [, file, day] = written!;
+    // The server lists the day's backup, the one `digga backup` wrote.
+    expect((await backups(app)).decisions.backups).toEqual([expect.objectContaining({ day })]);
+
+    const fresh = await newLibrary("small");
+    const restore = await app.cli(["restore", file!], { library: fresh });
+    expect(restore.code, restore.stderr).toBe(0);
+    expect(restore.stdout).toMatch(/verdicts: +2 restored/);
+    await app.relaunch({ library: fresh });
+    await twelves.open();
+
+    await twelves.showShelf("snoozed");
+    await expect(twelves.records).toHaveCount(2);
+    await expect(twelves.record(triageKeyOf(FIRST_RECORD))).toContainText(note);
+    await expect(twelves.record(triageKeyOf(SECOND_RECORD))).toBeVisible();
+    await twelves.showShelf("tracks");
+    await expect(twelves.track(FIRST_RECORD.id, kept!.position)).toContainText(MARK_COPY.keep);
   },
 );
 
@@ -147,4 +198,8 @@ async function expectKept(app: DiggaApp, kept: KeptDecisions): Promise<void> {
 async function exportedStatus(app: DiggaApp, key: string): Promise<string | undefined> {
   const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
   return exported.verdicts.find((verdict) => verdict.key === key)?.status;
+}
+
+function backups(app: DiggaApp): Promise<BackupsResponse> {
+  return app.api.get<BackupsResponse>("/api/backups");
 }
