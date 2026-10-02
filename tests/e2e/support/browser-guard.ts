@@ -15,7 +15,8 @@ export function emptyGuardLog(): BrowserGuardLog {
 
 /**
  * The browser's layers of the network guard (docs/e2e/HARNESS.md#the-network-and-filesystem-guard).
- * Only the app's exact origin gets through, and the harness fetches those requests itself with redirects refused, since
+ * Only the app's exact origin, and the same server on 127.0.0.1 (SHELL-06), gets through, and the
+ * harness fetches those requests itself with redirects refused, since
  * Playwright does not route the requests that follow a redirect in Chromium. Every WebSocket is
  * closed. Routes registered later call route.fallback() for what they do not handle.
  */
@@ -28,12 +29,24 @@ export async function guardContext(
     log.webSockets.push(webSocket.url());
     void webSocket.close();
   });
-  await context.route("**/*", (route) => passAppRequest(route, origin, log));
+  const allowed = appOrigins(origin);
+  await context.route("**/*", (route) => passAppRequest(route, allowed, log));
 }
 
-async function passAppRequest(route: Route, origin: string, log: BrowserGuardLog): Promise<void> {
+/** The app's origin, and the same port on the address the server binds, where the app warns. */
+function appOrigins(origin: string): Set<string> {
+  const address = new URL(origin);
+  address.hostname = "127.0.0.1";
+  return new Set([origin, address.origin]);
+}
+
+async function passAppRequest(
+  route: Route,
+  allowed: Set<string>,
+  log: BrowserGuardLog,
+): Promise<void> {
   const url = route.request().url();
-  if (new URL(url).origin !== origin) {
+  if (!allowed.has(new URL(url).origin)) {
     log.refused.push(url);
     await route.abort("blockedbyclient");
     return;

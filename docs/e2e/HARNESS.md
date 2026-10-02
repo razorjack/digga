@@ -218,8 +218,9 @@ overlap on purpose.
    array. CLI processes load it with `NODE_OPTIONS=--import=<guard>`, and their worker threads
    inherit it. The dump-load worker makes no requests. Electron needs the separate
    [preload guard](ELECTRON.md#startup-order), including a check that workers inherit it.
-2. **Context routes.** The base route lets through the app's exact origin and aborts everything
-   else, recording the URL; the fixture fails a test that has aborts it did not declare. In
+2. **Context routes.** The base route lets through the app's exact origin, and the same port on
+   `127.0.0.1`, where SHELL-06 opens the app to see its warning, and aborts everything else,
+   recording the URL; the fixture fails a test that has aborts it did not declare. In
    Chromium, Playwright does not route the requests that follow a redirect, so the base route
    fetches an allowed request itself with `route.fetch({ maxRedirects: 0 })`, fulfills the page with
    the answer, and aborts and fails the test on a redirect. Digga's server and the fakes send none.
@@ -239,7 +240,7 @@ overlap on purpose.
 3. **Chromium resolution.** The web browser starts with
    `--host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1"`, so no
    other host name or IP literal resolves. This covers what Playwright does not route, such as
-   preconnects. `127.0.0.1` stays resolvable for SHELL-06; routes still allow only the app's port.
+   preconnects. `127.0.0.1` stays resolvable for SHELL-06; routes still allow only the app's port there.
    The Electron plan applies the same switch to cover `electron.net`. Future Firefox and
    WebKit projects have no such switch and must rely on routes.
 4. **The harness's own requests.** `app.api` and the health probe accept only the test's origin
