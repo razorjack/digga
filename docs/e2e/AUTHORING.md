@@ -194,6 +194,30 @@ app.expectProblems({
 await app.abortRequests({ method: "POST", path: "/api/verdicts" });
 ```
 
+## Accessibility scans
+
+`expectAccessible(page, state)` in [support/axe.ts](../../tests/e2e/support/axe.ts) scans the page
+with `@axe-core/playwright` and fails on serious and critical violations, and on
+`landmark-unique` and `page-has-heading-one` whatever their impact. It attaches each scan's full
+result to the test as `axe <state>.json`, passed or failed; moderate and minor findings and axe's
+incomplete checks are read there.
+
+- Scan a settled state. axe reads the DOM once, so reach the state through the page objects and
+  wait for what it shows (the playing status, a shelf's rows, Settings' filter preview, the
+  crate's count) before the scan.
+- axe reports an `aria-labelledby` that names nothing only as incomplete, so assert the region
+  names a scenario relies on directly.
+- Every rule runs in the dark scheme the host emulates; `color-contrast` runs again in the light
+  scheme (`lightScheme: false` skips that for a state drawn with components already scanned).
+  Chromium applies an emulated scheme at its next frame, and a computed style read before then
+  mixes the two schemes: the first light scans reported contrasts of 1.03 to 2.09 between one
+  scheme's text colour and the other's background. The helper waits until the body's background
+  has changed before it scans, and again after it puts the dark scheme back.
+- Never disable a rule globally. A rule excluded for one element needs a comment in the spec and
+  a sentence in the scenario saying why it does not apply; none is excluded today.
+- A contrast failure that needs a new colour is the owner's decision: record it as a product gap
+  with the measured ratio and both colours.
+
 ## Markup audit
 
 The current locator contract uses native roles, accessible names, ARIA state and domain

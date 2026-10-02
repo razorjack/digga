@@ -99,7 +99,7 @@ are wired together, with one representative case per behaviour:
 | Jobs started in the UI run in the server and report back      | E2E                        |
 | The setup runs download, imports and load as separate jobs    | E2E                        |
 | Reload, relaunch and crash keep what they should              | E2E                        |
-| The accessibility tree matches what the keymap promises       | E2E (axe scans planned)    |
+| The accessibility tree matches what the keymap promises       | E2E, with axe scans        |
 | Electron shell: window, menu, dialogs, safeStorage, downloads | E2E, Electron project only |
 
 When a bug crosses layers, its fix gets an E2E regression test. When a bug is inside one module,

@@ -12,9 +12,8 @@ below are specified but unimplemented, and the observations below still need dec
 
 ## Next work
 
-1. Implement the [Accessibility family](scenarios/accessibility.md), including axe scans.
-   `@axe-core/playwright` is not installed yet. Directly assert region names as specified;
-   the planned scans alone do not establish those names.
+1. Finish the [Accessibility family](scenarios/accessibility.md): A11Y-02 and A11Y-04 (P1) and
+   A11Y-03 (P2). A11Y-01's scans run through `support/axe.ts`.
 2. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
    Ubuntu, Node 24, Chromium with its system dependencies, `vp run verify`, then the remaining
    E2E tests with `@P0` excluded so smoke does not run twice. Upload the HTML report and failure
