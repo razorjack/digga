@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, type ReporterDescription } from "@playwright/test";
 
 /**
  * The end-to-end suite (docs/E2E_TESTING.md). Run it through `vp run e2e`, which builds the client
@@ -22,9 +22,7 @@ export default defineConfig({
   retries: CI ? 1 : 0,
   failOnFlakyTests: CI,
   timeout: 30_000,
-  reporter: CI
-    ? [["list"], ["html", { open: "never", outputFolder: "../../playwright-report" }]]
-    : "list",
+  reporter: CI ? ciReporters() : "list",
   use: {
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
@@ -37,3 +35,13 @@ export default defineConfig({
     },
   ],
 });
+
+/** On GitHub Actions, the github reporter also annotates each failure at its line. */
+function ciReporters(): ReporterDescription[] {
+  const reporters: ReporterDescription[] = [
+    ["list"],
+    ["html", { open: "never", outputFolder: "../../playwright-report" }],
+  ];
+  if (process.env.GITHUB_ACTIONS) reporters.push(["github"]);
+  return reporters;
+}
