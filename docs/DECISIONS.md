@@ -725,3 +725,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      are kept, and the log keeps the replaced verdict. A restore puts each verdict on the key its
      release has now before applying its own rule, since a library rebuilt from a newer dump has
      the new keys. History hits on a master have no release and stay.
+126. **A want or grail goes to the Discogs wantlist as soon as its verdict is saved.** Decision 40
+     held the push for 1.5 s so that a quick `Z` cancelled it rather than taking the release off
+     again. The owner digs with `A` and `C` as final: decided, next record, never shown again, and
+     on Discogs at once. The push now starts when the server has saved the verdict. A `Z` before
+     then sends nothing, and one after it takes the release off the wantlist, which the session's
+     one-at-a-time wantlist writes already did in any order (decision 56). The pushes still run
+     after one another, so a slow Discogs answer never holds back the next verdict, and each
+     reads the saved verdict first, since Twelves may have changed it while the push waited for
+     earlier ones. A misfired `A` now costs an add and a remove on Discogs. The setup's copy and
+     TRI-12, TRI-13 and SBX-07 changed with it: a live want that the sandbox switch follows is now
+     on the wantlist.

@@ -56,8 +56,6 @@ const REFILL_BELOW = 8;
 const PREFETCH = 3;
 const MAX_QUEUE_LIMIT = 5000;
 export interface SessionOptions {
-  /** A want waits this long before the wantlist push, so a quick Z cancels it instead. */
-  pushGraceMs?: number;
   /** Leaves a label out of the queue filters, or lets it back in; saving restarts the queue. */
   setLabelHidden?: (label: string, hidden: boolean) => Promise<void>;
 }
@@ -91,7 +89,6 @@ export class TriageSession {
   finished = $derived(this.status === "ready" && this.upcoming.length === 0 && this.exhausted);
 
   #api: AppApi;
-  #pushGraceMs: number;
   #setLabelHidden: SessionOptions["setLabelHidden"];
   #batch = 200;
   /** Market data fetched this session, by release id, for records that moved on before it came. */
@@ -119,12 +116,10 @@ export class TriageSession {
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
-  #graceTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
 
   constructor(api: AppApi = appApi, opts: SessionOptions = {}) {
     this.#api = api;
     this.#apiGeneration = api.generation;
-    this.#pushGraceMs = opts.pushGraceMs ?? 1500;
     this.#setLabelHidden = opts.setLabelHidden;
   }
 
@@ -133,11 +128,6 @@ export class TriageSession {
     this.#generation += 1;
     this.#apiGeneration = -1;
     if (this.#flashTimer) clearTimeout(this.#flashTimer);
-    for (const [timer, resolve] of this.#graceTimers) {
-      clearTimeout(timer);
-      resolve();
-    }
-    this.#graceTimers.clear();
   }
 
   async start(batch: number): Promise<void> {
@@ -258,9 +248,9 @@ export class TriageSession {
     if (generation === this.#apiGeneration) {
       stats.refreshSoon();
       // Discogs writes have their own chain so they cannot delay verdicts.
-      if (isWantlistVerdict(status)) void this.#pushAfterGrace(entry, slipId, client);
+      if (isWantlistVerdict(status)) void this.#pushWant(entry, slipId, client);
     }
-    // Last, so a settled slip means the push grace is already running.
+    // Last, so a settled slip means its push has started.
     this.#settleSlip(slipId);
   }
 
@@ -592,20 +582,12 @@ export class TriageSession {
     this.#flash(message);
   }
 
-  #waitForPushGrace(): Promise<void> {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        this.#graceTimers.delete(timer);
-        resolve();
-      }, this.#pushGraceMs);
-      this.#graceTimers.set(timer, resolve);
-    });
-  }
-
-  async #pushAfterGrace(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
+  /**
+   * Puts a want or grail on the Discogs wantlist once its verdict is saved. An undo before then
+   * sends nothing; one after it takes the release off again.
+   */
+  async #pushWant(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
     const generation = this.#apiGeneration;
-    await this.#waitForPushGrace();
-    if (generation !== this.#apiGeneration) return;
     if (!this.history.includes(entry)) return;
     let push: "done" | "failed" | null;
     try {
@@ -662,7 +644,7 @@ export class TriageSession {
       const pushedId = this.#onWantlist.get(key);
       if (!current()) return null;
       if (this.#wanted(key) && pushedId === undefined) {
-        // Twelves may have changed the verdict during the grace period.
+        // Twelves may have changed the verdict while the push waited for earlier ones.
         const saved = await client.getRelease(item.id);
         const savedWant = saved.verdict !== null && isWantlistVerdict(saved.verdict.status);
         if (!savedWant || !this.#wanted(key) || !current()) return null;

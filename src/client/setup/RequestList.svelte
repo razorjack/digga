@@ -12,7 +12,7 @@
     <li>Your collection and wantlist: one request per 100 records, when you import them.</li>
     <li>The Maybe list: when you import it, or press <kbd>I</kbd> in Twelves.</li>
     <li>
-      A want: one request 1.5 s after <kbd>A</kbd> or <kbd>C</kbd>, and one more when <kbd>Z</kbd> takes it back. In
+      A want: one request when you press <kbd>A</kbd> or <kbd>C</kbd>, and one more when <kbd>Z</kbd> takes it back. In
       Twelves, when you re-judge a want onto or off the wantlist.
     </li>
     <li>A price: one request when you press <kbd>P</kbd>, for the record on screen.</li>

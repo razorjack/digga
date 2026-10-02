@@ -7,8 +7,8 @@ import type { TrackMark } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { HeaderPage } from "./header.ts";
 
-/** Past the session's 1.5 s grace before a wantlist push, for runFor(). */
-export const PAST_PUSH_GRACE_MS = 2000;
+/** Past the sandbox's simulated 350 ms round trip of a wantlist push, for runFor(). */
+export const PAST_SANDBOX_PUSH_MS = 1000;
 
 /** The slip's last word on a push to the Discogs wantlist, whichever way it went. */
 const PUSH_ENDED = /Added to your Discogs wantlist\.|Saved, but not on the Discogs wantlist\./;

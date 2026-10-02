@@ -203,7 +203,7 @@ styles in step 3.
     saved and offers your lists for the Maybe list. About two requests a visit.
   - Your collection and wantlist: one request per 100 records, when you import them.
   - The Maybe list: when you import it, or press `I` in Twelves.
-  - A want: one request 1.5 s after `A` or `C`, and one more when `Z` takes it back. In Twelves,
+  - A want: one request when you press `A` or `C`, and one more when `Z` takes it back. In Twelves,
     when you re-judge a want onto or off the wantlist.
   - A price: one request when you press `P`, for the record on screen.
   - A seller's shop: one request per 100 listings, when you read it.
@@ -342,7 +342,7 @@ The recommendation: the setup turns the sandbox off, and the two buttons make th
 explicit.
 
 - **Start digging** digs for real. With a token, the line above it reads "A want goes on your
-  Discogs wantlist 1.5 s after you press A. Z takes it off again."
+  Discogs wantlist when you press A. Z takes it off again."
 - **Practice on five records first** turns the sandbox on and opens Triage with a strip like the
   one for a round of snoozed records: "Practice · 2 of 5 · nothing is saved · Esc ends it". After
   the fifth verdict, a card: "That's digging. Your practice verdicts are gone and those five

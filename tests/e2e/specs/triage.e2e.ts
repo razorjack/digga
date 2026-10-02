@@ -12,13 +12,11 @@ import { startSeconds } from "../../../src/shared/playlist.ts";
 import { isWantlistVerdict } from "../../../src/shared/wantlist.ts";
 import { FIRST_RECORD, releaseById, SECOND_RECORD } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { isRequest, PAST_PUSH_GRACE_MS, TriagePage, verdictKey } from "../pages/triage.ts";
+import { isRequest, TriagePage, verdictKey } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
 
 const ACCOUNT = { template: "small-account", savedToken: "e2e-token-dj" } as const;
-
-const isWantlistRequest = (request: string) => request.includes("/api/discogs/wantlist/");
 
 test.describe("with the clock", () => {
   test.use({ diggaOptions: { clock: true } });
@@ -127,16 +125,16 @@ test.describe("with a Discogs account and the clock", () => {
       const noted = await triage.record.getAttribute("data-release-id");
       await triage.writeNote(note);
 
-      // Paused, the push waits for runFor(), so the pending slip can be read.
-      await app.clock.pause();
+      // Held at the fake, the push stays on its way while the pending slip is read.
+      const push = fakes.hold("PUT /users/:user/wants/:id");
       await triage.judge("accepted");
+      await push.received;
       await expect(triage.lastAction).toContainText("Adding to your Discogs wantlist…");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
+      push.release();
       await expect(triage.lastAction).toContainText("Added to your Discogs wantlist.");
 
       const plain = await triage.record.getAttribute("data-release-id");
       await triage.judge("accepted");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
       await expect(triage.lastAction).toContainText("Added to your Discogs wantlist.");
 
       expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([
@@ -147,7 +145,7 @@ test.describe("with a Discogs account and the clock", () => {
   );
 
   test(
-    "TRI-13 Z within the push grace sends nothing to Discogs; Z after the push takes the want off",
+    "TRI-13 a want reaches the Discogs wantlist without waiting on a timer; Z then takes it off",
     { tag: ["@TRI-13", "@P0"] },
     async ({ app, fakes }) => {
       const triage = new TriagePage(app);
@@ -155,19 +153,9 @@ test.describe("with a Discogs account and the clock", () => {
       const key = await triage.currentKey();
       const releaseId = await triage.record.getAttribute("data-release-id");
 
-      // Saving the token asked Discogs whose it is, before the page opened.
-      const fakeRequestsBefore = fakes.log.length;
+      // Paused, no timer of the page fires: the push follows the saved verdict by itself.
       await app.clock.pause();
       await triage.judge("accepted");
-      await triage.undoVerdict(key);
-      // The grace timer was armed before Z, so this fires it.
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
-
-      expect(app.apiRequests().filter(isWantlistRequest)).toEqual([]);
-      expect(fakes.log.slice(fakeRequestsBefore)).toEqual([]);
-
-      await triage.judge("accepted");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
       await expect(triage.lastAction).toContainText("Added to your Discogs wantlist.");
       const takenOff = app.page.waitForResponse((response) =>
         isRequest(response, "DELETE", `/api/discogs/wantlist/${releaseId}`),
@@ -178,9 +166,9 @@ test.describe("with a Discogs account and the clock", () => {
       await response.finished();
 
       await expect(triage.messages).toHaveText("Taken off your Discogs wantlist again.");
-      expect(fakes.requests("DELETE /users/:user/wants/:id")).toEqual([
-        expect.objectContaining({ params: { user: "dj", id: releaseId } }),
-      ]);
+      const wantlistWrite = expect.objectContaining({ params: { user: "dj", id: releaseId } });
+      expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([wantlistWrite]);
+      expect(fakes.requests("DELETE /users/:user/wants/:id")).toEqual([wantlistWrite]);
     },
   );
 });

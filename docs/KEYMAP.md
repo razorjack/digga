@@ -41,7 +41,7 @@ a decision.
 | key | status      | copy         | notes                                                             |
 | --- | ----------- | ------------ | ----------------------------------------------------------------- |
 | `R` | `rejected`  | "skip"       |                                                                   |
-| `A` | `accepted`  | "want"       | pushes to the Discogs wantlist after 1.5 s unless undone          |
+| `A` | `accepted`  | "want"       | pushes to the Discogs wantlist at once; `Z` takes it off again    |
 | `M` | `maybe`     | "maybe"      | for your Discogs Maybe list; offered once the list is chosen      |
 | `C` | `candidate` | "grail"      | the one you've been hunting; onto the wantlist like `A`           |
 | `L` | `snoozed`   | "snooze"     | off the queue, to hear again later (Snoozed shelf)                |

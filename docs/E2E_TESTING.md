@@ -74,7 +74,7 @@ Playwright Test is the only mainstream runner that drives both a browser and an 
 with the same `Page`, locator and assertion API (`_electron.launch()` returns an
 `ElectronApplication` whose windows are ordinary `Page` objects). Electron runs Chromium, so the
 web project on Chromium already exercises the engine the packaged app will use. Playwright also
-brings what this app needs: web-first assertions that wait, `clock` for the 1.5 s push grace and
+brings what this app needs: web-first assertions that wait, `clock` for the player's 4 s listen and
 the 10 s look-again timer, `route()` for fault injection at the transport, traces, ARIA
 snapshots, `@axe-core/playwright`, and parallel workers. Pin a version of 1.52 or later, which
 has `failOnFlakyTests`.
@@ -748,7 +748,6 @@ timers only:
 
 | Browser timer                                                            | Where                                                                                                            |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| 1.5 s grace before a wantlist push                                       | `triage/session.svelte.ts` (`pushGraceMs`)                                                                       |
 | 350 ms before a sandbox push completes                                   | `sandbox.ts` (`pushDelayMs`)                                                                                     |
 | 4 s of playback before a listen, 250 ms ticks                            | `player/triage-player.svelte.ts`                                                                                 |
 | 10 s look-again at the end of the queue                                  | `pages/Triage.svelte`                                                                                            |
@@ -773,10 +772,10 @@ Rules:
   navigation is released in Electron. After `install()` time keeps flowing, so polling runs. A
   test asks for it with `test.use({ diggaOptions: { clock: true } })`; the host installs it on
   every context it opens, a relaunch's too.
-- A test whose action must land inside a browser timer's window, such as `Z` or a sandbox switch
-  within the push grace, pauses the clock before the key press that starts the window and keeps
-  it paused until the action has completed. Pausing only around the assertion is too late: the
-  grace would run out in real time while the test acts.
+- A test whose action must land inside a browser timer's window, such as a sandbox switch before
+  a sandbox push's 350 ms have passed, pauses the clock before the key press that starts the
+  window and keeps it paused until the action has completed. Pausing only around the assertion is
+  too late: the window would close in real time while the test acts.
 - `app.clock.pause()` reads the page's `Date.now()` and calls `pauseAt()` 1 s ahead of it.
   `pauseAt()` refuses a time the page's clock has already passed, and that clock runs on while
   the calls travel. The clock then jumps by what is left of the second, firing each timer due in
@@ -797,7 +796,7 @@ Rules:
 ### Synchronisation
 
 Visible state often comes before the work it announces. In Triage the slip turns "pending"
-before `POST /api/verdicts` is sent, the grace timer starts only after the page has read that
+before `POST /api/verdicts` is sent, a want's push starts only after the page has read that
 request's answer (`#saveVerdict()`), and "undone" shows before `DELETE /api/verdicts/:key`
 completes. The first visible sign is therefore not proof that anything finished. Tests
 synchronise on completed requests and on the state the app sets after them:
@@ -809,22 +808,24 @@ synchronise on completed requests and on the state the app sets after them:
   page reads the body before it continues. The helper checks `response.ok()`, awaits
   `response.finished()`, and then waits for the state the page sets afterwards. For verdicts and
   undos that is the slip's `aria-busy` returning to false (see "Markup audit"): by then the page
-  has run the code after the save, which arms the push grace.
+  has run the code after the save, which starts a want's push.
 - A want, with time flowing: after the verdict, wait for "Added to your Discogs wantlist.", which
   shows only after `POST /api/discogs/wantlist/:id` has answered, then read the fake's log. The
   app's request answers only after the server's call to the fake has completed, however long the
   server's 1.1 s throttle held it.
-- Nothing pushed (TRI-13), with the clock paused before `A`: after the verdict has settled, press
-  `Z`, wait until the undo has settled, `runFor(2000)` past the grace, check that the page sent
-  no request to `/api/discogs/wantlist` (`app.apiRequests()`), then that the fake received
-  nothing after the mark the test took before `A`. The saved token's given state has already
-  asked the fake for `/oauth/identity` before the page opened, so its log is not empty from the
-  start. The grace timer was armed before `Z`, so `runFor()` fires it and the check is not
-  empty by accident. The server calls Discogs only when the page asks, so the page's log
-  decides, and the fake's log confirms.
+- `Z` while a push is on its way (TRI-39): hold `PUT /users/:user/wants/:id` at the fake before
+  `A`, await the hold's `received`, press `Z` and wait until the undo has settled, then release
+  the hold and wait for the answer to `DELETE /api/discogs/wantlist/:id`, which the session sends
+  once the push has answered. A pending slip is read the same way (TRI-12).
+- Nothing pushed (PER-04): the verdict's request fails, so the session never starts a push.
+  Check that the page sent no request to `/api/discogs/` (`app.apiRequests()`), then that the fake
+  received nothing after the mark the test took before the key. The saved token's given state has
+  already asked the fake for `/oauth/identity` before the page opened, so its log is not empty
+  from the start. The server calls Discogs only when the page asks, so the page's log decides,
+  and the fake's log confirms.
 - The sandbox sends no verdict request. Its helpers wait for the record to change and the slip to
   settle, and a sandbox want ends when the slip reads "Added to your wantlist (sandbox: nothing
-  sent).", after the grace, a real `GET /api/releases/:id` and the sandbox's 350 ms delay.
+  sent).", after a real `GET /api/releases/:id` and the sandbox's 350 ms delay.
 - A request that must stay in flight while the test acts is held at the fake (TRI-39), never
   delayed by a fixed time.
 - A track mark's stamp shows before its `POST /api/track-verdicts`, and a listen is a
@@ -903,9 +904,9 @@ synchronise on completed requests and on the state the app sets after them:
   read with `evaluate()` straight after is exact (SHELL-03, SHELL-04). `page.url()` follows a hash
   change through a separate event. Against a build without the guards the hash had changed by
   then in every run.
-- A negative check after a push grace that a mode switch interrupted (SBX-04, SBX-07) runs the
-  clock past the grace, then waits for the answer to a later request, the `GET /api/queue` that
-  `T` sends. Playwright delivers the browser's events in order, so a request that the grace's end
+- A negative check after a sandbox push that a mode switch interrupted (SBX-04) runs the clock
+  past the push's 350 ms, then waits for the answer to a later request, the `GET /api/queue` that
+  `T` sends. Playwright delivers the browser's events in order, so a request that the push's end
   started is in the page's log by then.
 - A response that must follow another is matched in order: the first wait notes its match inside
   its own predicate (`waitForResponses()` in `pages/triage.ts`). Playwright runs predicates in the
@@ -1304,7 +1305,7 @@ reports it as soon as the product catches up, which is when the gap is closed he
 becomes a normal one.
 
 The P0 set covers the guard, startup and navigation, the first run from real defaults, playback,
-a live verdict surviving reload and relaunch, undo and the push grace, sandbox isolation, and one
+a live verdict surviving reload and relaunch, undo and the wantlist push, sandbox isolation, and one
 failed write: GUARD-01, GUARD-02, SHELL-01, SHELL-02, SETUP-01, TRI-02, TRI-07, TRI-10, TRI-12,
 TRI-13, SBX-01, PER-01 and PER-04.
 
@@ -1372,7 +1373,7 @@ TRI-13, SBX-01, PER-01 and PER-04.
 
 ### Triage [`small`, sandbox off unless stated]
 
-`small` has no Discogs account, so a live `A` or `C` there pushes after the grace and the server
+`small` has no Discogs account, so a live `A` or `C` there pushes at once and the server
 answers `400` ("Set your Discogs username in Settings first"). Tests on `small` judge without
 them; scenarios with pushes use `small-account` with a saved token.
 
@@ -1389,8 +1390,8 @@ them; scenarios with pushes use `small-account` with a saved token.
 | TRI-09 | `N` passes: slip "later"; the record returns after the queue; the end screen offers "go round the N you passed", and its headline says every release has a verdict "apart from the N you passed"                                                                                                                                                                                                                                                                                                   | P1  |
 | TRI-10 | `Z` walks back a verdict, `N` and `X` one step per press and returns to each record; slip "undone"; after the `DELETE` answers, the export no longer holds the verdict                                                                                                                                                                                                                                                                                                                             | P0  |
 | TRI-11 | A held verdict key (`keyboard.down` twice, then `up`) judges one record                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
-| TRI-12 | [`small-account` with a saved token] `E` gives the record a note, then `A`: the slip reads "Adding to your Discogs wantlist…", then "Added to your Discogs wantlist."; the fake got `PUT /users/dj/wants/{id}` with the note. A plain `A` sends no body                                                                                                                                                                                                                                            | P0  |
-| TRI-13 | [`small-account` with a saved token] With the clock paused, `A`, then `Z` after the verdict has settled and before the grace ends: after the undo has settled and `runFor(2000)`, the page sent no wantlist request and the fake got nothing after `A`. `Z` after the push: the fake gets `DELETE`                                                                                                                                                                                                 | P0  |
+| TRI-12 | [`small-account` with a saved token] `E` gives the record a note, then `A` with the push held at the fake: the slip reads "Adding to your Discogs wantlist…", then, released, "Added to your Discogs wantlist."; the fake got `PUT /users/dj/wants/{id}` with the note. A plain `A` sends no body                                                                                                                                                                                                  | P0  |
+| TRI-13 | [`small-account` with a saved token] With the clock paused, `A` ends with "Added to your Discogs wantlist.", since no timer stands between the saved verdict and the push; `Z` then sends `DELETE /api/discogs/wantlist/:id`. The fake got one `PUT` and one `DELETE`                                                                                                                                                                                                                              | P0  |
 | TRI-14 | [`small-account` with a saved token] `C` pushes like `A`; the note sent lists the grail and keep tracks and the record's note (decision 70)                                                                                                                                                                                                                                                                                                                                                        | P1  |
 | TRI-15 | [`small-account` with a saved token] The push fails (fake `500`, the page's `502` declared): "Saved, but not on the Discogs wantlist."; Twelves marks the record                                                                                                                                                                                                                                                                                                                                   | P1  |
 | TRI-16 | [`small-account`] Saving `e2e-token-other` keeps the username `dj`, and Settings' sandbox section warns before going live; a push then fails: the fake answers `403`, the page gets `502` (declared)                                                                                                                                                                                                                                                                                               | P2  |
@@ -1430,10 +1431,10 @@ them; scenarios with pushes use `small-account` with a saved token.
 | SBX-01 | [`small-account` with a saved token] With the sandbox on, verdicts, marks, notes, listens, `A` and `Z` send no request to `/api/verdicts`, `/api/track-verdicts`, `/api/listen-log` or `/api/discogs/wantlist`, and the fake Discogs gets no `PUT` or `DELETE`; the slips say "Sandbox: nothing was saved.", and `A` ends with "Added to your wantlist (sandbox: nothing sent).", after which the logs are read | P0  |
 | SBX-02 | Sandbox verdicts show in Twelves and the counts; a reload drops them                                                                                                                                                                                                                                                                                                                                            | P1  |
 | SBX-03 | Turning the sandbox off: the next verdict is saved; the sandbox's verdicts and undo history are gone; turning it on again starts an empty sandbox                                                                                                                                                                                                                                                               | P1  |
-| SBX-04 | [`small-account` with a saved token] A want given in the sandbox with the clock paused, then the sandbox turned off within the grace: after `runFor(2000)` the page sends no wantlist request and no `PUT` reaches the fake (decision 55); the live queue offers the record again, which has no verdict                                                                                                         | P1  |
+| SBX-04 | [`small-account` with a saved token] A want given in the sandbox with the clock paused, then the sandbox turned off before the sandbox push's 350 ms: after `runFor(1000)` the page sends no wantlist request and no `PUT` reaches the fake (decision 55); the live queue offers the record again, which has no verdict                                                                                         | P1  |
 | SBX-05 | [`small` with the username `dj` and a saved token] Setup work is real in the sandbox: a collection import fills the Owned shelf, which a reload keeps; `P` reaches the fake                                                                                                                                                                                                                                     | P1  |
 | SBX-06 | The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab                                                                                                                                                                                                                                                                                                                        | P2  |
-| SBX-07 | [`small-account` with a saved token] A want given live with the clock paused, then the sandbox turned on within the grace: the verdict stays saved (export); after `runFor(2000)` the pending push has been dropped with the live history (no `PUT`), and Twelves marks the want as not on the wantlist                                                                                                         | P1  |
+| SBX-07 | [`small-account` with a saved token] A want given live is pushed at once (`POST /api/discogs/wantlist/:id` answered); the sandbox turned on afterwards leaves the verdict saved (export), the fake has the `PUT`, and Twelves reads "Everything here is on your Discogs wantlist."                                                                                                                              | P1  |
 
 ### Twelves [`small` or `small-account`, with given verdicts]
 
@@ -1486,13 +1487,13 @@ them; scenarios with pushes use `small-account` with a saved token.
 
 ### Persistence and lifecycle
 
-| ID     | Scenario                                                                                                                                                                                                                                                                         | P   |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| PER-01 | A live snooze (`L`) with a note (`E`), and a keep mark on a track (`Shift+K`, its `POST /api/track-verdicts` awaited), survive a reload and a `relaunch()`                                                                                                                       | P0  |
-| PER-02 | After further changes, `digga backup` writes today's decisions; `digga restore` of that file into a fresh `small` library brings the verdicts back into Twelves                                                                                                                  | P2  |
-| PER-03 | `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful `relaunch()` during one records it cancelled once its page in flight has returned; Settings shows each                                                                              | P2  |
-| PER-04 | [`small-account` with a saved token] The server does not take a want (`route` aborts `POST /api/verdicts` once): "The verdict was not saved: …", the record comes back, and after `runFor(2000)` nothing has reached the fake Discogs; the same key again saves it and pushes it | P0  |
-| PER-05 | `restartServer()` in the middle of a session, once the verdict's stats refresh has answered: the open page keeps its record, slip and session count without a reload, and the next verdict is saved (**web**)                                                                    | P1  |
+| ID     | Scenario                                                                                                                                                                                                                                                    | P   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| PER-01 | A live snooze (`L`) with a note (`E`), and a keep mark on a track (`Shift+K`, its `POST /api/track-verdicts` awaited), survive a reload and a `relaunch()`                                                                                                  | P0  |
+| PER-02 | After further changes, `digga backup` writes today's decisions; `digga restore` of that file into a fresh `small` library brings the verdicts back into Twelves                                                                                             | P2  |
+| PER-03 | `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful `relaunch()` during one records it cancelled once its page in flight has returned; Settings shows each                                                         | P2  |
+| PER-04 | [`small-account` with a saved token] The server does not take a want (`route` aborts `POST /api/verdicts` once): "The verdict was not saved: …", the record comes back, and nothing has reached the fake Discogs; the same key again saves it and pushes it | P0  |
+| PER-05 | `restartServer()` in the middle of a session, once the verdict's stats refresh has answered: the open page keeps its record, slip and session count without a reload, and the next verdict is saved (**web**)                                               | P1  |
 
 ### Accessibility
 

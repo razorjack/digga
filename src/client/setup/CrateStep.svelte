@@ -223,7 +223,7 @@
       {/if}
     </div>
     {#if !settings.sandbox && flow.account?.tokenUsername}
-      <p class="quiet">A want goes on your Discogs wantlist 1.5 s after you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
+      <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
     {/if}
 
     <div class="keys" aria-label="Keys while you dig">

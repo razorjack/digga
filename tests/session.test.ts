@@ -130,9 +130,9 @@ function fakeServer(queue: number[], labelName: string | null = null) {
   return { app, http, calls, notes, verdicts, queries, state };
 }
 
-async function started(queue: number[], pushGraceMs = 0) {
+async function started(queue: number[]) {
   const server = fakeServer(queue);
-  const session = new TriageSession(server.app, { pushGraceMs });
+  const session = new TriageSession(server.app);
   await session.start(50);
   return { ...server, session };
 }
@@ -167,12 +167,19 @@ describe("triage session", () => {
     expect(session.current?.id).toBe(2);
   });
 
-  it("cancels the wantlist push when the want is undone during the grace period", async () => {
-    const { session, calls } = await started([1, 2], 40);
+  it("pushes a want as soon as its verdict is saved", async () => {
+    const { session, calls } = await started([1, 2]);
     session.judge("accepted");
-    await wait(5);
+    await until(() => calls.includes("put 1"));
+    expect(calls).toEqual(["verdict r:1 accepted", "put 1"]);
+  });
+
+  it("sends nothing to Discogs when the want is undone before its verdict is saved", async () => {
+    const { session, calls } = await started([1, 2]);
+    session.judge("accepted");
     session.undo();
-    await wait(80);
+    await until(() => calls.includes("forget r:1"));
+    await wait(20);
     expect(calls).toEqual(["verdict r:1 accepted", "forget r:1"]);
     expect(session.current?.id).toBe(1);
   });
@@ -211,13 +218,16 @@ describe("triage session", () => {
     expect(session.slip).toMatchObject({ kind: "verdict", push: "done" });
   });
 
-  it("does not push a want that was re-judged elsewhere during the grace period", async () => {
-    const { session, calls, verdicts } = await started([1, 2], 30);
+  it("does not push a want re-judged elsewhere while it waited for a slow push", async () => {
+    const { session, calls, verdicts, state } = await started([1, 2, 3]);
+    state.pushDelayMs = 40;
     session.judge("accepted");
-    await wait(5);
-    verdicts.set("r:1", { ...verdicts.get("r:1")!, status: "rejected" });
-    await wait(60);
-    expect(calls).toEqual(["verdict r:1 accepted"]);
+    await until(() => calls.includes("put 1"));
+    session.judge("accepted");
+    await until(() => verdicts.has("r:2"));
+    verdicts.set("r:2", { ...verdicts.get("r:2")!, status: "rejected" });
+    await until(() => session.slip?.kind === "verdict" && session.slip.push !== "pending");
+    expect(calls.filter((call) => call.startsWith("put"))).toEqual(["put 1"]);
   });
 
   it("hears snoozed records before the queue and restores the snooze on undo", async () => {
@@ -289,14 +299,14 @@ describe("session recovery", () => {
   });
 
   it("keeps the slip busy until the server has answered the verdict, and then the undo", async () => {
-    const { session, http, calls } = await started([1, 2], 1000);
+    const { session, http, calls } = await started([1, 2]);
     const answer = Promise.withResolvers<void>();
     const postVerdict = http.postVerdict.bind(http);
     vi.spyOn(http, "postVerdict").mockImplementationOnce(async (input) => {
       await answer.promise;
       return postVerdict(input);
     });
-    session.judge("accepted");
+    session.judge("rejected");
     expect(session.slipBusy).toBe(true);
     answer.resolve();
     await until(() => !session.slipBusy);
@@ -304,7 +314,7 @@ describe("session recovery", () => {
     session.undo();
     expect(session.slipBusy).toBe(true);
     await until(() => !session.slipBusy);
-    expect(calls).toEqual(["verdict r:1 accepted", "forget r:1"]);
+    expect(calls).toEqual(["verdict r:1 rejected", "forget r:1"]);
   });
 
   it("returns a rejected verdict to the queue without pushing it", async () => {
@@ -531,7 +541,7 @@ describe("reading the queue again", () => {
   it("offers a record sent back in the sandbox, whose queue leaves out the sandbox's verdicts", async () => {
     const { http } = fakeServer([1, 2, 3]);
     const app = createAppApi(http);
-    const session = new TriageSession(app, { pushGraceMs: 0 });
+    const session = new TriageSession(app);
     await session.start(50);
     expect(app.mode).toBe("sandbox");
     await sentBack(session, app);
@@ -543,7 +553,7 @@ describe("reading the queue again", () => {
 
   it("keeps a sandbox verdict out of the queue", async () => {
     const { http } = fakeServer([1, 2, 3]);
-    const session = new TriageSession(createAppApi(http), { pushGraceMs: 0 });
+    const session = new TriageSession(createAppApi(http));
     await session.start(50);
     session.judge("rejected");
     await until(() => !session.slipBusy);
@@ -630,13 +640,12 @@ describe("track mark recovery", () => {
   });
 });
 
-it("cancels a pending grace period when the session is destroyed", async () => {
-  const { session, calls } = await started([1, 2], 40);
+it("pushes nothing once the session is destroyed before the verdict is saved", async () => {
+  const { session, calls } = await started([1, 2]);
   session.judge("accepted");
-  await wait(5);
   session.showFlash("Closing");
   session.destroy();
-  await wait(60);
+  await wait(20);
   expect(calls).toEqual(["verdict r:1 accepted"]);
 });
 
@@ -654,7 +663,7 @@ describe("pricing with P", () => {
   it("ignores P while the answer is on its way", async () => {
     const server = fakeServer([1, 2]);
     server.state.enrichDelayMs = 20;
-    const session = new TriageSession(server.app, { pushGraceMs: 0 });
+    const session = new TriageSession(server.app);
     await session.start(50);
     const first = session.price();
     expect(session.pricing.has(1)).toBe(true);
@@ -669,7 +678,7 @@ describe("pricing with P", () => {
   it("keeps the market data of a record judged before it arrived", async () => {
     const server = fakeServer([1, 2, 3]);
     server.state.enrichDelayMs = 20;
-    const session = new TriageSession(server.app, { pushGraceMs: 0 });
+    const session = new TriageSession(server.app);
     await session.start(50);
     const priced = session.price();
     session.judge("rejected");
@@ -725,7 +734,7 @@ describe("hiding a label", () => {
       if (fail) throw new Error("disk full");
       changes.push(`${hidden ? "hide" : "show"} ${label}`);
     };
-    const session = new TriageSession(server.app, { pushGraceMs: 0, setLabelHidden });
+    const session = new TriageSession(server.app, { setLabelHidden });
     await session.start(50);
     return { session, changes, calls: server.calls };
   }

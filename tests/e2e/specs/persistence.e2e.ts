@@ -3,7 +3,7 @@ import { MARK_COPY } from "../../../src/client/twelves/model.ts";
 import type { DecisionsExport } from "../../../src/shared/api.ts";
 import { releaseById } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { isRequest, PAST_PUSH_GRACE_MS, TriagePage, verdictKey } from "../pages/triage.ts";
+import { isRequest, TriagePage, verdictKey } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -105,19 +105,16 @@ test.describe("with a Discogs account and the clock", () => {
       // Saving the token asked Discogs whose it is, before the page opened.
       const fakeRequestsBefore = fakes.log.length;
 
-      await app.clock.pause();
       await app.page.keyboard.press(verdictKey("accepted"));
       await expect(triage.messages).toHaveText(/^The verdict was not saved: \S/);
       await expect(triage.record).toHaveAttribute("data-triage-key", key);
       await expect(triage.lastAction).not.toHaveAttribute("aria-busy", "true");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
 
       expect(app.apiRequests().filter((request) => request.includes("/api/discogs/"))).toEqual([]);
       expect(fakes.log.slice(fakeRequestsBefore)).toEqual([]);
       expect(await exportedStatus(app, key)).toBeUndefined();
 
       await triage.judge("accepted");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
       await expect(triage.lastAction).toContainText("Added to your Discogs wantlist.");
       expect(await exportedStatus(app, key)).toBe("accepted");
       expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([

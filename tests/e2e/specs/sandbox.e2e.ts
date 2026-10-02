@@ -3,7 +3,7 @@ import { formatCount } from "../../../src/shared/display.ts";
 import { DJ, IN_COLLECTION, releaseById } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { LOGGED_LISTEN_MS, PAST_PUSH_GRACE_MS, TriagePage } from "../pages/triage.ts";
+import { isRequest, LOGGED_LISTEN_MS, PAST_SANDBOX_PUSH_MS, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -42,7 +42,7 @@ test.describe("in the sandbox, with a Discogs account", () => {
       await expect(triage.lastAction).toContainText("Sandbox: nothing was saved.");
 
       await triage.judgeInSandbox("accepted");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
+      await app.clock.runFor(PAST_SANDBOX_PUSH_MS);
       await expect(triage.lastAction).toContainText(
         "Added to your wantlist (sandbox: nothing sent).",
       );
@@ -142,7 +142,7 @@ test.describe("in the sandbox, with a Discogs account and the clock", () => {
   });
 
   test(
-    "SBX-04 a want given in the sandbox, then the sandbox turned off within the grace, never reaches Discogs",
+    "SBX-04 a want given in the sandbox, then the sandbox turned off before its push ends, never reaches Discogs",
     { tag: ["@SBX-04", "@P1"] },
     async ({ app, fakes }) => {
       const triage = new TriagePage(app);
@@ -155,8 +155,8 @@ test.describe("in the sandbox, with a Discogs account and the clock", () => {
       await triage.judgeInSandbox("accepted");
       await header.goTo("settings");
       await settings.switchSandbox("off");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
-      // A request the grace's end started would be in the log before the answer to this one.
+      await app.clock.runFor(PAST_SANDBOX_PUSH_MS);
+      // A request the sandbox push's end started would be in the log before the answer to this one.
       await triage.showAgain();
 
       expect(await triage.currentKey()).toBe(key);
@@ -175,7 +175,7 @@ test.describe("with a Discogs account and the clock", () => {
   });
 
   test(
-    "SBX-07 a want given live, then the sandbox turned on within the grace, stays saved and is never pushed",
+    "SBX-07 a want given live is pushed at once, and stays saved and on the wantlist when the sandbox is turned on",
     { tag: ["@SBX-07", "@P1"] },
     async ({ app, fakes }) => {
       const triage = new TriagePage(app);
@@ -184,26 +184,29 @@ test.describe("with a Discogs account and the clock", () => {
       const twelves = new TwelvesPage(app);
       await app.open();
       const key = await triage.currentKey();
+      const releaseId = await triage.record.getAttribute("data-release-id");
 
-      await app.clock.pause();
+      const pushed = app.page.waitForResponse((response) =>
+        isRequest(response, "POST", `/api/discogs/wantlist/${releaseId}`),
+      );
       await triage.judge("accepted");
+      expect((await pushed).ok()).toBe(true);
       await header.goTo("settings");
       await settings.switchSandbox("on");
-      await app.clock.runFor(PAST_PUSH_GRACE_MS);
-      // A request the grace's end started would be in the log before the answer to this one.
-      await triage.showAgain();
 
-      expect(
-        app.apiRequests().filter((request) => request.includes("/api/discogs/wantlist")),
-      ).toEqual([]);
-      expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([]);
+      expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([
+        expect.objectContaining({ params: { user: "dj", id: releaseId } }),
+      ]);
       expect(await exportedVerdicts(app)).toContainEqual(
         expect.objectContaining({ key, status: "accepted" }),
       );
       await header.goTo("twelves");
       await twelves.showShelf("accepted");
-      await expect(twelves.record(key)).toContainText("not on your Discogs wantlist");
-      await expect(twelves.wantlistHandoff).toContainText("1 record is not");
+      await expect(twelves.record(key)).toBeVisible();
+      await expect(twelves.record(key)).not.toContainText("not on your Discogs wantlist");
+      await expect(twelves.wantlistHandoff).toHaveText(
+        "Everything here is on your Discogs wantlist.",
+      );
     },
   );
 });
