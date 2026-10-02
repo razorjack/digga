@@ -317,8 +317,10 @@ Shows the load, and lets the user start digging as soon as there is enough to di
   three hours of digging, longer than the load takes, so the queue cannot run dry while the load
   continues. On the owner's data the load had 3,126 records after 7 seconds; a selection of 7,000
   records that arrives evenly reaches 500 a fourteenth of the way in, after about 70 seconds. A
-  load that ends with fewer enables it anyway; one that ends with none offers "Change your picks"
-  instead.
+  load that ends with fewer enables it anyway. One that kept no release says "Nothing in the
+  catalogue matches these picks" with "Change your picks" instead, which returns to step 3 with
+  the picks; the finished load stays recorded, so a reload goes to Triage, which says no releases
+  are loaded.
 - The histogram from step 3 fills in: the census estimate as an outline, the kept releases per
   year in ink. The load reports its per-year tally with its progress.
 - "Just pulled" is the last release the load kept, set as a catalogue-number stamp and replaced

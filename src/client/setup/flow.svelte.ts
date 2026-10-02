@@ -13,6 +13,7 @@ import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
 import {
   checksumRetryNote,
   DIG_THRESHOLD,
+  keptNothing,
   loadYearsFor,
   stoppedDownloadMessage,
   type YearSpan,
@@ -68,7 +69,11 @@ export class SetupFlow {
       this.setup?.catalogue.newest?.file ??
       null,
   );
-  canDig = $derived(this.loadDone || (stats.value?.remaining ?? 0) >= DIG_THRESHOLD);
+  /** The load finished and kept nothing, so the crate offers "Change your picks" instead. */
+  nothingMatches = $derived(keptNothing(this.load));
+  canDig = $derived(
+    (this.loadDone && !this.nothingMatches) || (stats.value?.remaining ?? 0) >= DIG_THRESHOLD,
+  );
   /** Why and where the download stopped, while it has not started again. */
   downloadStopped = $derived(stoppedDownloadMessage(this.download));
   /** The download did not match Discogs' checksum and runs once more by itself. */
@@ -207,14 +212,18 @@ export class SetupFlow {
     });
   }
 
-  /** Stops the load, forgets what it added, and goes back to the picks; the download goes on. */
+  /**
+   * Stops the load, forgets what it added, and goes back to the picks; the download goes on. A
+   * load that finished kept nothing, so there is nothing to forget, and the server keeps the
+   * record of a finished load.
+   */
   async changePicks(): Promise<void> {
     await this.#act(async () => {
       if (this.load && isRunning(this.load)) {
         await api.cancelJob(this.load.id);
         await this.#waitUntilStopped(this.load.id);
       }
-      await api.forgetFirstLoad();
+      if (!this.loadDone) await api.forgetFirstLoad();
       this.load = null;
       void stats.refresh();
       this.goTo("sound");

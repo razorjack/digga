@@ -98,7 +98,16 @@
 <svelte:window {onkeydown} />
 
 <section class="step" aria-labelledby="crate-title">
-  {#if flow.loadDone}
+  {#if flow.nothingMatches}
+    <h1 id="crate-title">Nothing in the catalogue matches these picks</h1>
+    <p class="lead">
+      Digga read every release and kept none in these styles and years. Pick others, and the load reads the catalogue
+      again from the file it has.
+    </p>
+    <div class="actions">
+      <Action primary onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+    </div>
+  {:else if flow.loadDone}
     <div class="ready">
       <Stamp text="ready to dig" tone="accent" size="xl" seed={4} slam />
       <p class="headline">
@@ -196,36 +205,38 @@
 
   {#if flow.error}<p class="problem" role="alert">{flow.error}</p>{/if}
 
-  <div class="actions">
-    <Action primary keys="T" onclick={startDigging} disabled={!flow.canDig}>Start digging</Action>
-    {#if flow.canDig}
-      <button type="button" class="link" onclick={() => void practice()} disabled={flow.busy}>
-        Practice on five records first
-      </button>
+  {#if !flow.nothingMatches}
+    <div class="actions">
+      <Action primary keys="T" onclick={startDigging} disabled={!flow.canDig}>Start digging</Action>
+      {#if flow.canDig}
+        <button type="button" class="link" onclick={() => void practice()} disabled={flow.busy}>
+          Practice on five records first
+        </button>
+      {/if}
+      {#if !flow.canDig && !stopped}
+        <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
+      {/if}
+      {#if flow.loadRunning}
+        <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
+          Change your picks
+        </button>
+      {/if}
+    </div>
+    {#if !settings.sandbox && flow.account?.tokenUsername}
+      <p class="quiet">A want goes on your Discogs wantlist 1.5 s after you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
     {/if}
-    {#if !flow.canDig && !stopped}
-      <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
-    {/if}
-    {#if flow.loadRunning}
-      <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
-        Change your picks
-      </button>
-    {/if}
-  </div>
-  {#if !settings.sandbox && flow.account?.tokenUsername}
-    <p class="quiet">A want goes on your Discogs wantlist 1.5 s after you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
-  {/if}
 
-  <div class="keys" aria-label="Keys while you dig">
-    <span class="quiet">Keys while you dig:</span>
-    <span><Key label="Space" size="sm" /> listen</span>
-    <span><Key label="R" size="sm" primary /> skip</span>
-    <span><Key label="A" size="sm" primary /> want</span>
-    <span><Key label="C" size="sm" primary /> grail</span>
-    <span><Key label="N" size="sm" /> next</span>
-    <span><Key label="Z" size="sm" /> undo</span>
-    <span><Key label="?" size="sm" /> all</span>
-  </div>
+    <div class="keys" aria-label="Keys while you dig">
+      <span class="quiet">Keys while you dig:</span>
+      <span><Key label="Space" size="sm" /> listen</span>
+      <span><Key label="R" size="sm" primary /> skip</span>
+      <span><Key label="A" size="sm" primary /> want</span>
+      <span><Key label="C" size="sm" primary /> grail</span>
+      <span><Key label="N" size="sm" /> next</span>
+      <span><Key label="Z" size="sm" /> undo</span>
+      <span><Key label="?" size="sm" /> all</span>
+    </div>
+  {/if}
 
   {#if flow.loadDone}
     {#if flow.dumpFile && !flow.dumpDeleted}

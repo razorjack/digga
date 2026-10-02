@@ -362,6 +362,21 @@ export class SetupPage {
     await this.setVinylOnly(picks.vinylOnly);
   }
 
+  /** The crate's heading when the load finished without keeping a release. */
+  get nothingMatches(): Locator {
+    return this.root.getByRole("heading", {
+      level: 1,
+      name: "Nothing in the catalogue matches these picks",
+    });
+  }
+
+  /** "Change your picks" after a load that kept nothing, which leaves nothing to forget. */
+  async changePicksAfterEmptyLoad(): Promise<void> {
+    await expect(this.nothingMatches).toBeVisible();
+    await this.button("Change your picks").click();
+    await this.expectStep("sound");
+  }
+
   /** Step 3 shows these picks: the styles, the years to dig and Vinyl only, and no suggestion. */
   async expectPicks(picks: Picks): Promise<void> {
     await expect(this.pickedStyles.getByRole("button")).toHaveCount(picks.styles.length);

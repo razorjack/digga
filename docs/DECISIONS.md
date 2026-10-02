@@ -663,3 +663,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      and the second upserts them again. After a second mismatch the job fails, and the setup says
      "The download does not match Discogs' checksum. Digga downloaded it twice." with "Start
      again".
+120. **"Nothing matches" means the first load kept no release.** The crate decides from the
+     finished load's own count of releases matched and kept for coverage, which arrives with the
+     job; the records to dig come from a stats read that can lag the load's end by a poll, and
+     drop to 0 when the user has judged every record during the load. A load that kept releases
+     outside the dug years still ends on READY TO DIG, and Triage then says the filters match
+     nothing. "Change your picks" after such a load goes back to step 3 without
+     `DELETE /api/setup/load`: there is nothing to forget, and the server refuses once a load has
+     finished. The finished load stays recorded, so the setup does not show after a reload, and
+     Triage says no releases are loaded (TRI-31); keeping it avoids a second kind of "finished"
+     that the library, Settings and the CLI would all have to know.

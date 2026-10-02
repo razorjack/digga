@@ -5,6 +5,7 @@ import {
   loadYearsFor,
   middleSpan,
   checksumRetryNote,
+  keptNothing,
   roundEstimate,
   stoppedDownloadMessage,
   styleGroups,
@@ -233,5 +234,29 @@ describe("a download that stopped", () => {
     expect(stoppedDownloadMessage(download("done", null, 10))).toBeNull();
     expect(stoppedDownloadMessage(download("cancelled", null, 10))).toBeNull();
     expect(stoppedDownloadMessage(download("failed", INTERRUPTED_JOB_ERROR, 10))).toBeNull();
+  });
+});
+
+describe("a load that kept nothing", () => {
+  function load(status: Job["status"], matched: number, coverage: number): Job {
+    return {
+      id: "load",
+      type: "dump_load",
+      status,
+      error: null,
+      createdAt: "2026-10-02T10:00:00.000Z",
+      startedAt: "2026-10-02T10:00:00.000Z",
+      finishedAt: null,
+      progress: { phase: "done", scanned: 1500, matched, coverage, upserted: matched + coverage },
+    } as Job;
+  }
+
+  it("is a finished load with no release matched or kept for coverage", () => {
+    expect(keptNothing(load("done", 0, 0))).toBe(true);
+    expect(keptNothing(load("done", 0, 3))).toBe(false);
+    expect(keptNothing(load("done", 12, 0))).toBe(false);
+    expect(keptNothing(load("running", 0, 0))).toBe(false);
+    expect(keptNothing(load("failed", 0, 0))).toBe(false);
+    expect(keptNothing(null)).toBe(false);
   });
 });

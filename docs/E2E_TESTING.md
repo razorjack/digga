@@ -6,11 +6,12 @@ the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, Triage's P1 set: the r
 player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
 the wants, Settings' P1 set, Twelves' P1 set with the `bulk` template, and the P1 sets of Shell,
 Sandbox and Persistence with `restartServer()`, and the setup's P1 scenarios for steps 1 to 3,
-before the load starts; the fake services have moved to `tools/dev/fake-services.ts`. The results
-are recorded in "Spike results". The rest is not built
-yet. This is the design of Digga's end-to-end (E2E) tests: the
-tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
-should cover. The same tests must run against the browser app now and the Electron app later
+before the load starts; the fake services have moved to `tools/dev/fake-services.ts`. On
+2026-10-02 the ten product gaps the suite recorded were closed, with SHELL-12, SETUP-24, SETUP-25,
+SETUP-26, SETUP-28, SETUP-29 and SETUP-32 built for them; no scenario is a gap now. The results
+are recorded in "Spike results". The rest is not built yet. This is the design of Digga's
+end-to-end (E2E) tests: the tool, the harness, the fake services, the markup the tests rely on,
+and the scenarios the suite should cover. The same tests must run against the browser app now and the Electron app later
 (`docs/ELECTRON_PLAN.md`).
 
 ## Goals
@@ -1362,7 +1363,7 @@ TRI-13, SBX-01, PER-01 and PER-04.
 | SETUP-26 | Wrong checksum (fake `set({ wrongChecksums })`), the first transfer held at `100-to-dig` while the load reads it, then the second (`holdAt(name, { transfer: 2 })`). Once: the crate's alert, in the page before its text, reads "The download does not match Discogs' checksum, so Digga downloads it once more."; the load that read the rejected file fails with that reason, a second load reads the new download, and the catalogue is in after two transfers. Twice: "The download does not match Discogs' checksum. Digga downloaded it twice." with "Start again", which downloads a third time                          | P2  |
 | SETUP-27 | A crash during the load (`relaunch({ crash: true })`): the jobs are marked failed as interrupted; the setup offers Pick up, which reads the dump from the start                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
 | SETUP-28 | A new page resumes at the first step not done: step 1 before anything is fetched, whatever the address asks; step 2 while the catalogue comes, or step 3 when the address asks; the account a username connected comes back on step 2; with the picks confirmed and the load waiting for the imports (the wantlist page held at the fake), step 3 with those picks; the load's screen once a load exists. A catalogue that was in the dumps folder before any download is SETUP-06                                                                                                                                               | P1  |
-| SETUP-29 | **Gap.** Picks that match nothing: today the load ends with no records to dig and "Start digging" enabled. Designed: "Nothing in the catalogue matches these picks" and Change your picks                                                                                                                                                                                                                                                                                                                                                                                                                                        | P2  |
+| SETUP-29 | Picks that match nothing (Jungle, which the all-Drum n Bass bulk catalogue lacks), the transfer held at `100-to-dig` until the crate shows: once the load ends having kept nothing, the crate's heading is "Nothing in the catalogue matches these picks" with "Change your picks", and neither "Start digging" nor "ready at 500 records"; "Change your picks" returns to step 3 with Jungle picked; Drum n Bass then loads to READY TO DIG                                                                                                                                                                                     | P2  |
 | SETUP-30 | A library with a finished load never shows the setup; `#/setup` goes to Triage [`small`]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | P1  |
 | SETUP-31 | Digging during the load, held at `100-to-dig`: at the end of the queue "You have dug everything loaded so far."; after release, once `/api/stats` counts more records to dig, `runFor(10_000)` and the next record shows                                                                                                                                                                                                                                                                                                                                                                                                         | P1  |
 | SETUP-32 | The listing says 2 MB and the transfer's `Content-Length` 900 TB (`set({ contentLength })`): the download job fails for lack of space before it writes a byte, and step 2 says "The download stopped: The dump needs … free in …, counting 1 GB to spare; it has …." in an alert that was in the page before; the dumps folder stays empty                                                                                                                                                                                                                                                                                       | P2  |
@@ -1690,10 +1691,10 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    `tools/dev/fake-services.ts`, which replaced the earlier dump-only tool and runs standalone
    for rehearsals; `restartServer()` in the web host; the dialogs page object (`pages/dialogs.ts`,
    the Keys dialog; the scope picker stays in `TriagePage`); and aborts that last until lifted.
-   `503` for every request followed with the setup's steps 1 to 3. Still to do: the rest of the
-   fake services' settings (a `Content-Length` other than the size, a wrong checksum) and of the
-   Discogs API (the masters), and the practice card's page object, with the scenarios that need
-   them.
+   `503` for every request followed with the setup's steps 1 to 3, and a `Content-Length` other
+   than the size, a wrong checksum and holds for one transfer with closing the gaps on 2026-10-02.
+   Still to do: the rest of the Discogs API (the masters) and the practice card's page object,
+   with the scenarios that need them.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
@@ -1721,13 +1722,16 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    SETUP-08, SETUP-09, SETUP-13 and SETUP-14 (see "The setup's steps 1 to 3 P1 slice"). With them
    came the setup page object's actions for steps 1 to 3, `LiveRegionWatch`, the fake's `503`
    for every request and `dj`'s currency, and the markup of accessibility bugs 3 and 4 for those
-   steps. Next: the setup's remaining P1 scenarios, SETUP-22, SETUP-23, SETUP-24, SETUP-25,
-   SETUP-27, SETUP-28, SETUP-31 and SETUP-33, with the practice card's page object, accessibility
-   bug 1 and the crate's part of bug 4; then the Accessibility family with axe. Still to do for
-   the setup: its P2 scenarios. Still to do for Triage, Settings, Twelves, Shell,
-   Sandbox and Persistence: their P2 scenarios (for these three families SHELL-06, SHELL-08,
-   SHELL-10, SHELL-11, SHELL-12, SBX-06, PER-02 and PER-03), and in the fake the masters, when a
-   scenario needs them.
+   steps. The ten gaps were closed on 2026-10-02 (see "Closing the gaps"): TRI-21, TWL-02 and
+   SET-17 became normal tests, and SHELL-12 (P2), SETUP-24, SETUP-25 and SETUP-28 (P1), and
+   SETUP-26, SETUP-29 and SETUP-32 (P2) were built with their fixes. Next: the setup's remaining P1
+   scenarios, SETUP-22, SETUP-23, SETUP-27, SETUP-31 and SETUP-33, with the practice card's page
+   object, accessibility bug 1 and the rest of the crate's part of bug 4 (its alerts are in the
+   page before their text now); then the Accessibility family with axe. Still to do for the
+   setup: its other P2 scenarios, SETUP-10, SETUP-12 and SETUP-20. Still to do for Triage,
+   Settings, Twelves, Shell, Sandbox and Persistence: their P2 scenarios (for these three families
+   SHELL-06, SHELL-08, SHELL-10, SHELL-11, SBX-06, PER-02 and PER-03), and in the fake the
+   masters, when a scenario needs them.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
    checks of the main screens, on Linux only, where snapshot updates need a human review. The
@@ -2013,7 +2017,7 @@ work showed:
   `ScopePicker.svelte`, which no vitest test can cover, so TRI-21 records it as a gap: its normal
   test presses Esc twice, and its `test.fail` expects one Esc to close the picker. The behaviour
   belongs to the browser's search field, so other engines may differ; the Firefox and WebKit
-  projects will show it.
+  projects will show it. Closed on 2026-10-02 by decision 113 (see "Closing the gaps").
 - **Rows corrected.** TRI-40 pushes, so it needs a saved token as well as `small-account`.
   TRI-42 runs on `small-account` with a saved token, where the server could call Discogs with
   the account's token; that is what "no request" is about. The fake's state said `shopkeeper` has
@@ -2117,6 +2121,7 @@ and the Settings markup (see "Markup audit"). The work showed:
   does not ask the load status again, so with the transfer held part-way the header shows no
   indicator until a reload, after which it reads "loading N%". The normal test asserts that; the
   `test.fail` waits 5 s for the indicator without a reload and failed as expected in every run.
+  Closed on 2026-10-02 by decision 115 (see "Closing the gaps").
 - **Rows corrected.** SET-11's "Read my lists" shows only while no list has loaded: with a
   username saved, Settings reads the lists when it opens, so the scenario starts from a failed
   read (the fake answers `500` once, the page gets a declared `502`). SET-14 holds the import's
@@ -2170,7 +2175,8 @@ audit"). The work showed:
   records it as a gap, as TRI-21 did. The normal test checks that the row is in the window; its
   `test.fail` checks with `document.elementFromPoint()` that the row's middle is the row and not
   the footer, and failed as expected in every run. Moving back up is not affected: the first row
-  is uncovered after `K`.
+  is uncovered after `K`. Closed on 2026-10-02 by decision 114 (see
+  "Closing the gaps").
 - **The restore runs before the server starts.** See "Libraries" for why. The bulk template builds
   in 0.42 s (413 to 421 ms over 5 builds: a CLI start and a load of the 81 KB dump, into a
   1.46 MB database); writing the 1,200-verdict backup takes about 3 ms, and `digga restore` 0.24 s
@@ -2429,6 +2435,86 @@ now waits for its two import jobs to start. The work showed:
   that used to see the wantlist import end now comes just before it ends, and the suggestions wait
   one more read. A trial delay of 300 ms before Enter, removed again, brought the test back to 9.3
   to 9.4 s. A fixed delay is not allowed, and nothing in the product is wrong, so the second stays.
+
+### Closing the gaps (web)
+
+Done on 2026-10-02 on the same machine and versions, in eight commits, one per gap and one each
+for the SETUP-24 and SETUP-28 pair and the SETUP-25 and SETUP-32 pair. TRI-21, TWL-02 and SET-17
+lost their `test.fail` and became normal tests; SHELL-12, SETUP-24, SETUP-25, SETUP-26, SETUP-28,
+SETUP-29 and SETUP-32 were built with their fixes, tagged with their rows' priorities. Each new or
+changed test failed against the code before its fix, which was put back afterwards, and each
+fix with logic has a vitest case that fails without it. Decisions 113 to 120 record the choices.
+The work showed:
+
+- **TRI-21: Esc belongs to the picker.** The dialog's keydown handler now cancels Esc's default
+  action and closes the dialog itself, so the search field's own Esc, which Chromium uses to
+  clear it, never runs; the field stays `type="search"`. Both TRI-21 tests failed on the old
+  component, the closing one in its first Esc.
+- **TWL-02: the footer's height, measured.** `bind:offsetHeight` on the footer sets
+  `--foot-height`, which the rows of both tables take as `scroll-margin-bottom`. A second test
+  reaches the Tracks shelf's last row in a 480 px window, since the small catalogue's tracks do
+  not fill 1,000 px; both tests failed on the old CSS, the first one on the last row's middle.
+- **SET-17: Settings follows the jobs it starts.** `loadStatus.follow(job)` checks again for a
+  dump job. Writing its test showed a second gap in the same store: a check overtaken by a later
+  one wrote its older answer last, which could hide a job started meanwhile; a check now drops
+  such an answer (`tests/load-status.test.ts`).
+- **SHELL-12: a retry for the settings.** Triage says "The settings did not load." with the
+  reason and `Enter`, and Settings has "Try again"; `settings.retry()` shares a read already
+  out. Both tests take 0.6 to 0.7 s.
+- **SETUP-24 and SETUP-28: confirmed picks.** `setup.picksConfirmed` in the config marks the
+  picks step 3 wrote. Building SETUP-28 showed that with a saved token, a setup page opened while
+  an import's page is held waits for that page before it shows any step: the server sends Discogs
+  one request at a time, and the setup's account check (`/oauth/identity`) queues behind the
+  import. With a real wantlist of 13 pages, that is up to about 15 s of step 1's "Asking
+  data.discogs.com…". Left for the owner; SETUP-28 connects by username, which asks Discogs
+  nothing for the account, and checks the account's resume before the imports start.
+- **SETUP-25 and SETUP-32: where a download stopped.** Three findings. The figure in "stopped at
+  … of …" is what the downloader took from the transfer: when the fake closes the connection
+  right after a write, undici drops the bytes still queued in the body stream, so a first test
+  read "6 KB" where the fake had sent 32 KB, and once "The download stopped: fetch failed." with
+  nothing at all. The job now reports its exact count when the transfer fails, and the tests
+  close the transfer at a hold once the `.part` file shows every byte sent; Node then names the
+  reason "terminated". Second, the app sent every page back to the setup until a load finished,
+  so the releases a stopped load kept could not be dug as the design says; the pages now open
+  once there are records to dig and the setup has shown (decision 118). Third, the new alert was
+  in the page before its text but had no box of its own, since its only child was
+  `position: fixed`, and Playwright read it as hidden; the region is positioned instead. The
+  strip's locator also had to become exact, since `{ name: "Download" }` matched the notice's
+  first label, "Download stopped". `set({ contentLength })` came to the fake for SETUP-32.
+- **SETUP-26: the download job retries.** The second download runs in the server, so it happens
+  while the user digs in Triage, where the setup page is unmounted (decision 119). The load's
+  follower checks the job's `checksumMismatches` before "done": in the first version the check
+  came after it, and a load could take a second download that had already finished for the file
+  it had read. The fake gained `set({ wrongChecksums })`, holds for one transfer
+  (`holdAt(name, { transfer: 2 })`), which keep the second download at a checkpoint while the
+  first runs to its end, and `transfers`; the standalone mode gained `--wrong-checksums`.
+- **SETUP-29: nothing kept.** The crate decides from the finished load's count of releases kept,
+  not from the stats, which can lag the load's end; "Change your picks" then skips
+  `DELETE /api/setup/load`, which the server refuses after a finished load.
+- **Rehearsals.** After each change to the fake's data.discogs.com part, as "The fake services"
+  says: a throwaway folder with an empty working directory, an environment built from nothing
+  with `env -i` and one argument per variable, printed with the same command line first, the
+  harness's guard in `NODE_OPTIONS` and `DIGGA_E2E_ALLOWED_PORT=45678`. With `--mbps 0.02`,
+  `digga dump update` downloaded the bulk dump (81,198 bytes) in 3.78 s with "checksum verified"
+  and loaded 1,500 releases, 4.60 s in all; `import collection` read 1 item and `import wantlist` 2. With `--mbps 0.05 --wrong-checksums 1`, the fake's log showed two reads of `CHECKSUM.txt`
+  and two transfers of 1,549 and 1,550 ms, and the update ended "checksum verified" with 1,500
+  releases loaded, 3.67 s in all. The owner's library and dumps folder kept their modification
+  times.
+- **Durations.** On five workers the 119 tests take 54.8 s, and `vp run e2e` 55.4 s with the
+  client build, against 45.3 s and 46.9 s for the 110 before. The new and changed tests take 0.6
+  to 11.5 s each: SHELL-12 0.6 s and 0.7 s, TWL-02's Tracks test 0.6 s and its first 1.3 s,
+  TRI-21's Esc test 1.2 s, SETUP-32 1.9 s, SET-17 2.1 s, SETUP-29 3.9 s, TRI-21's search test 4.3
+  s, SETUP-24 6.3 s, SETUP-26 7.4 s and 8.9 s, SETUP-25 7.6 s and 8.8 s, and SETUP-28 11.5 s.
+  SETUP-28 opens seven new pages and waits for the Discogs client's gaps; SET-17, TRI-21 and
+  TWL-02 no longer spend 3 to 5 s on a failing expectation.
+- **Stable.** Every new or changed spec passed `--repeat-each=10` on 11 workers before its commit
+  (TRI-21 20 of 20, TWL-02 20 of 20, SET-17 10 of 10, SHELL-12 20 of 20, SETUP-24 and SETUP-28
+  20 of 20, SETUP-25 and SETUP-32 30 of 30, then 50 of 50 with SETUP-26, and SETUP-29 10 of 10).
+  The whole suite then passed 1,190 of 1,190 runs at `--repeat-each=10` on 11 workers on the
+  10-core machine, in 7.0 minutes, at one-minute load averages of 8 to 49 from the run itself;
+  nothing else ran.
+- **`verify` has not grown.** The smoke set is still the P0 set. `vp run verify` took 21.6 to
+  22.2 s in three runs, and its smoke set 11.2 to 11.3 s, as in the previous slice.
 
 ## Risks and open questions
 

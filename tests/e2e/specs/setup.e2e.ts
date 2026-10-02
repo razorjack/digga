@@ -11,7 +11,7 @@ import { formatBytes } from "../../../src/shared/display.ts";
 import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../../src/shared/types.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage } from "../pages/setup.ts";
-import { TriagePage } from "../pages/triage.ts";
+import { isRequest, TriagePage } from "../pages/triage.ts";
 import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { LiveRegionWatch } from "../support/live-regions.ts";
@@ -356,6 +356,43 @@ test(
     await setup.startLoadAgain();
     await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
     expect(fakes.dumps.transfers).toBe(3);
+  },
+);
+
+test(
+  "SETUP-29 picks that match nothing offer Change your picks instead of digging",
+  { tag: ["@SETUP-29", "@P2"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    // Held, so the load still reads when the crate shows.
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.holdAt(point.name);
+    const setup = new SetupPage(app);
+
+    await app.open();
+    await setup.fetchCatalogue();
+    await setup.skipDiscogs();
+    // The bulk catalogue is all Drum n Bass.
+    await setup.pickStyle("Jungle");
+    await setup.fillCrate();
+    fakes.dumps.release();
+
+    await expect(setup.nothingMatches).toBeVisible({ timeout: 15_000 });
+    await expect(setup.startDiggingButton).toBeHidden();
+    await expect(setup.root.getByText(/^ready at/)).toBeHidden();
+    await setup.changePicksAfterEmptyLoad();
+    await expect(setup.removeButton("Jungle")).toBeVisible();
+
+    await setup.removeStyle("Jungle");
+    await setup.pickStyle("Drum n Bass");
+    const loadStarted = app.page.waitForResponse(
+      (response) => isRequest(response, "POST", "/api/jobs/dump-load") && response.ok(),
+    );
+    await setup.button("Fill the crate").click();
+    await loadStarted;
+    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    await expect(setup.startDiggingButton).toBeEnabled();
+    expect(await jobStatuses(app, "dump_load")).toEqual(["done", "done"]);
   },
 );
 

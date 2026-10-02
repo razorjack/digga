@@ -256,3 +256,9 @@ export function checksumRetryNote(download: Job | null): string | null {
   if ((download.progress?.checksumMismatches ?? 0) === 0) return null;
   return "The download does not match Discogs' checksum, so Digga downloads it once more.";
 }
+
+/** A load that finished without keeping a release: nothing in the catalogue matches the picks. */
+export function keptNothing(load: Job | null): boolean {
+  if (load?.type !== "dump_load" || load.status !== "done" || !load.progress) return false;
+  return load.progress.matched + load.progress.coverage === 0;
+}

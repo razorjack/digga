@@ -4,6 +4,7 @@ import { confirmedPicks, SetupFlow, withChange } from "../src/client/setup/flow.
 import type { SetupStep } from "../src/client/setup/steps.ts";
 import type { SetupResponse, Stats } from "../src/shared/api.ts";
 import { type Config, DEFAULT_CONFIG } from "../src/shared/config.ts";
+import type { StyleCensus } from "../src/shared/style-census.ts";
 import { DOWNLOAD_RETRIED_ERROR, type Job } from "../src/shared/types.ts";
 
 const FILE = "discogs_20260901_releases.xml.gz";
@@ -231,6 +232,38 @@ describe("the setup after a checksum mismatch", () => {
     expect(flow.checksumRetry).toBe(
       "The download does not match Discogs' checksum, so Digga downloads it once more.",
     );
+  });
+});
+
+describe("a load that kept nothing", () => {
+  it("offers Change your picks instead of digging, and goes back to step 3 with nothing to forget", async () => {
+    const emptyLoad = {
+      ...LOAD,
+      status: "done",
+      progress: { phase: "done", scanned: 1500, matched: 0, coverage: 0, upserted: 0 },
+    } as Job;
+    vi.spyOn(api, "getSetup").mockResolvedValue(SETUP);
+    vi.spyOn(api, "getJobs").mockResolvedValue({
+      jobs: [emptyLoad, { ...DOWNLOAD, status: "done" } as Job],
+    });
+    vi.spyOn(api, "getDiscogsAccount").mockRejectedValue(new Error("no account"));
+    vi.spyOn(api, "getStyles").mockResolvedValue({ styles: [] } as unknown as StyleCensus);
+    vi.spyOn(api, "getSettings").mockResolvedValue(withChange(DEFAULT_CONFIG, { picks: PICKS }));
+    vi.spyOn(api, "getStats").mockResolvedValue({ remaining: 0 } as Stats);
+    const forget = vi.spyOn(api, "forgetFirstLoad").mockResolvedValue({ deleted: 0 });
+    const flow = new SetupFlow();
+    await flow.open(null);
+    flow.close();
+
+    expect(flow.step).toBe("crate");
+    expect(flow.nothingMatches).toBe(true);
+    expect(flow.canDig).toBe(false);
+
+    await flow.changePicks();
+    expect(flow.error).toBeNull();
+    expect(forget).not.toHaveBeenCalled();
+    expect(flow.step).toBe("sound");
+    expect(flow.picks).toEqual(PICKS);
   });
 });
 
