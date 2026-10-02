@@ -950,6 +950,16 @@ when the branch's workflow fixups were folded in before the merge. The work show
   | Saving the browser cache              | 3 s                              | none              |
   | Job                                   | 5 min 48 s                       | 5 min 12 s        |
 
+- **Before the merge.** The branch's final head, `12d866e`, passed in run 37068618488 and in its
+  two reruns, in 5 min 31 s, 4 min 23 s and 4 min 44 s, all with the browser cache. Master was
+  fast-forwarded to it, and master's run 37070141054 passed in 5 min 32 s.
+- **The burn-in passed.** `gh workflow run ci.yml --ref master -f repeat_each=5` (run
+  37070714880, `12d866e`, 2026-10-02) ran verify, with the smoke set's 14 tests in 25.4 s, then
+  the whole suite five times on two workers: 720 of 720 passed with no retry, in 22.1 minutes.
+  The job took 23 min 38 s, within its 45-minute timeout. The slowest runs of the two long
+  A11Y-01 tests were 14.1 s for the Twelves shelves and 27.1 s for the setup journey, as in the
+  single runs.
+
 ## Original status on 2026-10-02
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
