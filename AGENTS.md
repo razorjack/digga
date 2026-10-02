@@ -127,7 +127,8 @@ tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwr
                        as dumps with gzip checkpoints, and decisions.ts, decisions backups for `digga restore`);
                        support/ (test.ts fixtures, app.ts the host interface,
                        hosts/web.ts, spawn.ts, templates.ts, fake-youtube.ts, guard.ts and browser-guard.ts,
-                       browser-log.ts, fault-routes.ts, global-setup.ts); the fake services are tools/dev/fake-services.ts
+                       browser-log.ts, fault-routes.ts, live-regions.ts, global-setup.ts); the fake services are
+                       tools/dev/fake-services.ts
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```
 

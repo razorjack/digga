@@ -33,7 +33,7 @@ test.describe("with the clock", () => {
       await app.open();
       await setup.fetchCatalogue();
       await setup.connect("e2e-token-dj");
-      await setup.continueFromDiscogs();
+      await setup.continueFromDiscogs(["collection", "wantlist"]);
       await setup.keepSuggestedStyles(["Drum n Bass"]);
       await setup.fillCrate();
       expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);

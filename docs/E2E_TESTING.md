@@ -5,8 +5,9 @@ Status: proposed on 2026-09-30 and revised the same day after two rounds of revi
 the checkpoint scenarios SETUP-18, SETUP-19 and SETUP-21, Triage's P1 set: the record, the
 player and the tracklist first, then the verdicts, the queue, scopes, the market, the seller and
 the wants, Settings' P1 set, Twelves' P1 set with the `bulk` template, and the P1 sets of Shell,
-Sandbox and Persistence with `restartServer()`; the fake services have moved to
-`tools/dev/fake-services.ts`. The results are recorded in "Spike results". The rest is not built
+Sandbox and Persistence with `restartServer()`, and the setup's P1 scenarios for steps 1 to 3,
+before the load starts; the fake services have moved to `tools/dev/fake-services.ts`. The results
+are recorded in "Spike results". The rest is not built
 yet. This is the design of Digga's end-to-end (E2E) tests: the
 tool, the harness, the fake services, the markup the tests rely on, and the scenarios the suite
 should cover. The same tests must run against the browser app now and the Electron app later
@@ -467,7 +468,11 @@ hashes the file first. It prints the three addresses to start Digga with (`DIGGA
 `DIGGA_DISCOGS_API_URL`, `DIGGA_YOUTUBE_OEMBED_URL`), and each request and each problem, such as
 a token that does not start with `e2e-`, as it happens. It replaced an earlier tool that served
 the dump alone. Outside the harness no guard refuses a real host, so a rehearsal
-checks that all three addresses point at it before starting Digga. The fakes never answer with a
+checks that all three addresses point at it before starting Digga, in the environment the process
+receives (print it with the same command line first), and loads the harness's guard:
+`NODE_OPTIONS=--import=<repo>/tests/e2e/support/guard.ts` with `DIGGA_E2E_ALLOWED_PORT` set to
+the fakes' port. A rehearsal whose environment did not apply reached the real data.discogs.com and
+the default library once (see "The setup's steps 1 to 3 P1 slice"). The fakes never answer with a
 redirect.
 
 The module imports the catalogue and the dump types from `tests/e2e/fixtures/`. That direction
@@ -502,13 +507,18 @@ still recorded and must be declared.
 | `GET /releases/{id}?curr_abbr=`                | Market data and videos from the catalogue, price in the asked currency; `404` when asked     |
 | `GET /masters/{id}`                            | The master's main release                                                                    |
 
-State: accounts (`dj` with a collection of 5, a wantlist of 6 including one release in no dump,
-a private "Maybe" list 9001 and a public list 9002), a seller `shopkeeper` whose shop has a
-repress of a loaded master and a release in no dump, and the catalogue's releases. Built so far:
-every request in the table but `GET /masters/{id}`, which waits for a scenario that reaches it;
-`dj` has a collection of 1, a wantlist of 2, one of them in no dump, the private list "Maybe"
-(9001), which holds the first two records of the small catalogue, and the public list "Played
-out" (9002), which is empty. `GET /users/{u}/lists` answers on one page, and `GET /lists/{id}`
+State: accounts (`dj` with a collection of 1, a wantlist of 2 including one release in no dump,
+a private "Maybe" list 9001, a public list 9002 and GBP as its currency), a seller `shopkeeper`
+whose shop has a repress of a loaded master and a release in no dump, and the catalogue's
+releases. Built so far: every request in the table but `GET /masters/{id}`, which waits for a
+scenario that reaches it; `dj`'s lists are the private list "Maybe" (9001), which holds the first
+two records of the small catalogue, and the public list "Played out" (9002), which is empty. The
+design gave `dj` a collection of 5 and a wantlist of 6; the scenarios built since use 1 and 2
+(`small-account`, Twelves' shelves, the imports' counts), and nothing needs more, so the design
+follows the account (SETUP-08's row too). With 3 imported releases the setup's years come from
+the census rather than the imports (SETUP-14); the imported span stays a vitest case
+(`tests/setup-model.test.ts`). The profile's currency is GBP, not the config's default EUR, so
+SETUP-08 sees it come from the profile; only the setup reads the profile. `GET /users/{u}/lists` answers on one page, and `GET /lists/{id}`
 with the list's releases; both show a private list only to `dj`'s own token, and
 `GET /lists/{id}` answers `404` for it to any other;
 and `shopkeeper`'s two listings, on one page. A Discogs request the fake has no route for fails
@@ -526,9 +536,13 @@ download with `Content-Length`. Per test: which dumps are listed, the listed siz
 `Content-Length` sent, the transfer speed, failing after N bytes, a wrong checksum, `503` for
 every page, and checkpoints. Built so far (`fakes.dumps`): the listed dump, which the test names
 with `diggaOptions.listedDump` (the bulk dump or the small September dump) so it is listed from
-the app's first request, and without which the fake answers `404`; the listed size (`list(dump, { listedBytes })`, `null` for none); holds at
-checkpoints; `set({ failAfterBytes })`; the transfer speed, `set({ bytesPerSecond })`, which the
-standalone mode uses and no test does; and `sentBytes`, what the transfer has sent so far. A
+the app's first request, and without which the fake answers `404`; the listed size
+(`list(dump, { listedBytes })`, `null` for none), which a test may change before the page opens,
+since the server first reads the listing for `GET /api/setup` and keeps a listing it read for an
+hour (a failed read is not kept, so SETUP-04's Try again reads it again); holds at checkpoints; `set({ failAfterBytes })`; `503` for every request,
+`set({ unavailableStatus: 503 })` until `set({ unavailableStatus: null })` (SETUP-04); the
+transfer speed, `set({ bytesPerSecond })`, which the standalone mode uses and no test does; and
+`sentBytes`, what the transfer has sent so far. A
 listed dump is a `DumpSource`: `memoryDump()` wraps one the builder made, `fileDump()` reads a
 file on disk. The rest comes with the scenarios that need it.
 
@@ -857,6 +871,25 @@ synchronise on completed requests and on the state the app sets after them:
   it switched, and the header's sandbox stamp shows or has gone. An Appearance radio
   (`chooseColorScheme()`) ends once its `PUT /api/settings` has answered and the root element
   carries the scheme in `data-color-scheme`.
+- The setup's actions end the same way (`pages/setup.ts`). A step change ends once the address,
+  the step list's `aria-current="step"` and the step's heading show the new step. Fetch ends once
+  `POST /api/jobs/dump-download` has answered and step 2 shows; Continue on step 2 once a
+  `POST /api/jobs/import/<kind>` has answered for each import it starts and step 3 shows; Connect
+  once `PUT /api/discogs/token` and the `GET /api/discogs/profile` after it have answered and
+  Continue is enabled again, which happens only when the step's work, the settings read included,
+  is done; a refused token once the `PUT` has answered `400` and Connect is enabled again; Try
+  again and Check again once `GET /api/setup` has answered; "Fill the crate" once `PUT
+/api/settings` and `POST /api/jobs/dump-load` have answered and the crate shows. "Fill the
+  crate" with no style picked sends nothing and ends once the search field has `aria-invalid`. A
+  year ends once Tab has left its field, which commits it (`change`), and the field shows it.
+- A live region that must be in the page before its text (accessibility bug 4) is checked with
+  `LiveRegionWatch` (`support/live-regions.ts`). Installed before the page opens, its init script
+  runs a `MutationObserver` from the page's first script and records each live region
+  (`role="alert"`, `role="status"` or `aria-live`) inserted with text already in it. The test reads
+  the record after the message shows and checks that the message is not in it. A region present
+  when the step mounts and filled later passes; a region inserted with its text fails, as the old
+  markup did in SETUP-05, SETUP-08 and SETUP-09. Regions inserted with their text when a page
+  first renders are recorded too, which is harmless and why the tests look for their own message.
 - A key that should do nothing is checked in the page: a page key sets the hash inside its
   keydown handler, and the handler has run when `keyboard.press()` returns, so `location.hash`
   read with `evaluate()` straight after is exact (SHELL-03, SHELL-04). `page.url()` follows a hash
@@ -991,6 +1024,11 @@ with its error, through the input stream. Its vitest cases are in `tests/dump-lo
 `src/client/setup/flow.svelte.ts` with `tests/setup-flow.test.ts` (see "The first-run setup
 path"). The setup needed no markup change.
 
+The setup's steps 1 to 3 slice added the setup's part of accessibility bugs 3 and 4 for those
+steps, the name "load to" (see "Markup audit"), and moved the steps and their titles
+(`SETUP_STEPS`) from the rune module `flow.svelte.ts` into the plain module
+`src/client/setup/steps.ts`, which the page object imports.
+
 ## Markup audit
 
 In short, the markup is already friendly to automation because it is accessible. Native
@@ -1019,10 +1057,19 @@ and some names that are missing or ambiguous.
    - The setup's token and username fields (`DiscogsStep.svelte`): a refused token or unknown
      user shows in the step's `role="alert"` paragraph, but the field gets no `aria-invalid` and
      does not reference the message. Set `aria-invalid` with the custom validity, clear both on
-     input, and add the alert's id to `aria-describedby` after the hint.
+     input, and add the alert's id to `aria-describedby` after the hint. Fixed in the setup's
+     steps 1 to 3 slice: after a refusal the field has the step's error as its custom validity,
+     `aria-invalid="true"`, and `aria-describedby` with `discogs-error`, the alert, after its
+     hint; editing the field, or the error clearing, removes all three (SETUP-09). The username
+     field does the same after an unknown user, for which `flow.useUsername()` now says whether
+     the profile was found; no scenario of the slice reaches it (SETUP-10 is P2).
    - The style search (`StylePicker.svelte`): "Pick at least one style" exists only in the native
      validation bubble, which disappears, and the field gets no `aria-invalid`. Render the message
-     in an element the field references, after `style-search-hint`.
+     in an element the field references, after `style-search-hint`. Fixed in the same slice: the
+     message is in `style-search-problem`, `hidden` while there is none, which the field
+     references after its hint while it has the problem, with `aria-invalid`; a pick clears both
+     (SETUP-16). Both components report through `reportProblem()` and `describedBy()` in
+     `src/client/setup/field-problem.ts`, as Settings' fields report theirs.
    - Settings' `reportProblem()` sets the custom validity and `aria-invalid`, but the message
      appears only in the save bar's status, not attached to the field. Give each problem an
      element the field references, keeping its hint id. Fixed in the Settings P1 slice: the
@@ -1037,7 +1084,15 @@ and some names that are missing or ambiguous.
    the "Connected as" status in `DiscogsStep.svelte` and the "stopped loading" notice in
    `CrateStep.svelte` appear with their text, so screen readers may not announce them. Each
    region stays in the DOM, empty until it has something to say, and an error's field
-   association is cleared with it.
+   association is cleared with it. Fixed for steps 1 to 3 in the setup's steps 1 to 3 slice: the
+   error paragraph of each step and the space alert are empty `role="alert"` paragraphs until
+   they have text, and the "Connected as" status an empty `role="status"` until the account is
+   connected, with the token form beside it. An empty paragraph takes no room: each step's
+   alerts and buttons share a column whose alerts take a margin only when not `:empty`. SETUP-05,
+   SETUP-08 and SETUP-09 check that their message's region was in the page before the message
+   (`LiveRegionWatch`, see "Synchronisation"); against the old markup all three failed. The
+   crate's "stopped loading" notice and error paragraph are still inserted with their text; they
+   come with the crate's scenarios.
 
 Related, smaller:
 
@@ -1109,6 +1164,10 @@ identity or state to expose, a `data-testid` is the last resort, and the reason 
   player notice and, while it is open, the scope picker's status. Naming the flash ("Triage
   messages") and the player notice ("Player notices") lets a test assert on one of them.
 - **The queue** (`.record` in `Triage.svelte`) gets `aria-busy` while the queue loads.
+- **The years the load keeps** (`SoundStep.svelte`): the disclosure's fields read "load from" and
+  "to", so with it open the step had two spinbuttons named "to". The second label holds a
+  visually hidden "load", so it is "load to" for assistive technology and reads as before.
+  Built in the setup's steps 1 to 3 slice (SETUP-15).
 
 ### Kept as they are
 
@@ -1272,20 +1331,20 @@ TRI-13, SBX-01, PER-01 and PER-04.
 | SETUP-01 | The first run from the default config: the sandbox is on at first (`/api/settings`); fetch, connect with `e2e-token-dj`, keep the suggested styles, fill the crate; the config then has the sandbox off; with the transfer held at `600-to-dig` and its count shown, "Start digging" opens Triage on a record; the first verdict is in `/api/export/decisions.json`. Triage reads its queue again when it is shown (decision 112). A second test pauses the clock before the picks are saved, which keeps Triage from looking again at the end of its queue, and opens Triage with `T` at `100-to-dig`: it shows a record | P0  |
 | SETUP-02 | An empty library opens `#/setup/catalogue`; the header holds only the wordmark; `T`, `W` and `,` do nothing; the step list marks step 1; the title is "Fetch the catalogue – Digga setup"                                                                                                                                                                                                                                                                                                                                                                                                                                 | P1  |
 | SETUP-03 | Step 1 shows the dump's date, listed size, folder and free space; the fake logged no download before the button                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | P1  |
-| SETUP-04 | data.discogs.com answers `503`: the reason and "Try again"; once the fake recovers, Try again shows the dump                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | P1  |
-| SETUP-05 | The listing says 900 TB: an alert with the space needed, the folder and `DIGGA_DUMPS_DIR`; Fetch is disabled; "Check again"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | P1  |
-| SETUP-06 | The dump is already in the dumps folder: "Digga has the 1 September 2026 catalogue already" and Continue                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
-| SETUP-07 | Enter starts the download; the download strip shows on steps 2 and 3 with a `<progress>`; the step is in the address; a reload stays on it; Back goes a step back                                                                                                                                                                                                                                                                                                                                                                                                                                                         | P1  |
-| SETUP-08 | A token Discogs accepts: "Connected as dj: 5 in your collection, 6 wants"; the username is adopted; currency comes from the profile                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
-| SETUP-09 | `e2e-token-refused`: the step's alert shows Discogs' refusal, nothing is saved, the username stays empty. After markup item 3: the field has `aria-invalid` and references the alert                                                                                                                                                                                                                                                                                                                                                                                                                                      | P1  |
+| SETUP-04 | data.discogs.com answers `503` for every request (fake `set({ unavailableStatus: 503 })`): step 1 reads "Digga can't reach data.discogs.com: … answered 503." with Try again and no Fetch; once the fake recovers, Try again shows the dump and enables Fetch                                                                                                                                                                                                                                                                                                                                                             | P1  |
+| SETUP-05 | The listing says 900 TB, set before the page opens: an alert, in the page before its text, with the space needed (the size and 1 GB to spare), the folder and `DIGGA_DUMPS_DIR`; Fetch is disabled; "Check again" reads the setup again and still finds too little                                                                                                                                                                                                                                                                                                                                                        | P1  |
+| SETUP-06 | The dump is already in the dumps folder (the listed September dump in `diggaOptions.dumpFiles`): step 1 says "Digga has the 1 September 2026 catalogue already", and Continue moves on without a download. Until the setup's steps 1 to 3 slice the setup opened step 2 instead (see its results)                                                                                                                                                                                                                                                                                                                         | P1  |
+| SETUP-07 | Enter starts the download; the download strip shows on steps 2 and 3 with a `<progress>`; the step is in the address; a reload stays on it; the step's Back goes a step back, to step 1 with "The catalogue is downloading."; the fake sent one transfer over the reloads. The browser's Back is SHELL-10                                                                                                                                                                                                                                                                                                                 | P1  |
+| SETUP-08 | A token Discogs accepts: "Connected as dj: 1 in your collection, 2 wants." in a status region that was in the page before; the username is adopted (`/api/settings`); the currency comes from the profile (GBP, not the default EUR), and Continue without the imports saves it                                                                                                                                                                                                                                                                                                                                           | P1  |
+| SETUP-09 | `e2e-token-refused`: the step's alert, in the page before its text, shows Discogs' refusal; nothing is saved, the username stays empty; the field has `aria-invalid` and references the alert after its hint until it is edited (markup item 3)                                                                                                                                                                                                                                                                                                                                                                           | P1  |
 | SETUP-10 | "No token? Use your username": the public profile is read; a later want stays in Digga, its push fails with the declared `400` ("Set your Discogs token in Settings first"), and Twelves marks it as not on the wantlist                                                                                                                                                                                                                                                                                                                                                                                                  | P2  |
-| SETUP-11 | Skip moves to step 3 with nothing connected and no suggestions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
+| SETUP-11 | Skip moves to step 3 with nothing connected: no suggestions and no picks, no Discogs request and no import job                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | P1  |
 | SETUP-12 | Browser history: the checkbox and browser list appear only for browsers with a history file in the fake home; a browser folder the harness makes unreadable (`chmod 000` on the root it lists, POSIX, not as root, restored in cleanup) is listed too, with the Full Disk Access hint; the import marks the fixture's visited releases as seen                                                                                                                                                                                                                                                                            | P2  |
-| SETUP-13 | Continue starts the collection and wantlist imports as jobs (the fake logs their pages) and moves on at once                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | P1  |
-| SETUP-14 | Step 3 with imports: the account's styles are picked ("mostly Drum n Bass"); years default to the middle 80%; the estimate is a `status` line                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | P1  |
-| SETUP-15 | Style picker: "jung" then Enter picks Jungle; "Often tagged with" adds a style; "Remove Jungle" removes it; genres open as `<details>`; Vinyl only; the load-years disclosure                                                                                                                                                                                                                                                                                                                                                                                                                                             | P1  |
-| SETUP-16 | Validation: no style blocks submit; "from" is capped by "to". After markup item 3: the search field gets `aria-invalid` and references the message                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | P1  |
-| SETUP-17 | "Fill the crate" saves styles, years, formats and load years (read back through `/api/settings`) and starts the load                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | P1  |
+| SETUP-13 | Continue starts the collection and wantlist imports as jobs and moves on at once: with the wantlist page held at the fake, step 3 shows while that import runs; released, both end `done`, and the fake logged one page of each for `dj`                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
+| SETUP-14 | Step 3 with imports: the account's styles that the census knows are picked ("mostly Drum n Bass"; the fixture's Techstep is not a Discogs style); with 3 imported releases the years default to the middle 80% of the census's releases for the picks; the estimate is a `status` line with the census's count                                                                                                                                                                                                                                                                                                            | P1  |
+| SETUP-15 | Style picker: "jung" then Enter picks Jungle; "Often tagged with" adds Drum n Bass; "Remove Jungle" removes it; a genre opens as `<details>` with its styles as checkboxes (Electronic: Drum n Bass checked, Breakbeat picked); Vinyl only changes the estimate; the load-years disclosure shows the span widened by 3 years each side, and a change shows in its summary                                                                                                                                                                                                                                                 | P1  |
+| SETUP-16 | Validation: with no style, Fill the crate sends nothing, and the search field gets `aria-invalid` and references "Pick at least one style" after its hint until a style is picked (markup item 3); "from" is capped by "to" (`max`), and a "from" past it blocks the submit                                                                                                                                                                                                                                                                                                                                               | P1  |
+| SETUP-17 | "Fill the crate" saves styles, years, formats and load years, with the sandbox off (read back through `/api/settings`), and starts the load                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | P1  |
 | SETUP-18 | Held at `100-to-dig`, once its count shows: the Download and Read `<progress>` rows have values, releases kept and records to dig are counted, "Just pulled" names a release; the header shows "loading N%" and the page keys work again                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
 | SETUP-19 | Held at `100-to-dig`: the records to dig reach the checkpoint's count while the download is held, so the load read the growing file                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | P1  |
 | SETUP-20 | Imports slower than the load's start (the wantlist pages held at the fake): "Reading your collection and wantlist first, so the load also keeps other records on your labels." and "Start without it"                                                                                                                                                                                                                                                                                                                                                                                                                     | P2  |
@@ -1296,7 +1355,7 @@ TRI-13, SBX-01, PER-01 and PER-04.
 | SETUP-25 | With the load reading the growing file, the download fails part way (fake `failAfterBytes`): "The catalogue stopped loading: The download stopped: …", with Pick up and Change your picks; Pick up downloads again. **Gap:** the designed copy ("The download stopped at 4.1 of 10.5 GB: … it starts again." with "Start again"); and a download that fails before a load reads it (steps 2 and 3) shows nothing today: the strip goes, and "Fill the crate" then fails with "Dump file not found"                                                                                                                        | P1  |
 | SETUP-26 | Wrong checksum, with the load reading: "The catalogue stopped loading: The download stopped: … does not match its published checksum", with Pick up and Change your picks. **Gap:** designed is "The download does not match Discogs' checksum" and one more download by itself before asking                                                                                                                                                                                                                                                                                                                             | P2  |
 | SETUP-27 | A crash during the load (`relaunch({ crash: true })`): the jobs are marked failed as interrupted; the setup offers Pick up, which reads the dump from the start                                                                                                                                                                                                                                                                                                                                                                                                                                                           | P1  |
-| SETUP-28 | Resume as built: a new page opens the load's screen once a load exists, step 1 before the download starts, and step 2 while the catalogue comes, or step 3 when the address asks for it. **Gap:** earlier answers come back only where the server holds them (the connected account); the picks do not                                                                                                                                                                                                                                                                                                                    | P1  |
+| SETUP-28 | Resume as built: a new page opens the load's screen once a load exists; step 1 before anything is fetched, and with a catalogue that was in the dumps folder before any download unless the address asks for step 2 or 3; step 2 while the catalogue comes, or step 3 when the address asks for it. **Gap:** earlier answers come back only where the server holds them (the connected account); the picks do not                                                                                                                                                                                                         | P1  |
 | SETUP-29 | **Gap.** Picks that match nothing: today the load ends with no records to dig and "Start digging" enabled. Designed: "Nothing in the catalogue matches these picks" and Change your picks                                                                                                                                                                                                                                                                                                                                                                                                                                 | P2  |
 | SETUP-30 | A library with a finished load never shows the setup; `#/setup` goes to Triage [`small`]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
 | SETUP-31 | Digging during the load, held at `100-to-dig`: at the end of the queue "You have dug everything loaded so far."; after release, once `/api/stats` counts more records to dig, `runFor(10_000)` and the next record shows                                                                                                                                                                                                                                                                                                                                                                                                  | P1  |
@@ -1537,7 +1596,8 @@ tests/e2e/
   support/      test.ts (fixtures), global-setup.ts, spawn.ts, app.ts (the host interface, the
                 API client and the clock), hosts/web.ts, hosts/electron.ts, electron-preload.cjs,
                 templates.ts, fake-youtube.ts, guard.ts, browser-guard.ts, browser-log.ts (the
-                page's requests and problems, and the declarations), fault-routes.ts
+                page's requests and problems, and the declarations), fault-routes.ts,
+                live-regions.ts (live regions inserted with their text)
   pages/        triage.ts, twelves.ts, settings.ts, setup.ts, header.ts, dialogs.ts
   specs/        guard, shell, setup, triage, triage-player, sandbox, twelves, settings,
                 persistence, a11y, electron
@@ -1622,9 +1682,10 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    `tools/dev/fake-services.ts`, which replaced the earlier dump-only tool and runs standalone
    for rehearsals; `restartServer()` in the web host; the dialogs page object (`pages/dialogs.ts`,
    the Keys dialog; the scope picker stays in `TriagePage`); and aborts that last until lifted.
-   Still to do: the rest of the fake services' settings (a `Content-Length` other than the size, a
-   wrong checksum, `503` for every page) and of the Discogs API (the masters), and the practice
-   card's page object, with the scenarios that need them.
+   `503` for every request followed with the setup's steps 1 to 3. Still to do: the rest of the
+   fake services' settings (a `Content-Length` other than the size, a wrong checksum) and of the
+   Discogs API (the masters), and the practice card's page object, with the scenarios that need
+   them.
 2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
    2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
    tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
@@ -1646,8 +1707,16 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    Persistence were done on 2026-10-01: SHELL-03, SHELL-04, SHELL-05, SHELL-07, SHELL-09, SBX-02,
    SBX-03, SBX-04, SBX-05, SBX-07 and PER-05 (see "The Shell, Sandbox and Persistence P1 slice").
    With them came `restartServer()`, the Keys dialog's page object, Settings' sandbox switch and
-   Appearance actions, Triage's queue retry, and lasting aborts. Next: the Accessibility family
-   with axe and the setup's P1 scenarios. Still to do for Triage, Settings, Twelves, Shell,
+   Appearance actions, Triage's queue retry, and lasting aborts. The setup's P1 scenarios for
+   steps 1 to 3, before the load starts, were done on 2026-10-01: SETUP-02, SETUP-03, SETUP-04,
+   SETUP-05, SETUP-06, SETUP-07, SETUP-11, SETUP-15, SETUP-16, SETUP-17 and SETUP-30, then
+   SETUP-08, SETUP-09, SETUP-13 and SETUP-14 (see "The setup's steps 1 to 3 P1 slice"). With them
+   came the setup page object's actions for steps 1 to 3, `LiveRegionWatch`, the fake's `503`
+   for every request and `dj`'s currency, and the markup of accessibility bugs 3 and 4 for those
+   steps. Next: the setup's remaining P1 scenarios, SETUP-22, SETUP-23, SETUP-24, SETUP-25,
+   SETUP-27, SETUP-28, SETUP-31 and SETUP-33, with the practice card's page object, accessibility
+   bug 1 and the crate's part of bug 4; then the Accessibility family with axe. Still to do for
+   the setup: its P2 scenarios. Still to do for Triage, Settings, Twelves, Shell,
    Sandbox and Persistence: their P2 scenarios (for these three families SHELL-06, SHELL-08,
    SHELL-10, SHELL-11, SHELL-12, SBX-06, PER-02 and PER-03), and in the fake the masters, when a
    scenario needs them.
@@ -2252,6 +2321,103 @@ until lifted, and the move of the fake services to `tools/dev/fake-services.ts`.
   and its smoke set 10.2 to 11.1 s against 10.2 to 10.9 s, in six runs each. In the first three
   pairs the working tree ran second and was 0.4 to 0.6 s slower; in the three with the order
   reversed it took 20.5 to 20.8 s against 20.5 to 20.9 s.
+
+### The setup's steps 1 to 3 P1 slice (web)
+
+Built on 2026-10-01 on the same machine and versions: SETUP-02, SETUP-03, SETUP-04, SETUP-05,
+SETUP-06, SETUP-07, SETUP-11, SETUP-15, SETUP-16, SETUP-17 and SETUP-30 in the new
+`specs/setup-steps.e2e.ts`, and SETUP-08, SETUP-09, SETUP-13 and SETUP-14 in the new
+`specs/setup-discogs.e2e.ts`: fifteen tests, tagged P1. With them came the setup page object's
+actions for steps 1 to 3 (Try again and Check again, Continue on step 1, a refused token, Skip,
+Continue with its imports, the style search, "Often tagged with", removing a style, a genre, the
+years, the load-years disclosure, Vinyl only, Back and a reload on a step), `LiveRegionWatch`, the
+fake's `503` for every request, `dj`'s currency, the markup of accessibility bugs 3 and 4 for
+steps 1 to 3 (see "Markup audit"), and the step titles in `src/client/setup/steps.ts`. SETUP-01
+now waits for its two import jobs to start. The work showed:
+
+- **One product bug, fixed: a catalogue already in the dumps folder skipped step 1.** The setup
+  resumed at step 2 whenever the newest dump was in the dumps folder, also on a first visit, so
+  "Digga has the 1 September 2026 catalogue already" and its Continue (docs/FIRST_RUN.md, step 1)
+  showed only after Back. SETUP-06 failed on it. `#resumeStep()` in
+  `src/client/setup/flow.svelte.ts` now opens step 1 for a catalogue that was in the folder before
+  any download, unless the address asks for step 2 or 3, so a reload on a later step stays there;
+  a download that runs or has finished still resumes at step 2. Three vitest cases in
+  `tests/setup-flow.test.ts` cover where the setup resumes; the first fails without the fix.
+  Decision 109 and SETUP-28's row say so.
+- **Rows corrected.** SETUP-08's counts follow the account, 1 and 2 (see "The fake services" for
+  the decision; no earlier scenario relied on 5 and 6, which no fixture ever had), and its
+  currency is GBP so that it visibly comes from the profile. SETUP-14: the shipped census has no
+  Techstep, the fixture's second style, so only Drum n Bass is suggested ("mostly Drum n Bass, so
+  it is picked"), and with 3 imported releases, fewer than the 10 per-style counts
+  `defaultYearSpan()` needs, the years come from the census. SETUP-15 checks Breakbeat, not
+  Techstep, in the Electronic genre for the same reason. SETUP-07's Back is the step's button;
+  the browser's Back stays SHELL-10. SETUP-04, SETUP-05, SETUP-09, SETUP-11, SETUP-13, SETUP-16
+  and SETUP-17 now say how they are reached and what they read back.
+- **The markup checks catch the old markup.** Against the components as they were, restored
+  afterwards: SETUP-05, SETUP-08 and SETUP-09 failed on `LiveRegionWatch`, which recorded the space
+  alert, "Connected as dj." and the refusal as regions inserted with their text; SETUP-16 failed
+  on the missing `aria-invalid`, and SETUP-15 on the second "to" field, which had no name of its
+  own. The watch also records the regions a page inserts with text when it first renders, such
+  as Triage's hidden slip and step 1's "Asking data.discogs.com…", so the scenarios check only
+  their own message.
+- **Free space and the listing.** SETUP-03 reads the real free space only by its shape; SETUP-05
+  lists 900 TB (`listedBytes`), and the alert asks for "921601 GB", the size and 1 GiB. The
+  listing is read on the first `GET /api/setup` and kept for an hour, so Check again reads the
+  free space again and the cached size; a failed read is not kept, so SETUP-04's Try again reads
+  the recovered listing. The `503` reaches the page as "Digga can't reach data.discogs.com:
+  127.0.0.1:<port> answered 503." in step 1's `aria-live` line, which is in the page from the start.
+- **Holds keep in-flight states exact.** SETUP-13 holds the wantlist page at the fake: step 3
+  showed while that import was running in every run, and both imports ended `done` once
+  released, with one page each for `dj`. SETUP-07 and SETUP-17 hold the transfer at `100-to-dig`,
+  so the strip has a running download over two reloads and the load is `running` when its row is
+  read; the fake sent one transfer in every run of SETUP-07.
+- **The rehearsal, and a mistake in its first try.** The change to the fake's data.discogs.com
+  part was rehearsed with the CLI as in the previous slice, now with the harness's guard loaded
+  through `NODE_OPTIONS` and the process's environment printed first: `digga dump update`
+  downloaded the bulk dump (81,198 bytes) from `node tools/dev/fake-services.ts <file> --port
+45678 --mbps 0.02` in 3.87 s with "checksum verified" and loaded 1,500 releases, 4.5 s in all;
+  `import collection` read 1 item and `import wantlist` 2. The first try built its environment in
+  a shell variable that zsh did not split, so `env -i` passed one malformed variable, and the CLI
+  ran with the default library and the real data.discogs.com: it recorded a `dump_update` job in
+  the owner's library and downloaded 3.78 GB of the October dump into a `.part` file in
+  `~/Library/Caches/Digga/dumps` before it was stopped. The guard would have refused the
+  connection; "The fake services" now asks rehearsals to load it.
+- **Durations.** On five workers the 110 tests take 45.3 s, and `vp run e2e` 46.9 s with the
+  client build, against 38.6 s and 40.3 s for the 95 before. The new tests take 0.6 to 5.5 s each:
+  SETUP-02 0.6 s, SETUP-06 0.6 s, SETUP-03 0.7 s, SETUP-04 0.7 s, SETUP-05 0.7 s, SETUP-09 0.8 s,
+  SETUP-11 0.8 s, SETUP-30 0.8 s, SETUP-16 1.6 s, SETUP-15 1.7 s, SETUP-17 1.7 s, SETUP-08 2.0 s,
+  SETUP-07 2.9 s, SETUP-13 4.0 s and SETUP-14 5.5 s. SETUP-08, SETUP-13 and SETUP-14 wait for the
+  Discogs client's 1.1 s gaps after the token's identity check; SETUP-14 also waits for the setup's
+  next read of the jobs after the imports end, and for its read of the setup.
+- **Stable; the failures were starvation.** Each new spec passed `--repeat-each=10` on 16
+  workers before the next was written (110 of 110, then 90 of 90 with the changed
+  `setup.e2e.ts`). The whole suite then ran five times at `--repeat-each=20`, 2,200 tests a run.
+  The fifth run, on 11 workers, passed 2,200 of 2,200 in 12.3 minutes. The first four each failed
+  one to three earlier scenarios, never a new one: on 16 workers 2,197 (SBX-05, SET-11, SET-13)
+  and 2,199 (SET-01), on 12 workers 2,199 (SET-16) and 2,198 (SET-11, SET-13). The third run
+  overlapped another project's Rails test suite on 10 workers, which alone held the load average
+  at about 187; the others ran at load averages of up to 220 from the run itself, more than the
+  previous slice measured, with Spotlight busy beside it. Every failure's trace shows a starved
+  page rather than a missing wait: a click that took 48.5 s, a `selectOption()` 24.8 s, a
+  `page.reload()` 30.2 s, a `getAttribute()` on a record that was on screen 30 s, and screencast
+  gaps of 25 to 33 s. In SET-13 and SET-16 the page had read the job's `done` and acted on it (the
+  stats refresh that follows a job's end, and in the trace's last DOM the row reads `done`),
+  while the assertion's call log has no completed query of the page in its 15 s. SET-17's,
+  TRI-21's and TWL-02's `test.fail` failed as expected in every run. The medians of the new tests
+  in the clean run were 1.4 to 6.7 s (SETUP-14 the slowest), against 2.0 s for TRI-02 and 6.8 s
+  for TRI-07.
+- **`verify` grew by about 0.9 s, all of it SETUP-01's poll phase.** The smoke set is still the
+  P0 set. Timed alternately against a worktree of the previous commit, `vp run verify` took 21.7
+  to 22.2 s against 20.8 to 22.7 s, and its smoke set 11.3 to 11.4 s against 10.3 to 11.2 s, in
+  three runs each; the smoke set alone, six runs each, 11.2 to 11.4 s against 10.3 to 10.5 s.
+  SETUP-01's first test went from 9.3 to 9.5 s to 10.2 to 10.3 s; nothing else changed. Its
+  traces show why. `connect()` now returns once the profile has answered, where it used to
+  return at the "Connected as" status and leave the wait to an assertion's retries, so Enter on
+  step 2 comes about 0.3 s earlier. The setup reads the jobs every second from that Enter, while
+  the imports end on the Discogs client's 1.1 s gaps from the token's identity check, so the read
+  that used to see the wantlist import end now comes just before it ends, and the suggestions wait
+  one more read. A trial delay of 300 ms before Enter, removed again, brought the test back to 9.3
+  to 9.4 s. A fixed delay is not allowed, and nothing in the product is wrong, so the second stays.
 
 ## Risks and open questions
 

@@ -42,6 +42,8 @@ export interface FixtureAccount {
   wantlist: number[];
   /** Release ids of the account's For Sale listings. */
   inventory: number[];
+  /** The currency of the account's profile (curr_abbr). */
+  currency: string;
   /** The account's Discogs lists; a private one shows only to the account's own token. */
   lists: FixtureList[];
 }
@@ -526,6 +528,8 @@ export const DJ: FixtureAccount = {
   collection: [IN_COLLECTION.id],
   wantlist: [ON_WANTLIST.id, NOT_IN_ANY_DUMP.id],
   inventory: [],
+  // Not the config's default, EUR, so the setup's currency visibly comes from the profile (SETUP-08).
+  currency: "GBP",
   lists: [MAYBE_LIST, PUBLIC_LIST],
 };
 
@@ -535,12 +539,13 @@ export const SHOPKEEPER: FixtureAccount = {
   collection: [],
   wantlist: [],
   inventory: [SHOP_PRESSING.id, NOT_IN_ANY_DUMP.id],
+  currency: "EUR",
   lists: [],
 };
 
 export const ACCOUNTS: FixtureAccount[] = [
   DJ,
-  { username: "other", collection: [], wantlist: [], inventory: [], lists: [] },
+  { username: "other", collection: [], wantlist: [], inventory: [], currency: "EUR", lists: [] },
   SHOPKEEPER,
 ];
 

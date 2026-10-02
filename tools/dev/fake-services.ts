@@ -345,6 +345,7 @@ export class FakeDataDumps {
   #holdAt: number | null = null;
   #failAfterBytes: number | null = null;
   #bytesPerSecond: number | null = null;
+  #unavailableStatus: number | null = null;
   #gate = Promise.withResolvers<void>();
   #sentBytes = 0;
 
@@ -379,11 +380,18 @@ export class FakeDataDumps {
 
   /**
    * failAfterBytes closes the transfer's connection after that many bytes, as a dropped download
-   * does; bytesPerSecond keeps each transfer to that rate. Null turns either off.
+   * does; bytesPerSecond keeps each transfer to that rate; unavailableStatus answers every request
+   * with that status, as the site does while it is down. Null turns each off.
    */
-  set(options: { failAfterBytes?: number | null; bytesPerSecond?: number | null }): void {
+  set(options: {
+    failAfterBytes?: number | null;
+    bytesPerSecond?: number | null;
+    unavailableStatus?: number | null;
+  }): void {
     if (options.failAfterBytes !== undefined) this.#failAfterBytes = options.failAfterBytes;
     if (options.bytesPerSecond !== undefined) this.#bytesPerSecond = options.bytesPerSecond;
+    if (options.unavailableStatus !== undefined)
+      this.#unavailableStatus = options.unavailableStatus;
   }
 
   /** The bytes of the dump the last transfer has sent so far. */
@@ -399,6 +407,8 @@ export class FakeDataDumps {
   async answer(request: FakeRequest, response: http.ServerResponse): Promise<void> {
     const dump = this.#listed;
     const { prefix, download } = request.query;
+    if (this.#unavailableStatus !== null)
+      return sendText(response, this.#unavailableStatus, "unavailable");
     if (!dump) return sendText(response, 404, "not found");
     const year = dump.date.slice(0, 4);
     if (prefix === "data/") return sendText(response, 200, rootPage(year));
@@ -516,7 +526,7 @@ function profile(fakes: FakeServices, request: FakeRequest): FakeAnswer {
     username: account.username,
     num_collection: account.collection.length,
     num_wantlist: fakes.wantlists.get(account.username)?.size ?? 0,
-    curr_abbr: "EUR",
+    curr_abbr: account.currency,
   };
   return { status: 200, body: user };
 }
