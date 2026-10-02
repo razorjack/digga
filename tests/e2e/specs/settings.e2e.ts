@@ -1,17 +1,22 @@
 import fs from "node:fs";
 import type { Locator } from "@playwright/test";
 import type {
+  BackupsResponse,
   DecisionsExport,
   DumpsResponse,
   JobsResponse,
+  QueueResponse,
   ReleaseDetail,
+  Stats,
 } from "../../../src/shared/api.ts";
 import { type Config, validateConfig } from "../../../src/shared/config.ts";
-import { formatBytes, formatDay } from "../../../src/shared/display.ts";
+import { formatBytes, formatCount, formatDay } from "../../../src/shared/display.ts";
 import { startSeconds } from "../../../src/shared/playlist.ts";
-import type { Job } from "../../../src/shared/types.ts";
+import type { DumpLoadProgress, Job } from "../../../src/shared/types.ts";
 import {
+  ECHO_CHAMBER,
   FIRST_RECORD,
+  IN_COLLECTION,
   PULSAR_REMIXES,
   PULSAR_REMIXES_IN_SEPTEMBER,
   SECOND_RECORD,
@@ -22,7 +27,7 @@ import {
 import { smallDump } from "../fixtures/dump.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { TriagePage } from "../pages/triage.ts";
+import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import type { FakeServices } from "../../../tools/dev/fake-services.ts";
@@ -154,6 +159,76 @@ test(
     );
   },
 );
+
+test.describe("with Neurofunk in the universe beside Drum n Bass", () => {
+  test.use({ diggaOptions: { config: { universe: { styles: ["Drum n Bass", "Neurofunk"] } } } });
+
+  test(
+    "SET-05 the universe's styles are checkboxes, and one left checked narrows the queue to it",
+    { tag: ["@SET-05", "@P2"] },
+    async ({ app }) => {
+      const settings = new SettingsPage(app);
+      const triage = new TriagePage(app);
+      await settings.open();
+      await expect(settings.styleFilter("Drum n Bass")).toBeChecked();
+      await expect(settings.styleFilter("Neurofunk")).toBeChecked();
+      await expect(settings.preview).toHaveText(/^These filters match 18 records/);
+
+      await settings.styleFilter("Drum n Bass").uncheck();
+      // Of the small dump's records, only the second carries Neurofunk.
+      await expect(settings.preview).toHaveText("These filters match 1 records, 1 still to dig.");
+      await settings.save();
+
+      expect((await app.api.get<Config>("/api/settings")).filters.styles).toEqual(["Neurofunk"]);
+      await new HeaderPage(app).goTo("triage");
+      await expect(triage.record).toHaveAttribute("data-triage-key", triageKeyOf(SECOND_RECORD));
+      const queue = await app.api.get<QueueResponse>("/api/queue");
+      expect(queue.items.map((item) => item.triageKey)).toEqual([triageKeyOf(SECOND_RECORD)]);
+    },
+  );
+});
+
+test.describe("on Cold Storage and Echo Chamber", () => {
+  // The label sweep starts on Cold Storage's 2000 record, the year order on Echo Chamber's 1999 one.
+  test.use({ diggaOptions: { labels: [IN_COLLECTION.label.name, ECHO_CHAMBER.name] } });
+
+  test(
+    "SET-06 a strategy changes Triage's first record, and the shuffled order stays over a reload",
+    { tag: ["@SET-06", "@P2"] },
+    async ({ app }) => {
+      const settings = new SettingsPage(app);
+      const triage = new TriagePage(app);
+      const header = new HeaderPage(app);
+      await app.open();
+      const sweepFirst = await triage.currentKey();
+      await header.goTo("settings");
+
+      await settings.strategy("year").check();
+      const byYear = await queueAfter(app, () => settings.save());
+      await header.goTo("triage");
+      expect(await triage.currentKey()).toBe(byYear.items[0]!.triageKey);
+      expect(byYear.items[0]!.triageKey).not.toBe(sweepFirst);
+
+      await header.goTo("settings");
+      await settings.strategy("random").check();
+      let shuffled = await queueAfter(app, () => settings.save());
+      expect(shuffled.seed).not.toBeNull();
+      // The seed is the server's UTC day: a read across midnight starts the comparison again.
+      let compared = false;
+      for (let read = 0; read < 2 && !compared; read += 1) {
+        const reloaded = await queueAfter(app, () => app.page.reload());
+        if (reloaded.seed === shuffled.seed) {
+          expect(keysOf(reloaded)).toEqual(keysOf(shuffled));
+          compared = true;
+        }
+        shuffled = reloaded;
+      }
+      expect(compared, "two reads within one UTC day").toBe(true);
+      await header.goTo("triage");
+      expect(await triage.currentKey()).toBe(shuffled.items[0]!.triageKey);
+    },
+  );
+});
 
 test.describe("with the clock", () => {
   test.use({ diggaOptions: { clock: true } });
@@ -319,6 +394,76 @@ test.describe("with the September dump listed", () => {
   );
 });
 
+test.describe("with the September dump in the folder", () => {
+  test.use({ diggaOptions: { dumpFiles: ["july", "september"] } });
+
+  test(
+    "SET-18 Load takes a file name from the datalist, with a limit and a dry run that records nothing",
+    { tag: ["@SET-18", "@P2"] },
+    async ({ app }) => {
+      const settings = new SettingsPage(app);
+      const september = smallDump("september");
+      const statsBefore = await app.api.get<Stats>("/api/stats");
+      await settings.open();
+      expect(await settings.dumpFileOptions()).toEqual([september.name, smallDump("july").name]);
+
+      await settings.dumpFile.fill(september.name);
+      await settings.jobs.getByRole("spinbutton", { name: "Limit" }).fill("2");
+      await settings.jobs.getByRole("checkbox", { name: "dry run" }).check();
+      const sent = app.page.waitForRequest(
+        (request) =>
+          request.method() === "POST" && new URL(request.url()).pathname === "/api/jobs/dump-load",
+      );
+      const load = await settings.startJob(
+        settings.jobs.getByRole("button", { name: "Load", exact: true }),
+      );
+      expect((await sent).postDataJSON()).toEqual({
+        file: september.name,
+        limit: 2,
+        dryRun: true,
+      });
+      await settings.waitForJob(load, "done");
+
+      const job = await app.api.get<Job>(`/api/jobs/${load}`);
+      expect(job.progress).toMatchObject({ matched: 2, added: null });
+      await expect(settings.job(load)).toContainText(
+        `scanned ${formatCount((job.progress as DumpLoadProgress).scanned)}, matched 2`,
+      );
+      // A dry run records no load: the library is still the August dump's.
+      const stats = await app.api.get<Stats>("/api/stats");
+      expect(stats.dump).toEqual(statsBefore.dump);
+      expect(stats.remaining).toBe(statsBefore.remaining);
+    },
+  );
+});
+
+test(
+  "SET-19 a relaunch with verdicts writes the day's decisions backup, which Settings shows",
+  { tag: ["@SET-19", "@P2"] },
+  async ({ app }) => {
+    const settings = new SettingsPage(app);
+    // The first start ran before the verdict existed, and an empty library gets no backup.
+    expect((await backups(app)).decisions.backups).toEqual([]);
+    await app.given.verdict({
+      key: triageKeyOf(FIRST_RECORD),
+      status: "snoozed",
+      releaseId: FIRST_RECORD.id,
+    });
+    await settings.open();
+    await expect(settings.exports).toContainText("Your decisions: no backup yet.");
+
+    await app.relaunch();
+    // The start writes the backup beside answering requests.
+    await expect.poll(async () => (await backups(app)).decisions.backups).toHaveLength(1);
+    const [backup] = (await backups(app)).decisions.backups;
+    await settings.open();
+
+    await expect(settings.exports).toContainText(
+      `Your decisions: last backed up ${formatDay(`${backup!.day}T00:00:00`)} (${formatBytes(backup!.bytes)}).`,
+    );
+  },
+);
+
 test(
   "SET-20 the three exports download the saved verdicts and marks, without the sandbox's",
   { tag: ["@SET-20", "@P1"] },
@@ -452,4 +597,21 @@ async function audibleTime(app: DiggaApp): Promise<number | undefined> {
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Runs the action and returns the queue the page reads after it. */
+async function queueAfter(app: DiggaApp, action: () => Promise<unknown>): Promise<QueueResponse> {
+  const read = app.page.waitForResponse((response) => isRequest(response, "GET", "/api/queue"));
+  await action();
+  const response = await read;
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as QueueResponse;
+}
+
+function keysOf(queue: QueueResponse): string[] {
+  return queue.items.map((item) => item.triageKey);
+}
+
+function backups(app: DiggaApp): Promise<BackupsResponse> {
+  return app.api.get<BackupsResponse>("/api/backups");
 }

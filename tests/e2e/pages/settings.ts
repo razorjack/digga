@@ -1,5 +1,5 @@
 import { expect, type Locator, type Response } from "@playwright/test";
-import type { ColorScheme } from "../../../src/shared/config.ts";
+import type { ColorScheme, QueueStrategy } from "../../../src/shared/config.ts";
 import type { Job, JobStatus } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { HeaderPage } from "./header.ts";
@@ -19,6 +19,14 @@ const COLOR_SCHEME_LABEL: Record<ColorScheme, string> = {
   system: "System",
   light: "Light",
   dark: "Dark",
+};
+
+/** The Order radios' labels, which the component holds. */
+const STRATEGY_LABEL: Record<QueueStrategy, string> = {
+  label_sweep: "Label sweep",
+  country: "By country",
+  year: "By year",
+  random: "Shuffled",
 };
 
 /** A job's row can wait for Discogs' 1.1 s spacing several times, and a dump job for its worker. */
@@ -76,6 +84,23 @@ export class SettingsPage {
 
   get fromYear(): Locator {
     return this.root.getByRole("spinbutton", { name: "From year", exact: true });
+  }
+
+  /** A style of the universe's, which the queue digs while it is checked; shown for two or more. */
+  styleFilter(style: string): Locator {
+    return this.root
+      .getByRole("group", { name: "Styles", exact: true })
+      .getByRole("checkbox", { name: style, exact: true });
+  }
+
+  strategy(strategy: QueueStrategy): Locator {
+    return this.root
+      .getByRole("group", { name: "Order" })
+      .getByRole("radio", { name: STRATEGY_LABEL[strategy], exact: true });
+  }
+
+  get currency(): Locator {
+    return this.discogs.getByRole("combobox", { name: "Currency" });
   }
 
   get hiddenLabels(): Locator {
@@ -138,6 +163,18 @@ export class SettingsPage {
   /** The dump's row in the folder's list, with its size and use. */
   dump(name: string): Locator {
     return this.dumps.getByRole("listitem").filter({ hasText: name });
+  }
+
+  /** The file Load reads, typed or picked from the datalist of the folder's dumps. */
+  get dumpFile(): Locator {
+    return this.jobs.getByRole("combobox", { name: "Dump file" });
+  }
+
+  /** The names the dump file field's datalist offers, in order. Never waits. */
+  async dumpFileOptions(): Promise<string[]> {
+    return this.dumpFile.evaluate((input) =>
+      [...((input as HTMLInputElement).list?.options ?? [])].map((option) => option.value),
+    );
   }
 
   /** The visible text of a delete button names its dump only for screen readers. */

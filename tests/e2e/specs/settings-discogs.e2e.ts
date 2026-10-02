@@ -1,7 +1,18 @@
-import type { DiscogsAccountResponse } from "../../../src/shared/api.ts";
+import type { DecisionsExport, DiscogsAccountResponse } from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
+import { formatPrice } from "../../../src/shared/display.ts";
 import type { Job } from "../../../src/shared/types.ts";
-import { DJ, MAYBE_LIST, PUBLIC_LIST } from "../fixtures/catalogue.ts";
+import { MARKET } from "../../../tools/dev/fake-services.ts";
+import {
+  DJ,
+  EVENT_HORIZON,
+  MAYBE_LIST,
+  PUBLIC_LIST,
+  SHOPKEEPER,
+  THIRD_RECORD,
+  triageKeyOf,
+} from "../fixtures/catalogue.ts";
+import { releaseVisit } from "../fixtures/history.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { TriagePage } from "../pages/triage.ts";
@@ -226,6 +237,103 @@ test.describe("with an account to import", () => {
       await settings.waitForJob(collection, "cancelled");
       await expect(settings.job(collection).getByRole("button", { name: "Cancel" })).toHaveCount(0);
       expect(fakes.requests(COLLECTION_PAGE)).toHaveLength(1);
+    },
+  );
+});
+
+test.describe("with a token", () => {
+  test.use({ diggaOptions: { savedToken: "e2e-token-dj" } });
+
+  test(
+    "SET-12 P asks Discogs in the chosen currency and shows its symbol",
+    { tag: ["@SET-12", "@P2"] },
+    async ({ app, fakes }) => {
+      const settings = new SettingsPage(app);
+      const triage = new TriagePage(app);
+      await settings.open();
+      await expect(settings.currency).toHaveValue("EUR");
+
+      await settings.currency.selectOption("GBP");
+      await settings.save();
+      await new HeaderPage(app).goTo("triage");
+      const releaseId = await triage.record.getAttribute("data-release-id");
+      await triage.askMarket();
+
+      expect(fakes.requests("GET /releases/:id")).toEqual([
+        expect.objectContaining({ params: { id: releaseId }, query: { curr_abbr: "GBP" } }),
+      ]);
+      await expect(triage.market).toContainText(formatPrice(MARKET.lowestPrice, "GBP"));
+      await expect(triage.market).toContainText("£");
+    },
+  );
+});
+
+test.describe("with an account, a token and Brave's history", () => {
+  test.use({
+    diggaOptions: {
+      ...ACCOUNT,
+      browserHistory: [
+        {
+          browser: "brave",
+          visits: [
+            releaseVisit(THIRD_RECORD, "2026-09-20T18:00:00.000Z"),
+            releaseVisit(EVENT_HORIZON, "2026-09-21T18:00:00.000Z"),
+          ],
+        },
+      ],
+    },
+  });
+
+  test(
+    "SET-15 History reads the home's history, Maybe list waits for a saved list, Read shop reads a seller for F",
+    { tag: ["@SET-15", "@P2"] },
+    async ({ app }) => {
+      const settings = new SettingsPage(app);
+      const triage = new TriagePage(app);
+      const maybeList = settings.jobs.getByRole("button", { name: "Maybe list", exact: true });
+      const readShop = settings.jobs.getByRole("button", { name: "Read shop" });
+      await settings.open();
+
+      await expect(settings.jobs.getByRole("combobox", { name: "Browser" })).toHaveValue("brave");
+      const history = await settings.startJob(
+        settings.jobs.getByRole("button", { name: "History" }),
+      );
+      await settings.waitForJob(history, "done");
+      await expect(settings.job(history)).toContainText("2 Discogs links, 2 releases");
+      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+      expect(exported.verdicts).toEqual(
+        expect.arrayContaining(
+          [THIRD_RECORD, EVENT_HORIZON].map((fixture) =>
+            expect.objectContaining({
+              key: triageKeyOf(fixture),
+              status: "seen",
+              source: "seed:history",
+            }),
+          ),
+        ),
+      );
+
+      await expect(maybeList).toBeDisabled();
+      await expect(settings.listsButton).toHaveText("Reload lists");
+      await settings.maybeList.selectOption({ label: `${MAYBE_LIST.name} (private)` });
+      await expect(maybeList).toBeDisabled();
+      await settings.save();
+      await expect(maybeList).toBeEnabled();
+
+      await expect(readShop).toBeDisabled();
+      await settings.jobs
+        .getByRole("textbox", { name: "Seller's Discogs username" })
+        .fill(SHOPKEEPER.username);
+      const shop = await settings.startJob(readShop);
+      await settings.waitForJob(shop, "done");
+
+      await new HeaderPage(app).goTo("triage");
+      await triage.openScopePicker();
+      await triage.searchScopes("shop");
+      await expect(
+        triage.scopePicker.getByRole("radio", { name: `${SHOPKEEPER.username} seller, 1 record` }),
+      ).toBeVisible();
+      await triage.closeScopePicker();
     },
   );
 });

@@ -35,14 +35,22 @@ Hidden labels: one per line; a saved label leaves the queue; `X`'s labels appear
 
 Priority: **P2**.
 
-Styles checkboxes appear with several universe styles and narrow the queue
+Given: `universe.styles` Drum n Bass and Neurofunk.
+
+Styles checkboxes appear with several universe styles and narrow the queue: with Drum n Bass
+unchecked the preview matches one record, and once saved the queue holds only the second record,
+the one Neurofunk record
 
 ## SET-06
 
 Priority: **P2**.
 
+Given: `labels: Cold Storage, Echo Chamber`; every small record is from the UK and the first one is
+also the oldest, so on all labels neither By country nor By year moves it.
+
 Order: one strategy change changes the first record in Triage; the shuffled order is stable across a
-reload (its seed is the server's UTC day)
+reload (its seed is the server's UTC day). The queue response carries `seed`; when two reads have
+different seeds, UTC midnight passed between them, and the test compares the next read instead
 
 ## SET-07
 
@@ -94,7 +102,10 @@ and the select shows the saved list
 
 Priority: **P2**.
 
-Currency: `P` then asks in the chosen currency and shows its symbol
+Given: a saved token.
+
+Currency: `P` then asks in the chosen currency and shows its symbol: with GBP saved, the fake gets
+`curr_abbr=GBP` and the market line reads £12.50
 
 ## SET-13
 
@@ -118,8 +129,12 @@ returned, then cancelled
 
 Priority: **P2**.
 
-Jobs: History reads the fake home's history file; Maybe list is disabled until a list is saved; Read
-shop needs a username, reads `shopkeeper`, and `F`'s search then offers the seller
+Given: `small-account` with a saved token, and Brave's history with visits to two releases.
+
+Jobs: History reads the fake home's history file (the row reads "2 Discogs links, 2 releases", and
+the export has them seen, from `seed:history`); Maybe list is disabled until a list is saved, not
+merely chosen; Read shop needs a username, reads `shopkeeper`, and `F`'s search then offers the
+seller
 
 ## SET-16
 
@@ -145,7 +160,11 @@ indicator goes
 
 Priority: **P2**.
 
-Load by file name from the datalist, with a limit and a dry run
+Given: the July and September dumps in the folder.
+
+Load by file name from the datalist, with a limit and a dry run: the datalist offers both dumps,
+newest first; the request carries the file, `limit: 2` and `dryRun: true`; the job ends done having
+matched 2, and the library's dump and records to dig are as before
 
 ## SET-19
 
