@@ -958,7 +958,9 @@ when the branch's workflow fixups were folded in before the merge. The work show
   the whole suite five times on two workers: 720 of 720 passed with no retry, in 22.1 minutes.
   The job took 23 min 38 s, within its 45-minute timeout. The slowest runs of the two long
   A11Y-01 tests were 14.1 s for the Twelves shelves and 27.1 s for the setup journey, as in the
-  single runs.
+  single runs. On 2026-10-03 the owner decided that burn-ins run locally, not on GitHub's free
+  compute, and the workflow's `repeat_each` input and burn-in step were removed; this was the
+  only CI burn-in.
 
 ## Original status on 2026-10-02
 

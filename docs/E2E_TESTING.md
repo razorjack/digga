@@ -55,17 +55,19 @@ verify built (`--grep-invert @P0`), P2 included. Nothing runs on a schedule. Und
 is allowed for diagnosis, but a test that passes only on retry fails the run
 ([Runner and configuration](e2e/HARNESS.md#runner-and-configuration)).
 
-A burn-in runs the whole suite, P0 included, several times after verify. It runs only when
-someone starts it:
+Burn-ins run locally, never in CI. GitHub gives open-source projects their compute for free,
+and the owner decided on 2026-10-03 not to spend it on repeated runs, so the workflow has no
+burn-in. For the same reason, commit locally and push finished work together rather than after
+each commit: every push runs the whole suite, about five minutes. A new or changed spec's
+`--repeat-each=10` (below) runs on your machine, and so does a burn-in of the whole suite:
 
 ```sh
-gh workflow run ci.yml --ref <branch> -f repeat_each=5
-gh run list --workflow ci.yml --event workflow_dispatch   # find the run
-gh run watch <run-id> --exit-status
+vp build
+npx playwright test --config tests/e2e/playwright.config.ts --repeat-each=10
 ```
 
-GitHub dispatches a workflow only when its file is on the default branch; `--ref` then picks the
-branch to test.
+A local burn-in runs on your own system, which may not be CI's Linux. A Linux-only failure shows
+in the push runs; read it from their logs and artifacts as below.
 
 To read a failed run, start with the failed step's log and the annotations, which name each
 failing test at its line: `gh run view <run-id> --log-failed`. A failed run uploads

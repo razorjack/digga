@@ -65,13 +65,14 @@ Triage's stale queue and Twelves' re-judging copy, remain in history only.
   CON-02 accepts a supplied token but its client must refuse every method except GET;
   CON-03 reads the dump listing without downloading a dump. These checks are manual before
   release, never CI. Until they exist, they cannot detect drift in the fakes.
-- [CI](../E2E_TESTING.md#ci) runs the whole suite on every push, and a burn-in only when someone
-  starts it; the owner decided on 2026-10-02 against scheduled or nightly runs. A P1/P2 split is
-  considered only if the suite outgrows its CI budget.
-- Add Firefox and WebKit only after the Linux burn-in passes and CI stays green on pushes for a
-  few weeks. The owner chose limited effort on 2026-10-02 because Electron is the main target:
-  fix quick issues, mark the rest as Chromium-only with reasons, and avoid larger product or
-  harness changes for those engines. Check the dialogs' `closedby` fallback.
+- [CI](../E2E_TESTING.md#ci) runs the whole suite on every push. The owner decided on
+  2026-10-02 against scheduled or nightly runs, and on 2026-10-03 that burn-ins run locally, not
+  in CI, so as not to spend GitHub's free compute for open-source projects on repeated runs. A
+  P1/P2 split is considered only if the suite outgrows its CI budget.
+- Add Firefox and WebKit only after CI stays green on pushes for a few weeks. The owner chose
+  limited effort on 2026-10-02 because Electron is the main target: fix quick issues, mark the
+  rest as Chromium-only with reasons, and avoid larger product or harness changes for those
+  engines. Check the dialogs' `closedby` fallback.
 - Visual snapshots remain an open choice. If approved, start with a few main-screen
   `toHaveScreenshot` checks on Linux only, with human review of updates.
 - Keep the smoke budget near one minute and P0/P1 near six minutes on CI's four-vCPU runner,

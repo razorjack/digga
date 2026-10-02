@@ -22,8 +22,8 @@ of a particular run. New scenarios get new IDs; keep existing IDs when moving do
 
 **P0** is the smoke set, which `vp run verify` runs. **P1** and **P2** are the rest of the suite.
 [CI](../../E2E_TESTING.md#ci) runs every implemented web test, P0 through P2, on every push, as
-`vp run e2e` does locally; a burn-in repeats them when someone starts one. The owner decided on
-2026-10-02 against scheduled or nightly runs. Use the [current commands](../../E2E_TESTING.md#running);
+`vp run e2e` does locally. The owner decided on 2026-10-02 against scheduled or nightly runs, and
+on 2026-10-03 that burn-ins run locally, not in CI. Use the [current commands](../../E2E_TESTING.md#running);
 Electron and contract scripts do not exist yet.
 
 The target is shared web/Electron coverage unless a specification says web or Electron only.

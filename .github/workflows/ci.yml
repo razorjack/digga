@@ -1,16 +1,11 @@
 name: CI
 
 # Every push runs the whole suite: verify (with the P0 smoke set), then every other E2E test.
-# A burn-in is started by hand (docs/E2E_TESTING.md#running); nothing runs on a schedule.
+# Nothing runs on a schedule, and burn-ins run locally, not here (docs/E2E_TESTING.md#ci).
 on:
   push:
   pull_request:
   workflow_dispatch:
-    inputs:
-      repeat_each:
-        description: "Burn-in: above 1, run the whole E2E suite this many times after verify"
-        type: number
-        default: 1
 
 permissions:
   contents: read
@@ -26,10 +21,8 @@ jobs:
     # A pull request from a branch of this repository already runs on its push.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-24.04
-    # A push run takes about 6 minutes, a burn-in at 5 about 21.
-    timeout-minutes: 45
-    env:
-      REPEAT_EACH: ${{ inputs.repeat_each || 1 }}
+    # A run takes about 5 minutes.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,12 +60,7 @@ jobs:
         run: npx vp run verify
 
       - name: The rest of the E2E suite
-        if: env.REPEAT_EACH <= 1
         run: npx playwright test --config tests/e2e/playwright.config.ts --grep-invert @P0
-
-      - name: Burn-in of the whole E2E suite
-        if: env.REPEAT_EACH > 1
-        run: npx playwright test --config tests/e2e/playwright.config.ts --repeat-each "$REPEAT_EACH"
 
       - name: Upload the E2E report and failure artifacts
         if: failure()

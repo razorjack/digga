@@ -22,7 +22,7 @@ separately limits server shutdown to 15 s. Locally there are no retries. Under `
 is allowed for diagnosis, but `failOnFlakyTests` makes a pass on retry fail the run.
 
 **CI.** [ci.yml](../../.github/workflows/ci.yml) runs on GitHub Actions; the
-[E2E guide](../E2E_TESTING.md#ci) says what each run does and how to start a burn-in. The
+[E2E guide](../E2E_TESTING.md#ci) says what each run does and why burn-ins run locally. The
 choices behind it:
 
 - `ubuntu-24.04`, not `ubuntu-latest`, so a new image arrives with a commit. Node is pinned to
