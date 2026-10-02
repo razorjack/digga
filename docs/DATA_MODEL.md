@@ -36,7 +36,9 @@ Indexes: `triage_key`, `master_id`, `(label_name, catno)` NOCASE, `year`, `count
 `added_by_load`.
 
 A dump reload replaces the release columns, tracks and videos and keeps the snapshot columns. A stub
-insert never overwrites an existing row.
+insert never overwrites an existing row. When a reload changes a release's `triage_key`, because
+Discogs gave it a master, moved it to another or took it off one, the verdicts given on that
+release move to the new key in the same transaction (see `verdicts`).
 
 ## tracks
 
@@ -98,6 +100,13 @@ in Triage replaces it with the new verdict, and undo there restores the snooze w
 with a `dug_at`, and the rate reads those times (`dugAtAfter()` in `src/shared/verdict-rank.ts`):
 a `triage` or `manual` write sets `dug_at` to its `decided_at`, a seed keeps the record's, and undo
 in Twelves restores the one it had (`dugAt`).
+
+A verdict follows the release it was given on (`release_id`, indexed): a dump load that changes the
+release's key moves the verdict, and the videos of a no-audio record, to the new key
+(`moveVerdictsToReleaseKeys()` in `src/server/db/verdict-keys.ts`). When the new key has a verdict,
+the higher rank stays, then the newer decision (`preferredVerdict()`); the notes of both are kept
+and the later `dug_at`. `digga restore` puts each verdict on the key its release has in the library
+it restores into. A verdict without a `release_id` stays on its key.
 
 ## track_verdicts
 

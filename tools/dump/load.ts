@@ -181,6 +181,10 @@ export async function loadDump(
     scan.counts.coverage = keepCoverage(scan.coverage, scan.writer, hooks.logger);
   scan.writer.flush();
   report("done", true);
+  if (scan.writer.verdictsMoved > 0)
+    hooks.logger?.info(
+      `${scan.writer.verdictsMoved} verdict(s) followed their release to the record it is on now`,
+    );
   return {
     ...scan.counts,
     upserted: scan.writer.upserted,
@@ -335,6 +339,8 @@ class KeptReleases {
 /** Writes releases in batches, one transaction each; a dry run writes nothing. */
 class BatchWriter {
   upserted = 0;
+  /** Verdicts that followed a release to its new key. */
+  verdictsMoved = 0;
   #db: Db;
   #batch: DumpRelease[] = [];
   #batchSize: number;
@@ -356,7 +362,8 @@ class BatchWriter {
   flush(): void {
     if (this.#batch.length === 0) return;
     if (!this.#dryRun) {
-      writeReleases(this.#db, this.#batch.map(dumpReleaseToWrite), { loadId: this.#loadId });
+      const writes = this.#batch.map(dumpReleaseToWrite);
+      this.verdictsMoved += writeReleases(this.#db, writes, { loadId: this.#loadId });
       this.upserted += this.#batch.length;
     }
     this.#batch = [];

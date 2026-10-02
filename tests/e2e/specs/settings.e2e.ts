@@ -1,12 +1,19 @@
 import fs from "node:fs";
 import type { Locator } from "@playwright/test";
-import type { DecisionsExport, DumpsResponse, JobsResponse } from "../../../src/shared/api.ts";
+import type {
+  DecisionsExport,
+  DumpsResponse,
+  JobsResponse,
+  ReleaseDetail,
+} from "../../../src/shared/api.ts";
 import { type Config, validateConfig } from "../../../src/shared/config.ts";
 import { formatBytes, formatDay } from "../../../src/shared/display.ts";
 import { startSeconds } from "../../../src/shared/playlist.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import {
   FIRST_RECORD,
+  PULSAR_REMIXES,
+  PULSAR_REMIXES_IN_SEPTEMBER,
   SECOND_RECORD,
   SEPTEMBER_ADDITIONS,
   TRACK_RUN,
@@ -16,6 +23,7 @@ import { smallDump } from "../fixtures/dump.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { TriagePage } from "../pages/triage.ts";
+import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import { expect, test } from "../support/test.ts";
@@ -278,6 +286,35 @@ test.describe("with the September dump listed", () => {
       );
       await expect(settings.dump(september.name)).toContainText("the library was loaded from it");
       await expect(header.loadIndicator).toBeHidden();
+    },
+  );
+
+  test(
+    "SET-21 the update keeps a verdict on its record when the newer dump puts the release on a master",
+    { tag: ["@SET-21", "@P1"] },
+    async ({ app, fakes }) => {
+      const settings = new SettingsPage(app);
+      const twelves = new TwelvesPage(app);
+      await app.given.verdict({
+        key: triageKeyOf(PULSAR_REMIXES),
+        status: "snoozed",
+        releaseId: PULSAR_REMIXES.id,
+        notes: "the remix",
+      });
+      await settings.open();
+      const update = await startHeldUpdate(settings, fakes);
+      fakes.dumps.release();
+      await settings.waitForJob(update, "done");
+
+      await new HeaderPage(app).goTo("twelves");
+      await twelves.showShelf("snoozed");
+      await expect(twelves.row("snoozed", PULSAR_REMIXES.title)).toContainText("the remix");
+      const detail = await app.api.get<ReleaseDetail>(`/api/releases/${PULSAR_REMIXES.id}`);
+      expect(detail.verdict).toMatchObject({
+        key: triageKeyOf(PULSAR_REMIXES_IN_SEPTEMBER),
+        status: "snoozed",
+        notes: "the remix",
+      });
     },
   );
 });

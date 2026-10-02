@@ -87,7 +87,7 @@ describe("the decisions backup", () => {
     const outcome = restoreBackedUpData(target, backup, backup.backedUpAt);
 
     expect(outcome).toEqual({
-      verdicts: { restored: 3, keptNewer: 0 },
+      verdicts: { restored: 3, keptNewer: 0, moved: 0 },
       trackMarks: { restored: 1, keptNewer: 0 },
       heardTunes: { added: 1 },
       attachedVideos: { added: 1, withoutRelease: 0 },
@@ -121,7 +121,7 @@ describe("the decisions backup", () => {
 
     expect(getVerdict(target, "m:501")?.status).toBe("rejected");
     expect(getVerdict(target, "m:506")?.status).toBe("no_audio");
-    expect(outcome.verdicts).toEqual({ restored: 2, keptNewer: 1 });
+    expect(outcome.verdicts).toEqual({ restored: 2, keptNewer: 1, moved: 0 });
     expect(outcome.trackMarks).toEqual({ restored: 0, keptNewer: 1 });
     expect(outcome.attachedVideos).toEqual({ added: 1, withoutRelease: 1 });
     source.close();

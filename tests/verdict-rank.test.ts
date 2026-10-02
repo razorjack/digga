@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { dugAtAfter, isTriageSource, seedRank } from "../src/shared/verdict-rank.ts";
+import type { VerdictStatus } from "../src/shared/types.ts";
+import {
+  dugAtAfter,
+  isTriageSource,
+  preferredVerdict,
+  seedRank,
+} from "../src/shared/verdict-rank.ts";
 
 describe("seed precedence", () => {
   it("ranks account facts over opinions, and a grail between the collection and the wantlist", () => {
@@ -29,6 +35,21 @@ describe("seed precedence", () => {
     expect(dugAtAfter({ source: "seed:wantlist", decidedAt }, dug)).toBe(dug.dugAt);
     expect(dugAtAfter({ source: "seed:list", decidedAt }, null)).toBeNull();
     expect(dugAtAfter({ source: "seed:wantlist", decidedAt, dugAt: null }, dug)).toBeNull();
+  });
+
+  it("keeps the higher rank, then the newer decision, when two verdicts meet on a record", () => {
+    const judged = (status: VerdictStatus, decidedAt: string) => ({
+      status,
+      source: "triage" as const,
+      decidedAt,
+    });
+    const want = judged("accepted", "2026-10-01T10:00:00Z");
+    const skip = judged("rejected", "2026-10-02T10:00:00Z");
+    const snooze = judged("snoozed", "2026-10-03T12:00:00+02:00");
+    expect(preferredVerdict(skip, want)).toBe(want);
+    expect(preferredVerdict(want, skip)).toBe(want);
+    expect(preferredVerdict(skip, snooze)).toBe(snooze);
+    expect(preferredVerdict(snooze, skip)).toBe(snooze);
   });
 
   it("tells Digga's decisions from seeds", () => {

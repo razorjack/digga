@@ -408,7 +408,8 @@ the dump; a record with a run of tracks for `J`, `K`, `1` to `9` and a video's e
 label the account wants (decision 91); a record the seller `shopkeeper` has in a different
 pressing from the main release; Jungle and House records for the style picker and census; a
 release outside the default years for filter tests. The September dump adds three releases and
-drops one, so a load of it has small exact "added" and "missing" counts. Videos
+drops one, so a load of it has small exact "added" and "missing" counts, and puts one release that
+had no master on a master (SET-21). Videos
 that YouTube has and no release lists, one titled after a track that has none, are there to be
 pasted (TRI-26), and one titled after the release without videos (TWL-14).
 
@@ -1481,6 +1482,7 @@ them; scenarios with pushes use `small-account` with a saved token.
 | SET-18 | Load by file name from the datalist, with a limit and a dry run                                                                                                                                                                                                                                                                                                                     | P2  |
 | SET-19 | Backups: with given verdicts and a `relaunch()`, whose start writes the day's decisions backup, `/api/backups` lists it and Settings shows it. The first start cannot: it runs before the given state exists, and an empty library gets no backup                                                                                                                                   | P2  |
 | SET-20 | Exports, with given verdicts and a track mark and a verdict in the sandbox: the three links download (completed, via `expectDownload`) JSON and CSV with the saved verdicts and marks, and without the sandbox verdict                                                                                                                                                              | P1  |
+| SET-21 | [the September dump listed] A snoozed record with a note, whose release has no master in August, is on the Snoozed shelf with its note after "Update from the newest dump" loads September, where the release is on a master; `/api/releases/:id` gives the verdict under the master's key                                                                                          | P1  |
 
 ### Persistence and lifecycle
 

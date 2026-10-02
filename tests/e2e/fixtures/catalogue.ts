@@ -372,6 +372,19 @@ export const SHOP_PRESSING = release({
  * label sweep digs them in this order; Cold Storage's records are the account's collection and
  * wantlist. The labels after Frontline hold records only the scenarios that dig them reach.
  */
+/** A release without a master in August; the September dump puts it on one (SET-21). */
+export const PULSAR_REMIXES = release({
+  id: 2002,
+  artists: ["Vantage"],
+  title: "Pulsar Remixes",
+  label: { ...ROLLERS_ARCHIVE, catno: "RA 002" },
+  year: 2001,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Pulsar (Torsion Remix)", "7:05")],
+  videos: [video("vantagermx1", "Vantage - Pulsar (Torsion Remix)", 425)],
+});
+
 export const SMALL: FixtureRelease[] = [
   FIRST_RECORD,
   SECOND_RECORD,
@@ -420,17 +433,7 @@ export const SMALL: FixtureRelease[] = [
     videos: [video("dillinjabrs", "Dillinja - Brass Knuckle", 418)],
   }),
   COMPILATION,
-  release({
-    id: 2002,
-    artists: ["Vantage"],
-    title: "Pulsar Remixes",
-    label: { ...ROLLERS_ARCHIVE, catno: "RA 002" },
-    year: 2001,
-    country: "UK",
-    styles: DNB,
-    tracks: [track("A", "Pulsar (Torsion Remix)", "7:05")],
-    videos: [video("vantagermx1", "Vantage - Pulsar (Torsion Remix)", 425)],
-  }),
+  PULSAR_REMIXES,
   MAIN_PRESSING,
   SHOP_PRESSING,
 ];
@@ -478,9 +481,20 @@ export const SEPTEMBER_ADDITIONS: FixtureRelease[] = [
   }),
 ];
 
-/** The small catalogue as the September dump has it: three releases more, one fewer. */
+/** Pulsar Remixes as the September dump has it: Discogs has given it a master since August. */
+export const PULSAR_REMIXES_IN_SEPTEMBER: FixtureRelease = {
+  ...PULSAR_REMIXES,
+  master: { id: 990, main: true },
+};
+
+/**
+ * The small catalogue as the September dump has it: three releases more, one fewer, and Pulsar
+ * Remixes on a master.
+ */
 export const SMALL_SEPTEMBER: FixtureRelease[] = [
-  ...SMALL.filter((fixture) => fixture.id !== DROPPED_IN_SEPTEMBER),
+  ...SMALL.filter((fixture) => fixture.id !== DROPPED_IN_SEPTEMBER).map((fixture) =>
+    fixture.id === PULSAR_REMIXES.id ? PULSAR_REMIXES_IN_SEPTEMBER : fixture,
+  ),
   ...SEPTEMBER_ADDITIONS,
 ];
 

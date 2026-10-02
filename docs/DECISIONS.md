@@ -711,3 +711,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      `heard_tracks` alone, and so does the sandbox. Greying out a tune still needs 4 s, so a tap
      that skips past a track does not hide the tune elsewhere. A play that rounds to no tenth of a
      second is not posted.
+125. **A verdict follows its release when a dump load changes the release's key.** Verdicts are
+     keyed by record, `m:{master}` or `r:{release}`, and a monthly dump changes a release's key
+     when Discogs gives it a master, merges masters or moves it to another. The load rewrote
+     `releases.triage_key` and left the verdict on the old key, so the record came back to the
+     queue as undecided. 2,214 of the owner's 7,139 records to dig have no master and are keyed by
+     release. Each verdict keeps the release it was given on, so the batch that writes a release
+     also moves the verdicts on it to the release's new key, in the same transaction, and takes
+     the no-audio record's videos along; nothing else changes a key. Following the release rather
+     than the old key is right for the split case too: the verdict is about the release that was
+     heard. When two verdicts land on one record, as two judged pressings under a new master, the
+     higher rank stays and then the newer decision, so a want is never lost to a skip; both notes
+     are kept, and the log keeps the replaced verdict. A restore puts each verdict on the key its
+     release has now before applying its own rule, since a library rebuilt from a newer dump has
+     the new keys. History hits on a master have no release and stay.

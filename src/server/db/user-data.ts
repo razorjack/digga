@@ -1,11 +1,13 @@
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
 import type { TrackMark, VerdictSource, VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "./db.ts";
+import { currentReleaseKey } from "./verdict-keys.ts";
 import { getVerdict, upsertVerdict } from "./verdicts.ts";
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
-  verdicts: { restored: number; keptNewer: number };
+  /** `moved`: restored verdicts whose release a dump loaded since has put on another record. */
+  verdicts: { restored: number; keptNewer: number; moved: number };
   trackMarks: { restored: number; keptNewer: number };
   heardTunes: { added: number };
   attachedVideos: { added: number; withoutRelease: number };
@@ -148,7 +150,8 @@ function readNoAudioVideos(db: Db): BackedUpData["noAudioVideos"] {
 
 /**
  * A record judged in Digga after the backup keeps its verdict, also when a seed has replaced it
- * since; so do the videos its no-audio record had.
+ * since; so do the videos its no-audio record had. Each verdict goes to the record its release
+ * is on now.
  */
 function restoreVerdicts(
   db: Db,
@@ -161,21 +164,29 @@ function restoreVerdicts(
      ON CONFLICT(key) DO UPDATE SET video_ids_json = excluded.video_ids_json`,
   );
   const forgetVideos = db.prepare("DELETE FROM no_audio_videos WHERE key = ?");
-  const outcome = { restored: 0, keptNewer: 0 };
-  for (const verdict of data.verdicts) {
+  const outcome = { restored: 0, keptNewer: 0, moved: 0 };
+  for (const backedUp of data.verdicts) {
+    const verdict = { ...backedUp, key: currentKeyOf(db, backedUp) };
     const dugAt = getVerdict(db, verdict.key)?.dugAt ?? null;
     if (dugAt !== null && Date.parse(dugAt) > backupTime) {
       outcome.keptNewer += 1;
       continue;
     }
     upsertVerdict(db, verdict);
-    const videoIds = recorded.get(verdict.key);
+    const videoIds = recorded.get(backedUp.key);
     if (verdict.status === "no_audio" && videoIds)
       saveVideos.run(verdict.key, JSON.stringify(videoIds));
     else forgetVideos.run(verdict.key);
     outcome.restored += 1;
+    if (verdict.key !== backedUp.key) outcome.moved += 1;
   }
   return outcome;
+}
+
+/** The key of the record the verdict's release is on now; its own key without a release. */
+function currentKeyOf(db: Db, verdict: { key: string; releaseId: number | null }): string {
+  if (verdict.releaseId === null) return verdict.key;
+  return currentReleaseKey(db, verdict.releaseId) ?? verdict.key;
 }
 
 function restoreTrackMarks(

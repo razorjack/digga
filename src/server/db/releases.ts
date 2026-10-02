@@ -8,6 +8,7 @@ import type {
 } from "../../shared/types.ts";
 import type { PressingVideo } from "../../shared/videos.ts";
 import { type Db, nowIso } from "./db.ts";
+import { moveVerdictsToReleaseKeys } from "./verdict-keys.ts";
 
 export interface TrackWrite {
   seq: number;
@@ -278,15 +279,22 @@ export function upsertRelease(db: Db, release: ReleaseWrite, loadId: number | nu
   writeVideos(db, release.id, release.videos, { replace: true });
 }
 
+/**
+ * Writes dump releases in one transaction, with the verdicts on a release whose key changed moved
+ * to its new key. Returns how many verdicts moved.
+ */
 export const writeReleases = (
   db: Db,
   writes: ReleaseWrite[],
   options: { loadId?: number } = {},
-): void => {
+): number =>
   db.transaction((rows: ReleaseWrite[]) => {
     for (const release of rows) upsertRelease(db, release, options.loadId ?? null);
+    return moveVerdictsToReleaseKeys(
+      db,
+      rows.map((release) => release.id),
+    );
   })(writes);
-};
 
 /** Stub row for a release outside the universe (from a seed). Never overwrites an existing row. */
 export function insertStubRelease(db: Db, release: ReleaseWrite): boolean {

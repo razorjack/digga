@@ -91,10 +91,14 @@ export function showRestore(restore: {
   const { verdicts, trackMarks, heardTunes, attachedVideos } = restore.outcome;
   const kept = (count: number) =>
     count > 0 ? `, ${count} kept: decided here after the backup` : "";
+  const moved =
+    verdicts.moved > 0 ? `, ${verdicts.moved} on the record their release is on now` : "";
   const leftOut = attachedVideos.withoutRelease;
   console.log(`copied the database first: ${restore.copy.file}`);
   console.log(`restored ${restore.file}, backed up ${restore.backup.backedUpAt}`);
-  console.log(`  verdicts:        ${verdicts.restored} restored${kept(verdicts.keptNewer)}`);
+  console.log(
+    `  verdicts:        ${verdicts.restored} restored${moved}${kept(verdicts.keptNewer)}`,
+  );
   console.log(`  track marks:     ${trackMarks.restored} restored${kept(trackMarks.keptNewer)}`);
   console.log(`  heard tunes:     ${heardTunes.added} added`);
   console.log(

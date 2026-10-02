@@ -35,3 +35,15 @@ export function seedRank(verdict: { status: VerdictStatus; source: VerdictSource
   if (verdict.status === "accepted") return 1.6;
   return 1.5;
 }
+
+/**
+ * The verdict a record keeps when two meet on its key, as when a dump load puts two judged
+ * pressings under one master: the higher rank, then the newer decision.
+ */
+export function preferredVerdict<
+  V extends { status: VerdictStatus; source: VerdictSource; decidedAt: string },
+>(left: V, right: V): V {
+  const byRank = seedRank(left) - seedRank(right);
+  if (byRank !== 0) return byRank > 0 ? left : right;
+  return Date.parse(right.decidedAt) > Date.parse(left.decidedAt) ? right : left;
+}
