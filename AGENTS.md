@@ -148,6 +148,10 @@ data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in 
 - Comments explain constraints, not what the code says. No em dashes; en dash with spaces in prose.
 - Formatting and lint are owned by `vp check --fix`.
 - Prefer short, descriptive commit titles that explain the change without a commit body.
+- Push only when the owner asks, and never after each commit. Every push runs the whole suite on
+  GitHub Actions (about five minutes), which GitHub provides free for open-source projects, so
+  commit locally and push finished work together. Burn-ins (`--repeat-each`) run locally, never
+  in CI ([CI](docs/E2E_TESTING.md#ci)).
 
 ## Code quality (binding)
 
