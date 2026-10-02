@@ -140,11 +140,11 @@ test.describe("in the sandbox", () => {
       await expect(settings.sandboxSwitch).toBeFocused();
       await expect(settings.sandboxSwitch).toHaveText("Turn off the sandbox");
       await expect(settings.sandbox).toBeInViewport();
-      // The highlight is drawn only: a bar on the section's left edge and a background.
-      await expect(settings.sandbox).toHaveCSS("box-shadow", /inset/);
+      // The section is the page's current location, which also draws its highlight.
+      await expect(settings.sandbox).toHaveAttribute("aria-current", "location");
 
       await header.goTo("settings");
-      await expect(settings.sandbox).toHaveCSS("box-shadow", "none");
+      await expect(settings.sandbox).not.toHaveAttribute("aria-current");
     },
   );
 });

@@ -36,8 +36,9 @@ after each close the body has focus
 Priority: **P1**.
 
 With the sandbox on, the header stamp links to `#/settings/sandbox`, which highlights the Sandbox
-section and focuses the switch. The highlight is drawn only (a background and an inset bar), so the
-test reads the computed `box-shadow`, and `none` on `#/settings`
+section and focuses the switch. The section is then the page's current location
+(`aria-current="location"`), which also draws the highlight (a background and an inset bar), and
+has no `aria-current` on `#/settings`
 
 ## SHELL-06
 

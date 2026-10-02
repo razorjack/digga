@@ -363,3 +363,61 @@ test.describe("the first run's titles", () => {
     },
   );
 });
+
+test(
+  "A11Y-05 the scope picker's dig button declares Enter",
+  { tag: ["@A11Y-05", "@P2"] },
+  async ({ app }) => {
+    const triage = new TriagePage(app);
+    await app.open();
+    await triage.openScopePicker();
+
+    await expect(triage.scopePicker.getByRole("button", { name: "dig" })).toHaveAttribute(
+      "aria-keyshortcuts",
+      "Enter",
+    );
+  },
+);
+
+test.describe("the crate", () => {
+  test.use({ diggaOptions: { template: "empty", listedDump: "bulk" } });
+
+  test(
+    "A11Y-05 the crate's Start digging declares T and Enter",
+    { tag: ["@A11Y-05", "@P2"] },
+    async ({ app, fakes }) => {
+      test.slow();
+      fakes.dumps.holdAt(fakes.dumps.checkpoint("100-to-dig").name);
+      const setup = new SetupPage(app);
+      await app.open();
+      await setup.fetchCatalogue();
+      await setup.skipDiscogs();
+      await setup.pickStyle("Drum n Bass");
+      await setup.fillCrate();
+
+      await expect(setup.startDiggingButton).toHaveAttribute("aria-keyshortcuts", "T Enter");
+    },
+  );
+});
+
+test.describe("a narrow window in the sandbox", () => {
+  test.use({ diggaOptions: { sandbox: true } });
+
+  test(
+    "A11Y-06 the header hides the sandbox's explanation and the ETA from sight only",
+    { tag: ["@A11Y-06", "@P2"] },
+    async ({ app }) => {
+      const header = new HeaderPage(app);
+      await app.open();
+      await expect(header.root.getByText("ETA after a few verdicts")).toBeVisible();
+      await app.page.setViewportSize({ width: 1100, height: 1000 });
+
+      const explanation = header.sandbox.getByText("verdicts are not saved", { exact: true });
+      const eta = header.root.getByText("ETA after a few verdicts", { exact: true });
+      for (const hidden of [explanation, eta])
+        await expect.poll(async () => (await hidden.boundingBox())?.width).toBe(1);
+      await expect(header.sandbox).toHaveAccessibleName(/verdicts are not saved/);
+      await expect(header.root).toMatchAriaSnapshot("- paragraph: ETA after a few verdicts");
+    },
+  );
+});

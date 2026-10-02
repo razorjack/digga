@@ -48,3 +48,19 @@ Priority: **P1**.
 
 Every route and setup step sets the document title: "Triage – Digga", "Twelves – Digga" and
 "Settings – Digga" from the routes table, and "<step> – Digga setup" for each of the four steps
+
+## A11Y-05
+
+Priority: **P2**.
+
+A control that a key also starts declares the key in `aria-keyshortcuts`: the scope picker's dig
+button `Enter`, and the crate's Start digging `T Enter`, though its key cap shows T only
+
+## A11Y-06
+
+Priority: **P2**.
+
+In a window 1,100 px wide, with the sandbox on, the header hides the sandbox's explanation and the
+ETA from sight only: each is 1 px wide, the stamp's link is still named "… verdicts are not saved",
+and the banner's ARIA snapshot still has "ETA after a few verdicts". The same rule hides the
+explanation at 1,440 px while a dump job runs
