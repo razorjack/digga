@@ -1,3 +1,5 @@
+import type { Locator, Page } from "@playwright/test";
+import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { endOfQueueHeadline } from "../../../src/client/triage/end-of-queue.ts";
 import { SHELVES } from "../../../src/client/twelves/model.ts";
 import type { Stats } from "../../../src/shared/api.ts";
@@ -6,20 +8,25 @@ import {
   ECHO_CHAMBER,
   EVENT_HORIZON,
   FIRST_RECORD,
+  GROUNDWORK,
   SECOND_RECORD,
   THIRD_RECORD,
+  TRACK_RUN,
   WITHOUT_VIDEOS,
 } from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { KeysDialog, PracticeCard } from "../pages/dialogs.ts";
+import { HeaderPage, page } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { SetupPage } from "../pages/setup.ts";
+import { SetupPage, type SetupStep, stepTitle } from "../pages/setup.ts";
 import { TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import { expectAccessible } from "../support/axe.ts";
+import { LiveRegionWatch } from "../support/live-regions.ts";
 import { expect, test } from "../support/test.ts";
 
-// Accessibility: axe scans of each screen and the names of its regions
+// Accessibility: axe scans of each screen and the names of its regions, inert players, live
+// regions and document titles
 // (docs/e2e/scenarios/accessibility.md).
 
 test.describe("A11Y-01 axe finds nothing serious", () => {
@@ -193,3 +200,166 @@ async function expectStepRegion(
   await setup.expectStep(step);
   await expect(setup.root.getByRole("region", { name })).toBeVisible();
 }
+
+test.describe("a record with a run of tracks", () => {
+  test.use({ diggaOptions: { labels: [GROUNDWORK.name] } });
+
+  test(
+    "A11Y-02 the players are inert, Tab never reaches one, and a clicked control leaves the page keys working",
+    { tag: ["@A11Y-02", "@P1"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const header = new HeaderPage(app);
+      await app.open();
+      await triage.startListening();
+
+      const frames = triage.player.locator("iframe");
+      await expect(frames).toHaveCount(3);
+      expect(await insideInert(frames)).toEqual([true, true, true]);
+      // Focus inside a player's frame would make the frame the page's active element.
+      const reached = await tabRound(app.page);
+      expect(reached).not.toContainEqual(expect.stringMatching(/^IFRAME/));
+      expect(reached.length).toBeGreaterThan(1);
+      // The round leaves the focus on the last control it reached.
+      await app.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+      // A clicked button or link does not take the focus, so Enter and Space stay the page's;
+      // the slider takes it, and leaves every key to the page.
+      await triage.track(TRACK_RUN.tracks[1]!.position).getByRole("button").click();
+      expect(await focused(app.page)).toBe("BODY");
+      await expect(triage.currentTrack).toHaveAttribute(
+        "data-position",
+        TRACK_RUN.tracks[1]!.position,
+      );
+      expect(await triage.previousTrack()).toBe(TRACK_RUN.tracks[0]!.position);
+
+      await header.link("twelves").click();
+      await expect(header.link("twelves")).toHaveAttribute("aria-current", "page");
+      expect(await focused(app.page)).toBe("BODY");
+      await header.goTo("triage");
+
+      await triage.root.locator('[aria-keyshortcuts="N"]').click();
+      expect(await focused(app.page)).toBe("BODY");
+      await triage.goRound();
+
+      await triage.position.click();
+      await triage.pause();
+    },
+  );
+});
+
+/** For each element, whether an `inert` ancestor, or the element itself, holds it. */
+function insideInert(elements: Locator): Promise<boolean[]> {
+  return elements.evaluateAll((list) => list.map((element) => element.closest("[inert]") !== null));
+}
+
+/** The focused element as "TAG name", or "BODY" when nothing has the focus. */
+function focused(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const element = document.activeElement;
+    if (!element || element === document.body) return "BODY";
+    const name = element.getAttribute("aria-label") ?? element.textContent?.trim() ?? "";
+    return `${element.tagName} ${name}`.slice(0, 80);
+  });
+}
+
+/**
+ * Presses Tab until the focus comes back to an element it reached before, at most 60 times;
+ * returns what each press reached, as "TAG name".
+ */
+async function tabRound(page: Page): Promise<string[]> {
+  const reached: string[] = [];
+  for (let press = 0; press < 60; press += 1) {
+    await page.keyboard.press("Tab");
+    const now = await focused(page);
+    if (reached.includes(now)) break;
+    reached.push(now);
+  }
+  return reached;
+}
+
+test.describe("with the September dump listed", () => {
+  test.use({ diggaOptions: { listedDump: "september" } });
+
+  test(
+    "A11Y-03 the slip, the flashes and the header's status are in the page before their text",
+    { tag: ["@A11Y-03", "@P2"] },
+    async ({ app, fakes }) => {
+      const regions = await LiveRegionWatch.install(app.page);
+      const triage = new TriagePage(app);
+      const settings = new SettingsPage(app);
+      const twelves = new TwelvesPage(app);
+      const header = new HeaderPage(app);
+      await app.open();
+      await expect(triage.lastAction).toHaveText(/\S/);
+      await expect(header.announcement).toHaveText("");
+
+      // A snooze, which Twelves shows on Everything, where the note goes.
+      await triage.judge("snoozed");
+      await expect(triage.lastAction).toContainText(STATUS_COPY.snoozed);
+      await app.page.keyboard.press("m");
+      await expect(triage.messages).toHaveText(/^M needs your Discogs Maybe list/);
+
+      await twelves.open();
+      await twelves.writeNote("rolling bassline");
+
+      await settings.open();
+      fakes.dumps.holdAt("part-way");
+      const update = await settings.startJob(
+        settings.jobs.getByRole("button", { name: "Update from the newest dump" }),
+      );
+      await expect(header.loadIndicator).toBeVisible();
+      fakes.dumps.release();
+      await settings.waitForJob(update, "done");
+      await expect(header.announcement).toHaveText(/^The catalogue is in: /);
+      await settings.switchSandbox("on");
+
+      const inserted = await regions.insertedWithText();
+      for (const text of [
+        STATUS_COPY.snoozed,
+        "M needs your Discogs Maybe list",
+        "Note saved.",
+        "The catalogue is in",
+        "Back in the sandbox",
+      ])
+        expect(inserted).not.toContainEqual(expect.stringContaining(text));
+    },
+  );
+});
+
+test("A11Y-04 each page sets the document title", { tag: ["@A11Y-04", "@P1"] }, async ({ app }) => {
+  const header = new HeaderPage(app);
+  await app.open();
+  await expect(app.page).toHaveTitle(`${page("triage").label} – Digga`);
+
+  for (const route of ["twelves", "settings", "triage"] as const) {
+    await header.goTo(route);
+    await expect(app.page).toHaveTitle(`${page(route).label} – Digga`);
+  }
+});
+
+test.describe("the first run's titles", () => {
+  test.use({ diggaOptions: { template: "empty", listedDump: "bulk" } });
+
+  test(
+    "A11Y-04 each setup step sets the document title",
+    { tag: ["@A11Y-04", "@P1"] },
+    async ({ app, fakes }) => {
+      test.slow();
+      fakes.dumps.holdAt(fakes.dumps.checkpoint("100-to-dig").name);
+      const setup = new SetupPage(app);
+      const title = (step: SetupStep) => `${stepTitle(step)} – Digga setup`;
+
+      await app.open();
+      await setup.expectStep("catalogue");
+      await expect(app.page).toHaveTitle(title("catalogue"));
+      await setup.fetchCatalogue();
+      await expect(app.page).toHaveTitle(title("discogs"));
+      await setup.skipDiscogs();
+      await expect(app.page).toHaveTitle(title("sound"));
+      await setup.pickStyle("Drum n Bass");
+      await setup.fillCrate();
+      await expect(app.page).toHaveTitle(title("crate"));
+    },
+  );
+});

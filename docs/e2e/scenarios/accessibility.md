@@ -25,18 +25,26 @@ scheme only. No rule is excluded for any element
 
 Priority: **P1**.
 
-The player hosts are `inert`, and Tab never reaches the fake player's focusable button; no focusable
-element keeps the page keys after a click
+The player hosts are `inert`, and Tab never reaches the fake player's focusable button: a round of
+Tab presses on Triage, playing the Groundwork record, never makes a player's frame the active
+element. No focusable element keeps the page keys after a click: a track's button, a header link
+and the verdict bar's N leave nothing focused, and K, T and N then do what they do; the position
+slider takes the focus and leaves Space to the page
 
 ## A11Y-03
 
 Priority: **P2**.
 
 Live regions exist before their updates: the slip (which starts with its instructions), the flashes
-and the header status are in the DOM before the text changes
+and the header status are in the DOM before the text changes. `LiveRegionWatch` records none of a
+snooze on the slip, M's message without a Maybe list in "Triage messages", "Note saved." in
+Twelves, "Back in the sandbox" in Settings' save bar, and the header's "The catalogue is in: …"
+after an update started in Settings (the September dump listed, held at `part-way` until the
+header shows the load); the header's status is in the page, empty, from the start
 
 ## A11Y-04
 
 Priority: **P1**.
 
-Every route and setup step sets the document title
+Every route and setup step sets the document title: "Triage – Digga", "Twelves – Digga" and
+"Settings – Digga" from the routes table, and "<step> – Digga setup" for each of the four steps

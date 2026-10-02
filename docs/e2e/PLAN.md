@@ -12,13 +12,11 @@ below are specified but unimplemented, and the observations below still need dec
 
 ## Next work
 
-1. Finish the [Accessibility family](scenarios/accessibility.md): A11Y-02 and A11Y-04 (P1) and
-   A11Y-03 (P2). A11Y-01's scans run through `support/axe.ts`.
-2. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
+1. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
    Ubuntu, Node 24, Chromium with its system dependencies, `vp run verify`, then the remaining
    E2E tests with `@P0` excluded so smoke does not run twice. Upload the HTML report and failure
    artifacts; shard only if the suite exceeds its budget.
-3. Implement every remaining P2 scenario, then review the full suite for consolidation.
+2. Implement every remaining P2 scenario, then review the full suite for consolidation.
    The owner chose this order on 2026-10-02; do not prune P2 before that review.
 
 A slice is complete when its specified behavior is covered, the affected spec passes
@@ -32,16 +30,15 @@ Do not treat an observation as a confirmed gap without checking it.
 The links lead to the requirements. Add fixture records or fake endpoints only when the
 scenario needs them; `GET /masters/{id}` is still absent from the fake Discogs API.
 
-| Family                                      | Remaining IDs                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------ |
-| [Shell](scenarios/shell.md)                 | SHELL-06, SHELL-08, SHELL-10, SHELL-11                                         |
-| [Setup](scenarios/setup.md)                 | SETUP-10, SETUP-12, SETUP-20                                                   |
-| [Triage](scenarios/triage.md)               | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
-| [Sandbox](scenarios/sandbox.md)             | SBX-06                                                                         |
-| [Twelves](scenarios/twelves.md)             | TWL-08, TWL-15, TWL-16, TWL-17, TWL-18                                         |
-| [Settings](scenarios/settings.md)           | SET-05, SET-06, SET-12, SET-15, SET-18, SET-19                                 |
-| [Persistence](scenarios/persistence.md)     | PER-02, PER-03                                                                 |
-| [Accessibility](scenarios/accessibility.md) | A11Y-03, as part of the family above                                           |
+| Family                                  | Remaining IDs                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| [Shell](scenarios/shell.md)             | SHELL-06, SHELL-08, SHELL-10, SHELL-11                                         |
+| [Setup](scenarios/setup.md)             | SETUP-10, SETUP-12, SETUP-20                                                   |
+| [Triage](scenarios/triage.md)           | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
+| [Sandbox](scenarios/sandbox.md)         | SBX-06                                                                         |
+| [Twelves](scenarios/twelves.md)         | TWL-08, TWL-15, TWL-16, TWL-17, TWL-18                                         |
+| [Settings](scenarios/settings.md)       | SET-05, SET-06, SET-12, SET-15, SET-18, SET-19                                 |
+| [Persistence](scenarios/persistence.md) | PER-02, PER-03                                                                 |
 
 The original catalogue design included pooled-video pressings, undated wanted-label records,
 House releases and additional records in other styles. Check the current
