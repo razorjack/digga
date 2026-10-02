@@ -210,6 +210,48 @@ describe("HTTP API", () => {
     expect((await get<QueueResponse>("/api/queue")).body.remaining).toBe(2);
   });
 
+  it("keeps a mark's tune and moment when a later dump renames its position", async () => {
+    const marked = await send<TrackVerdict>("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "B1",
+      mark: "candidate",
+      videoId: "aaaaaaaaaa1",
+      atSeconds: 190.5,
+    });
+    expect(marked.body).toMatchObject({
+      heardKey: "ed rush and optical - watermelon",
+      videoId: "aaaaaaaaaa1",
+      atSeconds: 190.5,
+    });
+    // A note written in Twelves sends no moment and keeps the saved one.
+    const noted = await send<TrackVerdict>("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "B1",
+      mark: "candidate",
+      notes: "the vocal",
+    });
+    expect(noted.body).toMatchObject({ videoId: "aaaaaaaaaa1", atSeconds: 190.5 });
+    expect(
+      (
+        await send("POST", "/api/track-verdicts", {
+          releaseId: 1001,
+          position: "B1",
+          mark: "keep",
+          videoId: "aaaaaaaaaa1",
+        })
+      ).status,
+    ).toBe(400);
+
+    db.prepare(
+      "UPDATE tracks SET position = 'B' WHERE release_id = 1001 AND position = 'B1'",
+    ).run();
+    const marks = await get<TrackMarksResponse>("/api/track-marks");
+    expect(marks.body.items[0]).toMatchObject({
+      mark: { position: "B1", heardKey: "ed rush and optical - watermelon", atSeconds: 190.5 },
+      track: { artistDisplay: "Ed Rush & Optical", title: "Watermelon", durationSeconds: null },
+    });
+  });
+
   it("logs listens and marks tracks heard everywhere the tune appears", async () => {
     const log = await send<{ id: number; heardKey: string | null }>("POST", "/api/listen-log", {
       releaseId: 1006,

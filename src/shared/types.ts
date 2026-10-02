@@ -140,6 +140,11 @@ export interface TrackVerdict {
   mark: TrackMark;
   notes: string | null;
   decidedAt: string;
+  /** The tune, kept with the mark when a later dump renames the position. */
+  heardKey: string | null;
+  /** The video playing when the mark was set, and the second it had reached. */
+  videoId: string | null;
+  atSeconds: number | null;
 }
 
 export interface HeardTrack {

@@ -10,17 +10,25 @@ interface MarkedTrackRow {
   mark: TrackMark;
   notes: string | null;
   decided_at: string;
-  artist_display: string | null;
-  title: string | null;
+  heard_key: string | null;
+  video_id: string | null;
+  at_seconds: number | null;
+  track_artist: string | null;
+  track_title: string | null;
   duration_seconds: number | null;
 }
 
-/** Every marked track, newest mark first, with its release and the record's verdict. */
+/**
+ * Every marked track, newest mark first, with its release and the record's verdict. A position
+ * the release no longer lists shows the tune saved with the mark.
+ */
 export function listMarkedTracks(db: Db): MarkedTrack[] {
   const rows = db
     .prepare(
       `SELECT tv.release_id, tv.position, tv.mark, tv.notes, tv.decided_at,
-         t.artist_display, t.title, t.duration_seconds
+         tv.heard_key, tv.video_id, tv.at_seconds,
+         COALESCE(t.artist_display, tv.artist_display) AS track_artist,
+         COALESCE(t.title, tv.title) AS track_title, t.duration_seconds
        FROM track_verdicts tv
        LEFT JOIN tracks t ON t.release_id = tv.release_id AND t.seq = (
          SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position)
@@ -36,6 +44,9 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
         mark: row.mark,
         notes: row.notes,
         decidedAt: row.decided_at,
+        heardKey: row.heard_key,
+        videoId: row.video_id,
+        atSeconds: row.at_seconds,
       },
       track: markedTrackTitle(row),
       release,
@@ -45,10 +56,10 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
 }
 
 function markedTrackTitle(row: MarkedTrackRow): MarkedTrack["track"] {
-  if (row.title === null) return null;
+  if (row.track_title === null) return null;
   return {
-    artistDisplay: row.artist_display ?? "",
-    title: row.title,
+    artistDisplay: row.track_artist ?? "",
+    title: row.track_title,
     durationSeconds: row.duration_seconds,
   };
 }

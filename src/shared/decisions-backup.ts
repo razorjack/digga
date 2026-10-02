@@ -21,12 +21,18 @@ const BackupVerdictSchema = z.object({
   decidedAt: timestamp,
 });
 
+/** Backups written before Digga saved a mark's tune and moment read those as null. */
 const BackupTrackMarkSchema = z.object({
   releaseId: id,
   position: z.string().min(1),
   mark: z.enum(TRACK_MARKS),
   notes: z.string().nullable(),
   decidedAt: timestamp,
+  heardKey: z.string().nullable().default(null),
+  artistDisplay: z.string().nullable().default(null),
+  title: z.string().nullable().default(null),
+  videoId: z.string().nullable().default(null),
+  atSeconds: z.number().nonnegative().nullable().default(null),
 });
 
 const BackupHeardTuneSchema = z.object({

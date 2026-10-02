@@ -89,7 +89,8 @@ import) reads the list again and clears the marks.
 | `Shift+M` | `meh`       |
 | `Shift+C` | `candidate` |
 
-Pressing the same mark again clears it.
+Pressing the same mark again clears it. A mark keeps the tune and the second of the video it was
+set at, so the moment it is about can be found again.
 
 ## Twelves
 

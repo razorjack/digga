@@ -102,6 +102,11 @@ with source `triage` or `manual`.
 without `notes` keeps the saved note, and `decided_at` changes only when the mark does.
 `GET /api/track-marks` lists them for the Twelves Tracks shelf.
 
+Each mark also keeps its tune: `heard_key`, `artist_display` and `title`, copied from the track
+when the mark is written and kept when a later dump no longer lists the position. `video_id` and
+`at_seconds` are the video playing in Triage when the mark was set and the second it had reached;
+a write without them (a note from Twelves) keeps the saved ones.
+
 ## heard_tracks
 
 `heard_key` PK, `first_release_id`, `seconds_listened` (accumulated), `first_heard_at`,

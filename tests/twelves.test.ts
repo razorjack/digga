@@ -32,7 +32,16 @@ function record(id: number): TwelvesItem {
 
 function marked(id: number, position: string, mark: TrackMark, decidedAt: string): MarkedTrack {
   return {
-    mark: { releaseId: id, position, mark, notes: null, decidedAt },
+    mark: {
+      releaseId: id,
+      position,
+      mark,
+      notes: null,
+      decidedAt,
+      heardKey: null,
+      videoId: null,
+      atSeconds: null,
+    },
     track: { artistDisplay: `Artist ${id}`, title: `Tune ${position}`, durationSeconds: 300 },
     release: queueItem(id),
     verdict: null,

@@ -355,8 +355,11 @@ class SandboxApi implements Api {
       this.#marks.set(key, null);
       return null;
     }
-    // As on the server: omitted notes stay, and an unchanged mark keeps its date.
+    // As on the server: omitted notes and moment stay, and an unchanged mark keeps its date.
     const previous = this.#savedMark(trackVerdict.releaseId, trackVerdict.position);
+    const track = this.#details
+      .get(trackVerdict.releaseId)
+      ?.tracks.find((candidate) => candidate.position === trackVerdict.position);
     const mark: TrackVerdict = {
       releaseId: trackVerdict.releaseId,
       position: trackVerdict.position,
@@ -364,6 +367,8 @@ class SandboxApi implements Api {
       notes: trackVerdict.notes === undefined ? (previous?.notes ?? null) : trackVerdict.notes,
       decidedAt:
         previous?.mark === trackVerdict.mark ? previous.decidedAt : this.#now().toISOString(),
+      heardKey: track?.heardKey ?? previous?.heardKey ?? null,
+      ...markMoment(trackVerdict, previous),
     };
     this.#marks.set(key, mark);
     return { ...mark };
@@ -553,6 +558,16 @@ class SandboxApi implements Api {
 
   removeFromWantlist: Api["removeFromWantlist"] = (releaseId) =>
     this.#fakeWantlistWrite(releaseId, false);
+}
+
+/** The moment a mark write sends, or the saved one when it sends none. */
+function markMoment(
+  input: { videoId?: string; atSeconds?: number },
+  previous: TrackVerdict | null,
+): Pick<TrackVerdict, "videoId" | "atSeconds"> {
+  if (input.videoId === undefined || input.atSeconds === undefined)
+    return { videoId: previous?.videoId ?? null, atSeconds: previous?.atSeconds ?? null };
+  return { videoId: input.videoId, atSeconds: input.atSeconds };
 }
 
 function shouldApplyListSeed(seed: Verdict, previous: Verdict | null): boolean {

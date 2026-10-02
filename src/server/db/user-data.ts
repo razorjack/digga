@@ -74,6 +74,11 @@ function readTrackMarks(db: Db): BackedUpData["trackMarks"] {
     mark: TrackMark;
     notes: string | null;
     decided_at: string;
+    heard_key: string | null;
+    artist_display: string | null;
+    title: string | null;
+    video_id: string | null;
+    at_seconds: number | null;
   }[];
   return rows.map((row) => ({
     releaseId: row.release_id,
@@ -81,6 +86,11 @@ function readTrackMarks(db: Db): BackedUpData["trackMarks"] {
     mark: row.mark,
     notes: row.notes,
     decidedAt: row.decided_at,
+    heardKey: row.heard_key,
+    artistDisplay: row.artist_display,
+    title: row.title,
+    videoId: row.video_id,
+    atSeconds: row.at_seconds,
   }));
 }
 
@@ -173,10 +183,14 @@ function restoreTrackMarks(
     "SELECT decided_at FROM track_verdicts WHERE release_id = ? AND position = ?",
   );
   const save = db.prepare(
-    `INSERT INTO track_verdicts (release_id, position, mark, notes, decided_at)
-     VALUES (@releaseId, @position, @mark, @notes, @decidedAt)
+    `INSERT INTO track_verdicts (release_id, position, mark, notes, decided_at,
+       heard_key, artist_display, title, video_id, at_seconds)
+     VALUES (@releaseId, @position, @mark, @notes, @decidedAt,
+       @heardKey, @artistDisplay, @title, @videoId, @atSeconds)
      ON CONFLICT(release_id, position) DO UPDATE SET mark = excluded.mark, notes = excluded.notes,
-       decided_at = excluded.decided_at`,
+       decided_at = excluded.decided_at, heard_key = excluded.heard_key,
+       artist_display = excluded.artist_display, title = excluded.title,
+       video_id = excluded.video_id, at_seconds = excluded.at_seconds`,
   );
   const outcome = { restored: 0, keptNewer: 0 };
   for (const mark of marks) {

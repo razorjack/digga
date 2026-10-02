@@ -145,6 +145,8 @@ describe("sandbox api", () => {
       position: "B1",
       mark: "keep",
       notes: "drop",
+      videoId: "aaaaaaaaaa1",
+      atSeconds: 190.5,
     });
     const marked = await sandbox.getRelease(1001);
     expect(marked.tracks[2]!.mark).toBe("keep");
@@ -153,7 +155,14 @@ describe("sandbox api", () => {
     const listed = await sandbox.getTrackMarks();
     expect(listed.items).toEqual([
       expect.objectContaining({
-        mark: expect.objectContaining({ position: "B1", mark: "candidate", notes: "drop" }),
+        mark: expect.objectContaining({
+          position: "B1",
+          mark: "candidate",
+          notes: "drop",
+          heardKey: "ed rush and optical - watermelon",
+          videoId: "aaaaaaaaaa1",
+          atSeconds: 190.5,
+        }),
         track: expect.objectContaining({ title: "Watermelon" }),
         release: expect.objectContaining({ id: 1001 }),
       }),

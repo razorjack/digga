@@ -59,6 +59,8 @@ function trackMarksCsv(db: Db): string {
     "notes",
     "track_artist",
     "track_title",
+    "video_id",
+    "at_seconds",
     ...RELEASE_HEADER,
   ];
   const rows = listTrackMarkExports(db).map((mark) => [
@@ -68,6 +70,8 @@ function trackMarksCsv(db: Db): string {
     mark.notes,
     mark.trackArtist,
     mark.trackTitle,
+    mark.videoId,
+    mark.atSeconds,
     mark.releaseId,
     mark.artist,
     mark.title,

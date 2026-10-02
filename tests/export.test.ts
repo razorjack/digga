@@ -42,7 +42,14 @@ beforeEach(async () => {
     source: "triage",
     decidedAt: "2026-09-28T11:00:00.000Z",
   });
-  setTrackVerdict(db, { releaseId: 1001, position: "B1", mark: "candidate", notes: "at 3:10" });
+  setTrackVerdict(db, {
+    releaseId: 1001,
+    position: "B1",
+    mark: "candidate",
+    notes: "at 3:10",
+    videoId: "aaaaaaaaaa1",
+    atSeconds: 190.5,
+  });
 });
 
 afterEach(async () => {
@@ -93,13 +100,16 @@ describe("exports", () => {
         mark: "candidate",
         notes: "at 3:10",
         trackTitle: "Watermelon",
+        heardKey: "ed rush and optical - watermelon",
+        videoId: "aaaaaaaaaa1",
+        atSeconds: 190.5,
         artist: "Ed Rush & Optical",
         catno: "RH 20",
       }),
     ]);
     const csv = await (await server.app.request("/api/export/track-marks.csv")).text();
     expect(csv.split("\r\n")[1]).toMatch(
-      /^B1,candidate,.+,at 3:10,Ed Rush & Optical,Watermelon,1001,/,
+      /^B1,candidate,.+,at 3:10,Ed Rush & Optical,Watermelon,aaaaaaaaaa1,190.5,1001,/,
     );
   });
 

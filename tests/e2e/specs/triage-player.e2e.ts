@@ -344,10 +344,18 @@ test.describe("digging a run of tracks, with the clock", () => {
       await app.open();
       await triage.startListening();
 
-      const mark = { releaseId: TRACK_RUN.id, position: kept!.position };
-      expect(await triage.markTrack("keep")).toEqual({ ...mark, mark: "keep" });
+      // The mark carries the playing video and the second it had reached, past the start at half.
+      const keptVideo = TRACK_RUN.videos[0]!;
+      const mark = { releaseId: TRACK_RUN.id, position: kept!.position, videoId: keptVideo.id };
+      const saved = await triage.markTrack("keep");
+      expect(saved).toEqual({ ...mark, mark: "keep", atSeconds: expect.any(Number) });
+      expect(saved.atSeconds).toBeGreaterThanOrEqual(keptVideo.seconds / 2);
       await expect(triage.trackMark(kept!.position, "keep")).toBeVisible();
-      expect(await triage.markTrack("keep")).toEqual({ ...mark, mark: null });
+      expect(await triage.markTrack("keep")).toEqual({
+        ...mark,
+        mark: null,
+        atSeconds: expect.any(Number),
+      });
       await expect(triage.trackMark(kept!.position, "keep")).toBeHidden();
       await triage.markTrack("keep");
       expect(await triage.nextTrack()).toBe(meh!.position);

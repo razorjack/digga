@@ -57,7 +57,14 @@ async function libraryWithDecisions(): Promise<Db> {
     releaseId: 4242,
     decidedAt: "2026-08-01T09:02:08-07:00",
   });
-  setTrackVerdict(db, { releaseId: 1001, position: "A1", mark: "candidate", notes: "at 3:10" });
+  setTrackVerdict(db, {
+    releaseId: 1001,
+    position: "A1",
+    mark: "candidate",
+    notes: "at 3:10",
+    videoId: "aaaaaaaaaa1",
+    atSeconds: 190.5,
+  });
   logListen(db, { releaseId: 1001, position: "A1", videoId: "aaaaaaaaaa1", seconds: 12 });
   addUserVideo(db, 1006, {
     videoId: "pastedvid01",
@@ -119,6 +126,30 @@ describe("the decisions backup", () => {
     expect(outcome.attachedVideos).toEqual({ added: 1, withoutRelease: 1 });
     source.close();
     target.close();
+  });
+
+  it("reads a track mark from before marks kept their tune and moment", () => {
+    const file = path.join(dir, "decisions-2026-09-01.json");
+    const mark = { releaseId: 1001, position: "A1", mark: "keep", notes: null };
+    const backup = {
+      app: "digga",
+      kind: "decisions",
+      version: 1,
+      backedUpAt: "2026-09-01T12:00:00.000Z",
+      verdicts: [],
+      trackMarks: [{ ...mark, decidedAt: "2026-09-01T10:00:00.000Z" }],
+      heardTunes: [],
+      attachedVideos: [],
+      noAudioVideos: [],
+    };
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(backup));
+
+    expect(readDecisionsBackup(file).trackMarks[0]).toMatchObject({
+      heardKey: null,
+      videoId: null,
+      atSeconds: null,
+    });
   });
 
   it("writes one entry per line, fields in a fixed order, gzipped", async () => {

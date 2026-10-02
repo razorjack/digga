@@ -481,8 +481,16 @@ export class TriageSession {
     stats.refreshSoon(0);
   }
 
-  /** Toggles a mark on a track; the same mark again clears it. */
-  markTrack(releaseId: number, position: string, mark: TrackMark): void {
+  /**
+   * Toggles a mark on a track; the same mark again clears it. The moment is the video playing and
+   * the second it had reached, saved with the mark.
+   */
+  markTrack(
+    releaseId: number,
+    position: string,
+    mark: TrackMark,
+    moment: { videoId: string; atSeconds: number },
+  ): void {
     const detail = this.details.get(releaseId);
     const track = detail?.tracks.find((t) => t.position === position);
     if (!detail || !track) return;
@@ -495,7 +503,7 @@ export class TriageSession {
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
     void this.#write(() =>
-      this.#saveTrackMark({ releaseId, position, mark: next }, client, {
+      this.#saveTrackMark({ releaseId, position, mark: next, ...moment }, client, {
         key,
         version,
         generation,

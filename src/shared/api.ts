@@ -143,12 +143,19 @@ export interface DeleteVerdictResponse {
 }
 
 // POST /api/track-verdicts
-export const TrackVerdictInputSchema = z.object({
-  releaseId: z.number().int().positive(),
-  position: z.string().min(1),
-  mark: z.enum(TRACK_MARKS).nullable(),
-  notes: z.string().max(4000).nullable().optional(),
-});
+export const TrackVerdictInputSchema = z
+  .object({
+    releaseId: z.number().int().positive(),
+    position: z.string().min(1),
+    mark: z.enum(TRACK_MARKS).nullable(),
+    notes: z.string().max(4000).nullable().optional(),
+    /** The video playing and the second it had reached; omitted, the saved ones stay. */
+    videoId: z.string().min(1).optional(),
+    atSeconds: z.number().nonnegative().optional(),
+  })
+  .refine((input) => (input.videoId === undefined) === (input.atSeconds === undefined), {
+    message: "videoId and atSeconds come together",
+  });
 export type TrackVerdictInput = z.infer<typeof TrackVerdictInputSchema>;
 export type TrackVerdictResponse = TrackVerdict | null;
 
@@ -212,7 +219,10 @@ export interface TwelvesResponse {
 // GET /api/track-marks
 export interface MarkedTrack {
   mark: TrackVerdict;
-  /** From the tracklist; null when the release no longer lists the position. */
+  /**
+   * From the tracklist, or saved with the mark when the release no longer lists the position;
+   * null for a mark from before Digga saved the tune.
+   */
   track: { artistDisplay: string; title: string; durationSeconds: number | null } | null;
   release: QueueItem | null;
   /** The verdict on the record the track is on, if it has one. */
@@ -497,6 +507,9 @@ export interface TrackMarkExport extends ExportedRelease {
   decidedAt: string;
   trackArtist: string | null;
   trackTitle: string | null;
+  heardKey: string | null;
+  videoId: string | null;
+  atSeconds: number | null;
 }
 
 export interface DecisionsExport {

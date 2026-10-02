@@ -28,6 +28,9 @@ interface TrackMarkExportRow extends ReleaseColumns {
   decided_at: string;
   track_artist: string | null;
   track_title: string | null;
+  heard_key: string | null;
+  video_id: string | null;
+  at_seconds: number | null;
 }
 
 const RELEASE_COLUMNS =
@@ -55,12 +58,17 @@ export function listVerdictExports(db: Db): VerdictExport[] {
   }));
 }
 
-/** Every track mark, oldest first, with its track and release. */
+/**
+ * Every track mark, oldest first, with its track and release; the tune saved with the mark when
+ * the release no longer lists the position.
+ */
 export function listTrackMarkExports(db: Db): TrackMarkExport[] {
   const rows = db
     .prepare(
       `SELECT tv.release_id AS mark_release_id, tv.position, tv.mark, tv.notes, tv.decided_at,
-         t.artist_display AS track_artist, t.title AS track_title, ${RELEASE_COLUMNS}
+         COALESCE(t.artist_display, tv.artist_display) AS track_artist,
+         COALESCE(t.title, tv.title) AS track_title, tv.heard_key, tv.video_id, tv.at_seconds,
+         ${RELEASE_COLUMNS}
        FROM track_verdicts tv
        LEFT JOIN releases r ON r.id = tv.release_id
        LEFT JOIN tracks t ON t.release_id = tv.release_id AND t.seq = (
@@ -77,6 +85,9 @@ export function listTrackMarkExports(db: Db): TrackMarkExport[] {
     decidedAt: row.decided_at,
     trackArtist: row.track_artist,
     trackTitle: row.track_title,
+    heardKey: row.heard_key,
+    videoId: row.video_id,
+    atSeconds: row.at_seconds,
   }));
 }
 

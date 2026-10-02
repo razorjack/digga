@@ -673,3 +673,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      finished. The finished load stays recorded, so the setup does not show after a reload, and
      Triage says no releases are loaded (TRI-31); keeping it avoids a second kind of "finished"
      that the library, Settings and the CLI would all have to know.
+121. **A track mark keeps its tune and the moment it was set.** Marks were keyed by release and
+     position only, so a later dump that renamed `A1` to `A` left a mark the Tracks shelf could not
+     name, and nothing recorded where in the video the remembered part played, which for the ID
+     hunt is what a grail mark is about. A mark now copies the track's heard key, artist and title
+     when it is written and keeps them when the tracklist no longer has the position, and Triage
+     sends the playing video and its second with the mark. A note edited in Twelves sends no
+     moment and keeps the saved one. The Tracks shelf, the exports and the decisions backup carry
+     the new fields; a backup written before them reads them as null.
