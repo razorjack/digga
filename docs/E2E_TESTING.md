@@ -1606,9 +1606,11 @@ tools/dev/fake-services.ts   the fakes, used by the harness and for rehearsals b
 ```
 
 **Projects.** `web-chromium` runs every test not tagged `@electron`. `web-firefox` and
-`web-webkit` join the nightly run once the Chromium suite has been stable for a few weeks; the
-browser version must work in current Firefox and Safari, and the `closedby` fallback on dialogs
-is one reason to check. `electron` runs every test not tagged `@web`.
+`web-webkit` join the nightly run once the Chromium suite has been stable for a few weeks.
+Firefox and Safari get a cheap effort only, since Digga's main target is the Electron app (owner,
+2026-10-02): fix what is quick, tag the rest as Chromium-only with the reason, and do no larger
+product or harness work for those engines. The `closedby` fallback on dialogs is one thing to
+check. `electron` runs every test not tagged `@web`.
 
 **CI** (there is none yet; GitHub Actions is assumed): on each pull request, `vp run verify` and
 `vp run e2e` on Ubuntu with Node 24, with the HTML report and failure artifacts uploaded; sharding
@@ -1722,7 +1724,10 @@ scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and
    scenario needs them.
 3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
    the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
-   checks of the main screens, on Linux only, where snapshot updates need a human review.
+   checks of the main screens, on Linux only, where snapshot updates need a human review. The
+   owner decided on 2026-10-02 to build every P2 scenario and then review the whole suite to
+   consolidate it, rather than prune P2 first. Firefox and WebKit get a cheap effort only (see
+   "Running").
 4. **Electron** (with session 7). Product change 6, the Electron host and preload, the ELEC
    scenarios, and the shared suite on the unpackaged app and the inspectable release candidate.
 
@@ -2445,7 +2450,8 @@ now waits for its two import jobs to start. The work showed:
 - **`verify` runs the smoke set.** The owner decided on 2026-10-01 that `e2e:smoke` joins
   `vp run verify`. `verify` now takes about 20 s instead of 9 s, and every machine that commits
   needs Playwright's Chromium (`npx playwright install chromium`).
-- **Open:** Which browsers must the web version support? Is a CI provider other than GitHub
-  Actions planned? Are visual snapshots wanted at all? What does the Electron app do when
+- **Other browsers.** The owner decided on 2026-10-02 that Firefox and Safari get a cheap effort
+  only, since the Electron app is the main target (see "Running").
+- **Open:** Is a CI provider other than GitHub Actions planned? Are visual snapshots wanted at all? What does the Electron app do when
   `safeStorage` cannot encrypt, as on Linux without a keyring: refuse to save the token, or save
   it with the plain-text key?
