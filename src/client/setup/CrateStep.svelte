@@ -12,7 +12,7 @@
   import { settings, stats } from "../stores.svelte.ts";
   import Action from "./Action.svelte";
   import type { SetupFlow } from "./flow.svelte.ts";
-  import { DIG_THRESHOLD, transferLeft, yearHistogram } from "./model.ts";
+  import { DIG_THRESHOLD, stoppedLoadMessage, transferLeft, yearHistogram } from "./model.ts";
   import ProgressRow from "./ProgressRow.svelte";
   import YearHistogram from "./YearHistogram.svelte";
 
@@ -148,7 +148,7 @@
       </div>
     {:else if stopped}
       <div class="notice">
-        <p>The catalogue stopped loading{flow.load?.error ? `: ${flow.load.error}` : ""}.</p>
+        <p>{stoppedLoadMessage(flow.load)}</p>
         <p class="quiet">
           What loaded so far stays, and so does anything you dug. Picking up reads the catalogue from the start, and
           downloads it again if it was not whole.

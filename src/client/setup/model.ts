@@ -249,6 +249,14 @@ export function stoppedDownloadMessage(download: Job | null): string | null {
   );
 }
 
+/** What the crate says of a load that stopped: one Digga's closing interrupted, or its reason. */
+export function stoppedLoadMessage(load: Job | null): string {
+  if (load?.error === INTERRUPTED_JOB_ERROR)
+    return "The catalogue stopped loading when Digga closed.";
+  if (!load?.error) return "The catalogue stopped loading.";
+  return `The catalogue stopped loading: ${load.error.replace(/\.$/, "")}.`;
+}
+
 /** While the download runs again because the first did not match Discogs' checksum. */
 export function checksumRetryNote(download: Job | null): string | null {
   if (download?.type !== "dump_download") return null;

@@ -8,6 +8,7 @@ import {
   keptNothing,
   roundEstimate,
   stoppedDownloadMessage,
+  stoppedLoadMessage,
   styleGroups,
   suggestedStyles,
   togetherWith,
@@ -258,5 +259,33 @@ describe("a load that kept nothing", () => {
     expect(keptNothing(load("running", 0, 0))).toBe(false);
     expect(keptNothing(load("failed", 0, 0))).toBe(false);
     expect(keptNothing(null)).toBe(false);
+  });
+});
+
+describe("a load that stopped", () => {
+  function load(status: Job["status"], error: string | null): Job {
+    return {
+      id: "load",
+      type: "dump_load",
+      status,
+      error,
+      createdAt: "2026-10-02T10:00:00.000Z",
+      startedAt: "2026-10-02T10:00:00.000Z",
+      finishedAt: "2026-10-02T10:01:00.000Z",
+      progress: null,
+    } as Job;
+  }
+
+  it("says Digga closed when its closing interrupted the load", () => {
+    expect(stoppedLoadMessage(load("failed", INTERRUPTED_JOB_ERROR))).toBe(
+      "The catalogue stopped loading when Digga closed.",
+    );
+  });
+
+  it("gives the reason of a load that failed, and none for one that was cancelled", () => {
+    expect(stoppedLoadMessage(load("failed", "unexpected end of file."))).toBe(
+      "The catalogue stopped loading: unexpected end of file.",
+    );
+    expect(stoppedLoadMessage(load("cancelled", null))).toBe("The catalogue stopped loading.");
   });
 });
