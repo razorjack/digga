@@ -82,9 +82,14 @@ hint until it is edited (markup item 3)
 
 Priority: **P2**.
 
-"No token? Use your username": the public profile is read; a later want stays in Digga, its push
-fails with the declared `400` ("Set your Discogs token in Settings first"), and Twelves marks it as
-not on the wantlist
+"No token? Use your username": the public profile is read (one `GET /users/dj` without a token);
+the collection and wantlist are imported by username; a later want stays in Digga, its push fails
+with the declared `400` ("Set your Discogs token in Settings first") and is not tried again (a
+refusal will not pass later, `mayPassLater` in `triage/session.svelte.ts`: one push request after
+the clock has run past the first retry delay, and nothing reaches the fake's wantlist); the slip
+says "Saved, but not on the Discogs wantlist.", the flash "<artist> – <title> is not on the
+Discogs wantlist: Set your Discogs token in Settings first. A in Twelves tries again.", and
+Twelves marks it "not on your Discogs wantlist" on the Want shelf, which counts 1 such record
 
 ## SETUP-11
 
@@ -165,7 +170,9 @@ the load read the growing file
 Priority: **P2**.
 
 Imports slower than the load's start (the wantlist pages held at the fake): "Reading your collection
-and wantlist first, so the load also keeps other records on your labels." and "Start without it"
+and wantlist first, so the load also keeps other records on your labels." and "Start without it",
+with no load job yet; "Start without it" starts the load while the wantlist import still runs, and
+once released the imports end `done` and the catalogue is in
 
 ## SETUP-21
 
@@ -307,5 +314,6 @@ A load that finishes with fewer than 500 records to dig enables "Start digging":
   practice's banner. The practice card (`PracticeCard` in `pages/dialogs.ts`) ends its Enter once
   the `PUT /api/settings` that turns the sandbox off and the `GET /api/queue` after it have
   answered and the card has closed. "Pick up" ends once `POST /api/jobs/dump-download` and
-  `POST /api/jobs/dump-load` have answered and the button has gone. The finished load ends once
+  `POST /api/jobs/dump-load` have answered and the button has gone. "Start without it" ends once `POST /api/jobs/dump-load` has
+  answered and the notice has gone. The finished load ends once
   the crate's `h1` reads "The catalogue is in: …" (`waitForCatalogue()`).

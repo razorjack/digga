@@ -350,7 +350,21 @@ export class SetupPage {
     await this.button("Fill the crate").click();
     await answered(settingsSaved);
     await this.expectStep("crate");
-    await expect(this.root.getByText(/^Reading your collection and wantlist first/)).toBeVisible();
+    await expect(this.waitingForImports).toBeVisible();
+  }
+
+  /** The crate's notice while the load waits for the imports, with "Start without it". */
+  get waitingForImports(): Locator {
+    return this.root.getByText(/^Reading your collection and wantlist first/);
+  }
+
+  /** "Start without it": returns once the load has started and the notice has gone. */
+  async startWithoutImports(): Promise<void> {
+    await expect(this.waitingForImports).toBeVisible();
+    const loadStarted = this.#response("POST", "/api/jobs/dump-load");
+    await this.button("Start without it").click();
+    await answered(loadStarted);
+    await expect(this.waitingForImports).toBeHidden();
   }
 
   /**

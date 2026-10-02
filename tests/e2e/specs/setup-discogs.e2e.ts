@@ -15,9 +15,13 @@ import type { Config } from "../../../src/shared/config.ts";
 import { formatCount } from "../../../src/shared/display.ts";
 import type { StyleCensus } from "../../../src/shared/style-census.ts";
 import type { Job } from "../../../src/shared/types.ts";
-import { BULK, DJ, triageKeyOf } from "../fixtures/catalogue.ts";
+import { PUSH_RETRY_DELAYS_MS } from "../../../src/shared/wantlist.ts";
+import { BULK, DJ, releaseById, triageKeyOf } from "../fixtures/catalogue.ts";
 import { type BrowserHistory, releaseVisit } from "../fixtures/history.ts";
+import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage, type SetupStep } from "../pages/setup.ts";
+import { TriagePage } from "../pages/triage.ts";
+import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { LiveRegionWatch } from "../support/live-regions.ts";
 import { expect, test } from "../support/test.ts";
@@ -114,6 +118,38 @@ test(
 );
 
 test(
+  "SETUP-20 the load waits for imports slower than its start, and Start without it starts it at once",
+  { tag: ["@SETUP-20", "@P2"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const wantlist = fakes.hold("GET /users/:user/wants");
+    const setup = await openDiscogsStep(app);
+    await setup.connect(DJ_TOKEN);
+    await setup.continueFromDiscogs(["collection", "wantlist"]);
+    await setup.pickStyle("Drum n Bass");
+
+    await setup.fillCrateBehindImports();
+    await expect(setup.waitingForImports).toHaveText(
+      "Reading your collection and wantlist first, so the load also keeps other records on your labels.",
+    );
+    await wantlist.received;
+    expect(await jobStatuses(app, "dump_load")).toEqual([]);
+
+    await setup.startWithoutImports();
+    expect(await importStatuses(app)).toMatchObject({ import_wantlist: "running" });
+    expect(await jobStatuses(app, "dump_load")).toEqual([
+      expect.stringMatching(/^(running|done)$/),
+    ]);
+
+    wantlist.release();
+    await expect
+      .poll(() => importStatuses(app))
+      .toEqual({ import_collection: "done", import_wantlist: "done" });
+    await setup.waitForCatalogue();
+  },
+);
+
+test(
   "SETUP-14 after the imports, step 3 picks the account's styles, with the years and estimate for them",
   { tag: ["@SETUP-14", "@P1"] },
   async ({ app }) => {
@@ -203,6 +239,59 @@ async function openNewPage(setup: SetupPage, address: string, step: SetupStep): 
 }
 
 /** Step 2, with the download started from step 1. */
+test.describe("with the clock", () => {
+  test.use({ diggaOptions: { ...FIRST_RUN, clock: true } });
+
+  test(
+    "SETUP-10 with a username and no token, a want stays in Digga: its push fails once, and Twelves says it is not on the wantlist",
+    { tag: ["@SETUP-10", "@P2"] },
+    async ({ app, fakes }) => {
+      test.slow();
+      const point = fakes.dumps.checkpoint("600-to-dig");
+      fakes.dumps.holdAt(point.name);
+      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 400$/] });
+      const triage = new TriagePage(app);
+      const twelves = new TwelvesPage(app);
+      const setup = await openDiscogsStep(app);
+
+      await setup.useUsername(DJ.username);
+      expect(fakes.requests("GET /users/:user")).toEqual([
+        expect.objectContaining({ params: { user: DJ.username }, authenticatedAs: null }),
+      ]);
+      await setup.continueFromDiscogs(["collection", "wantlist"]);
+      await setup.keepSuggestedStyles(["Drum n Bass"]);
+      await setup.fillCrate();
+      await setup.waitForRecordsToDig(point.recordsToDig);
+      await setup.startDigging();
+
+      const releaseId = Number(await triage.record.getAttribute("data-release-id"));
+      const want = releaseById(releaseId)!;
+      const key = await triage.currentKey();
+      const push = await triage.judgeAndPush("accepted");
+      expect(push.status()).toBe(400);
+      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
+      await expect(triage.messages).toHaveText(
+        `${want.artists[0]} – ${want.title} is not on the Discogs wantlist: Set your Discogs token in Settings first. A in Twelves tries again.`,
+      );
+      // A refusal will not pass later, so nothing is tried again after the first delay.
+      await app.clock.runFor(PUSH_RETRY_DELAYS_MS[0]! + 1000);
+      expect(
+        app.apiRequests().filter((request) => request.startsWith("POST /api/discogs/wantlist/")),
+      ).toEqual([`POST /api/discogs/wantlist/${releaseId}`]);
+      expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([]);
+
+      await new HeaderPage(app).goTo("twelves");
+      await twelves.showShelf("accepted");
+      await expect(
+        twelves.record(key).getByText("not on your Discogs wantlist", { exact: true }),
+      ).toBeVisible();
+      await expect(twelves.wantlistHandoff).toContainText(
+        "1 record is not on your Discogs wantlist.",
+      );
+    },
+  );
+});
+
 /** Two bulk releases opened in Brave, among pages that are not releases. */
 const BRAVE_HISTORY: BrowserHistory = {
   browser: "brave",
@@ -304,6 +393,12 @@ async function openDiscogsStep(app: DiggaApp): Promise<SetupPage> {
   await app.open();
   await setup.fetchCatalogue();
   return setup;
+}
+
+/** The statuses of the jobs of one type, newest first. */
+async function jobStatuses(app: DiggaApp, type: Job["type"]): Promise<Job["status"][]> {
+  const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+  return jobs.filter((job) => job.type === type).map((job) => job.status);
 }
 
 /** The status of each import job, by type. */

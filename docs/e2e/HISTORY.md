@@ -14,6 +14,7 @@ Search by scenario ID, error or date, or start with:
 
 - [Web spike and implementation results](#spike-results).
 - [Gap fixes on 2026-10-02](#closing-the-gaps-web).
+- [The setup's remaining scenarios and the Accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web).
 - Original planning records: [product changes](#product-changes-the-harness-needs),
   [running plan](#original-running-plan), [runner choice](#runner-choice-on-2026-09-30),
   [markup audit](#markup-audit-recorded-through-2026-10-02),
@@ -797,6 +798,97 @@ The work showed:
 - **`verify` has not grown.** The smoke set is still the P0 set. `vp run verify` took 21.6 to
   22.2 s in three runs, and its smoke set 11.2 to 11.3 s, as in the previous slice.
 
+### The setup's remaining scenarios and the Accessibility family (web)
+
+Built on 2026-10-02 from `d20a189`, measured at `2a567c9` with SETUP-10 and SETUP-20 in the
+working tree, on the same 10-core Mac (macOS 27.0.1), Node 24.18.0, Playwright 1.63.0 with its
+Chromium, and `@axe-core/playwright` 4.13.0 (axe-core 4.13.0), new as a devDependency. Ten commits:
+SETUP-22, SETUP-23, SETUP-27, SETUP-31 and SETUP-33 (P1) in `specs/setup.e2e.ts`; A11Y-01, A11Y-02
+and A11Y-04 (P1), A11Y-03 (P2) and the new A11Y-05 and A11Y-06 (P2) in the new
+`specs/accessibility.e2e.ts`; SETUP-10, SETUP-12 and SETUP-20 (P2) in `specs/setup-discogs.e2e.ts`.
+With them came the practice card's page object (`PracticeCard` in `pages/dialogs.ts`), the setup
+page object's practice, Pick up, Start without it and finished-crate actions, the axe helper
+(`support/axe.ts`), and the browser history fixtures (`fixtures/history.ts`,
+`diggaOptions.browserHistory` and `unreadableBrowsers`). The work showed:
+
+- **One product bug, fixed: a crash read "interrupted".** After Digga closed during the load, the
+  crate said "The catalogue stopped loading: interrupted.", the job's raw error, where
+  docs/FIRST_RUN.md says "The catalogue stopped loading when Digga closed". SETUP-27 failed on it.
+  `stoppedLoadMessage()` in `src/client/setup/model.ts` now says that; its vitest cases in
+  `tests/setup-model.test.ts` are new with the function.
+- **Markup, each check failing on the old markup.** The finished crate's headline became
+  `h1#crate-title`, so the region is named "The catalogue is in: …"; SETUP-23 failed on the
+  missing heading. The crate's error paragraph is an empty `role="alert"` until it has text;
+  SETUP-23 aborts the first "Delete it" and `LiveRegionWatch` recorded "alert: Failed to fetch" as
+  inserted with its text against the old `{#if flow.error}`. The header hides the sandbox's
+  explanation and the ETA as `.visually-hidden` does instead of `display: none`, the scope
+  picker's dig button declares `Enter` and "Start digging" `T Enter` (A11Y-05, A11Y-06). Settings'
+  Sandbox region has `aria-current="location"` when opened from the stamp, which also draws the
+  highlight; SHELL-05 reads it instead of the computed `box-shadow`, and the observation is closed.
+  All four tests failed against the components as they were.
+- **What axe found.** In the dark scheme, with every rule, over 21 states: one violation,
+  `page-has-heading-one` on Triage's end of the queue, whose headline was a paragraph; A11Y-01
+  failed on it. The fix makes every state headline of Triage (end of the queue, the end of what has
+  loaded, no releases, filters that match nothing, the end of a scope, and the settings and queue
+  errors) an `h1`, as a record's artist already is. axe also left `aria-prohibited-attr` incomplete
+  on the crate's "Keys while you dig" `div`, whose `aria-label` assistive technology ignores; the
+  label is gone, and the visible "Keys while you dig:" leads the list. Its incomplete
+  `color-contrast` checks are key caps (no text to measure) and text whose background it could
+  not determine (the photocopy grain, overlapping rows); they stay in the attached results. No
+  serious or critical violation, no `landmark-unique`, and no rule excluded anywhere.
+- **The light scheme, and a false finding.** The first light scans reported `color-contrast`
+  failures of 1.03 to 2.09, such as #a8a294 on #eee9dc: the dark scheme's `--fg-muted` on the light
+  `--bg`. Chromium applies `emulateMedia()` at the next frame, and a computed style read before then
+  still resolves the custom properties of the previous scheme; a read 0 ms after the switch gave
+  `rgb(168, 162, 148)`, later ones `rgb(79, 75, 66)`, and the same states then had no violation.
+  `matchMedia()` already matched in between, so the helper waits for the body's background to
+  change instead, both ways. Once settled, the light scheme had no violation either, so no colour
+  needs the owner's decision.
+- **The cost of the scans, and the light-scheme choice.** One worker, A11Y-01 alone: 15.3 s without
+  scans, 23.5 s with the dark scans, 32.3 s with a light contrast scan of every state. A full dark
+  scan took 280 to 680 ms per state (Settings the slowest), and a light scan of `color-contrast`
+  alone 320 to 770 ms, about the same, since contrast is axe's slowest rule. Scanning every state
+  in light would double the scans' cost; the seven record shelves after Everything reuse its table
+  and tokens, so they are scanned in the dark scheme only, and every other state in both, which
+  covers each component in both palettes for about 60% more than the dark scans alone.
+- **Rows corrected or completed.** SETUP-27 now names the copy FIRST_RUN gives. SETUP-31 and SETUP-33
+  pick Drum n Bass from 1998 alone: 18 records to dig at `100-to-dig`, 108 at `600-to-dig`, and 305
+  in the whole bulk dump, fewer than the 500 that enable "Start digging" during a load. SETUP-22,
+  SETUP-23, SETUP-10, SETUP-12 and SETUP-20 now say what they read back. The SHELL-05 row reads the
+  ARIA state. FIXTURES' fault and request-log examples called `fakes.discogs.…`, which does not
+  exist; they now call `fakes.fail()`, `fakes.hold()` and `fakes.requests()`.
+- **SETUP-10: a refused push is not tried again.** With the clock run past the first retry delay
+  (5 s), the page had sent one `POST /api/discogs/wantlist/:id`, answered `400` ("Set your Discogs
+  token in Settings first"), and the fake no `PUT`. With `mayPassLater()` returning true the slip
+  read "trying again in 5 s" and the test failed.
+- **SETUP-12: history in the fake home.** The fixture writes the folders per platform itself;
+  `chmod 000` on Chrome's folder, applied after the server started and undone before the folder is
+  deleted, made the setup list Chrome as unreadable, with the Full Disk Access hint. With the
+  server listing nothing for an unreadable folder, the second test failed on the browser list. The
+  run's temp root was empty after every run.
+- **A11Y-02 against broken builds.** Without `inert` on the player hosts, the first Tab put the
+  focus in a player's frame ("IFRAME" as the active element). Without the track buttons'
+  `preventDefault()` on `mousedown`, the clicked track's button kept the focus.
+- **`pass()`'s wait.** `TriagePage.pass()` waited for the record to change its key, which fails at
+  the last record of the queue, where the record goes; it now waits until no record carries the
+  passed key. SETUP-31 passes the 18 records to the end.
+- **No rehearsal.** The fake services did not change, so no manual run of the CLI was needed.
+- **Durations.** On five workers (`vp run e2e --workers 5`) the 144 tests take 1.3 minutes, and the
+  command 76.6 s with the client build, against 54.8 s for the 119 before. The new tests take 0.7 to
+  17.1 s: SETUP-12 0.8 s twice, SETUP-22 2.6 and 2.8 s, SETUP-23 2.7 s, SETUP-33 3.0 s, SETUP-20 5.6
+  s, SETUP-31 6.9 s, SETUP-27 7.9 s, SETUP-10 9.5 s; A11Y-05 0.7 and 1.2 s, A11Y-06 0.7 s, A11Y-04 1.0
+  and 1.3 s, A11Y-02 1.5 s, A11Y-03 2.6 s, and A11Y-01's six tests 2.5 s (end of the queue), 2.6 s
+  (no audio), 4.1 s (Settings), 5.2 s (Triage, Keys and the scope picker), 8.4 s (nine shelves) and
+  17.1 s (four steps, two crates and the practice card, through a whole setup).
+- **Stable.** Each new or changed spec passed `--repeat-each=10` on 11 workers before its commit
+  (the setup scenarios 60 of 60, then `setup.e2e.ts` 170 of 170; `accessibility.e2e.ts` 60, 100
+  and, with `shell.e2e.ts`, 220 of 220; `setup-discogs.e2e.ts` 70 and 90 of 90). The whole suite
+  then passed 1,440 of 1,440 at `--repeat-each=10` on 11 workers in 9.7 minutes, at one-minute
+  load averages of 11 to 96 from the run itself; nothing else ran.
+- **`verify` has not grown.** The smoke set is still the P0 set. Timed alternately against a
+  worktree of the previous commit, `vp run verify` took 22.1 to 22.8 s against 22.6 to 23.0 s, and
+  its smoke set 11.4 to 11.5 s against 11.4 to 11.9 s, in three runs each.
+
 ## Original status on 2026-10-02
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike
@@ -993,7 +1085,7 @@ and some names that are missing or ambiguous.
    once the load is done the `h1#crate-title` is not rendered, so the region loses its name and
    the page has no `h1`. Keep an `h1` in both states: when the load is done, the headline
    paragraph ("The catalogue is in: …") becomes the `h1` with that id. The "ready to dig" stamp
-   stays a `span`. Fixed in the setup's remaining P1 slice: the headline is `h1#crate-title`, so the
+   stays a `span`. Fixed in [the setup's remaining scenarios and the Accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web): the headline is `h1#crate-title`, so the
    region is named "The catalogue is in: …" (SETUP-23).
 2. **`src/client/twelves/Pager.svelte`:** `<nav aria-label="Pages">` repeats the header's
    `<nav aria-label="Pages">`, so Twelves has two navigation landmarks with the same name. Name
@@ -1039,7 +1131,7 @@ and some names that are missing or ambiguous.
    (`LiveRegionWatch`, see [Synchronisation](AUTHORING.md#synchronisation)); against the old markup all three failed. The
    crate's "stopped loading" notice and error paragraph were still inserted with their text. The
    notices later moved into a persistent `role="alert"` container (SETUP-25); in the setup's
-   remaining P1 slice the error paragraph became an empty `role="alert"` paragraph too, which
+   remaining scenarios slice the error paragraph became an empty `role="alert"` paragraph too, which
    SETUP-23 checks with `LiveRegionWatch` after a failed "Delete it".
 
 Related, smaller:
@@ -1050,7 +1142,7 @@ Related, smaller:
 - The scope picker's Enter button and "Start digging", which Enter also starts, do not declare
   Enter in `aria-keyshortcuts`.
 
-Both were fixed in the setup's remaining P1 and Accessibility slice: the header hides them as
+Both were fixed in [the setup's remaining scenarios and the Accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web): the header hides them as
 `.visually-hidden` does (A11Y-06), and the dig button declares `Enter`, "Start digging" `T Enter`
 (A11Y-05).
 

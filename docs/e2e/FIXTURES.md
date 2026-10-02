@@ -292,8 +292,8 @@ else `404`, with an optional delay past the server's 4 s lookup timeout.
 Fault injection is the same for every API route:
 
 ```ts
-fakes.discogs.fail("PUT /users/:user/wants/:id", { status: 500, times: 1 });
-fakes.discogs.delay("PUT /users/:user/wants/:id", { ms: 2000 });
+fakes.fail("PUT /users/:user/wants/:id", { status: 500, times: 1 });
+fakes.delay("PUT /users/:user/wants/:id", { ms: 2000 });
 fakes.dumps.set({ failAfterBytes: 400_000 });
 ```
 
@@ -301,7 +301,7 @@ A delay is for realism. A test that needs a request to stay in flight while it a
 request instead:
 
 ```ts
-const push = fakes.discogs.hold("PUT /users/:user/wants/:id");
+const push = fakes.hold("PUT /users/:user/wants/:id");
 // ... the app pushes ...
 await push.received; // the request has reached the fake and waits
 // ... the test acts while the push is in flight ...
@@ -316,7 +316,7 @@ request to the server has completed (see [Synchronisation](AUTHORING.md#synchron
 
 ```ts
 await expect
-  .poll(() => fakes.discogs.requests("PUT /users/dj/wants/:id"))
+  .poll(() => fakes.requests("PUT /users/dj/wants/:id"))
   .toEqual([
     expect.objectContaining({
       params: { id: "1001" },

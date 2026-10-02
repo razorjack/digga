@@ -6,9 +6,12 @@ start with the [E2E guide](../E2E_TESTING.md) and the relevant
 [HISTORY](HISTORY.md); they are not prerequisites for every session.
 
 Reconciled against the scenario tags and source on 2026-10-02, at `e1fa6aa` before the
-documentation split. The web host and the web P0 set are implemented. No current spec uses
-`test.fail`, `test.skip` or `test.fixme`. That does not mean coverage is complete: the entries
-below are specified but unimplemented, and the observations below still need decisions.
+documentation split, and again after the setup's remaining scenarios and the Accessibility
+family, which completed the Setup and Accessibility families. The web host and the web P0 set are
+implemented. No current spec uses `test.fail` or `test.fixme`; the one `test.skip` is SETUP-12's
+unreadable folder on Windows or as root, where permissions do not stop Digga. That does not mean
+coverage is complete: the entries below are specified but unimplemented, and the observations
+below still need decisions.
 
 ## Next work
 
@@ -33,7 +36,6 @@ scenario needs them; `GET /masters/{id}` is still absent from the fake Discogs A
 | Family                                  | Remaining IDs                                                                  |
 | --------------------------------------- | ------------------------------------------------------------------------------ |
 | [Shell](scenarios/shell.md)             | SHELL-06, SHELL-08, SHELL-10, SHELL-11                                         |
-| [Setup](scenarios/setup.md)             | SETUP-10, SETUP-20                                                             |
 | [Triage](scenarios/triage.md)           | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
 | [Sandbox](scenarios/sandbox.md)         | SBX-06                                                                         |
 | [Twelves](scenarios/twelves.md)         | TWL-08, TWL-15, TWL-16, TWL-17, TWL-18                                         |
