@@ -39,6 +39,9 @@ export type JobType = (typeof JOB_TYPES)[number];
 export const JOB_STATUSES = ["queued", "running", "done", "failed", "cancelled"] as const;
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
+/** The error of a job the server found running when it started: Digga closed during it. */
+export const INTERRUPTED_JOB_ERROR = "interrupted";
+
 export interface ArtistRef {
   id: number | null;
   name: string;

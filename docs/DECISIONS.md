@@ -634,3 +634,18 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      with confirmed picks and no load yet, which waited for the imports, resumes at step 3
      unless the address asks for step 2. Settings keeps the flag as it is, so styles changed
      there during the load are what step 3 shows after "Change your picks".
+118. **A stopped download is said where the user is, and a new start is one key away.** The setup
+     showed nothing on steps 2 and 3 when the download failed: the strip went, and "Fill the
+     crate" then failed with "Dump file not found". The crate showed the load's generic "The
+     catalogue stopped loading: The download stopped: …". Now steps 2 and 3 show the design's
+     sentence at their foot instead of the strip, and the crate shows it in place of the generic
+     one, both with "Start again" (`stoppedDownloadMessage()` in `src/client/setup/model.ts`).
+     Step 1 is left out: its own button fetches again. The figure is what the download took from
+     the transfer, which the job now reports when the transfer fails, since its regular reports
+     come at most once a second. A download that stopped before a byte arrived gives only the
+     reason, as resuming does not apply. "Fill the crate" downloads again first, a setup opened
+     afterwards resumes at step 2, and a download that ended with Digga ("interrupted") keeps the
+     load's "Pick up" (SETUP-27). The design says the releases loaded so far can be dug, but the
+     app sent every page back to the setup until a load finished; the pages now open once the
+     library has records to dig, after the setup has shown in the tab (`src/client/setup/access.ts`),
+     so the app still opens on the setup, which says what stopped.

@@ -1,6 +1,11 @@
 import { JobSchema } from "../../shared/jobs.ts";
 import { randomUUID } from "node:crypto";
-import type { Job, JobStatus, JobType } from "../../shared/types.ts";
+import {
+  INTERRUPTED_JOB_ERROR,
+  type Job,
+  type JobStatus,
+  type JobType,
+} from "../../shared/types.ts";
 import { type Db, nowIso } from "./db.ts";
 
 interface JobRow {
@@ -75,8 +80,8 @@ export function listJobs(db: Db, limit = 50): Job[] {
 export function failStaleJobs(db: Db): number {
   const info = db
     .prepare(
-      "UPDATE jobs SET status = 'failed', error = 'interrupted', finished_at = ? WHERE status IN ('queued', 'running')",
+      "UPDATE jobs SET status = 'failed', error = ?, finished_at = ? WHERE status IN ('queued', 'running')",
     )
-    .run(nowIso());
+    .run(INTERRUPTED_JOB_ERROR, nowIso());
   return info.changes;
 }

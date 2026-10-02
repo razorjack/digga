@@ -10,7 +10,7 @@ import type { Job } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
 import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
-import { DIG_THRESHOLD, loadYearsFor, type YearSpan } from "./model.ts";
+import { DIG_THRESHOLD, loadYearsFor, stoppedDownloadMessage, type YearSpan } from "./model.ts";
 import type { SetupStep } from "./steps.ts";
 
 export interface Picks {
@@ -63,6 +63,8 @@ export class SetupFlow {
       null,
   );
   canDig = $derived(this.loadDone || (stats.value?.remaining ?? 0) >= DIG_THRESHOLD);
+  /** Why and where the download stopped, while it has not started again. */
+  downloadStopped = $derived(stoppedDownloadMessage(this.download));
   #timer: ReturnType<typeof setTimeout> | null = null;
   #statsAt = 0;
   #closed = false;
@@ -111,6 +113,14 @@ export class SetupFlow {
     });
   }
 
+  /** After the download stopped, on steps 2 and 3: it starts again from the first byte. */
+  async restartDownload(): Promise<void> {
+    await this.#act(async () => {
+      await this.#downloadAgainIfStopped();
+      this.#poll();
+    });
+  }
+
   /** Step 2: keeps the token when Discogs accepts it, and reads the account's sizes. */
   async connect(token: string): Promise<boolean> {
     let connected = false;
@@ -155,6 +165,7 @@ export class SetupFlow {
     await this.#act(async () => {
       await this.#saveSettings({ picks });
       this.picks = picks;
+      await this.#downloadAgainIfStopped();
       this.step = "crate";
       this.waitingForImports = this.importsRunning;
       if (!this.waitingForImports) await this.#startLoad();
@@ -230,12 +241,20 @@ export class SetupFlow {
    */
   #resumeStep(requested: SetupStep | null): SetupStep {
     if (this.load) return "crate";
-    const fetched = isRunning(this.download) || this.download?.status === "done";
+    const fetched =
+      isRunning(this.download) || this.download?.status === "done" || this.downloadStopped !== null;
     const inFolder = this.setup?.catalogue.newest?.downloaded === true;
     if (!fetched && !inFolder) return "catalogue";
     if (requested === "sound" || requested === "discogs") return requested;
     if (this.picks) return "sound";
     return fetched ? "discogs" : "catalogue";
+  }
+
+  /** A stopped download starts again, so a load has a dump to read; Discogs cannot resume one. */
+  async #downloadAgainIfStopped(): Promise<void> {
+    if (this.downloadStopped === null) return;
+    this.download = await api.startDumpDownload();
+    loadStatus.follow(this.download);
   }
 
   async #startLoad(): Promise<void> {

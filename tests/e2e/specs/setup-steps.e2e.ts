@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { formatDumpDate, homeRelative } from "../../../src/client/setup/model.ts";
 import { ROUTES } from "../../../src/client/routes.ts";
@@ -110,6 +111,34 @@ test(
     expect(await regions.insertedWithText()).not.toContainEqual(
       expect.stringContaining("The catalogue needs"),
     );
+  },
+);
+
+test(
+  "SETUP-32 a download that finds too little space stops before it writes a byte, and the step says why",
+  { tag: ["@SETUP-32", "@P2"] },
+  async ({ app, fakes }) => {
+    // The listing fits on any disk; the transfer then announces more than any disk has.
+    const announcedBytes = 900 * 1024 ** 4;
+    fakes.dumps.list(fakes.dumps.listed, { listedBytes: 2 * 1024 ** 2 });
+    fakes.dumps.set({ contentLength: announcedBytes });
+    const regions = await LiveRegionWatch.install(app.page);
+    const setup = new SetupPage(app);
+
+    await app.open();
+    await setup.fetchCatalogue();
+
+    await expect(setup.downloadStopped).toContainText(
+      `The download stopped: The dump needs ${formatBytes(announcedBytes + SPARE_BYTES)} free in ` +
+        `${app.library.dumpsDir}, counting 1 GB to spare; it has `,
+    );
+    await expect(setup.downloadStrip).toBeHidden();
+    expect(await regions.insertedWithText()).not.toContainEqual(
+      expect.stringContaining("The download stopped"),
+    );
+    const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+    expect(jobs.map((job) => [job.type, job.status])).toEqual([["dump_download", "failed"]]);
+    expect(fs.readdirSync(app.library.dumpsDir)).toEqual([]);
   },
 );
 

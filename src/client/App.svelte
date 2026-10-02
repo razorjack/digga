@@ -19,6 +19,7 @@
   import Twelves from "./pages/Twelves.svelte";
   import { getRoute, localhostAlternative, navigate } from "./router.svelte.ts";
   import { ROUTES } from "./routes.ts";
+  import { pagesClosed, sendToSetup } from "./setup/access.ts";
   import { settings, stats, ui } from "./stores.svelte.ts";
 
   const route = $derived(getRoute());
@@ -45,11 +46,15 @@
   );
   /** No load has finished: the library still needs its first, which the setup walks through. */
   const firstRun = $derived(stats.value !== null && stats.value.dump.loadedAt === null);
-  /**
-   * Until the first load starts there is nothing to dig, so the setup has the screen to itself:
-   * the header keeps the wordmark, and the page keys stay quiet.
-   */
-  const setupOnly = $derived(route === "setup" && firstRun && !loadStatus.loading);
+  const library = $derived({
+    firstRun,
+    loading: loadStatus.loading,
+    recordsToDig: stats.value?.remaining ?? 0,
+  });
+  /** Until there is something to dig, the setup has the screen to itself. */
+  const setupOnly = $derived(route === "setup" && pagesClosed(library));
+  /** The setup has shown in this tab, so it has said why a load stopped. */
+  let setupShown = false;
 
   // A clicked header link must not keep focus: a later Enter would follow it again.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
@@ -62,8 +67,9 @@
 
   // A library without a finished load opens the setup, unless its first load is running.
   $effect(() => {
-    if (firstRun && loadStatus.checked && !loadStatus.loading && route !== "setup")
-      navigate("setup");
+    if (!loadStatus.checked) return;
+    if (route === "setup") setupShown = true;
+    else if (sendToSetup(library, setupShown)) navigate("setup");
   });
 
   $effect(() => {

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type {
   DecisionsExport,
   DumpsResponse,
@@ -5,10 +7,13 @@ import type {
   Stats,
 } from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
+import { formatBytes } from "../../../src/shared/display.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage } from "../pages/setup.ts";
 import { TriagePage } from "../pages/triage.ts";
+import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import type { DiggaApp } from "../support/app.ts";
+import { LiveRegionWatch } from "../support/live-regions.ts";
 import { expect, test } from "../support/test.ts";
 
 /** A new user's library, and data.discogs.com offering the bulk dump. */
@@ -210,6 +215,110 @@ test(
     await setup.expectPicks(picks);
   },
 );
+
+test(
+  "SETUP-25 a download that stops under the load says where it stopped, keeps what loaded, and starts again",
+  { tag: ["@SETUP-25", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.holdAt(point.name);
+    const regions = await LiveRegionWatch.install(app.page);
+    const header = new HeaderPage(app);
+    const triage = new TriagePage(app);
+
+    const setup = await fillTheCrate(app);
+    // The load has read the records, so the download has written every byte sent.
+    await setup.waitForRecordsToDig(point.recordsToDig);
+    dropTransferAt(fakes, point.offset);
+
+    await expect(setup.downloadStopped).toContainText(stoppedAt(fakes, point.offset));
+    expect(await regions.insertedWithText()).not.toContainEqual(
+      expect.stringContaining("The download stopped"),
+    );
+    // What loaded stays, and can be dug.
+    expect((await app.api.get<Stats>("/api/stats")).remaining).toBe(point.recordsToDig);
+    await header.goTo("triage");
+    await expect(triage.record).toBeVisible();
+    await app.open("#/setup");
+    await expect(setup.downloadStopped).toBeVisible();
+
+    fakes.dumps.set({ failAfterBytes: null });
+    await setup.startLoadAgain();
+    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+    expect(jobs.filter((job) => job.type === "dump_download").map((job) => job.status)).toEqual([
+      "done",
+      "failed",
+    ]);
+  },
+);
+
+test(
+  "SETUP-25 a download that stops on steps 2 and 3 says where it stopped, and starts again",
+  { tag: ["@SETUP-25", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.holdAt(point.name);
+    const regions = await LiveRegionWatch.install(app.page);
+    const setup = new SetupPage(app);
+
+    await app.open();
+    await setup.fetchCatalogue();
+    await expect.poll(() => partFileBytes(app, fakes)).toBe(point.offset);
+    dropTransferAt(fakes, point.offset);
+    await expect(setup.downloadStopped).toContainText(stoppedAt(fakes, point.offset));
+    await expect(setup.downloadStrip).toBeHidden();
+    expect(await regions.insertedWithText()).not.toContainEqual(
+      expect.stringContaining("The download stopped"),
+    );
+    fakes.dumps.set({ failAfterBytes: null });
+    fakes.dumps.holdAt(point.name);
+    await setup.startDownloadAgain();
+
+    await setup.skipDiscogs();
+    await expect.poll(() => partFileBytes(app, fakes)).toBe(point.offset);
+    dropTransferAt(fakes, point.offset);
+    await expect(setup.downloadStopped).toContainText(stoppedAt(fakes, point.offset));
+    await expect(setup.downloadStrip).toBeHidden();
+
+    // Fill the crate downloads again, so the load has a dump to read.
+    fakes.dumps.set({ failAfterBytes: null });
+    fakes.dumps.holdAt(point.name);
+    await setup.pickStyle("Drum n Bass");
+    await setup.fillCrate();
+    await setup.waitForRecordsToDig(point.recordsToDig);
+    await expect(setup.downloadStopped).toBeHidden();
+  },
+);
+
+/** A held transfer closes its connection where it waits, as a dropped download does. */
+function dropTransferAt(fakes: FakeServices, offset: number): void {
+  expect(fakes.dumps.sentBytes).toBe(offset);
+  fakes.dumps.set({ failAfterBytes: offset });
+  fakes.dumps.release();
+}
+
+/** What the setup says of a download dropped after `offset` bytes; Node names the reason. */
+function stoppedAt(fakes: FakeServices, offset: number): RegExp {
+  const where = `${formatBytes(offset)} of ${formatBytes(fakes.dumps.listed.bytes)}`.replaceAll(
+    ".",
+    "\\.",
+  );
+  return new RegExp(
+    `^The download stopped at ${where}: [^.]+\\. Discogs does not allow resuming, so it starts again\\.`,
+  );
+}
+
+/**
+ * What the download has written to its part file: the bytes it has taken from the transfer,
+ * which the job's progress reports at most once a second.
+ */
+function partFileBytes(app: DiggaApp, fakes: FakeServices): number {
+  const part = path.join(app.library.dumpsDir, `${fakes.dumps.listed.name}.part`);
+  return fs.existsSync(part) ? fs.statSync(part).size : 0;
+}
 
 /** The setup up to the crate without a Discogs account, with the picks SETUP-01 makes. */
 async function fillTheCrate(app: DiggaApp): Promise<SetupPage> {

@@ -5,6 +5,7 @@
   import CatalogueStep from "../setup/CatalogueStep.svelte";
   import CrateStep from "../setup/CrateStep.svelte";
   import DiscogsStep from "../setup/DiscogsStep.svelte";
+  import DownloadStopped from "../setup/DownloadStopped.svelte";
   import DownloadStrip from "../setup/DownloadStrip.svelte";
   import { SetupFlow } from "../setup/flow.svelte.ts";
   import SoundStep from "../setup/SoundStep.svelte";
@@ -75,6 +76,13 @@
 
   {#if downloading && flow.download}
     <DownloadStrip download={flow.download} />
+  {/if}
+  {#if flow.step === "discogs" || flow.step === "sound"}
+    <DownloadStopped
+      message={flow.downloadStopped}
+      busy={flow.busy}
+      onrestart={() => void flow.restartDownload()}
+    />
   {/if}
 </div>
 

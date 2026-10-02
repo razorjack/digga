@@ -70,7 +70,12 @@ export class SetupPage {
 
   /** The strip at the foot of steps 2 and 3 while the catalogue downloads. */
   get downloadStrip(): Locator {
-    return this.root.getByRole("complementary", { name: "Download" });
+    return this.root.getByRole("complementary", { name: "Download", exact: true });
+  }
+
+  /** Where and why the download stopped, on steps 2 and 3 and in the crate. */
+  get downloadStopped(): Locator {
+    return this.alert(/^The download stopped/);
   }
 
   get tokenField(): Locator {
@@ -358,6 +363,27 @@ export class SetupPage {
     if (picks.vinylOnly) await expect(this.vinylOnly).toBeChecked();
     else await expect(this.vinylOnly).not.toBeChecked();
     await expect(this.suggestion).toBeHidden();
+  }
+
+  /** "Start again" on steps 2 and 3: returns once the new download runs under the strip. */
+  async startDownloadAgain(): Promise<void> {
+    await expect(this.downloadStopped).toBeVisible();
+    const started = this.#response("POST", "/api/jobs/dump-download");
+    await this.button("Start again").click();
+    await answered(started);
+    await expect(this.downloadStrip).toBeVisible();
+    await expect(this.downloadStopped).toBeHidden();
+  }
+
+  /** "Start again" in the crate: returns once the download and the load reading it have started. */
+  async startLoadAgain(): Promise<void> {
+    await expect(this.downloadStopped).toBeVisible();
+    const downloading = this.#response("POST", "/api/jobs/dump-download");
+    const loading = this.#response("POST", "/api/jobs/dump-load");
+    await this.button("Start again").click();
+    await answered(downloading);
+    await answered(loading);
+    await expect(this.downloadStopped).toBeHidden();
   }
 
   /** The crate once it counts this many records to dig, which the setup reads every few seconds. */

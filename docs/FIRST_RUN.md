@@ -100,8 +100,8 @@ pace either way.
 - It lives at `#/setup`, outside the page keys. Until the load starts, the header holds only the
   wordmark and the step list; the sandbox stamp and page links appear once there is something to
   dig.
-- Once the load has started, `T`, `W` and `,` work again, and `#/setup` shows the loading screen
-  until the load finishes. After that `#/setup` goes to Triage; monthly updates stay in Settings.
+- Once the load has started, or a load that stopped has left records to dig, `T`, `W` and `,`
+  work again, and `#/setup` shows the loading screen until the load finishes. After that `#/setup` goes to Triage; monthly updates stay in Settings.
 - Nothing is chosen twice. Styles, years and formats go to `digga.config.json` when step 3 is
   confirmed, with `setup.picksConfirmed`, which tells them apart from the defaults a new config
   starts with; the token goes to the library, and the download, imports and load are jobs in the
@@ -372,18 +372,26 @@ explicit.
 
 ## Failure and resume
 
-| Situation                         | The user sees                                                                                                            | Digga does                                                                                                  |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| data.discogs.com unreachable      | The reason and "Try again"                                                                                               | Nothing has started                                                                                         |
-| Not enough space                  | Needed, free, and the folder                                                                                             | "Fetch" stays disabled; "Check again" rechecks                                                              |
-| The download stops                | "The download stopped at 4.1 of 10.5 GB: reason. Discogs does not allow resuming, so it starts again." and "Start again" | The load reading it stops too. The releases loaded so far stay, and can be dug                              |
-| The checksum does not match       | "The download does not match Discogs' checksum"                                                                          | Downloads once more by itself, then asks                                                                    |
-| Digga closed during download/load | "The catalogue stopped loading when Digga closed" and "Pick up"                                                          | The jobs are marked interrupted, as today. The download starts over; the load reads the dump from the start |
-| The picks match nothing           | "Nothing in the catalogue matches these picks" and "Change your picks"                                                   | Back to step 3                                                                                              |
-| An import fails (token, Discogs)  | The error on the import's line, with "Try again"                                                                         | The load does not wait for a failed import                                                                  |
+| Situation                         | The user sees                                                                                                               | Digga does                                                                                                  |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| data.discogs.com unreachable      | The reason and "Try again"                                                                                                  | Nothing has started                                                                                         |
+| Not enough space                  | Needed, free, and the folder                                                                                                | "Fetch" stays disabled; "Check again" rechecks                                                              |
+| The download stops                | "The download stopped at 4.1 GB of 10.5 GB: reason. Discogs does not allow resuming, so it starts again." and "Start again" | The load reading it stops too. The releases loaded so far stay, and can be dug                              |
+| The checksum does not match       | "The download does not match Discogs' checksum"                                                                             | Downloads once more by itself, then asks                                                                    |
+| Digga closed during download/load | "The catalogue stopped loading when Digga closed" and "Pick up"                                                             | The jobs are marked interrupted, as today. The download starts over; the load reads the dump from the start |
+| The picks match nothing           | "Nothing in the catalogue matches these picks" and "Change your picks"                                                      | Back to step 3                                                                                              |
+| An import fails (token, Discogs)  | The error on the import's line, with "Try again"                                                                            | The load does not wait for a failed import                                                                  |
 
 Verdicts made during an interrupted load stay: their keys are Discogs ids, and reloading upserts
 the same releases. A finished load takes over the rows of unfinished ones (`dump_loads`).
+
+A stopped download says so wherever the user is: at the foot of steps 2 and 3, where the strip
+was, and in the crate, which keeps "Change your picks". A download that stopped before any of it
+arrived, such as one the disk had no room for, gives only the reason: "The download stopped:
+reason." "Fill the crate" after a stop downloads again before the load starts, and a setup opened
+again after a stop resumes at step 2. Once the library has records to dig, the page keys and
+links work again, so the releases a stopped load kept can be dug; the app still opens on the
+setup until a load finishes.
 
 ## Personality
 

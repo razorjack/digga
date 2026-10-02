@@ -119,9 +119,10 @@ off, and switching between want and grail leaves it there.
 
 ## Setup
 
-`Enter` takes each step's main action when no field has focus: fetch the catalogue, continue,
-fill the crate. In "Find a style", `Enter` picks the first match. On the load's screen, `T` or
-`Enter` starts digging once 500 records wait. The page keys stay quiet until the load starts.
+`Enter` takes each step's main action when no field has focus: fetch the catalogue, continue, fill
+the crate. In "Find a style", `Enter` picks the first match. On the load's screen, `T` or `Enter`
+starts digging once 500 records wait. The page keys stay quiet until the load starts, or until a
+load that stopped has left records to dig.
 
 In a practice round, `Esc` ends it; after the fifth verdict, `Enter` digs for real.
 

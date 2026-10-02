@@ -155,6 +155,40 @@ describe("downloading the newest dump", () => {
     expect(fs.readdirSync(dumpsDir)).toEqual([]);
   });
 
+  it("reports how much had arrived when the transfer stops", async () => {
+    const chunk = Buffer.alloc(1000, 1);
+    site.body = Buffer.alloc(10_000);
+    const fetchImpl = fetchFrom(site);
+    const dropped: typeof fetch = async (input, init) => {
+      const response = await fetchImpl(input, init);
+      const url = input instanceof Request ? input.url : String(input);
+      if (!url.includes("releases.xml.gz")) return response;
+      // Two chunks, the second within the second that keeps reports apart, then a dropped connection.
+      let pulls = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulls += 1;
+          if (pulls <= 2) controller.enqueue(chunk);
+          else controller.error(new TypeError("terminated"));
+        },
+      });
+      return new Response(body, { headers: response.headers });
+    };
+    const stopped = downloadDump(
+      { dumps: createDataDumpClient({ fetchImpl: dropped }), logger: silentLogger },
+      { dumpsDir, freeBytes: plenty },
+      (update) => progress.push(update),
+    );
+
+    await expect(stopped).rejects.toThrow("terminated");
+    expect(progress.at(-1)).toMatchObject({
+      phase: "downloading",
+      receivedBytes: 2000,
+      totalBytes: 10_000,
+    });
+    expect(fs.readdirSync(dumpsDir)).toEqual([]);
+  });
+
   it("removes the partial file of a cancelled download", async () => {
     const controller = new AbortController();
     site.body = Buffer.alloc(4 * 1024 * 1024);

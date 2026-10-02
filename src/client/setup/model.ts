@@ -1,6 +1,7 @@
 import type { SeedTally } from "../../shared/api.ts";
-import { formatEta } from "../../shared/display.ts";
+import { formatBytes, formatEta } from "../../shared/display.ts";
 import type { CensusStyle, StyleCensus } from "../../shared/style-census.ts";
+import { INTERRUPTED_JOB_ERROR, type Job } from "../../shared/types.ts";
 
 /** Years the load keeps on each side of the dug ones, so they can be widened without a load. */
 export const LOAD_MARGIN_YEARS = 3;
@@ -226,4 +227,22 @@ export function transferLeft(
 /** About how long reading a collection or wantlist takes: 100 a page, a request a second. */
 export function importSeconds(items: number): number {
   return Math.max(1, Math.ceil(items / 100)) * 1.1;
+}
+
+/**
+ * What the setup says of a download that stopped, or null for one that runs, finished or was
+ * cancelled. A download Digga's closing interrupted is the load's to pick up, so it says nothing.
+ */
+export function stoppedDownloadMessage(download: Job | null): string | null {
+  if (download?.type !== "dump_download" || download.status !== "failed") return null;
+  if (download.error === INTERRUPTED_JOB_ERROR) return null;
+  const reason = (download.error ?? "no reason given").replace(/\.$/, "");
+  const received = download.progress?.receivedBytes ?? 0;
+  if (received === 0) return `The download stopped: ${reason}.`;
+  const total = download.progress?.totalBytes;
+  const of = total ? ` of ${formatBytes(total)}` : "";
+  return (
+    `The download stopped at ${formatBytes(received)}${of}: ${reason}. ` +
+    "Discogs does not allow resuming, so it starts again."
+  );
 }

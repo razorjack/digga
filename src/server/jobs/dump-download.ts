@@ -133,6 +133,8 @@ async function saveVerified(
     }
     await file.close();
   } catch (error) {
+    // The setup says where the download stopped, so the last report is the exact count.
+    onBytes(received);
     await file.close().catch(() => {});
     fs.rmSync(part, { force: true });
     throw error;

@@ -114,6 +114,14 @@ describe("where the setup resumes", () => {
     expect(flow.picks).toBeNull();
   });
 
+  it("opens step 2 after the download stopped, where the setup says so", async () => {
+    serverHas([{ ...DOWNLOAD, status: "failed", error: "fetch failed" } as Job], false);
+
+    const flow = await resumed(null);
+    expect(flow.step).toBe("discogs");
+    expect(flow.downloadStopped).toBe("The download stopped: fetch failed.");
+  });
+
   it("opens step 1 before anything is fetched, whatever the address asks", async () => {
     serverHas([], false);
 
@@ -156,6 +164,38 @@ describe("the setup following its jobs", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(getJob).toHaveBeenCalledWith(LOAD.id);
     flow.close();
+  });
+});
+
+describe("the setup after the download stopped", () => {
+  it("downloads again before Fill the crate starts the load, which reads the new download", async () => {
+    vi.spyOn(api, "getSetup").mockResolvedValue(SETUP);
+    vi.spyOn(api, "getJobs").mockResolvedValue({
+      jobs: [{ ...DOWNLOAD, status: "failed", error: "fetch failed" } as Job],
+    });
+    vi.spyOn(api, "getDiscogsAccount").mockRejectedValue(new Error("no account"));
+    vi.spyOn(api, "getStyles").mockRejectedValue(new Error("not needed here"));
+    vi.spyOn(api, "getSettings").mockResolvedValue(DEFAULT_CONFIG);
+    vi.spyOn(api, "putSettings").mockImplementation(async (config) => config);
+    vi.spyOn(api, "getJob").mockImplementation(async (id) => (id === LOAD.id ? LOAD : DOWNLOAD));
+    const calls: string[] = [];
+    vi.spyOn(api, "startDumpDownload").mockImplementation(async () => {
+      calls.push("download");
+      return DOWNLOAD;
+    });
+    vi.spyOn(api, "startDumpLoad").mockImplementation(async () => {
+      calls.push("load");
+      return LOAD;
+    });
+    const flow = new SetupFlow();
+    await flow.open("sound");
+
+    await flow.fillCrate(PICKS);
+    flow.close();
+
+    expect(flow.error).toBeNull();
+    expect(calls).toEqual(["download", "load"]);
+    expect(flow.downloadStopped).toBeNull();
   });
 });
 

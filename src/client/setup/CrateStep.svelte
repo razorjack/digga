@@ -120,19 +120,34 @@
     </div>
   {/if}
 
-  {#if stopped}
-    <div class="notice" role="alert">
-      <p>The catalogue stopped loading{flow.load?.error ? `: ${flow.load.error}` : ""}.</p>
-      <p class="quiet">
-        What loaded so far stays, and so does anything you dug. Picking up reads the catalogue from the start, and
-        downloads it again if it was not whole.
-      </p>
-      <div class="actions">
-        <Action primary onclick={() => void flow.pickUp()} disabled={flow.busy}>Pick up</Action>
-        <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+  <!-- The alert is in the page before its text, so screen readers announce it. -->
+  <div role="alert">
+    {#if stopped && flow.downloadStopped}
+      <div class="notice">
+        <p>{flow.downloadStopped}</p>
+        <p class="quiet">
+          What loaded so far stays, and so does anything you dug. Starting again downloads the catalogue and reads it
+          from the start.
+        </p>
+        <div class="actions">
+          <Action primary onclick={() => void flow.pickUp()} disabled={flow.busy}>Start again</Action>
+          <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+        </div>
       </div>
-    </div>
-  {/if}
+    {:else if stopped}
+      <div class="notice">
+        <p>The catalogue stopped loading{flow.load?.error ? `: ${flow.load.error}` : ""}.</p>
+        <p class="quiet">
+          What loaded so far stays, and so does anything you dug. Picking up reads the catalogue from the start, and
+          downloads it again if it was not whole.
+        </p>
+        <div class="actions">
+          <Action primary onclick={() => void flow.pickUp()} disabled={flow.busy}>Pick up</Action>
+          <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+        </div>
+      </div>
+    {/if}
+  </div>
 
   <div class="progress">
     {#if download && !flow.loadDone}

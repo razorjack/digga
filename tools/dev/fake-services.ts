@@ -346,6 +346,7 @@ export class FakeDataDumps {
   #failAfterBytes: number | null = null;
   #bytesPerSecond: number | null = null;
   #unavailableStatus: number | null = null;
+  #contentLength: number | null = null;
   #gate = Promise.withResolvers<void>();
   #sentBytes = 0;
 
@@ -381,17 +382,21 @@ export class FakeDataDumps {
   /**
    * failAfterBytes closes the transfer's connection after that many bytes, as a dropped download
    * does; bytesPerSecond keeps each transfer to that rate; unavailableStatus answers every request
-   * with that status, as the site does while it is down. Null turns each off.
+   * with that status, as the site does while it is down; contentLength is the size the transfer
+   * announces instead of the dump's, which a downloader that checks for room reads first. Null
+   * turns each off.
    */
   set(options: {
     failAfterBytes?: number | null;
     bytesPerSecond?: number | null;
     unavailableStatus?: number | null;
+    contentLength?: number | null;
   }): void {
     if (options.failAfterBytes !== undefined) this.#failAfterBytes = options.failAfterBytes;
     if (options.bytesPerSecond !== undefined) this.#bytesPerSecond = options.bytesPerSecond;
     if (options.unavailableStatus !== undefined)
       this.#unavailableStatus = options.unavailableStatus;
+    if (options.contentLength !== undefined) this.#contentLength = options.contentLength;
   }
 
   /** The bytes of the dump the last transfer has sent so far. */
@@ -423,7 +428,7 @@ export class FakeDataDumps {
   async #transfer(dump: DumpSource, response: http.ServerResponse): Promise<void> {
     response.writeHead(200, {
       "content-type": "application/octet-stream",
-      "content-length": String(dump.bytes),
+      "content-length": String(this.#contentLength ?? dump.bytes),
     });
     const started = Date.now();
     this.#sentBytes = 0;

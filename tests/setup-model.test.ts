@@ -5,6 +5,7 @@ import {
   loadYearsFor,
   middleSpan,
   roundEstimate,
+  stoppedDownloadMessage,
   styleGroups,
   suggestedStyles,
   togetherWith,
@@ -14,6 +15,7 @@ import { withChange } from "../src/client/setup/flow.svelte.ts";
 import type { SeedTally } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { CensusStyle, StyleCensus } from "../src/shared/style-census.ts";
+import { INTERRUPTED_JOB_ERROR, type Job } from "../src/shared/types.ts";
 
 function style(name: string, genre: string, firstYear: number, years: number[]): CensusStyle {
   const releases = years.reduce((sum, count) => sum + count, 0);
@@ -173,5 +175,46 @@ describe("the config the setup writes", () => {
     const config = withChange(DEFAULT_CONFIG, { username: "dj", currency: "GBP", sandbox: true });
     expect(config.discogs).toMatchObject({ username: "dj", currency: "GBP" });
     expect(config.sandbox).toBe(true);
+  });
+});
+
+describe("a download that stopped", () => {
+  function download(status: Job["status"], error: string | null, receivedBytes: number): Job {
+    return {
+      id: "download",
+      type: "dump_download",
+      status,
+      error,
+      createdAt: "2026-10-02T10:00:00.000Z",
+      startedAt: "2026-10-02T10:00:00.000Z",
+      finishedAt: null,
+      progress: {
+        phase: "downloading",
+        file: "discogs_20260901_releases.xml.gz",
+        receivedBytes,
+        totalBytes: 11_252_161_836,
+        alreadyDownloaded: false,
+      },
+    } as Job;
+  }
+
+  it("says where it stopped and why, and that it starts again", () => {
+    expect(stoppedDownloadMessage(download("failed", "fetch failed", 4_400_000_000))).toBe(
+      "The download stopped at 4.1 GB of 10.5 GB: fetch failed. Discogs does not allow resuming, so it starts again.",
+    );
+  });
+
+  it("gives only the reason when nothing had arrived", () => {
+    expect(stoppedDownloadMessage(download("failed", "The dump needs 900 TB free.", 0))).toBe(
+      "The download stopped: The dump needs 900 TB free.",
+    );
+  });
+
+  it("says nothing of a download that runs, finished, was cancelled or ended with Digga", () => {
+    expect(stoppedDownloadMessage(null)).toBeNull();
+    expect(stoppedDownloadMessage(download("running", null, 10))).toBeNull();
+    expect(stoppedDownloadMessage(download("done", null, 10))).toBeNull();
+    expect(stoppedDownloadMessage(download("cancelled", null, 10))).toBeNull();
+    expect(stoppedDownloadMessage(download("failed", INTERRUPTED_JOB_ERROR, 10))).toBeNull();
   });
 });
