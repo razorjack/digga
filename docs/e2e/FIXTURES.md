@@ -21,8 +21,8 @@ database that a process still has open.
 | `small-account` | `small`, then `import collection` and `import wantlist` for `dj`; username in config | wantlist, Maybe list, seller tests |
 | `bulk`          | `dump load` of the bulk dump                                                         | paging, strategies                 |
 
-There is no cache across runs: the spike built `small` in 0.2 s and `small-account` in 0.4 s,
-and `bulk` builds in 0.42 s. The bulk dump has the September small dump's name, so the `bulk`
+There is no cache across runs; [historical measurements](HISTORY.md#the-twelves-p1-slice-web)
+record the build costs. The bulk dump has the September small dump's name, so the `bulk`
 build writes it into a fixtures folder of its own. If
 a larger catalogue makes the build slow, a cache keyed by a hash of every input (the catalogue,
 the fake services, the migrations, the loader, the importers and the CLI) can follow, still
@@ -45,14 +45,14 @@ Per-test state goes on top, through documented paths only:
 - **Credentials.** Templates hold none. The `small-account` build passes `DISCOGS_TOKEN` to its
   import commands only. A test that wants a saved token calls `app.given.savedToken(token)`,
   which goes through `PUT /api/discogs/token` before the page opens, so the token lands wherever
-  the host's `Secrets` keeps it: `secrets.env` in the web app, `safeStorage` in Electron. The
-  environment token is `DISCOGS_TOKEN` in both hosts; the Electron `Secrets` must give it the
-  same precedence as the CLI's. A test asks for it with `diggaOptions.environmentToken`, which the
+  the host's `Secrets` keeps it: `secrets.env` in the web app and, in the [Electron plan](ELECTRON.md), `safeStorage`. The
+  environment token is `DISCOGS_TOKEN`; the planned Electron `Secrets` must give it the same
+  precedence as the CLI's. A test asks for it with `diggaOptions.environmentToken`, which the
   fixture passes to the server only when it starts with `e2e-` (SET-09).
 - **Decisions.** `app.given` writes verdicts, track marks and listens through the app's own
   `/api` before the page opens. The server refuses digging writes while the sandbox is on, so
   `given` writes with the sandbox off and switches it on afterwards when the test asks for it.
-  Built so far: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
+  Available helpers: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
   test can date its snoozes in order, `given.verdicts()` for several, and `given.trackMark()`.
   `datedVerdicts()` in `fixtures/decisions.ts` dates a list of verdicts a day apart, the first one
   newest, so Twelves' newest-first order is the list's order whatever the clock says.
@@ -81,82 +81,68 @@ schema and lets the Electron host run them unchanged.
 
 ## The fixture catalogue
 
-One typed module, `tests/e2e/fixtures/catalogue.ts`, describes every release, master, label,
-artist, track and video the tests use. It is the single source for the dump files, the fake
-Discogs API's release data and the fake YouTube player's titles and durations, so the three agree.
-A small builder writes it as Discogs dump XML.
+[catalogue.ts](../../tests/e2e/fixtures/catalogue.ts) is the source for releases, labels,
+masters, artists, tracks, videos and accounts. Its `FixtureRelease` type and named records
+are the examples to follow. The dump builder, fake Discogs API and fake YouTube player read
+this module, so their identities, titles and durations agree.
 
-```ts
-export const WORMHOLE = release({
-  id: 1001,
-  master: { id: 501, main: true },
-  artists: ["Ed Rush (2)", "Optical"],
-  title: "Wormhole",
-  labels: [{ id: 77, name: "Renegade Hardware", catno: "RH 20" }],
-  year: 2000,
-  country: "UK",
-  format: { name: "Vinyl", qty: 2, descriptions: ['12"'] },
-  styles: ["Drum n Bass", "Techstep"],
-  tracks: [track("A1", "Wormhole", "6:12"), track("B1", "Watermelon", "7:01")],
-  videos: [video("wormhole-a1", "Ed Rush & Optical - Wormhole", 372)],
-  market: { lowestPrice: 18.5, numForSale: 4, want: 1210, have: 890 },
-});
-```
+The August `SMALL` dump has 20 releases. Names such as `FIRST_RECORD`, `TRACK_RUN` and
+`SAME_TUNE_ELSEWHERE` describe the role of a record, and source comments name its scenarios.
+Records needed by later scenarios use labels that sort after the original records; use
+`diggaOptions.labels` to reach them without changing the earlier queue. The catalogue covers
+label sweeps, shared tunes, compilations, missing and refused videos, embedding disabled in
+the dump, track navigation, self-released labels, seller pressings and out-of-range years.
+Add the remaining planned cases with the [scenarios that need them](PLAN.md#remaining-web-p2-coverage).
 
-**The small catalogue** has about 40 named records, each there for a reason: a label with
-several records for the label sweep and `F`; a master with a main release without video and a
-repress with one (pooled videos, decision 72); two releases sharing a tune on different masters
-(heard greying); a compilation with track artists; a release without videos; one whose only
-video YouTube refuses; one whose several videos all are refused; one with `embed="false"` from
-the dump; a record with a run of tracks for `J`, `K`, `1` to `9` and a video's end;
-`Not On Label (Dillinja Self-released)` for `X` and bracketed variants; undated records on a
-label the account wants (decision 91); a record the seller `shopkeeper` has in a different
-pressing from the main release; Jungle and House records for the style picker and census; a
-release outside the default years for filter tests. The September dump adds three releases and
-drops one, so a load of it has small exact "added" and "missing" counts, and puts one release that
-had no master on a master (SET-21). Videos
-that YouTube has and no release lists, one titled after a track that has none, are there to be
-pasted (TRI-26), and one titled after the release without videos (TWL-14).
+`THIRD_RECORD`, `IN_COLLECTION`, `ON_WANTLIST` and `EVENT_HORIZON` are in `SMALL`.
+`NOT_IN_ANY_DUMP` is the account's wanted release missing from every dump. A verdict given for
+`ON_WANTLIST` is already on the wantlist because the imported seed establishes that state;
+a verdict given only through `/api/verdicts` does not establish Discogs membership.
 
-Records that only some scenarios reach sit on labels that sort after those of the first records,
-so the default queue starts as before, and a scenario digs them with `diggaOptions.labels`. The
-catalogue names the records that scenarios refer to (`FIRST_RECORD`, `TRACK_RUN`,
-`SAME_TUNE_ELSEWHERE` and so on) and says in a comment which scenarios they serve. Built so far:
-20 releases in the August dump, of which Twelves' scenarios name `THIRD_RECORD`, `IN_COLLECTION`,
-`ON_WANTLIST` (on `dj`'s wantlist, so a want of it given in Digga is on the wantlist) and
-`EVENT_HORIZON`, the release in no dump (see [The first Triage P1 slice](HISTORY.md#the-first-triage-p1-slice-web) and [The second Triage P1 slice](HISTORY.md#the-second-triage-p1-slice-web)), and the September dump (`SMALL_SEPTEMBER`): the August releases but
-"Brass Knuckle" (1902), and three releases on "Upfront Audio", a label that sorts after every
-other (`SEPTEMBER_ADDITIONS`). The templates load August only, so "Added by the last dump load"
-offers every record still to dig, as TRI-20 expects. data.discogs.com lists September for SET-17,
-whose update adds 3 releases and does not find 1; a held transfer stops at its `part-way`
-checkpoint, after 10 releases. A July dump with August's releases exists only as a file in a
-dumps folder (SET-16). `smallDump(month)` builds each once per worker (`fixtures/dump.ts`). Tracks can
-credit their own artists, as a compilation does, and the builder writes "Various" with Discogs'
-id 194, which Digga does not offer to dig. Every release has the same market data in the fake
-(`MARKET` in `tools/dev/fake-services.ts`); per-release prices wait for a scenario that compares two.
+The monthly dumps have distinct roles:
 
-**The bulk catalogue** has 1,500 generated Drum n Bass records from 1998 to 2002 on vinyl,
-deterministic from a seed, on 30 labels no other fixture uses, in id order as in a Discogs dump,
-so more than 500 records to dig arrive in the first 40% of the file. The generated releases have
-no master and match the picks the setup scenarios make (Drum n Bass, the census's middle years,
-vinyl), so each is one record to dig. Releases in other styles, which the census and the filter
-preview need, join when a scenario needs them; the setup scenarios need none. The dump is 81 KB
-and is built in memory once per worker, in about 25 ms (see [The first-run setup path](HISTORY.md#the-first-run-setup-path-web)).
+| Dump      | Contents and use                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------- |
+| July      | August's releases, present only as an older file for Settings' dump management                                        |
+| August    | The `small` and `small-account` templates' input; all remaining records count as added by the last load               |
+| September | August minus Brass Knuckle (1902), plus three `SEPTEMBER_ADDITIONS` on Upfront Audio; `PULSAR_REMIXES` gains a master |
 
-**Checkpoints.** The builder (`fixtures/dump.ts`) compresses the dump with a full flush at named
-points, `100-to-dig` and `600-to-dig`, and records for each its compressed offset, the number of
-records to dig before it and the last release before it. It deflates each part on its own; a
-full flush resets the compressor, so these are the bytes a gzip stream flushed with
-`Z_FULL_FLUSH` between the parts would write. A gunzip stream given the bytes up to a full flush yields all the
-XML before it, so at a held transfer the loader has parsed every release before the point. The
-loader then commits them and reports progress within a second (product change 4), and tests
-wait for the recorded count in the UI or `/api/stats` before they release the transfer. The fake
-data.discogs.com holds and releases transfers (see [The fake services](#the-fake-services)). The runs confirmed all
-of this; see [The first-run setup path](HISTORY.md#the-first-run-setup-path-web).
+`smallDump(month)` in [dump.ts](../../tests/e2e/fixtures/dump.ts) builds each once per worker.
+SET-17 lists September, whose update adds three releases and does not find one; SET-21 checks
+the changed master key. September's `part-way` checkpoint follows ten releases. Compilation
+tracks can credit their own artists; the builder writes Various as Discogs artist 194, which
+Digga does not offer as an artist to dig. All releases use `MARKET` in the fake; per-release
+prices can be added when a scenario needs to compare them.
 
-Video ids follow YouTube's 11-character shape (`[\w-]{11}`, which `deck.ts` checks). A prefix
-tells the fake player how to behave: `e150…` refuses with error 150, `e100…` with 100, anything
-else plays.
+`YOUTUBE_ONLY` supplies videos that no release lists: one matches the first record's unlinked
+track, one matches no track, and one matches the release without videos. Video IDs have
+YouTube's 11-character shape (`[\w-]{11}`), checked by `deck.ts`; prefixes `e150` and `e100`
+make the fake refuse playback with the corresponding error, while other IDs play.
+
+The bulk catalogue has 1,500 generated Drum n Bass vinyl releases from 1998 to 2002 on 30
+otherwise unused labels, deterministic from a seed and in ID order. They have no masters and
+match the setup's selected styles, census years and format, so each contributes one record
+to dig. More than 500 arrive in the first 40% of the dump. The roughly 81 KB gzip is generated
+in memory once per worker. Other styles are added only when coverage needs them.
+
+### Dump checkpoints
+
+The builder compresses independent parts with full flushes at `100-to-dig` and `600-to-dig`.
+Each checkpoint records its compressed offset, record count and last release. Resetting the
+compressor at each part produces the bytes a gzip stream flushed with `Z_FULL_FLUSH` would
+write. Gunzip given bytes through a checkpoint emits every preceding release.
+
+The loader commits and reports at least once a second while waiting for more bytes. A timed
+report commits its pending batch first, so reported progress is in SQLite. Scanning still
+commits full batches; final flush, dry-run and limit behavior are unchanged. A timed commit
+failure ends the load through its input stream. The regression cases are in
+[tests/dump-load.test.ts](../../tests/dump-load.test.ts) and
+[tests/growing-dump.test.ts](../../tests/growing-dump.test.ts).
+
+Wait for the committed count through the UI or `/api/stats` before releasing the transfer.
+The fake's sent-byte count or byte rate does not prove that the loader committed, and a page
+clock cannot advance the worker. [Historical measurements](HISTORY.md#the-first-run-setup-path-web)
+record the checkpoint validation and costs.
 
 ## The fake services
 
@@ -165,23 +151,8 @@ The server talks to three external HTTP services. E2E replaces each with a fake 
 the worker, not in the app, means the fakes work unchanged when the app is an Electron process,
 need no native module, and let tests read and change their state as typed objects.
 
-The module is `tools/dev/fake-services.ts`. The same module also runs standalone (`node
-tools/dev/fake-services.ts [<dump>] [--port 4567] [--mbps 40] [--checksum <sha256>]
-[--wrong-checksums 0]`), for
-rehearsing the setup by hand: it serves the Discogs API and oEmbed from the catalogue, so a
-rehearsal can use `e2e-token-dj`, and data.discogs.com with a dump file from disk, which may be
-10 GB, read a chunk at a time and sent at the set rate in MiB per second. `--wrong-checksums N`
-names another hash in the first N reads of `CHECKSUM.txt`. Without `--checksum` it
-hashes the file first. It prints the three addresses to start Digga with (`DIGGA_DUMPS_URL`,
-`DIGGA_DISCOGS_API_URL`, `DIGGA_YOUTUBE_OEMBED_URL`), and each request and each problem, such as
-a token that does not start with `e2e-`, as it happens. It replaced an earlier tool that served
-the dump alone. Outside the harness no guard refuses a real host, so a rehearsal
-checks that all three addresses point at it before starting Digga, in the environment the process
-receives (print it with the same command line first), and loads the harness's guard:
-`NODE_OPTIONS=--import=<repo>/tests/e2e/support/guard.ts` with `DIGGA_E2E_ALLOWED_PORT` set to
-the fakes' port. A rehearsal whose environment did not apply reached the real data.discogs.com and
-the default library once (see [The setup's steps 1 to 3 P1 slice](HISTORY.md#the-setups-steps-1-to-3-p1-slice-web)). The fakes never answer with a
-redirect.
+The implementation is [tools/dev/fake-services.ts](../../tools/dev/fake-services.ts).
+For use outside the harness, follow [Manual rehearsals](#manual-rehearsals).
 
 The module imports the catalogue and the dump types from `tests/e2e/fixtures/`. That direction
 is acceptable: both folders are for development only, nothing in `src` imports either and
@@ -200,7 +171,11 @@ declares the abort and the console error it causes with `app.expectProblems()`. 
 returns, for requests whose number the page's polling makes unknown (SHELL-07). Every abort is
 still recorded and must be declared.
 
-**Discogs API** (`https://api.discogs.com`), every endpoint `src/server/discogs/client.ts` calls:
+### Discogs API
+
+Implemented requests for `https://api.discogs.com`, as used by
+`src/server/discogs/client.ts`. `GET /masters/{id}` is planned and must be added with the
+scenario that needs it; an unimplemented request fails as unplanned.
 
 | Request                                        | Fake behaviour                                                                               |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -213,24 +188,20 @@ still recorded and must be declared.
 | `GET /users/{u}/inventory`                     | Pages of For Sale listings for a seller                                                      |
 | `GET /users/{u}/lists`, `GET /lists/{id}`      | The account's lists, private ones only for its own token, and their items                    |
 | `GET /releases/{id}?curr_abbr=`                | Market data and videos from the catalogue, price in the asked currency; `404` when asked     |
-| `GET /masters/{id}`                            | The master's main release                                                                    |
 
-State: accounts (`dj` with a collection of 1, a wantlist of 2 including one release in no dump,
-a private "Maybe" list 9001, a public list 9002 and GBP as its currency), a seller `shopkeeper`
-whose shop has a repress of a loaded master and a release in no dump, and the catalogue's
-releases. Built so far: every request in the table but `GET /masters/{id}`, which waits for a
-scenario that reaches it; `dj`'s lists are the private list "Maybe" (9001), which holds the first
-two records of the small catalogue, and the public list "Played out" (9002), which is empty. The
-design gave `dj` a collection of 5 and a wantlist of 6; the scenarios built since use 1 and 2
-(`small-account`, Twelves' shelves, the imports' counts), and nothing needs more, so the design
-follows the account (SETUP-08's row too). With 3 imported releases the setup's years come from
-the census rather than the imports (SETUP-14); the imported span stays a vitest case
-(`tests/setup-model.test.ts`). The profile's currency is GBP, not the config's default EUR, so
-SETUP-08 sees it come from the profile; only the setup reads the profile. `GET /users/{u}/lists` answers on one page, and `GET /lists/{id}`
-with the list's releases; both show a private list only to `dj`'s own token, and
-`GET /lists/{id}` answers `404` for it to any other;
-and `shopkeeper`'s two listings, on one page. A Discogs request the fake has no route for fails
-the test as unplanned.
+The accounts and lists are declared in the catalogue:
+
+- `dj` has one collected release, two wants (one absent from every dump), and GBP as its
+  profile currency instead of the config's EUR. SETUP-08 reads that currency from the profile.
+- The private Maybe list 9001 contains the first two small records; the public Played out
+  list 9002 is empty. List enumeration and list contents are each one page. Private lists are
+  visible only to their owner's token; fetching one with another token returns `404`.
+- `shopkeeper` has two For Sale listings on one page: a repress of a loaded master and a
+  release absent from every dump.
+
+With three imported releases, the setup uses the census for its default years (SETUP-14).
+The imported year-span policy remains a unit test in `tests/setup-model.test.ts`. Historical
+plans for larger accounts are superseded by these fixtures.
 
 Tokens: `e2e-token-<username>` identifies as that user; `e2e-token-refused` gets `401`. Any token
 not starting with `e2e-` makes the fake fail the test with "a non-test token reached the fake",
@@ -238,25 +209,30 @@ so a real token that leaks into a test run is caught instead of logged. The fake
 `User-Agent` header the transport sends. Every response carries
 `X-Discogs-Ratelimit-Remaining: 59`; the 60 s pause at `<= 1` stays a vitest concern.
 
-**data.discogs.com**, as `src/server/discogs/data-dumps.ts` reads it: the `?prefix=data/` and
-`?prefix=data/2026/` listing pages with each file's size, the `CHECKSUM.txt` download and the dump
-download with `Content-Length`. Per test: which dumps are listed, the listed size, the
-`Content-Length` sent, the transfer speed, failing after N bytes, a wrong checksum, `503` for
-every page, and checkpoints. Built so far (`fakes.dumps`): the listed dump, which the test names
-with `diggaOptions.listedDump` (the bulk dump or the small September dump) so it is listed from
-the app's first request, and without which the fake answers `404`; the listed size
-(`list(dump, { listedBytes })`, `null` for none), which a test may change before the page opens,
-since the server first reads the listing for `GET /api/setup` and keeps a listing it read for an
-hour (a failed read is not kept, so SETUP-04's Try again reads it again); holds at checkpoints; `set({ failAfterBytes })`; `503` for every request,
-`set({ unavailableStatus: 503 })` until `set({ unavailableStatus: null })` (SETUP-04); the
-transfer speed, `set({ bytesPerSecond })`, which the standalone mode uses and no test does; the
-`Content-Length` the transfer announces, `set({ contentLength })`, `null` for the dump's size
-(SETUP-32); a wrong checksum for the next N reads of `CHECKSUM.txt`, `set({ wrongChecksums: N })`
-(SETUP-26, and `--wrong-checksums` in the standalone mode); a hold for one transfer only,
-`holdAt(name, { transfer: 2 })`, such as the second download after a mismatch; `transfers`, how
-many transfers have started; and `sentBytes`, what the transfer has sent so far. A
-listed dump is a `DumpSource`: `memoryDump()` wraps one the builder made, `fileDump()` reads a
-file on disk. The rest comes with the scenarios that need it.
+### data.discogs.com
+
+The fake serves the `?prefix=data/` and `?prefix=data/2026/` listing pages, file sizes,
+`CHECKSUM.txt`, and dump downloads with `Content-Length`, as
+`src/server/discogs/data-dumps.ts` reads them.
+
+| Control on `fakes.dumps`            | Behavior                                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `diggaOptions.listedDump`           | Selects the bulk or small September dump before the app's first request; without it the listing answers `404` |
+| `list(dump, { listedBytes })`       | Overrides the listed size; `null` means no size                                                               |
+| `holdAt(name)` and `release(name?)` | Hold at a checkpoint, then release to another checkpoint or the end                                           |
+| `holdAt(name, { transfer: 2 })`     | Holds only the named transfer, for example the retry after a checksum mismatch                                |
+| `set({ failAfterBytes })`           | Fails the transfer after the specified byte count                                                             |
+| `set({ unavailableStatus: 503 })`   | Returns `503` for every dump-service request until reset to `null` (SETUP-04)                                 |
+| `set({ bytesPerSecond })`           | Controls transfer speed for standalone rehearsals; tests synchronize on checkpoints                           |
+| `set({ contentLength })`            | Overrides the transfer's announced size; `null` uses the dump's size (SETUP-32)                               |
+| `set({ wrongChecksums: N })`        | Gives a wrong hash on the next N reads of `CHECKSUM.txt` (SETUP-26); standalone mode has `--wrong-checksums`  |
+| `transfers`, `sentBytes`            | Count transfers started and bytes sent so far                                                                 |
+
+Set listing changes before opening the page: the server first reads the listing for
+`GET /api/setup` and caches success for an hour. It does not cache failures, so SETUP-04's
+Try again reads the recovered listing. A listed dump is a `DumpSource`: `memoryDump()` wraps
+one from the builder and `fileDump()` reads one from disk. Add controls with the scenarios
+that need them.
 
 A transfer can be held at a checkpoint and released, to the end or to the next checkpoint:
 
@@ -268,14 +244,18 @@ await setup.waitForRecordsToDig(point.recordsToDig);
 fakes.dumps.release("600-to-dig"); // or release() for the rest of the dump
 ```
 
-A byte rate, when one is added, is for realism, never for synchronisation: it does not say when
+The byte rate is for realism, never for synchronisation: it does not say when
 the loader's worker has committed what it read, and a browser clock cannot hurry the worker.
 Tests wait for the committed state through the UI or `/api/stats`, then release.
 
-**YouTube oEmbed** (`https://www.youtube.com/oembed`): the title the catalogue gives a video id,
+### YouTube oEmbed
+
+`https://www.youtube.com/oembed`: the title the catalogue gives a video id,
 else `404`, with an optional delay past the server's 4 s lookup timeout.
 
-**Fault injection** is the same for every route:
+### Fault injection
+
+Fault injection is the same for every API route:
 
 ```ts
 fakes.discogs.fail("PUT /users/:user/wants/:id", { status: 500, times: 1 });
@@ -294,7 +274,9 @@ await push.received; // the request has reached the fake and waits
 push.release();
 ```
 
-**The request log** records method, path, query, whether the request was authenticated, the JSON
+### Request log
+
+The request log records method, path, query, whether the request was authenticated, the JSON
 body, when the request arrived and when the fake answered. Tests read it after the app's own
 request to the server has completed (see [Synchronisation](AUTHORING.md#synchronisation)):
 
@@ -345,8 +327,8 @@ is set about 9 ms after `page.goto()` with no test action at all, so under Playw
 is practically always set and the app would never wait for Space. The init script therefore replaces
 `navigator.userActivation` with an object the harness owns. It turns active on the first trusted
 `keydown` other than Escape, or the first `pointerdown`, which is what the HTML standard counts as
-activation. The app and the fake player read the same flag, in every engine and in Electron, whose
-planned `autoplayPolicy` does not change the flag. If the Electron shell later skips the Space step
+activation. The app and the fake player read the same flag. The planned other browser hosts
+and Electron reuse it; Electron's planned `autoplayPolicy` does not change the flag. If the Electron shell later skips the Space step
 because it may autoplay, TRI-02 gets an Electron variant.
 
 `window.__fakeYouTube` lets tests read and drive it: `players()` lists each player's video,
@@ -356,3 +338,29 @@ next release and the next track were preloaded muted; `end()` ends the audible v
 `fail(videoId, code)` refuses a video at runtime; `blockSound()` keeps unmuted playback
 `UNSTARTED` although the page has activation, as a browser that blocks autoplay does.
 `app.youtube` wraps these calls.
+
+## Manual rehearsals
+
+`tools/dev/fake-services.ts` also runs standalone (`node
+tools/dev/fake-services.ts [<dump>] [--port 4567] [--mbps 40] [--checksum <sha256>]
+[--wrong-checksums 0]`), for
+rehearsing the setup by hand: it serves the Discogs API and oEmbed from the catalogue, so a
+rehearsal can use `e2e-token-dj`, and data.discogs.com with a dump file from disk, which may be
+10 GB, read a chunk at a time and sent at the set rate in MiB per second. `--wrong-checksums N`
+names another hash in the first N reads of `CHECKSUM.txt`. Without `--checksum` it
+hashes the file first. It prints the three addresses to start Digga with (`DIGGA_DUMPS_URL`,
+`DIGGA_DISCOGS_API_URL`, `DIGGA_YOUTUBE_OEMBED_URL`), and each request and each problem, such as
+a token that does not start with `e2e-`, as it happens. Outside the harness no guard refuses a real host, so a rehearsal
+checks that all three addresses point at it before starting Digga, in the environment the process
+receives (print it with the same command line first), and loads the harness's guard:
+`NODE_OPTIONS=--import=<repo>/tests/e2e/support/guard.ts` with `DIGGA_E2E_ALLOWED_PORT` set to
+the fakes' port. The fakes never answer with a redirect.
+
+Always use a throwaway library, dumps directory, config and working directory with no `.env`.
+Build the environment from an allowlist as [spawnDigga does](HARNESS.md#launching-processes),
+including a fake home. Verify that every path and all three service URLs are applied to the
+actual process. Pass each environment assignment as its own argument; do not rely on shell
+word splitting of a variable containing assignments. A fake service by itself does not isolate
+Digga's paths or its other network requests. The
+[earlier rehearsal incident](HISTORY.md#the-setups-steps-1-to-3-p1-slice-web) records why these
+checks and the guard are required.

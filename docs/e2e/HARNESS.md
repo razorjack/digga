@@ -4,27 +4,22 @@ Read this when changing process launch, isolation, guards or lifecycle. Start wi
 and its binding rules. For data and fake services, read [FIXTURES](FIXTURES.md). Electron-specific work also needs
 [ELECTRON](ELECTRON.md); its host is planned, not implemented.
 
-## Tool: Playwright Test
+## Runner and configuration
 
-Playwright Test is the only mainstream runner that drives both a browser and an Electron app
-with the same `Page`, locator and assertion API (`_electron.launch()` returns an
-`ElectronApplication` whose windows are ordinary `Page` objects). Electron runs Chromium, so the
-web project on Chromium already exercises the engine the packaged app will use. Playwright also
-brings what this app needs: web-first assertions that wait, `clock` for the player's 4 s listen and
-the 10 s look-again timer, `route()` for fault injection at the transport, traces, ARIA
-snapshots, `@axe-core/playwright`, and parallel workers. Pin a version of 1.52 or later, which
-has `failOnFlakyTests`.
+The suite uses Playwright Test. [package.json](../../package.json) pins the version, and
+[playwright.config.ts](../../tests/e2e/playwright.config.ts) defines the current projects,
+retries, timeout and artifacts. The [runner comparison](HISTORY.md#runner-choice-on-2026-09-30)
+records the original selection.
 
-Alternatives considered:
+Tests end in `.e2e.ts`, with `testDir: "specs"` and `testMatch: "**/*.e2e.ts"`; Vitest only
+loads `tests/**/*.test.ts`. `tsconfig.e2e.json` includes the DOM library for the fake YouTube
+script and page objects; the root project references it and `tsconfig.node.json` excludes
+`tests/e2e/`. `vp check` checks the suite. The lint override exempts `.e2e.ts` functions from
+length and complexity limits, as for unit tests.
 
-- **Cypress** cannot drive an Electron app, runs inside the page and handles one tab. Rejected.
-- **WebdriverIO with `wdio-electron-service`** can drive Electron, but the web and Electron
-  suites would share less, and its tooling for tracing and ARIA queries is weaker. Rejected.
-- **Vitest browser mode** tests components in a browser, not the app with its server and jobs. It
-  can complement E2E later for component-level cases; it does not replace it.
-
-`_electron` is marked experimental in Playwright's docs. Only the Electron host depends on it, so
-a change in that API touches one module.
+The 30 s test timeout includes fixture setup; setup journeys use `test.slow()`. The host
+separately limits server shutdown to 15 s. Locally there are no retries. Under `CI`, one retry
+is allowed for diagnosis, but `failOnFlakyTests` makes a pass on retry fail the run.
 
 ## Architecture
 
@@ -34,11 +29,9 @@ Playwright worker (Node; several run in parallel)
  |                                       request log, fault injection, transfer checkpoints
  |- app host
  |    web:      spawns the guarded CLI server, then opens a prepared Chromium context
- |    electron: launches the main process with the harness preload, which guards it and holds
- |              the window's first navigation until the host has prepared the context
  '- test -> page objects -> app.page
 
-Page (Chromium tab or BrowserWindow)
+Page (Chromium tab; BrowserWindow with the planned Electron host)
  |- prepared before the app's first script: fake YouTube API, routes, clock
  '- Digga client -> /api -> Digga server -> SQLite in the temp library -> fake services
 ```
@@ -60,7 +53,7 @@ server, the template builds and `app.cli()`. They all get the same isolation.
 - The environment is built, never inherited. From the parent it takes only `PATH`; on Windows
   `SYSTEMROOT`, `WINDIR`, `TEMP` and `TMP`; on Linux `DISPLAY`, `XAUTHORITY` and
   `WAYLAND_DISPLAY` when present, which `xvfb-run` sets. Then it sets `DIGGA_DATA_DIR`,
-  `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE`; the fake service URLs (see [Product changes](HISTORY.md#product-changes-the-harness-needs));
+  `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE`; the fake service URLs (see [Service configuration](#service-configuration));
   `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` inside
   a fake home; `TZ=UTC`, `LANG=en_US.UTF-8`, `DIGGA_LOG_LEVEL=debug`; the network guard and its
   allowed port; and `DISCOGS_TOKEN` only when the test asks for the environment token.
@@ -88,7 +81,7 @@ A graceful stop and a crash leave different state, and scenarios need both.
   worker died does not keep running. Ctrl-C reaches the servers directly and they stop on
   `SIGINT`, so the helper treats an already closed channel as stopped.
 - **Crash.** `kill("SIGKILL")`. Running jobs stay `running` in the database, and the next start
-  marks them failed as interrupted (`failStaleJobs()`). SETUP-27 and PER-03 use this.
+  marks them failed as interrupted (`failStaleJobs()`). The planned SETUP-27 and PER-03 scenarios use this.
 
 Discogs requests take no abort signal (`discogs/transport.ts`), and importers check theirs
 between pages, so a cancel or a graceful stop waits for the request in flight. Fake delays
@@ -100,59 +93,26 @@ fakes keep answering until the server has exited. The temp folder is deleted aft
 
 ### The app host
 
-Tests receive a `DiggaApp` and never touch `browser` or `context` directly. Two hosts implement
-it; the Playwright project chooses which.
+Tests receive a `DiggaApp` and never touch `browser` or `context` directly. The web host
+implements it today. The planned [Electron host](ELECTRON.md) will use the same contract,
+except for web-only operations.
 
-```ts
-export interface DiggaApp {
-  /** The window under test. A relaunch replaces it; page objects read it on each use. */
-  readonly page: Page;
-  /** http://localhost:<port>, fixed for one launch. */
-  readonly origin: string;
-  readonly library: { dataDir: string; dumpsDir: string; configFile: string };
-  /** Opens a hash route such as "#/twelves"; defaults to "#/triage". */
-  open(hash?: string): Promise<void>;
-  /** Typed calls to the current launch's /api, for given-state and read-back. */
-  readonly api: AppApiClient;
-  readonly given: Given;
-  /** pause() and runFor(), when the test installed the clock (see [Time](AUTHORING.md#time)). */
-  readonly clock: PageClock;
-  /**
-   * Stops the whole app and starts it again on the same library, prepared as at the first
-   * launch, with a new page that is blank until open(). Given state is not applied again.
-   */
-  relaunch(options?: { crash?: boolean }): Promise<void>;
-  /** Web only: restarts the server on the same port while the page and its session stay. */
-  restartServer(options?: { crash?: boolean }): Promise<void>;
-  /** Runs `digga <args>` against the same library, with the same isolation. */
-  cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }>;
-  /** Installs interception, runs the action, and returns the URL the app opened. */
-  expectExternalOpen(action: () => Promise<void>): Promise<string>;
-  /** Runs the action and waits until the download completes, saved in the test's output folder. */
-  expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }>;
-  /** Dispatches a paste event carrying the text at the focused element. */
-  paste(text: string): Promise<void>;
-  /** Reads and drives window.__fakeYouTube in the page. */
-  readonly youtube: FakeYouTubeHandle;
-  /** The page's /api requests so far, over every launch, as "METHOD /api/path". */
-  apiRequests(): string[];
-  /**
-   * Aborts the page's next matching requests (one by default), for the current launch; with
-   * `times: Infinity`, every one until the test calls lift().
-   */
-  abortRequests(
-    match: { method: string; path: string },
-    options?: { times?: number },
-  ): Promise<{ lift(): Promise<void> }>;
-  /** Declares aborts, /api errors, console errors and page errors the test causes on purpose. */
-  expectProblems(problems: ExpectedProblems): void;
-}
-```
+The authoritative interface, API client, given-state helpers, YouTube handle and page clock
+are in [support/app.ts](../../tests/e2e/support/app.ts). Read the signatures there when using
+or changing a helper. `app.page` is replaced on relaunch, so page objects read it on every use.
+`app.origin` is fixed for one launch. `open()` defaults to `#/triage`.
+
+`app.api` accepts only paths under `/api/` on the current launch and refuses redirects.
+`app.given` sets up state before the page opens; [FIXTURES](FIXTURES.md#libraries) defines
+the supported setup paths. `apiRequests()` includes all launches in the test.
+`abortRequests()` applies to the current launch, defaults to one abort, and returns `lift()`;
+`times: Infinity` lasts until lifted. Declare deliberate failures with `expectProblems()`
+([failure artifacts](AUTHORING.md#failure-artifacts)).
 
 **Web host.** It prepares the library, config and fake home, spawns the server, prepares a
-browser context (below) and opens the page. Everything above is built in the web host; `cli()` runs the command through `spawnDigga()` with the test's environment
-and resolves when it exits, with a `null` code when a signal ended it. The console, page-error and request collectors are
-attached to the context. `relaunch()` closes the context first, so no request of the page meets a
+browser context (below) and opens the page. `cli()` runs through `spawnDigga()` with the test's
+environment and resolves on exit, with a `null` code when a signal ended it. Console, page-error
+and request collectors attach to the context. `relaunch()` closes the context first, so no request of the page meets a
 stopped server, then stops the server, and starts both again with the whole preparation and new
 collectors; the port may change. The collectors feed one log per test, so a problem from an
 earlier launch still fails the test. `restartServer()` keeps the port, so the open page
@@ -166,22 +126,11 @@ PER-05 waits for the stats refresh its verdict schedules. Another worker's `--po
 the port in between; the restart then fails with "another process took port N while the server
 restarted" rather than moving to another port, where the page could not follow.
 
-**Electron host.** `relaunch()` quits the app and launches it again on the same library, with
-the same preparation. `restartServer()` is not available: the server lives in the main process,
-and restarting it alone would need a main-process API the product does not plan. Scenarios that
-need it are tagged web.
-
-`_electron.launch()` has no `viewport`, `reducedMotion` or `serviceWorkers` option, and the test
-runner's `use` options, automatic screenshots and `trace` setting do not reach an Electron app.
-The Electron host therefore passes `locale`, `timezoneId` and `colorScheme` to `launch()`, calls
-`page.emulateMedia({ reducedMotion: "reduce" })`, sets the window's content size, and starts and
-stops tracing and takes the failure screenshot itself.
-
 **Helpers with a completion contract.**
 
 - `expectExternalOpen()` installs its interception before the action: in the web host a context
   route that answers the external URL with an empty page and the `page` event that captures the
-  popup; in Electron a stub of `shell.openExternal`. It returns once the URL is known. The web
+  popup. The planned Electron host uses a stub of `shell.openExternal`. It returns once the URL is known. The web
   host's route matches every URL outside the app's origin, answers the window's page and nothing
   else the window asks for (`404`), and is removed once the window is closed, so the URL neither
   reaches the network nor counts as refused, while an external URL the app opens outside the
@@ -191,11 +140,11 @@ stops tracing and takes the failure screenshot itself.
 - `expectDownload()` resolves only when the download has completed: in the web host it arms the
   page's `download` event before the action and awaits `download.saveAs()` into `downloads/` in
   the test's output folder, which resolves once the download has completed and rejects for one
-  that failed; in Electron the `will-download` handler sets that path and the helper waits for
-  `done` with state `completed`. Built in the web host (SET-20).
+  that failed. In the planned Electron host the `will-download` handler sets that path and waits for
+  `done` with state `completed`. SET-20 covers the web implementation.
 - `paste()` dispatches a synthetic `ClipboardEvent` with a `DataTransfer`, which is what Digga's
   `onpaste` handlers read. It needs no clipboard permission and never touches the OS clipboard,
-  so it behaves the same in both hosts and in parallel workers. The suite does not press
+  so parallel workers do not interfere and the planned Electron host can use the same helper. The suite does not press
   `ControlOrMeta+V`: the browser would read the OS clipboard, which workers and the developer
   share. That the browser turns the key into a paste event is the browser's behaviour.
 
@@ -208,31 +157,16 @@ starts. A reload after the fact cannot undo a request that already left.
   its first instruction (`--import`); the given state goes through the API; the browser context
   is prepared with the routes, the fake YouTube init script, blocked service workers and, if the
   test asks for it, the clock. Only then does the host call `page.goto()`.
-- **Electron.** In the plan (`docs/ELECTRON_PLAN.md`), the main process starts the server and
-  loads the window as soon as the app is ready. The host launches it with a harness preload,
-  `-r tests/e2e/support/electron-preload.cjs` before the main entry, which runs in the main
-  process before the app's first line:
-  - it installs the socket guard, so all main-process code is guarded, `loadConfig()` included;
-  - it stubs `shell.openExternal`, `dialog.showMessageBox` and `dialog.showOpenDialog`, spies on
-    `setProgressBar` and `Notification`, and registers the download handler once the session
-    exists;
-  - it wraps `BrowserWindow.prototype.loadURL`, so the first call records its URL and waits until
-    the host calls `globalThis.diggaE2e.release()`.
 
-  The host polls through `electronApp.evaluate()` until the preload reports the held URL. The
-  server is running by then and its origin is known. On `electronApp.context()` the host
-  installs the routes for that origin, the fake YouTube script and the clock, applies the given
-  state through the API, and releases the navigation. The product has no code for this. ELEC-13
-  tests the sequence.
+For the planned Electron preload and held navigation, see [Electron startup](ELECTRON.md#startup-order).
 
-  Electron may ignore `-r` in a packaged build. The Electron spike checks it on the inspectable
-  release candidate. If the flag is ignored there, the product gets one test hook at the same
-  point: with `DIGGA_E2E_HOLD=1` the main process waits after `server.start()` and before
-  `loadURL()`, and the host installs the guard and the stubs through `evaluate()` while it waits
-  (`require` is not defined there; the guard takes `net` from `process.getBuiltinModule()`).
-  Node code that runs before that point is then unguarded, and only the fake service URLs keep
-  it from the real services; the resolver rule still covers Chromium's network and
-  `electron.net`.
+### Service configuration
+
+`CreateServerOptions` takes `discogsApiUrl`, `youtubeOembedUrl` and `dataDumpsUrl`.
+The CLI reads `DIGGA_DISCOGS_API_URL`, `DIGGA_YOUTUBE_OEMBED_URL` and `DIGGA_DUMPS_URL`;
+`discogsFor()` uses the first for import commands too. `.env.example` lists them under
+Development. `createVideoTitleLookup()` takes its oEmbed URL through an options object.
+The harness supplies all three URLs from its fake services before starting any process.
 
 ### Secrets and the Discogs token
 
@@ -243,14 +177,14 @@ starts. A reload after the fact cannot undo a request that already left.
   passed as `DISCOGS_TOKEN` (the "token from the environment" state, where Settings disables the
   field and the route answers `409`).
 - The fake fails any request with a token that does not start with `e2e-`.
-- Electron keeps the token with `safeStorage`; see [Electron](ELECTRON.md#electron) for keychains in CI.
+- The Electron plan uses `safeStorage`; see [Electron](ELECTRON.md#launch-and-release-builds) for keychains in CI.
 
 ### The network and filesystem guard
 
 The guard fails closed at runtime in every process that could reach the network. The layers
 overlap on purpose.
 
-1. **Node processes** (the CLI server and commands, and Electron's main process). A module
+1. **Node processes** (the CLI server and commands, and, in the plan, Electron's main process). A module
    patches `net.Socket.prototype.connect` to allow loopback addresses at the fake services' exact
    port and nothing else; listening is unaffected. The TCP clients Node ships connect through it
    (fetch and undici, `http`, `https`, `tls`, `net`), so a redirect to another host or an IP
@@ -258,11 +192,8 @@ overlap on purpose.
    not be. The patch reads both call forms: `http` and `https` pass `path: null`, so a pipe is
    recognised by a truthy `path`, and `net.connect()` passes its normalised arguments as an
    array. CLI processes load it with `NODE_OPTIONS=--import=<guard>`, and their worker threads
-   inherit it. Playwright removes `NODE_OPTIONS` from every Electron launch, so Electron's main
-   process gets it from the harness preload (see [Startup order](#startup-order)). The dump-load worker makes no
-   requests; the Electron spike checks whether a worker started from the main process inherits
-   the preload, and if not, the preload wraps `worker_threads.Worker` so each worker loads the
-   guard first.
+   inherit it. The dump-load worker makes no requests. Electron needs the separate
+   [preload guard](ELECTRON.md#startup-order), including a check that workers inherit it.
 2. **Context routes.** The base route lets through the app's exact origin and aborts everything
    else, recording the URL; the fixture fails a test that has aborts it did not declare. In
    Chromium, Playwright does not route the requests that follow a redirect, so the base route
@@ -281,12 +212,12 @@ overlap on purpose.
    requests they do not handle, so they compose with it (Playwright tries the newest matching route
    first). The web context uses `serviceWorkers: "block"`; Electron has no such option, and Digga
    registers no service worker.
-3. **Chromium resolution.** The browser, and Electron through its command line, starts with
+3. **Chromium resolution.** The web browser starts with
    `--host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1"`, so no
    other host name or IP literal resolves. This covers what Playwright does not route, such as
-   preconnects, and `electron.net` in the main process. `127.0.0.1` stays resolvable for SHELL-06;
-   the routes still allow only the app's port. Firefox and WebKit have no such switch and rely
-   on the routes.
+   preconnects. `127.0.0.1` stays resolvable for SHELL-06; routes still allow only the app's port.
+   The Electron plan applies the same switch to cover `electron.net`. Future Firefox and
+   WebKit projects have no such switch and must rely on routes.
 4. **The harness's own requests.** `app.api` and the health probe accept only the test's origin
    and use `redirect: "error"`.
 5. **A vitest source check** lists the external base URLs in `src/server` (`api.discogs.com`,

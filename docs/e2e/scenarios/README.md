@@ -1,33 +1,55 @@
 # E2E scenarios
 
-IDs are stable, so commits, reviews and failures can refer to them; new scenarios get new
-numbers. Priority: **P0** is the smoke set. The planned CI schedule runs **P1** on every CI run
-and **P2** nightly; today `vp run e2e` runs every implemented web test.
-Target: **both** unless marked **web** or **electron**. Templates are named in brackets where it
-matters.
+Read the family relevant to the task after the [E2E rules](../../E2E_TESTING.md#rules-for-agents-writing-e2e-tests)
+and [AUTHORING](../AUTHORING.md). Each ID is a stable acceptance specification, not a record
+of a particular run. New scenarios get new IDs; keep existing IDs when moving documentation.
 
-**Gap** marks a scenario where the product does not yet do what `docs/FIRST_RUN.md` or this
-document says. The scenario lists what the product does today, and a normal test asserts that.
-The designed behaviour is a separate `test.fail` with the gap in its title: it runs, and the run
-reports it as soon as the product catches up, which is when the gap is closed here and the test
-becomes a normal one.
+| Family                    | Specifications           | Current specs under `tests/e2e/specs/`                                                  |
+| ------------------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| Guard                     | [GUARD](guard.md)        | `guard.e2e.ts`                                                                          |
+| Shell and navigation      | [SHELL](shell.md)        | `shell.e2e.ts`                                                                          |
+| First run                 | [SETUP](setup.md)        | `setup.e2e.ts`, `setup-steps.e2e.ts`, `setup-discogs.e2e.ts`                            |
+| Triage                    | [TRI](triage.md)         | `triage.e2e.ts`, `triage-player.e2e.ts`, `triage-queue.e2e.ts`, `triage-discogs.e2e.ts` |
+| Sandbox                   | [SBX](sandbox.md)        | `sandbox.e2e.ts`                                                                        |
+| Twelves                   | [TWL](twelves.md)        | `twelves.e2e.ts`, `twelves-discogs.e2e.ts`                                              |
+| Settings                  | [SET](settings.md)       | `settings.e2e.ts`, `settings-discogs.e2e.ts`                                            |
+| Persistence and lifecycle | [PER](persistence.md)    | `persistence.e2e.ts`                                                                    |
+| Accessibility             | [A11Y](accessibility.md) | Planned                                                                                 |
+| Electron                  | [ELEC](electron.md)      | Planned; also read [ELECTRON](../ELECTRON.md)                                           |
+| Real-service contracts    | [CON](contracts.md)      | Planned; manual only, never CI                                                          |
 
-The P0 set covers the guard, startup and navigation, the first run from real defaults, playback,
-a live verdict surviving reload and relaunch, undo and the wantlist push, sandbox isolation, and one
-failed write: GUARD-01, GUARD-02, SHELL-01, SHELL-02, SETUP-01, TRI-02, TRI-07, TRI-10, TRI-12,
-TRI-13, SBX-01, PER-01 and PER-04.
+## Priority and target
 
-Read only the family relevant to the task. These specifications include planned scenarios;
-a row does not mean its test has been implemented. See the [implementation plan](../PLAN.md).
+**P0** is the smoke set. The planned CI schedule runs **P1** on every pull request and **P2**
+nightly. Today `vp run e2e` runs every implemented web test, including P2. Use the
+[current commands](../../E2E_TESTING.md#running); nightly, Electron and contract scripts do not exist yet.
 
-- [Guard](guard.md)
-- [Shell and navigation](shell.md)
-- [First run](setup.md)
-- [Triage](triage.md)
-- [Sandbox](sandbox.md)
-- [Twelves](twelves.md)
-- [Settings](settings.md)
-- [Persistence and lifecycle](persistence.md)
-- [Accessibility](accessibility.md)
-- [Electron only](electron.md)
-- [Real-service contract checks](contracts.md)
+The target is shared web/Electron coverage unless a specification says web or Electron only.
+Shared target describes the design; only the web host exists. Specs use tags such as
+`{ tag: ["@TRI-12", "@P0"] }`; `@web` and `@electron` mark host restrictions.
+Named templates and given state apply where stated. A scenario may need several tests for its
+variants, so a test count is not a scenario count.
+
+## Coverage states
+
+- **Specified:** the behavior is documented but no test implements it yet. Remaining work
+  belongs in [PLAN](../PLAN.md), not in a historical results paragraph.
+- **Implemented:** a tagged spec exercises the required behavior. Inspect its assertions;
+  the tag alone does not prove complete coverage. Passing status comes from a particular run.
+- **Product gap:** a reproduced mismatch with the agreed design. The scenario describes the
+  mismatch, a normal test covers today's behavior, and a separate `test.fail` names the gap
+  and asserts the design. When that test unexpectedly passes, close the gap and make it normal.
+- **Observation:** a finding that needs reproduction or a product decision. Keep it in the
+  plan with evidence; do not silently turn it into a required change or an accepted behavior.
+
+To inspect the runnable cases without starting an app:
+
+```sh
+npx playwright test --config tests/e2e/playwright.config.ts --list
+```
+
+Keep completion contracts with the relevant family and common synchronization rules in
+AUTHORING. Preserve scenario preconditions, ordering, failure behavior and expected observations
+when editing. Product requirements remain in [FIRST_RUN](../../FIRST_RUN.md),
+[KEYMAP](../../KEYMAP.md) and the other product documents; link to them when a requirement is
+shared instead of maintaining competing versions.

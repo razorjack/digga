@@ -9,16 +9,17 @@ needed for the task. Routine product work does not require loading the full E2E 
 
 ## Read for the task
 
-| Task                                                     | Read                                                                                                    |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Run the suite                                            | [Running](#running) below                                                                               |
-| Add or change a test or page object                      | [AUTHORING](e2e/AUTHORING.md) and the relevant [scenario family](e2e/scenarios/README.md)               |
-| Debug a failure                                          | [Failure artifacts](e2e/AUTHORING.md#failure-artifacts), then the relevant authoring or harness section |
-| Change process launch, isolation, guards or lifecycle    | [HARNESS](e2e/HARNESS.md)                                                                               |
-| Change fixture data, fake services or a manual rehearsal | [FIXTURES](e2e/FIXTURES.md); rehearsals also need the harness's isolation rules                         |
-| Continue the E2E implementation project                  | [PLAN](e2e/PLAN.md)                                                                                     |
-| Work on Electron testing                                 | [ELECTRON](e2e/ELECTRON.md) and its linked shared contracts                                             |
-| Investigate an earlier finding or measurement            | Search [HISTORY](e2e/HISTORY.md) by scenario ID or error                                                |
+| Task                                                  | Read                                                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Run the suite                                         | [Running](#running) below                                                                               |
+| Add or change a test or page object                   | [AUTHORING](e2e/AUTHORING.md) and the relevant [scenario family](e2e/scenarios/README.md)               |
+| Debug a failure                                       | [Failure artifacts](e2e/AUTHORING.md#failure-artifacts), then the relevant authoring or harness section |
+| Change process launch, isolation, guards or lifecycle | [HARNESS](e2e/HARNESS.md)                                                                               |
+| Change fixture data or fake services                  | [FIXTURES](e2e/FIXTURES.md)                                                                             |
+| Rehearse the setup manually                           | [Manual rehearsals](e2e/FIXTURES.md#manual-rehearsals) and the harness's isolation rules                |
+| Continue the E2E implementation project               | [PLAN](e2e/PLAN.md)                                                                                     |
+| Work on Electron testing                              | [ELECTRON](e2e/ELECTRON.md) and its linked shared contracts                                             |
+| Investigate an earlier finding or measurement         | Search [HISTORY](e2e/HISTORY.md) by scenario ID or error                                                |
 
 The scenario specifications include unimplemented coverage. The plan tracks remaining work;
 history records what earlier runs found. Neither is a prerequisite for an unrelated test change.
@@ -71,7 +72,7 @@ must also pass as required by [AGENTS.md](../AGENTS.md#commands). Failure diagno
   minutes on four workers.
 
 Non-goals: re-testing pure logic that vitest already covers, loading a real 10 GB dump, testing
-YouTube or Discogs themselves, and pixel comparisons (optional, see [Rollout](e2e/PLAN.md#rollout)).
+YouTube or Discogs themselves, and pixel comparisons (optional, see [the implementation plan](e2e/PLAN.md#breadth-and-release-checks)).
 
 ## What E2E owns and what vitest keeps
 
@@ -98,7 +99,7 @@ are wired together, with one representative case per behaviour:
 | Jobs started in the UI run in the server and report back      | E2E                        |
 | The setup runs download, imports and load as separate jobs    | E2E                        |
 | Reload, relaunch and crash keep what they should              | E2E                        |
-| The accessibility tree matches what the keymap promises       | E2E (with axe)             |
+| The accessibility tree matches what the keymap promises       | E2E (axe scans planned)    |
 | Electron shell: window, menu, dialogs, safeStorage, downloads | E2E, Electron project only |
 
 When a bug crosses layers, its fix gets an E2E regression test. When a bug is inside one module,

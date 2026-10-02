@@ -1,116 +1,133 @@
 # E2E implementation plan
 
-Read this when continuing the E2E implementation project. Start with the [E2E guide](../E2E_TESTING.md)
-and its binding rules. Use the [scenario specifications](scenarios/README.md) for acceptance criteria.
-Completed investigations belong in [HISTORY](HISTORY.md).
+Read this when continuing the E2E implementation project. For an individual test change,
+start with the [E2E guide](../E2E_TESTING.md) and the relevant
+[scenario family](scenarios/README.md). Historical findings and measurements are in
+[HISTORY](HISTORY.md); they are not prerequisites for every session.
 
-Status recorded on 2026-10-02. The rollout below includes completed work as context.
+Reconciled against the scenario tags and source on 2026-10-02, at `e1fa6aa` before the
+documentation split. The web host and the web P0 set are implemented. No current spec uses
+`test.fail`, `test.skip` or `test.fixme`. That does not mean coverage is complete: the entries
+below are specified but unimplemented, and the observations below still need decisions.
 
-## Rollout
+## Next work
 
-0. **Spikes (one session each, independent).**
-   - Web, done on 2026-09-30 (see [Spike results](HISTORY.md#spike-results)): `@playwright/test`; `spawnDigga()` with the
-     isolated environment and the socket guard and its vitest test; the base route with
-     `route.fetch()`; the fake YouTube script with its user-activation object; the `small` and
-     `small-account` templates from a hand-written dump; GUARD-01, GUARD-02, SHELL-01, TRI-07 and
-     TRI-10.
-   - Electron, throwaway: a minimal main process that follows the plan's startup, outside the
-     product. Check the preload's guard in the main process and in a worker it starts, the held
-     first `loadURL()` (no request before release), routes, init scripts and the clock on
-     `electronApp.context()`, the host-resolver switch, the safeStorage round trip with the
-     keychain switches, `relaunch()`, and whether a packaged build honours `-r`. Record the
-     results in [HISTORY](HISTORY.md) before the host interface is fixed.
-1. **Harness.** The rest of product changes 1 to 5; the fake services with data.discogs.com,
-   checkpoints and the rest of the Discogs API, moved to `tools/dev/fake-services.ts`; the `empty`
-   and `bulk` templates; the rest of the host interface; page objects; the rest of the P0 set; the
-   commands and the `tests/e2e/` layout in AGENTS.md. `e2e:smoke` joins `vp run verify` after it has
-   passed a burn-in of `--repeat-each=20`, since `verify` must be green before every commit.
-   Done on 2026-10-01: product changes 3 and 4; data.discogs.com in the fakes module with the
-   listing, the checksum, holds at checkpoints and `failAfterBytes`; the checkpoint builder and the
-   bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
-   its burn-in; the layout in AGENTS.md. `e2e:smoke` joined `verify` on 2026-10-01, as the owner
-   decided. The `bulk` template and `app.cli()` followed with Twelves' P1 set on 2026-10-01, and
-   with the Shell, Sandbox and Persistence P1 sets the same day: the move of the fake services to
-   `tools/dev/fake-services.ts`, which replaced the earlier dump-only tool and runs standalone
-   for rehearsals; `restartServer()` in the web host; the dialogs page object (`pages/dialogs.ts`,
-   the Keys dialog; the scope picker stays in `TriagePage`); and aborts that last until lifted.
-   `503` for every request followed with the setup's steps 1 to 3, and a `Content-Length` other
-   than the size, a wrong checksum and holds for one transfer with closing the gaps on 2026-10-02.
-   Still to do: the rest of the Discogs API (the masters) and the practice card's page object,
-   with the scenarios that need them.
-2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
-   2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
-   tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
-   TRI-28 and TRI-36 (see [The first Triage P1 slice](HISTORY.md#the-first-triage-p1-slice-web)). Triage's P1 set was done on 2026-10-01
-   with the other half, the verdicts, the queue, scopes, the market, the seller and the wants:
-   TRI-08, TRI-09, TRI-14, TRI-15, TRI-19, TRI-20, TRI-21 (with a gap), TRI-23, TRI-25, TRI-30,
-   TRI-32, TRI-33, TRI-34, TRI-39, TRI-40 and TRI-42 (see [The second Triage P1 slice](HISTORY.md#the-second-triage-p1-slice-web)). With them
-   came `expectExternalOpen()`, `diggaOptions.config`, `given.verdict()` and `given.sellerShop()`,
-   and the fake's inventory. Settings' P1 set was done on 2026-10-01: SET-01, SET-02, SET-03,
-   SET-04, SET-07, SET-16 and SET-20, then SET-08, SET-09, SET-10, SET-11, SET-13, SET-14 and
-   SET-17 (with a gap; see [The Settings P1 slice](HISTORY.md#the-settings-p1-slice-web)). With them came the Settings page object,
-   `expectDownload()` in the web host, `diggaOptions.environmentToken` and `dumpFiles`,
-   `given.trackMark()`, the fake's lists, and the small catalogue's July and September dumps.
-   Twelves' P1 set was done on 2026-10-01: TWL-01, TWL-02 (with a gap), TWL-04, TWL-05, TWL-06,
-   TWL-12, TWL-13 and TWL-14, then TWL-07, TWL-09, TWL-10, TWL-11 and TWL-03 (see [The Twelves P1 slice](HISTORY.md#the-twelves-p1-slice-web)). With them came the Twelves page object's actions, the `bulk` template,
-   `app.cli()`, `diggaOptions.decisionsBackup` with `fixtures/decisions.ts`, the fake's
-   `GET /lists/{id}`, and the markup of accessibility bug 2. The P1 sets of Shell, Sandbox and
-   Persistence were done on 2026-10-01: SHELL-03, SHELL-04, SHELL-05, SHELL-07, SHELL-09, SBX-02,
-   SBX-03, SBX-04, SBX-05, SBX-07 and PER-05 (see [The Shell, Sandbox and Persistence P1 slice](HISTORY.md#the-shell-sandbox-and-persistence-p1-slice-web)).
-   With them came `restartServer()`, the Keys dialog's page object, Settings' sandbox switch and
-   Appearance actions, Triage's queue retry, and lasting aborts. The setup's P1 scenarios for
-   steps 1 to 3, before the load starts, were done on 2026-10-01: SETUP-02, SETUP-03, SETUP-04,
-   SETUP-05, SETUP-06, SETUP-07, SETUP-11, SETUP-15, SETUP-16, SETUP-17 and SETUP-30, then
-   SETUP-08, SETUP-09, SETUP-13 and SETUP-14 (see [The setup's steps 1 to 3 P1 slice](HISTORY.md#the-setups-steps-1-to-3-p1-slice-web)). With them
-   came the setup page object's actions for steps 1 to 3, `LiveRegionWatch`, the fake's `503`
-   for every request and `dj`'s currency, and the markup of accessibility bugs 3 and 4 for those
-   steps. The ten gaps were closed on 2026-10-02 (see [Closing the gaps](HISTORY.md#closing-the-gaps-web)): TRI-21, TWL-02 and
-   SET-17 became normal tests, and SHELL-12 (P2), SETUP-24, SETUP-25 and SETUP-28 (P1), and
-   SETUP-26, SETUP-29 and SETUP-32 (P2) were built with their fixes. Next: the setup's remaining P1
-   scenarios, SETUP-22, SETUP-23, SETUP-27, SETUP-31 and SETUP-33, with the practice card's page
-   object, accessibility bug 1 and the rest of the crate's part of bug 4 (its alerts are in the
-   page before their text now); then the Accessibility family with axe. Still to do for the
-   setup: its other P2 scenarios, SETUP-10, SETUP-12 and SETUP-20. Still to do for Triage,
-   Settings, Twelves, Shell, Sandbox and Persistence: their P2 scenarios (for these three families
-   SHELL-06, SHELL-08, SHELL-10, SHELL-11, SBX-06, PER-02 and PER-03), and in the fake the
-   masters, when a scenario needs them.
-3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
-   the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
-   checks of the main screens, on Linux only, where snapshot updates need a human review. The
-   owner decided on 2026-10-02 to build every P2 scenario and then review the whole suite to
-   consolidate it, rather than prune P2 first. Firefox and WebKit get a cheap effort only (see
-   [Running](../E2E_TESTING.md#running)).
-4. **Electron** (with session 7). Product change 6, the Electron host and preload, the ELEC
-   scenarios, and the shared suite on the unpackaged app and the inspectable release candidate.
+1. Finish the setup's P1 scenarios: [SETUP-22](scenarios/setup.md#setup-22),
+   [SETUP-23](scenarios/setup.md#setup-23), [SETUP-27](scenarios/setup.md#setup-27),
+   [SETUP-31](scenarios/setup.md#setup-31) and [SETUP-33](scenarios/setup.md#setup-33).
+   Add the practice card's page object when implementing SETUP-22. Resolve the crate's
+   remaining markup findings below alongside its scenarios.
+2. Implement the [Accessibility family](scenarios/accessibility.md), including axe scans.
+   `@axe-core/playwright` is not installed yet. Directly assert region names as specified;
+   the planned scans alone do not establish those names.
+3. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
+   Ubuntu, Node 24, Chromium with its system dependencies, `vp run verify`, then the remaining
+   E2E tests with `@P0` excluded so smoke does not run twice. Upload the HTML report and failure
+   artifacts; shard only if the suite exceeds its budget.
+4. Implement every remaining P2 scenario, then review the full suite for consolidation.
+   The owner chose this order on 2026-10-02; do not prune P2 before that review.
 
-## Risks and open questions
+A slice is complete when its specified behavior is covered, the affected spec passes
+`--repeat-each=10`, all repository checks pass, and the relevant reference and this plan agree
+with the implementation. A reproduced product gap gets the normal-current-behavior and
+`test.fail` treatment described in the [scenario conventions](scenarios/README.md#coverage-states).
+Do not treat an observation as a confirmed gap without checking it.
 
-- **Per-test server processes** keep tests isolated but cost a Node start each, about 200 ms in
-  the spike.
-- **Real timers on the server.** The Discogs client's 1.1 s gap makes tests that touch Discogs
-  several times slower. If the suite exceeds its budget, a `discogsMinIntervalMs` server option
-  set by the harness would help, at the cost of not running production spacing in E2E. Measured
-  in the second Triage slice: the gap binds only where requests follow each other at once, and
-  costs about 6.6 s of that slice's 40 s of test time, 2.2 s each in the scenarios that read a
-  seller's shop; a push after the 1.5 s grace does not wait for it.
-- **Real disk space** stays a precondition of the run rather than something the tests control;
-  see [Disk space](HARNESS.md#disk-space).
-- **Fakes drift from the services.** The contract checks catch drift, but only when someone runs
-  them.
-- **Test-facing product surface:** two environment variables for service URLs, the IPC shutdown,
-  the slip's `aria-busy`, and `DIGGA_E2E_HOLD` only if packaged builds ignore `-r`. The
-  alternative, a test-only host that calls `createServer()` with a `fetchImpl`, would skip the
-  CLI's boot and could not reach a packaged Electron app.
-- **The Electron preload patches Electron's API** (`BrowserWindow.prototype.loadURL`, `shell`,
-  `dialog`). A product change to how the window loads, such as `loadFile()`, needs the preload
-  changed too; ELEC-13 fails first if it is not.
-- **Playwright's Electron support** is experimental, and fuses and keychains limit what runs on
-  release builds.
-- **`verify` runs the smoke set.** The owner decided on 2026-10-01 that `e2e:smoke` joins
-  `vp run verify`. `verify` now takes about 20 s instead of 9 s, and every machine that commits
-  needs Playwright's Chromium (`npx playwright install chromium`).
-- **Other browsers.** The owner decided on 2026-10-02 that Firefox and Safari get a cheap effort
-  only, since the Electron app is the main target (see [Running](../E2E_TESTING.md#running)).
-- **Open:** Is a CI provider other than GitHub Actions planned? Are visual snapshots wanted at all? What does the Electron app do when
-  `safeStorage` cannot encrypt, as on Linux without a keyring: refuse to save the token, or save
-  it with the plain-text key?
+## Remaining web P2 coverage
+
+The links lead to the requirements. Add fixture records or fake endpoints only when the
+scenario needs them; `GET /masters/{id}` is still absent from the fake Discogs API.
+
+| Family                                      | Remaining IDs                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| [Shell](scenarios/shell.md)                 | SHELL-06, SHELL-08, SHELL-10, SHELL-11                                         |
+| [Setup](scenarios/setup.md)                 | SETUP-10, SETUP-12, SETUP-20                                                   |
+| [Triage](scenarios/triage.md)               | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
+| [Sandbox](scenarios/sandbox.md)             | SBX-06                                                                         |
+| [Twelves](scenarios/twelves.md)             | TWL-08, TWL-15, TWL-16, TWL-17, TWL-18                                         |
+| [Settings](scenarios/settings.md)           | SET-05, SET-06, SET-12, SET-15, SET-18, SET-19                                 |
+| [Persistence](scenarios/persistence.md)     | PER-02, PER-03                                                                 |
+| [Accessibility](scenarios/accessibility.md) | A11Y-03, as part of the family above                                           |
+
+The original catalogue design included pooled-video pressings, undated wanted-label records,
+House releases and additional records in other styles. Check the current
+[catalogue](../../tests/e2e/fixtures/catalogue.ts) before adding them. Its implemented records
+and accounts, not the original target of about 40 records, define today's given state.
+
+## Remaining markup work
+
+The original [markup audit](HISTORY.md#markup-audit-recorded-through-2026-10-02) numbers these
+findings; the current [authoring contract](AUTHORING.md#markup-audit) describes the rules.
+
+- **Audit item 1, SETUP-23:** the successful `flow.loadDone` branch in
+  `CrateStep.svelte` still renders its headline as a paragraph, leaving the region's
+  `aria-labelledby="crate-title"` without a target. Render the headline as `h1#crate-title`
+  and keep the ready stamp a span. The zero-match branch already has its heading.
+- **Audit item 4, crate errors:** the stopped-download, checksum and stopped-load notices now
+  share a persistent `role="alert"` container. The separate `{#if flow.error}` alert at the
+  end of the component is still conditional. Check its insertion order with the crate scenarios
+  and keep it mounted before its text. The earlier statement that all crate notices still
+  mount with their text is obsolete.
+- Check the smaller audit findings during accessibility work: keep the header's hidden sandbox
+  explanation and ETA accessible at narrow widths, and declare Enter on the scope picker's
+  dig button and the crate's Start digging control.
+
+## Observations awaiting a decision
+
+These are observations from earlier runs, not approved implementation tasks or expected-failure
+coverage. Reproduce against current code when taking one up. Resolved observations, including
+Triage's stale queue and Twelves' re-judging copy, remain in history only.
+
+| Observation                                                                               | Evidence and decision needed                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Videos with `embeddable = 0` are omitted without a notice, while KEYMAP promises a notice | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide whether copy or behavior changes.                                                                      |
+| A cued track is marked current and says "playing" while the player waits for Space        | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide the track's accessible state before playback.                                                          |
+| Keys used in Settings activate the page, so Triage's cued video can read "paused"         | [Settings slice](HISTORY.md#the-settings-p1-slice-web). Decide whether the existing activation behavior needs any change.                                                     |
+| Read my lists is enabled by the typed username but requests the saved username            | [Settings slice](HISTORY.md#the-settings-p1-slice-web). An unsaved first username produced `400`; decide when the action should be available.                                 |
+| The Sandbox anchor's highlight is visual only; focus moves to the switch                  | [Shell slice](HISTORY.md#the-shell-sandbox-and-persistence-p1-slice-web). Decide whether focus is sufficient.                                                                 |
+| Resuming setup with a saved token waits for the account check behind a held import page   | [SETUP-28 finding](HISTORY.md#closing-the-gaps-web). The earlier estimate was up to about 15 s with a 13-page wantlist; decide whether account lookup should delay the setup. |
+
+## Breadth and release checks
+
+- Implement the separate [manual contract suite](scenarios/contracts.md) and
+  `playwright.contract.config.ts`. Add `e2e:contract` only with that configuration; ordinary
+  commands must never select it. CON-01 uses the real IFrame API in headed Chromium;
+  CON-02 accepts a supplied token but its client must refuse every method except GET;
+  CON-03 reads the dump listing without downloading a dump. These checks are manual before
+  release, never CI. Until they exist, they cannot detect drift in the fakes.
+- Add `e2e:nightly` with the planned P2 schedule and `--repeat-each=5` burn-in. Add Firefox and
+  WebKit only after Chromium has been stable for a few weeks. The owner chose limited effort
+  on 2026-10-02 because Electron is the main target: fix quick issues, mark the rest as
+  Chromium-only with reasons, and avoid larger product or harness changes for those engines.
+  Check the dialogs' `closedby` fallback.
+- Visual snapshots remain an open choice. If approved, start with a few main-screen
+  `toHaveScreenshot` checks on Linux only, with human review of updates.
+- Keep the smoke budget near one minute and P0/P1 near six minutes on four workers. Exact
+  timings in history describe earlier runs. Per-test processes remain isolated. If measurements
+  justify it, consider sharding, a template cache keyed by every input, or a
+  `discogsMinIntervalMs` option. That option would stop E2E from exercising production spacing;
+  do not add it solely because an earlier measurement was slow.
+
+## Electron
+
+First run the throwaway spike described in [ELECTRON](ELECTRON.md#startup-order), outside the
+product: test the guard in the main process and a worker, held first navigation, context routes,
+init scripts, clock, resolver rule, safeStorage round trip on each OS, relaunch, and packaged
+`-r` behavior. Record results in HISTORY before settling the host design.
+
+Then implement the host, preload and product integration with the
+[Electron packaging work](../ELECTRON_PLAN.md), run the shared suite and
+[ELEC-01 through ELEC-13](scenarios/electron.md) on the unpackaged app and inspectable release
+candidate, and add `e2e:electron`. Run on macOS, Windows and Linux; Linux needs `xvfb-run`.
+The fully fused artifact gets only the isolated launch and health check described in ELECTRON.
+
+Decide the behavior when `safeStorage` cannot encrypt: refuse to save the token, or allow the
+plain-text store explicitly. The test host's basic store is not the product decision.
+
+## Maintaining the plan
+
+Remove completed IDs from the lists above, update the owning reference, and record meaningful
+new evidence in HISTORY with the tested revision, date, environment, command and outcome.
+Keep acceptance criteria in the scenario files and current API signatures in source. A
+historical run is not evidence that a scenario still passes today. Use Playwright's `--list`
+plus the spec assertions to reconcile implemented coverage; a tag alone does not prove it.

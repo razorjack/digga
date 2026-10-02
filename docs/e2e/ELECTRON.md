@@ -5,15 +5,15 @@ and its binding rules. The host and its scenarios are not built. Read [HARNESS](
 contracts, [Electron scenarios](scenarios/electron.md) for coverage, and the product
 [Electron plan](../ELECTRON_PLAN.md) for packaging.
 
-## Electron
+## Launch and release builds
 
-The shared suite needs no change for Electron. The work is the Electron host, the harness
-preload and the Electron-only scenarios.
+The design reuses the shared suite through an Electron host. Validate that design in the
+spike before building the host, harness preload and Electron-only scenarios.
 
 - **Launch.** `_electron.launch({ args: ["-r", preload, mainEntry], env })` with the isolated
   environment, `--user-data-dir` in the test's temp folder (the plan keeps the token file and the
   log in userData, which `DIGGA_DATA_DIR` does not move), the host-resolver switch and the
-  keychain switches below. Then the sequence from [Startup order](HARNESS.md#startup-order), then `firstWindow()` with its
+  keychain switches below. Then the sequence from [Startup order](#startup-order), then `firstWindow()` with its
   content size set to 1600 x 1000.
 - **Main-process stubs.** Installed by the preload before the app's first line:
   `shell.openExternal`, `dialog.showMessageBox`, `dialog.showOpenDialog`, and spies on
@@ -42,4 +42,69 @@ preload and the Electron-only scenarios.
   a runner with a real, unlocked keychain.
 - **Linux CI** needs a display: `xvfb-run`, whose `DISPLAY` and `XAUTHORITY` the launch helper
   passes through.
-- **Downloads and external links** go through the handlers from [Product changes](HISTORY.md#product-changes-the-harness-needs), item 6.
+- **Downloads and external links** go through the handlers from [Product integration requirements](#product-integration-requirements).
+
+## Shared host contract
+
+**Electron host.** `relaunch()` quits the app and launches it again on the same library, with
+the same preparation. `restartServer()` is not available: the server lives in the main process,
+and restarting it alone would need a main-process API the product does not plan. Scenarios that
+need it are tagged web.
+
+`_electron.launch()` has no `viewport`, `reducedMotion` or `serviceWorkers` option, and the test
+runner's `use` options, automatic screenshots and `trace` setting do not reach an Electron app.
+The Electron host therefore passes `locale`, `timezoneId` and `colorScheme` to `launch()`, calls
+`page.emulateMedia({ reducedMotion: "reduce" })`, sets the window's content size, and starts and
+stops tracing and takes the failure screenshot itself.
+
+## Startup order
+
+- **Electron.** In the plan (`docs/ELECTRON_PLAN.md`), the main process starts the server and
+  loads the window as soon as the app is ready. The host launches it with a harness preload,
+  `-r tests/e2e/support/electron-preload.cjs` before the main entry, which runs in the main
+  process before the app's first line:
+  - it installs the socket guard, so all main-process code is guarded, `loadConfig()` included;
+  - it stubs `shell.openExternal`, `dialog.showMessageBox` and `dialog.showOpenDialog`, spies on
+    `setProgressBar` and `Notification`, and registers the download handler once the session
+    exists;
+  - it wraps `BrowserWindow.prototype.loadURL`, so the first call records its URL and waits until
+    the host calls `globalThis.diggaE2e.release()`.
+
+  The host polls through `electronApp.evaluate()` until the preload reports the held URL. The
+  server is running by then and its origin is known. On `electronApp.context()` the host
+  installs the routes for that origin, the fake YouTube script and the clock, applies the given
+  state through the API, and releases the navigation. The product has no code for this. ELEC-13
+  tests the sequence.
+
+  Electron may ignore `-r` in a packaged build. The Electron spike checks it on the inspectable
+  release candidate. If the flag is ignored there, the product gets one test hook at the same
+  point: with `DIGGA_E2E_HOLD=1` the main process waits after `server.start()` and before
+  `loadURL()`, and the host installs the guard and the stubs through `evaluate()` while it waits
+  (`require` is not defined there; the guard takes `net` from `process.getBuiltinModule()`).
+  Node code that runs before that point is then unguarded, and only the fake service URLs keep
+  it from the real services; the resolver rule still covers Chromium's network and
+  `electron.net`.
+
+Playwright removes `NODE_OPTIONS` from Electron launches, so the preload installs the Node
+socket guard itself. Check whether a worker started by the main process inherits the preload;
+if not, wrap `worker_threads.Worker` to load the guard first. Apply Chromium's resolver switch
+from [HARNESS](HARNESS.md#the-network-and-filesystem-guard) to cover preconnects and
+`electron.net`, which the Node socket patch does not cover.
+
+## Product integration requirements
+
+The main process must honor `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`, `DIGGA_CONFIG_FILE` and
+all three fake-service URL settings. Its `Secrets` implementation must give `DISCOGS_TOKEN`
+precedence over `safeStorage`, as the CLI does. Handle `window.open` through
+`setWindowOpenHandler` and `shell.openExternal`, downloads through `will-download`, and
+wait for `server.stop()` before quitting so jobs become cancelled and the database closes.
+The product plan's illustrative `before-quit` handler needs that awaited shutdown.
+
+Rebuilding `better-sqlite3` must not replace the repository's Node build. The preload must
+keep following the app's navigation method; a change from `loadURL()` to `loadFile()` needs
+corresponding interception, which ELEC-13 checks. Playwright's Electron support is experimental;
+validate these assumptions in the [spike](PLAN.md#electron) before implementing the host.
+
+The decision for a machine without working encryption is still open: refuse to save a token,
+or explicitly allow the plain-text store. ELEC-03 requires a real unlocked keychain; ordinary
+runs use the mock-keychain settings above.

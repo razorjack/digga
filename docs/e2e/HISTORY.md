@@ -6,7 +6,22 @@ read [PLAN](PLAN.md).
 
 The entries retain their original dates, environments, timings and outcomes. A result is
 limited to that run; later entries can supersede it. The original entries do not identify
-the tested revisions, so no revision has been inferred.
+the tested revisions, so no revision has been inferred. New entries should include the tested
+revision and exact command along with the date, environment and outcome. Current instructions
+belong in their owning reference, not in a new results paragraph.
+
+Search by scenario ID, error or date, or start with:
+
+- [Web spike and implementation results](#spike-results).
+- [Gap fixes on 2026-10-02](#closing-the-gaps-web).
+- Original planning records: [product changes](#product-changes-the-harness-needs),
+  [running plan](#original-running-plan), [runner choice](#runner-choice-on-2026-09-30),
+  [markup audit](#markup-audit-recorded-through-2026-10-02),
+  [rollout](#rollout-recorded-on-2026-10-02), [risks](#risks-recorded-on-2026-10-02)
+  and [fixture design](#original-fixture-catalogue-design).
+
+The planning records can describe commands or features that were not implemented. Their
+obsolete statements are retained as historical context and do not override current references.
 
 ## Spike results
 
@@ -819,7 +834,7 @@ In the order they are needed:
    up to 499 kept releases stayed uncommitted and the progress stayed stale. The loader commits
    its pending batch and reports progress at least once a second while it runs. The setup then
    shows what has arrived during a slow download, and checkpoints give exact states.
-5. **The markup changes** in the [markup audit](AUTHORING.md#markup-audit).
+5. **The markup changes** in the [dated markup audit](#markup-audit-recorded-through-2026-10-02).
 6. **For Electron:** the main process honours `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`,
    `DIGGA_CONFIG_FILE` and the service URLs, as the CLI does; its `Secrets` lets `DISCOGS_TOKEN`
    win over the `safeStorage` token, as the CLI's does; it handles `window.open` with
@@ -934,3 +949,373 @@ workers the P0 and P1 sets should finish in about six minutes. In the spike a se
 about 200 ms and stopped over IPC in about 5 ms, so per-test servers stay; the five spike
 scenarios took 6.3 s on five workers. The P0 set with SETUP-01 takes 10.9 s, and all 17 tests
 14.0 s; SETUP-01 sets the smoke set's pace. A slow suite is sharded.
+
+## Runner choice on 2026-09-30
+
+### Original comparison
+
+Playwright Test is the only mainstream runner that drives both a browser and an Electron app
+with the same `Page`, locator and assertion API (`_electron.launch()` returns an
+`ElectronApplication` whose windows are ordinary `Page` objects). Electron runs Chromium, so the
+web project on Chromium already exercises the engine the packaged app will use. Playwright also
+brings what this app needs: web-first assertions that wait, `clock` for the player's 4 s listen and
+the 10 s look-again timer, `route()` for fault injection at the transport, traces, ARIA
+snapshots, `@axe-core/playwright`, and parallel workers. Pin a version of 1.52 or later, which
+has `failOnFlakyTests`.
+
+Alternatives considered:
+
+- **Cypress** cannot drive an Electron app, runs inside the page and handles one tab. Rejected.
+- **WebdriverIO with `wdio-electron-service`** can drive Electron, but the web and Electron
+  suites would share less, and its tooling for tracing and ARIA queries is weaker. Rejected.
+- **Vitest browser mode** tests components in a browser, not the app with its server and jobs. It
+  can complement E2E later for component-level cases; it does not replace it.
+
+`_electron` is marked experimental in Playwright's docs. Only the Electron host depends on it, so
+a change in that API touches one module.
+
+## Markup audit recorded through 2026-10-02
+
+In short, the markup is already friendly to automation because it is accessible. Native
+elements carry roles and names: `<dialog>` with `aria-labelledby` for the keys, the scope picker
+and the practice card; labelled form fields in Settings and the setup; `<progress>` with names;
+`<table>` with captions and header cells; `aria-current` for the page, the setup step, the playing
+track and the selected Twelves row; `aria-keyshortcuts` on nearly every key-bound control;
+`hidden` on the inactive Triage page, while the other pages are unmounted; `inert` player hosts.
+Most tests can locate everything with `getByRole` and `getByLabel`.
+
+The audit found four accessibility bugs, a few places where identity or state has no handle,
+and some names that are missing or ambiguous.
+
+### Accessibility bugs (fix regardless of testing)
+
+1. **`src/client/setup/CrateStep.svelte`:** the section is `aria-labelledby="crate-title"`, but
+   once the load is done the `h1#crate-title` is not rendered, so the region loses its name and
+   the page has no `h1`. Keep an `h1` in both states: when the load is done, the headline
+   paragraph ("The catalogue is in: …") becomes the `h1` with that id. The "ready to dig" stamp
+   stays a `span`.
+2. **`src/client/twelves/Pager.svelte`:** `<nav aria-label="Pages">` repeats the header's
+   `<nav aria-label="Pages">`, so Twelves has two navigation landmarks with the same name. Name
+   the pager "Shelf pages". Fixed in the Twelves P1 slice; TWL-03 reads the pager by that name.
+3. **Field errors not tied to their fields.** AGENTS.md asks for `aria-invalid` on invalid fields
+   and the message attached with `aria-describedby`.
+   - The setup's token and username fields (`DiscogsStep.svelte`): a refused token or unknown
+     user shows in the step's `role="alert"` paragraph, but the field gets no `aria-invalid` and
+     does not reference the message. Set `aria-invalid` with the custom validity, clear both on
+     input, and add the alert's id to `aria-describedby` after the hint. Fixed in the setup's
+     steps 1 to 3 slice: after a refusal the field has the step's error as its custom validity,
+     `aria-invalid="true"`, and `aria-describedby` with `discogs-error`, the alert, after its
+     hint; editing the field, or the error clearing, removes all three (SETUP-09). The username
+     field does the same after an unknown user, for which `flow.useUsername()` now says whether
+     the profile was found; no scenario of the slice reaches it (SETUP-10 is P2).
+   - The style search (`StylePicker.svelte`): "Pick at least one style" exists only in the native
+     validation bubble, which disappears, and the field gets no `aria-invalid`. Render the message
+     in an element the field references, after `style-search-hint`. Fixed in the same slice: the
+     message is in `style-search-problem`, `hidden` while there is none, which the field
+     references after its hint while it has the problem, with `aria-invalid`; a pick clears both
+     (SETUP-16). Both components report through `reportProblem()` and `describedBy()` in
+     `src/client/setup/field-problem.ts`, as Settings' fields report theirs.
+   - Settings' `reportProblem()` sets the custom validity and `aria-invalid`, but the message
+     appears only in the save bar's status, not attached to the field. Give each problem an
+     element the field references, keeping its hint id. Fixed in the Settings P1 slice: the
+     batch and seek step fields reference `…-batch-problem` and `…-seek-problem` after their
+     hints, elements that show the field's message and are `hidden` while it has none (SET-03).
+   - Settings' token field references its status line, but a refused token only adds the
+     `problem` class; the field gets no `aria-invalid`. Fixed in the Settings P1 slice: the
+     field has `aria-invalid="true"` while the status line says why the token was not saved
+     (SET-08).
+4. **Live regions inserted together with their text.** The setup's error paragraphs
+   (`{#if flow.error}<p role="alert">` in each step), the space alert in `CatalogueStep.svelte`,
+   the "Connected as" status in `DiscogsStep.svelte` and the "stopped loading" notice in
+   `CrateStep.svelte` appear with their text, so screen readers may not announce them. Each
+   region stays in the DOM, empty until it has something to say, and an error's field
+   association is cleared with it. Fixed for steps 1 to 3 in the setup's steps 1 to 3 slice: the
+   error paragraph of each step and the space alert are empty `role="alert"` paragraphs until
+   they have text, and the "Connected as" status an empty `role="status"` until the account is
+   connected, with the token form beside it. An empty paragraph takes no room: each step's
+   alerts and buttons share a column whose alerts take a margin only when not `:empty`. SETUP-05,
+   SETUP-08 and SETUP-09 check that their message's region was in the page before the message
+   (`LiveRegionWatch`, see [Synchronisation](AUTHORING.md#synchronisation)); against the old markup all three failed. The
+   crate's "stopped loading" notice and error paragraph are still inserted with their text; they
+   come with the crate's scenarios.
+
+Related, smaller:
+
+- The header hides "verdicts are not saved" and the ETA with `display: none`, which also removes
+  them from the accessibility tree. The visually hidden class would keep them for screen readers
+  while the layout stays the same.
+- The scope picker's Enter button and "Start digging", which Enter also starts, do not declare
+  Enter in `aria-keyshortcuts`.
+
+### Handles for identity and state
+
+The rule: start with identity, which has no semantic equivalent, and add a state attribute only
+where a scenario needs state that no role, name, ARIA attribute or text exposes. Values are the
+domain's own (triage keys, release ids, track positions, video ids), not test ids. `data-*`
+attributes are handles for tests; they do not replace the ARIA or text a screen reader needs.
+
+**Identity:**
+
+| Where                                              | Attributes                           |
+| -------------------------------------------------- | ------------------------------------ |
+| `triage/ReleaseFacts.svelte`, `<header>`           | `data-release-id`, `data-triage-key` |
+| `triage/Tracklist.svelte`, each track row          | `data-position`                      |
+| `triage/Tracklist.svelte`, each "Other videos" row | `data-video-id`                      |
+| `pages/Twelves.svelte`, each `<tr>`                | `data-triage-key`, `data-release-id` |
+| `twelves/TrackTable.svelte`, each `<tr>`           | `data-release-id`, `data-position`   |
+| `pages/Settings.svelte`, each job `<tr>`           | `data-job-id`                        |
+
+Twelves' rows got theirs in the Twelves P1 slice; the row of a verdict whose release is in no dump
+has no `data-release-id`.
+
+Pages need no handle: there is one `main`, the other pages are unmounted, and the hidden Triage
+page drops out of role queries, so `getByRole("main")` scopes to the visible page.
+
+**State.** No state attribute is needed. The slip's verdict and push state and the player's
+status each have their own copy, one phrase per state: the slip uses `STATUS_COPY` from
+`keymap.ts` and one sentence per push state, the player `PLAYER_STATUS_COPY` from
+`src/client/player/status.ts`, a plain module beside the player, so tests import it as they import
+`STATUS_COPY`. A test reads the player's status by its exact text within the Player region: the
+region also says "Nothing playing" while it has no track, which contains "playing". Exact
+text also tells the Twelves stamp "want" from the market cell's "1,210 want":
+`getByText("want", { exact: true })` within the row.
+
+Not added either, because something already exposes them: track state (each track's button
+carries "playing", "has a video", "video would not play" or "no video" as text, and
+`aria-current` on the playing one), job status (visible text in its cell), dumps (each Delete
+button's name includes the file name), the header counts (their text), and queue loading
+(`aria-busy`, below).
+
+`data-testid` is not needed anywhere. If a future element has neither a role and name nor domain
+identity or state to expose, a `data-testid` is the last resort, and the reason goes in a comment.
+
+### Names
+
+- **Settings sections** have `<h2>` headings but no accessible name, so they are not regions.
+  `aria-labelledby` on the sections tests scope into (Sandbox, Library, Backups and exports,
+  Discogs, Jobs) makes `getByRole("region", { name: "Jobs" })` work and gives screen-reader users
+  landmarks on a long page. Discogs is inside the settings form; the form's other sections stay
+  unnamed. Built in the Settings P1 slice.
+- **The slips** (`Slip.svelte`): the last slip shows verdicts, passes, hidden labels and undos,
+  so its name is "Last action". It becomes `role="group"` with that `aria-label`, keeping its
+  `aria-live`. The next slip becomes a group labelled by its visible "Up next". A group gives the
+  handle without adding landmarks, which a named `<section>` would.
+- **The last slip is busy while its write is in flight.** It carries `aria-busy="true"` from the
+  key press until the verdict's or the undo's request has been answered and the page has acted
+  on the answer. Screen readers can wait for a confirmed action, and tests get the end of the
+  work (see [Synchronisation](AUTHORING.md#synchronisation)). On a failed save the slip clears and the busy state goes with it.
+- **`Flash.svelte`** takes an optional `label` for `aria-label`. The Triage screen has up to five
+  `role="status"` regions: the header's announcement, the market line, the session flash, the
+  player notice and, while it is open, the scope picker's status. Naming the flash ("Triage
+  messages") and the player notice ("Player notices") lets a test assert on one of them.
+- **The queue** (`.record` in `Triage.svelte`) gets `aria-busy` while the queue loads.
+- **The years the load keeps** (`SoundStep.svelte`): the disclosure's fields read "load from" and
+  "to", so with it open the step had two spinbuttons named "to". The second label holds a
+  visually hidden "load", so it is "load to" for assistive technology and reads as before.
+  Built in the setup's steps 1 to 3 slice (SETUP-15).
+
+### Kept as they are
+
+- `aria-keyshortcuts` is a stable locator for key-bound buttons: `[aria-keyshortcuts="A"]` finds
+  the want button whatever its copy. Verdict buttons take the value from `src/client/keymap.ts`;
+  other controls write it in the component.
+- Twelves rows use `aria-current="true"` for the selection. A grid with `aria-selected` would be
+  the fuller pattern, but J and K replace arrow-key navigation inside the table, and
+  `aria-current` is accurate for "the current item of a set".
+- The hardcoded ids in the setup (`id="token"`, `id="style-search"`, `practice-done-title`) are
+  unique today. `$props.id()` would be safer if a component is ever mounted twice; tests do not
+  use ids.
+
+## Rollout recorded on 2026-10-02
+
+0. **Spikes (one session each, independent).**
+   - Web, done on 2026-09-30 (see [Spike results](HISTORY.md#spike-results)): `@playwright/test`; `spawnDigga()` with the
+     isolated environment and the socket guard and its vitest test; the base route with
+     `route.fetch()`; the fake YouTube script with its user-activation object; the `small` and
+     `small-account` templates from a hand-written dump; GUARD-01, GUARD-02, SHELL-01, TRI-07 and
+     TRI-10.
+   - Electron, throwaway: a minimal main process that follows the plan's startup, outside the
+     product. Check the preload's guard in the main process and in a worker it starts, the held
+     first `loadURL()` (no request before release), routes, init scripts and the clock on
+     `electronApp.context()`, the host-resolver switch, the safeStorage round trip with the
+     keychain switches, `relaunch()`, and whether a packaged build honours `-r`. Record the
+     results in [HISTORY](HISTORY.md) before the host interface is fixed.
+1. **Harness.** The rest of product changes 1 to 5; the fake services with data.discogs.com,
+   checkpoints and the rest of the Discogs API, moved to `tools/dev/fake-services.ts`; the `empty`
+   and `bulk` templates; the rest of the host interface; page objects; the rest of the P0 set; the
+   commands and the `tests/e2e/` layout in AGENTS.md. `e2e:smoke` joins `vp run verify` after it has
+   passed a burn-in of `--repeat-each=20`, since `verify` must be green before every commit.
+   Done on 2026-10-01: product changes 3 and 4; data.discogs.com in the fakes module with the
+   listing, the checksum, holds at checkpoints and `failAfterBytes`; the checkpoint builder and the
+   bulk catalogue; the `empty` template; the setup page object; the whole P0 set, which passed
+   its burn-in; the layout in AGENTS.md. `e2e:smoke` joined `verify` on 2026-10-01, as the owner
+   decided. The `bulk` template and `app.cli()` followed with Twelves' P1 set on 2026-10-01, and
+   with the Shell, Sandbox and Persistence P1 sets the same day: the move of the fake services to
+   `tools/dev/fake-services.ts`, which replaced the earlier dump-only tool and runs standalone
+   for rehearsals; `restartServer()` in the web host; the dialogs page object (`pages/dialogs.ts`,
+   the Keys dialog; the scope picker stays in `TriagePage`); and aborts that last until lifted.
+   `503` for every request followed with the setup's steps 1 to 3, and a `Content-Length` other
+   than the size, a wrong checksum and holds for one transfer with closing the gaps on 2026-10-02.
+   Still to do: the rest of the Discogs API (the masters) and the practice card's page object,
+   with the scenarios that need them.
+2. **Coverage.** The P1 scenarios, axe scans, failure artifacts and the CI workflow. Started on
+   2026-10-01 with the first half of Triage's P1 scenarios, the record, the player and the
+   tracklist: TRI-01, TRI-03, TRI-04, TRI-05, TRI-06, TRI-11, TRI-17, TRI-18, TRI-26, TRI-27,
+   TRI-28 and TRI-36 (see [The first Triage P1 slice](HISTORY.md#the-first-triage-p1-slice-web)). Triage's P1 set was done on 2026-10-01
+   with the other half, the verdicts, the queue, scopes, the market, the seller and the wants:
+   TRI-08, TRI-09, TRI-14, TRI-15, TRI-19, TRI-20, TRI-21 (with a gap), TRI-23, TRI-25, TRI-30,
+   TRI-32, TRI-33, TRI-34, TRI-39, TRI-40 and TRI-42 (see [The second Triage P1 slice](HISTORY.md#the-second-triage-p1-slice-web)). With them
+   came `expectExternalOpen()`, `diggaOptions.config`, `given.verdict()` and `given.sellerShop()`,
+   and the fake's inventory. Settings' P1 set was done on 2026-10-01: SET-01, SET-02, SET-03,
+   SET-04, SET-07, SET-16 and SET-20, then SET-08, SET-09, SET-10, SET-11, SET-13, SET-14 and
+   SET-17 (with a gap; see [The Settings P1 slice](HISTORY.md#the-settings-p1-slice-web)). With them came the Settings page object,
+   `expectDownload()` in the web host, `diggaOptions.environmentToken` and `dumpFiles`,
+   `given.trackMark()`, the fake's lists, and the small catalogue's July and September dumps.
+   Twelves' P1 set was done on 2026-10-01: TWL-01, TWL-02 (with a gap), TWL-04, TWL-05, TWL-06,
+   TWL-12, TWL-13 and TWL-14, then TWL-07, TWL-09, TWL-10, TWL-11 and TWL-03 (see [The Twelves P1 slice](HISTORY.md#the-twelves-p1-slice-web)). With them came the Twelves page object's actions, the `bulk` template,
+   `app.cli()`, `diggaOptions.decisionsBackup` with `fixtures/decisions.ts`, the fake's
+   `GET /lists/{id}`, and the markup of accessibility bug 2. The P1 sets of Shell, Sandbox and
+   Persistence were done on 2026-10-01: SHELL-03, SHELL-04, SHELL-05, SHELL-07, SHELL-09, SBX-02,
+   SBX-03, SBX-04, SBX-05, SBX-07 and PER-05 (see [The Shell, Sandbox and Persistence P1 slice](HISTORY.md#the-shell-sandbox-and-persistence-p1-slice-web)).
+   With them came `restartServer()`, the Keys dialog's page object, Settings' sandbox switch and
+   Appearance actions, Triage's queue retry, and lasting aborts. The setup's P1 scenarios for
+   steps 1 to 3, before the load starts, were done on 2026-10-01: SETUP-02, SETUP-03, SETUP-04,
+   SETUP-05, SETUP-06, SETUP-07, SETUP-11, SETUP-15, SETUP-16, SETUP-17 and SETUP-30, then
+   SETUP-08, SETUP-09, SETUP-13 and SETUP-14 (see [The setup's steps 1 to 3 P1 slice](HISTORY.md#the-setups-steps-1-to-3-p1-slice-web)). With them
+   came the setup page object's actions for steps 1 to 3, `LiveRegionWatch`, the fake's `503`
+   for every request and `dj`'s currency, and the markup of accessibility bugs 3 and 4 for those
+   steps. The ten gaps were closed on 2026-10-02 (see [Closing the gaps](HISTORY.md#closing-the-gaps-web)): TRI-21, TWL-02 and
+   SET-17 became normal tests, and SHELL-12 (P2), SETUP-24, SETUP-25 and SETUP-28 (P1), and
+   SETUP-26, SETUP-29 and SETUP-32 (P2) were built with their fixes. Next: the setup's remaining P1
+   scenarios, SETUP-22, SETUP-23, SETUP-27, SETUP-31 and SETUP-33, with the practice card's page
+   object, accessibility bug 1 and the rest of the crate's part of bug 4 (its alerts are in the
+   page before their text now); then the Accessibility family with axe. Still to do for the
+   setup: its other P2 scenarios, SETUP-10, SETUP-12 and SETUP-20. Still to do for Triage,
+   Settings, Twelves, Shell, Sandbox and Persistence: their P2 scenarios (for these three families
+   SHELL-06, SHELL-08, SHELL-10, SHELL-11, SBX-06, PER-02 and PER-03), and in the fake the
+   masters, when a scenario needs them.
+3. **Breadth.** P2 scenarios, the contract configuration, and once the Chromium suite is stable,
+   the Firefox and WebKit projects and the nightly burn-in. Optional: a few `toHaveScreenshot`
+   checks of the main screens, on Linux only, where snapshot updates need a human review. The
+   owner decided on 2026-10-02 to build every P2 scenario and then review the whole suite to
+   consolidate it, rather than prune P2 first. Firefox and WebKit get a cheap effort only (see
+   [Running](../E2E_TESTING.md#running)).
+4. **Electron** (with session 7). Product change 6, the Electron host and preload, the ELEC
+   scenarios, and the shared suite on the unpackaged app and the inspectable release candidate.
+
+## Risks recorded on 2026-10-02
+
+- **Per-test server processes** keep tests isolated but cost a Node start each, about 200 ms in
+  the spike.
+- **Real timers on the server.** The Discogs client's 1.1 s gap makes tests that touch Discogs
+  several times slower. If the suite exceeds its budget, a `discogsMinIntervalMs` server option
+  set by the harness would help, at the cost of not running production spacing in E2E. Measured
+  in the second Triage slice: the gap binds only where requests follow each other at once, and
+  costs about 6.6 s of that slice's 40 s of test time, 2.2 s each in the scenarios that read a
+  seller's shop; a push after the 1.5 s grace does not wait for it.
+- **Real disk space** stays a precondition of the run rather than something the tests control;
+  see [Disk space](HARNESS.md#disk-space).
+- **Fakes drift from the services.** The contract checks catch drift, but only when someone runs
+  them.
+- **Test-facing product surface:** two environment variables for service URLs, the IPC shutdown,
+  the slip's `aria-busy`, and `DIGGA_E2E_HOLD` only if packaged builds ignore `-r`. The
+  alternative, a test-only host that calls `createServer()` with a `fetchImpl`, would skip the
+  CLI's boot and could not reach a packaged Electron app.
+- **The Electron preload patches Electron's API** (`BrowserWindow.prototype.loadURL`, `shell`,
+  `dialog`). A product change to how the window loads, such as `loadFile()`, needs the preload
+  changed too; ELEC-13 fails first if it is not.
+- **Playwright's Electron support** is experimental, and fuses and keychains limit what runs on
+  release builds.
+- **`verify` runs the smoke set.** The owner decided on 2026-10-01 that `e2e:smoke` joins
+  `vp run verify`. `verify` now takes about 20 s instead of 9 s, and every machine that commits
+  needs Playwright's Chromium (`npx playwright install chromium`).
+- **Other browsers.** The owner decided on 2026-10-02 that Firefox and Safari get a cheap effort
+  only, since the Electron app is the main target (see [Running](../E2E_TESTING.md#running)).
+- **Open:** Is a CI provider other than GitHub Actions planned? Are visual snapshots wanted at all? What does the Electron app do when
+  `safeStorage` cannot encrypt, as on Linux without a keyring: refuse to save the token, or save
+  it with the plain-text key?
+
+## Original fixture catalogue design
+
+This snapshot includes an illustrative record, planned data and the original mistaken
+description of `EVENT_HORIZON` as absent from the dump. The current catalogue contract is in
+[FIXTURES](FIXTURES.md#the-fixture-catalogue).
+
+### Catalogue before reconciliation
+
+One typed module, `tests/e2e/fixtures/catalogue.ts`, describes every release, master, label,
+artist, track and video the tests use. It is the single source for the dump files, the fake
+Discogs API's release data and the fake YouTube player's titles and durations, so the three agree.
+A small builder writes it as Discogs dump XML.
+
+```ts
+export const WORMHOLE = release({
+  id: 1001,
+  master: { id: 501, main: true },
+  artists: ["Ed Rush (2)", "Optical"],
+  title: "Wormhole",
+  labels: [{ id: 77, name: "Renegade Hardware", catno: "RH 20" }],
+  year: 2000,
+  country: "UK",
+  format: { name: "Vinyl", qty: 2, descriptions: ['12"'] },
+  styles: ["Drum n Bass", "Techstep"],
+  tracks: [track("A1", "Wormhole", "6:12"), track("B1", "Watermelon", "7:01")],
+  videos: [video("wormhole-a1", "Ed Rush & Optical - Wormhole", 372)],
+  market: { lowestPrice: 18.5, numForSale: 4, want: 1210, have: 890 },
+});
+```
+
+**The small catalogue** has about 40 named records, each there for a reason: a label with
+several records for the label sweep and `F`; a master with a main release without video and a
+repress with one (pooled videos, decision 72); two releases sharing a tune on different masters
+(heard greying); a compilation with track artists; a release without videos; one whose only
+video YouTube refuses; one whose several videos all are refused; one with `embed="false"` from
+the dump; a record with a run of tracks for `J`, `K`, `1` to `9` and a video's end;
+`Not On Label (Dillinja Self-released)` for `X` and bracketed variants; undated records on a
+label the account wants (decision 91); a record the seller `shopkeeper` has in a different
+pressing from the main release; Jungle and House records for the style picker and census; a
+release outside the default years for filter tests. The September dump adds three releases and
+drops one, so a load of it has small exact "added" and "missing" counts, and puts one release that
+had no master on a master (SET-21). Videos
+that YouTube has and no release lists, one titled after a track that has none, are there to be
+pasted (TRI-26), and one titled after the release without videos (TWL-14).
+
+Records that only some scenarios reach sit on labels that sort after those of the first records,
+so the default queue starts as before, and a scenario digs them with `diggaOptions.labels`. The
+catalogue names the records that scenarios refer to (`FIRST_RECORD`, `TRACK_RUN`,
+`SAME_TUNE_ELSEWHERE` and so on) and says in a comment which scenarios they serve. Built so far:
+20 releases in the August dump, of which Twelves' scenarios name `THIRD_RECORD`, `IN_COLLECTION`,
+`ON_WANTLIST` (on `dj`'s wantlist, so a want of it given in Digga is on the wantlist) and
+`EVENT_HORIZON`, the release in no dump (see [The first Triage P1 slice](HISTORY.md#the-first-triage-p1-slice-web) and [The second Triage P1 slice](HISTORY.md#the-second-triage-p1-slice-web)), and the September dump (`SMALL_SEPTEMBER`): the August releases but
+"Brass Knuckle" (1902), and three releases on "Upfront Audio", a label that sorts after every
+other (`SEPTEMBER_ADDITIONS`). The templates load August only, so "Added by the last dump load"
+offers every record still to dig, as TRI-20 expects. data.discogs.com lists September for SET-17,
+whose update adds 3 releases and does not find 1; a held transfer stops at its `part-way`
+checkpoint, after 10 releases. A July dump with August's releases exists only as a file in a
+dumps folder (SET-16). `smallDump(month)` builds each once per worker (`fixtures/dump.ts`). Tracks can
+credit their own artists, as a compilation does, and the builder writes "Various" with Discogs'
+id 194, which Digga does not offer to dig. Every release has the same market data in the fake
+(`MARKET` in `tools/dev/fake-services.ts`); per-release prices wait for a scenario that compares two.
+
+**The bulk catalogue** has 1,500 generated Drum n Bass records from 1998 to 2002 on vinyl,
+deterministic from a seed, on 30 labels no other fixture uses, in id order as in a Discogs dump,
+so more than 500 records to dig arrive in the first 40% of the file. The generated releases have
+no master and match the picks the setup scenarios make (Drum n Bass, the census's middle years,
+vinyl), so each is one record to dig. Releases in other styles, which the census and the filter
+preview need, join when a scenario needs them; the setup scenarios need none. The dump is 81 KB
+and is built in memory once per worker, in about 25 ms (see [The first-run setup path](HISTORY.md#the-first-run-setup-path-web)).
+
+**Checkpoints.** The builder (`fixtures/dump.ts`) compresses the dump with a full flush at named
+points, `100-to-dig` and `600-to-dig`, and records for each its compressed offset, the number of
+records to dig before it and the last release before it. It deflates each part on its own; a
+full flush resets the compressor, so these are the bytes a gzip stream flushed with
+`Z_FULL_FLUSH` between the parts would write. A gunzip stream given the bytes up to a full flush yields all the
+XML before it, so at a held transfer the loader has parsed every release before the point. The
+loader then commits them and reports progress within a second (product change 4), and tests
+wait for the recorded count in the UI or `/api/stats` before they release the transfer. The fake
+data.discogs.com holds and releases transfers (see [The fake services](FIXTURES.md#the-fake-services)). The runs confirmed all
+of this; see [The first-run setup path](HISTORY.md#the-first-run-setup-path-web).
+
+Video ids follow YouTube's 11-character shape (`[\w-]{11}`, which `deck.ts` checks). A prefix
+tells the fake player how to behave: `e150…` refuses with error 150, `e100…` with 100, anything
+else plays.
