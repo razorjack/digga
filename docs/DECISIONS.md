@@ -681,3 +681,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      sends the playing video and its second with the mark. A note edited in Twelves sends no
      moment and keeps the saved one. The Tracks shelf, the exports and the decisions backup carry
      the new fields; a backup written before them reads them as null.
+122. **Every change to a decision is logged, by triggers.** `verdicts` and `track_verdicts` hold
+     only the latest decision, and ordinary use replaces decisions made in Digga: the wantlist
+     import turns a pushed want into a `wantlist` seed, re-reading the Maybe list turns a triage
+     maybe into a list seed, the collection import ends a grail, and re-judging, undo and the
+     no-audio requeue rewrite or delete rows. Afterwards nothing said what was decided in Digga or
+     when. `verdict_log` and `track_mark_log` keep every change; the migration starts them from
+     the rows a library has. Triggers write them rather than the functions that change decisions,
+     because those are many (Triage, Twelves, the imports, restore, requeue) and a forgotten call
+     would lose exactly the history the log is for. A log of what was decided is data only the
+     user made, like the listen log, so the daily database copies keep it; the decisions backup
+     leaves both out for now.

@@ -1,0 +1,156 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vite-plus/test";
+import { applyMigrations, type Db, listMigrations, openDb } from "../src/server/db/db.ts";
+import {
+  applySeedVerdict,
+  deleteVerdict,
+  setTrackVerdict,
+  upsertVerdict,
+} from "../src/server/db/verdicts.ts";
+import { fixtureDb } from "./helpers.ts";
+
+const opened: Db[] = [];
+afterEach(() => {
+  for (const db of opened.splice(0)) db.close();
+});
+
+async function library(): Promise<Db> {
+  const db = await fixtureDb();
+  opened.push(db);
+  return db;
+}
+
+function verdictLog(db: Db): Record<string, unknown>[] {
+  return db
+    .prepare("SELECT change, key, previous_key, status, source, notes FROM verdict_log ORDER BY id")
+    .all() as Record<string, unknown>[];
+}
+
+function trackMarkLog(db: Db): Record<string, unknown>[] {
+  return db
+    .prepare("SELECT change, position, mark, notes, at_seconds FROM track_mark_log ORDER BY id")
+    .all() as Record<string, unknown>[];
+}
+
+describe("the decision log", () => {
+  it("keeps a verdict made in Digga after an import replaces it and undo deletes it", async () => {
+    const db = await library();
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1001 });
+    applySeedVerdict(db, {
+      key: "m:501",
+      status: "wantlist",
+      source: "seed:wantlist",
+      releaseId: 1001,
+      decidedAt: "2026-10-03T10:00:00.000Z",
+    });
+    deleteVerdict(db, "m:501");
+
+    expect(verdictLog(db)).toEqual([
+      {
+        change: "insert",
+        key: "m:501",
+        previous_key: null,
+        status: "accepted",
+        source: "triage",
+        notes: null,
+      },
+      {
+        change: "update",
+        key: "m:501",
+        previous_key: null,
+        status: "wantlist",
+        source: "seed:wantlist",
+        notes: null,
+      },
+      {
+        change: "delete",
+        key: "m:501",
+        previous_key: null,
+        status: "wantlist",
+        source: "seed:wantlist",
+        notes: null,
+      },
+    ]);
+  });
+
+  it("records nothing when a write leaves the verdict as it was", async () => {
+    const db = await library();
+    const verdict = {
+      key: "m:501",
+      status: "rejected",
+      source: "triage",
+      releaseId: 1001,
+      decidedAt: "2026-10-03T10:00:00.000Z",
+    } as const;
+    upsertVerdict(db, verdict);
+    upsertVerdict(db, verdict);
+
+    expect(verdictLog(db).map((entry) => entry.change)).toEqual(["insert"]);
+  });
+
+  it("names the key a verdict moved from", async () => {
+    const db = await library();
+    upsertVerdict(db, { key: "r:1006", status: "maybe", source: "triage", releaseId: 1006 });
+    db.prepare("UPDATE verdicts SET key = 'm:506' WHERE key = 'r:1006'").run();
+
+    expect(verdictLog(db).at(-1)).toMatchObject({
+      change: "update",
+      key: "m:506",
+      previous_key: "r:1006",
+    });
+  });
+
+  it("logs every change to a track mark, its note and its clearing", async () => {
+    const db = await library();
+    const track = { releaseId: 1001, position: "B1" };
+    setTrackVerdict(db, { ...track, mark: "keep", videoId: "aaaaaaaaaa1", atSeconds: 61.5 });
+    setTrackVerdict(db, { ...track, mark: "candidate", videoId: "aaaaaaaaaa1", atSeconds: 90 });
+    setTrackVerdict(db, { ...track, mark: "candidate", notes: "the vocal" });
+    setTrackVerdict(db, { ...track, mark: null });
+
+    expect(trackMarkLog(db)).toEqual([
+      { change: "insert", position: "B1", mark: "keep", notes: null, at_seconds: 61.5 },
+      { change: "update", position: "B1", mark: "candidate", notes: null, at_seconds: 90 },
+      { change: "update", position: "B1", mark: "candidate", notes: "the vocal", at_seconds: 90 },
+      { change: "delete", position: "B1", mark: "candidate", notes: "the vocal", at_seconds: 90 },
+    ]);
+  });
+
+  it("starts from the verdicts and marks a library already has", () => {
+    const early = fs.mkdtempSync(path.join(os.tmpdir(), "digga-migrations-"));
+    const db = openDb(":memory:", { foreign: true });
+    opened.push(db);
+    try {
+      for (const migration of listMigrations().filter((m) => m.version <= 7))
+        fs.copyFileSync(migration.file, path.join(early, migration.name));
+      applyMigrations(db, early);
+      db.prepare(
+        `INSERT INTO verdicts (key, status, source, release_id, decided_at)
+         VALUES ('m:501', 'wantlist', 'seed:wantlist', 1001, '2026-09-27T18:49:47.521Z')`,
+      ).run();
+      db.prepare(
+        `INSERT INTO track_verdicts (release_id, position, mark, decided_at)
+         VALUES (1001, 'B1', 'keep', '2026-09-28T10:00:00.000Z')`,
+      ).run();
+      applyMigrations(db);
+
+      expect(verdictLog(db)).toEqual([
+        {
+          change: "existing",
+          key: "m:501",
+          previous_key: null,
+          status: "wantlist",
+          source: "seed:wantlist",
+          notes: null,
+        },
+      ]);
+      expect(trackMarkLog(db)).toEqual([
+        { change: "existing", position: "B1", mark: "keep", notes: null, at_seconds: null },
+      ]);
+    } finally {
+      fs.rmSync(early, { recursive: true, force: true });
+    }
+  });
+});

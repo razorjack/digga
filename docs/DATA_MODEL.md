@@ -107,6 +107,17 @@ when the mark is written and kept when a later dump no longer lists the position
 `at_seconds` are the video playing in Triage when the mark was set and the second it had reached;
 a write without them (a note from Twelves) keeps the saved ones.
 
+## verdict_log and track_mark_log
+
+Every change to `verdicts` and to `track_verdicts`, written by triggers (migration 8), so a
+decision an import, a re-judgement, an undo or a dump load replaced or deleted stays known. Each
+row has `id`, `at` (when the change happened), `change` and the columns of the row after the
+change, or of the deleted row for a delete. `change` is `existing` for the rows the log started
+from, then `insert`, `update` or `delete`; an update that writes the values the row has is not
+logged. `verdict_log` also has `previous_key`, the key an update moved the verdict from. Nothing in
+the app reads the logs yet; they are in the database and its daily copies, not in the decisions
+backup.
+
 ## heard_tracks
 
 `heard_key` PK, `first_release_id`, `seconds_listened` (accumulated), `first_heard_at`,
