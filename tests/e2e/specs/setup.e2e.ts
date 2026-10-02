@@ -7,8 +7,15 @@ import type {
   Stats,
 } from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
-import { formatBytes } from "../../../src/shared/display.ts";
-import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../../src/shared/types.ts";
+import { formatBytes, formatCount } from "../../../src/shared/display.ts";
+import {
+  DOWNLOAD_RETRIED_ERROR,
+  INTERRUPTED_JOB_ERROR,
+  type Job,
+} from "../../../src/shared/types.ts";
+import { DIG_THRESHOLD } from "../../../src/client/setup/model.ts";
+import { BULK } from "../fixtures/catalogue.ts";
+import { PracticeCard } from "../pages/dialogs.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage } from "../pages/setup.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
@@ -78,6 +85,49 @@ test.describe("with the clock", () => {
       await new HeaderPage(app).goTo("triage");
 
       await expect(new TriagePage(app).record).toBeVisible();
+    },
+  );
+
+  test(
+    "SETUP-31 at the end of what has loaded, Triage waits, and the next record shows once it arrives",
+    { tag: ["@SETUP-31", "@P1"] },
+    async ({ app, fakes }) => {
+      test.slow();
+      const point = fakes.dumps.checkpoint("100-to-dig");
+      const later = fakes.dumps.checkpoint("600-to-dig");
+      fakes.dumps.holdAt(point.name);
+      const setup = new SetupPage(app);
+      const triage = new TriagePage(app);
+      const toDig = recordsToDigIn(ONE_YEAR, point.recordsToDig);
+
+      await app.open();
+      await setup.fetchCatalogue();
+      await setup.skipDiscogs();
+      await setup.makePicks(ONE_YEAR);
+      await setup.fillCrate();
+      await setup.waitForRecordsToDig(toDig);
+      await new HeaderPage(app).goTo("triage");
+      const passed: string[] = [];
+      for (let index = 0; index < toDig; index += 1) {
+        passed.push(await triage.currentKey());
+        await triage.pass();
+      }
+      await expect(
+        triage.root.getByText("You have dug everything loaded so far.", { exact: true }),
+      ).toBeVisible();
+
+      // Paused, only runFor() can make Triage look again.
+      await app.clock.pause();
+      fakes.dumps.release(later.name);
+      await expect
+        .poll(async () => (await app.api.get<Stats>("/api/stats")).remaining, {
+          timeout: 15_000,
+        })
+        .toBe(recordsToDigIn(ONE_YEAR, later.recordsToDig));
+      await expect(triage.record).toBeHidden();
+      await app.clock.runFor(10_000);
+
+      expect(passed).not.toContain(await triage.currentKey());
     },
   );
 });
@@ -246,7 +296,7 @@ test(
 
     fakes.dumps.set({ failAfterBytes: null });
     await setup.startLoadAgain();
-    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    await setup.waitForCatalogue();
     const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
     expect(jobs.filter((job) => job.type === "dump_download").map((job) => job.status)).toEqual([
       "done",
@@ -319,7 +369,7 @@ test(
     await expect.poll(() => jobStatuses(app, "dump_load")).toEqual(["running", "failed"]);
     fakes.dumps.release();
 
-    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    await setup.waitForCatalogue();
     expect(fakes.dumps.transfers).toBe(2);
     expect(await jobStatuses(app, "dump_download")).toEqual(["done"]);
     const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
@@ -354,7 +404,7 @@ test(
     expect(await jobStatuses(app, "dump_download")).toEqual(["failed"]);
 
     await setup.startLoadAgain();
-    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    await setup.waitForCatalogue();
     expect(fakes.dumps.transfers).toBe(3);
   },
 );
@@ -390,11 +440,176 @@ test(
     );
     await setup.button("Fill the crate").click();
     await loadStarted;
-    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    await setup.waitForCatalogue();
     await expect(setup.startDiggingButton).toBeEnabled();
     expect(await jobStatuses(app, "dump_load")).toEqual(["done", "done"]);
   },
 );
+
+test(
+  "SETUP-22 a practice round of five records in the sandbox ends with the card, then digs them for real",
+  { tag: ["@SETUP-22", "@P1"] },
+  async ({ app }) => {
+    test.slow();
+    const triage = new TriagePage(app);
+    const card = new PracticeCard(app);
+    const setup = await fillTheCrate(app);
+    await setup.waitForCatalogue();
+
+    await setup.practice();
+    await expect(triage.banner).toContainText("Practice: 1 of 5.");
+    const practised: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      await expect(triage.banner).toContainText(`Practice: ${index + 1} of 5.`);
+      practised.push(await triage.currentKey());
+      await triage.judgeInSandbox("rejected");
+    }
+    await expect(card.root).toBeVisible();
+    await expect(card.root).toContainText("those records come round again");
+
+    await card.digForReal();
+    expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);
+    await expect(new HeaderPage(app).sandbox).toBeHidden();
+    await expect(triage.banner).toBeHidden();
+    const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+    expect(exported.verdicts).toEqual([]);
+    for (const key of practised) {
+      expect(await triage.currentKey()).toBe(key);
+      await triage.pass();
+    }
+  },
+);
+
+test("SETUP-22 Esc ends a practice round early", { tag: ["@SETUP-22", "@P1"] }, async ({ app }) => {
+  test.slow();
+  const triage = new TriagePage(app);
+  const card = new PracticeCard(app);
+  const setup = await fillTheCrate(app);
+  await setup.waitForCatalogue();
+
+  await setup.practice();
+  const first = await triage.currentKey();
+  await triage.judgeInSandbox("rejected");
+  await expect(triage.banner).toContainText("Practice: 2 of 5.");
+  await app.page.keyboard.press("Escape");
+  await expect(card.root).toBeVisible();
+
+  await card.digForReal();
+  expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);
+  expect(await triage.currentKey()).toBe(first);
+  const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+  expect(exported.verdicts).toEqual([]);
+});
+
+test(
+  "SETUP-23 the finished load: READY TO DIG, the heading that names the crate, one announcement, and Delete it",
+  { tag: ["@SETUP-23", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const regions = await LiveRegionWatch.install(app.page);
+    const header = new HeaderPage(app);
+    const setup = await fillTheCrate(app);
+    await setup.waitForCatalogue();
+
+    const stats = await app.api.get<Stats>("/api/stats");
+    const catalogueIn = `The catalogue is in: ${formatCount(stats.universe.releases)} releases, ${formatCount(stats.remaining)} records to dig.`;
+    await expect(setup.catalogueIn).toHaveAccessibleName(catalogueIn);
+    await expect(setup.root.getByRole("region", { name: catalogueIn })).toBeVisible();
+    await expect(setup.root.getByText("ready to dig", { exact: true })).toBeVisible();
+    await expect(header.announcement).toHaveText(catalogueIn);
+    await expect(header.loadIndicator).toBeHidden();
+
+    // A failed delete says why in the crate's alert, which was in the page before its text.
+    const dumpPath = `/api/dumps/${fakes.dumps.listed.name}`;
+    app.expectProblems({
+      aborted: [new RegExp(`^DELETE ${dumpPath}$`)],
+      consoleErrors: [/^Failed to load resource: net::ERR_FAILED/],
+    });
+    await app.abortRequests({ method: "DELETE", path: dumpPath });
+    await setup.button("Delete it").click();
+    await expect(setup.alert("Failed to fetch")).toBeVisible();
+    expect(await regions.insertedWithText()).not.toContainEqual(
+      expect.stringContaining("Failed to fetch"),
+    );
+
+    const deleted = app.page.waitForResponse((response) => isRequest(response, "DELETE", dumpPath));
+    await setup.button("Delete it").click();
+    expect((await deleted).ok()).toBe(true);
+    await expect(
+      setup.root.getByText("The catalogue file is deleted.", { exact: true }),
+    ).toBeVisible();
+    await expect(setup.alert("Failed to fetch")).toBeHidden();
+    expect((await app.api.get<DumpsResponse>("/api/dumps")).files).toEqual([]);
+    // Said once: the header's status still holds the one announcement.
+    await expect(header.announcement).toHaveText(catalogueIn);
+  },
+);
+
+test(
+  "SETUP-27 Digga closing during the load leaves Pick up, which reads the dump from the start",
+  { tag: ["@SETUP-27", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    // Only the first transfer waits; it ends with the server it was sending to.
+    fakes.dumps.holdAt(point.name, { transfer: 1 });
+    const setup = await fillTheCrate(app);
+    await setup.waitForRecordsToDig(point.recordsToDig);
+
+    await app.relaunch({ crash: true });
+    const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+    expect(jobs.map((job) => [job.type, job.status, job.error])).toEqual(
+      expect.arrayContaining([
+        ["dump_download", "failed", INTERRUPTED_JOB_ERROR],
+        ["dump_load", "failed", INTERRUPTED_JOB_ERROR],
+      ]),
+    );
+
+    await app.open("#/setup");
+    await setup.expectStep("crate");
+    await setup.pickUp();
+    await setup.waitForCatalogue();
+    expect(fakes.dumps.transfers).toBe(2);
+    expect(await jobStatuses(app, "dump_load")).toEqual(["done", "failed"]);
+    // The new load read every release, the 100 the first one had read included.
+    const after = await app.api.get<JobsResponse>("/api/jobs");
+    const newestLoad = after.jobs.find((job) => job.type === "dump_load");
+    expect(newestLoad).toMatchObject({ progress: { scanned: BULK.length } });
+  },
+);
+
+test(
+  "SETUP-33 a load that ends with fewer than 500 records to dig enables Start digging",
+  { tag: ["@SETUP-33", "@P1"] },
+  async ({ app }) => {
+    test.slow();
+    const toDig = recordsToDigIn(ONE_YEAR, BULK.length);
+    expect(toDig).toBeLessThan(DIG_THRESHOLD);
+    const setup = new SetupPage(app);
+
+    await app.open();
+    await setup.fetchCatalogue();
+    await setup.skipDiscogs();
+    await setup.makePicks(ONE_YEAR);
+    await setup.fillCrate();
+    await setup.waitForCatalogue();
+
+    await expect(setup.recordsToDig(toDig)).toBeVisible();
+    await expect(setup.root.getByText(/^ready at/)).toBeHidden();
+    await setup.startDigging();
+  },
+);
+
+/** Drum n Bass on vinyl from 1998 alone, which keeps fewer than 500 of the bulk records to dig. */
+const ONE_YEAR: Picks = { styles: ["Drum n Bass"], span: [1998, 1998], vinylOnly: true };
+
+/** The records to dig among the first `releases` of the bulk dump, under picks of one style. */
+function recordsToDigIn(picks: Picks, releases: number): number {
+  return BULK.slice(0, releases).filter(
+    (release) =>
+      release.year !== null && release.year >= picks.span[0] && release.year <= picks.span[1],
+  ).length;
+}
 
 /** The statuses of the jobs of one type, newest first. */
 async function jobStatuses(app: DiggaApp, type: Job["type"]): Promise<Job["status"][]> {

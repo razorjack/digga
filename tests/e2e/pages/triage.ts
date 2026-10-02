@@ -92,9 +92,9 @@ export class TriagePage {
     return this.record.getByRole("status");
   }
 
-  /** The strip above the desk while a round of snoozed records or a scope runs. */
+  /** The strip above the desk while a practice round, a round of snoozed records or a scope runs. */
   get banner(): Locator {
-    return this.root.getByText(/^(Digging|Hearing snoozed records again)/);
+    return this.root.getByText(/^(Practice: |Digging|Hearing snoozed records again)/);
   }
 
   /** F's dialog: the record's labels and artists, the last load's records, and a search. */
@@ -270,11 +270,11 @@ export class TriagePage {
     return response;
   }
 
-  /** N: the record stays undecided and the next one shows. */
+  /** N: the record stays undecided and the next one shows, or the end of the queue. */
   async pass(): Promise<void> {
     const key = await this.currentKey();
     await this.app.page.keyboard.press("n");
-    await expect(this.record).not.toHaveAttribute("data-triage-key", key);
+    await expect(this.root.locator(`header[data-triage-key="${key}"]`)).toBeHidden();
   }
 
   /** N at the end of the queue: the records passed come round again. */

@@ -1,5 +1,7 @@
 import { expect, type Locator } from "@playwright/test";
+import type { Config } from "../../../src/shared/config.ts";
 import type { DiggaApp } from "../support/app.ts";
+import { isRequest, waitForResponses } from "./triage.ts";
 
 /** How the Keys dialog closes: `?` again, Esc, its close button, or a click on the backdrop. */
 export type KeysDialogClose = "help key" | "escape" | "close button" | "backdrop";
@@ -57,5 +59,40 @@ export class KeysDialog {
     if (by === "close button") return this.closeButton.click();
     // The panel is centred and narrower than the window, so its top left corner is backdrop.
     await this.app.page.mouse.click(5, 5);
+  }
+}
+
+/**
+ * The card that ends a practice round in Triage, after five verdicts or Esc. Its Enter leaves
+ * the sandbox; the queue then starts again without the practice verdicts.
+ */
+export class PracticeCard {
+  readonly app: DiggaApp;
+
+  constructor(app: DiggaApp) {
+    this.app = app;
+  }
+
+  get root(): Locator {
+    return this.app.page.getByRole("dialog", { name: "That's digging." });
+  }
+
+  /** Enter: returns once the sandbox is off and Triage has read its queue again in live mode. */
+  async digForReal(): Promise<void> {
+    await expect(this.root.getByRole("button", { name: "Dig for real" })).toBeFocused();
+    const { first: saved, next: queue } = waitForResponses(
+      this.app.page,
+      (response) =>
+        isRequest(response, "PUT", "/api/settings") &&
+        (response.request().postDataJSON() as Config).sandbox === false,
+      (response) => isRequest(response, "GET", "/api/queue"),
+    );
+    await this.app.page.keyboard.press("Enter");
+    for (const pending of [saved, queue]) {
+      const response = await pending;
+      expect(response.ok(), `${response.request().method()} ${response.url()}`).toBe(true);
+      await response.finished();
+    }
+    await expect(this.root).toBeHidden();
   }
 }

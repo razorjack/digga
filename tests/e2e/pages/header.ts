@@ -35,6 +35,11 @@ export class HeaderPage {
     return this.root.getByRole("link", { name: /^(loading|fetching)\b/ });
   }
 
+  /** Says once that the catalogue is in when a load this tab watched has finished. */
+  get announcement(): Locator {
+    return this.root.getByRole("status");
+  }
+
   link(route: Route): Locator {
     return this.pages.getByRole("link", { name: page(route).label, exact: true });
   }

@@ -22,8 +22,8 @@ Never: CSS classes, element structure, `nth-child`, generated ids, or `waitForTi
 that holds an element with `aria-current="true"` (`TriagePage.currentTrack`), and Twelves'
 selected row is the row with `aria-current="true"` (`TwelvesPage.selected`); Twelves' rows are
 found by `data-triage-key`, and the Tracks shelf's by `data-release-id` and `data-position`. The banner above
-the desk during a round or a scope has no role, so `TriagePage.banner` finds it by its opening
-words; the market line is the only `status` in the record's header (`TriagePage.market`).
+the desk during a practice round, a round of snoozed records or a scope has no role, so
+`TriagePage.banner` finds it by its opening words; the market line is the only `status` in the record's header (`TriagePage.market`).
 
 Copy assertions import the app's own copy (`STATUS_COPY`, `VERDICT_KEYS` and `TRACK_MARK_KEYS`
 from `src/client/keymap.ts`, `SHELVES` and `MARK_COPY` from `src/client/twelves/model.ts`,

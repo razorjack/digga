@@ -362,6 +362,16 @@ export class SetupPage {
     await this.setVinylOnly(picks.vinylOnly);
   }
 
+  /** The crate's heading once the load has finished: "The catalogue is in: …". */
+  get catalogueIn(): Locator {
+    return this.root.getByRole("heading", { level: 1, name: /^The catalogue is in: / });
+  }
+
+  /** The crate once the load has finished, which reading the whole bulk dump takes a few seconds. */
+  async waitForCatalogue(): Promise<void> {
+    await expect(this.catalogueIn).toBeVisible({ timeout: COUNT_TIMEOUT_MS });
+  }
+
   /** The crate's heading when the load finished without keeping a release. */
   get nothingMatches(): Locator {
     return this.root.getByRole("heading", {
@@ -409,6 +419,20 @@ export class SetupPage {
     await expect(this.downloadStopped).toBeHidden();
   }
 
+  /**
+   * "Pick up" after Digga closed during the load: returns once the download, unless the dump is
+   * whole, and the load reading it from the start have started.
+   */
+  async pickUp(): Promise<void> {
+    await expect(this.alert("The catalogue stopped loading when Digga closed.")).toBeVisible();
+    const downloading = this.#response("POST", "/api/jobs/dump-download");
+    const loading = this.#response("POST", "/api/jobs/dump-load");
+    await this.button("Pick up").click();
+    await answered(downloading);
+    await answered(loading);
+    await expect(this.button("Pick up")).toBeHidden();
+  }
+
   /** The crate once it counts this many records to dig, which the setup reads every few seconds. */
   async waitForRecordsToDig(count: number): Promise<void> {
     await expect(this.recordsToDig(count)).toBeVisible({ timeout: COUNT_TIMEOUT_MS });
@@ -419,6 +443,18 @@ export class SetupPage {
     await expect(this.startDiggingButton).toBeEnabled();
     await this.startDiggingButton.click();
     await expect(new HeaderPage(this.app).link("triage")).toHaveAttribute("aria-current", "page");
+  }
+
+  /**
+   * "Practice on five records first": returns once the sandbox is on and Triage shows the
+   * practice's banner.
+   */
+  async practice(): Promise<void> {
+    const saved = this.#response("PUT", "/api/settings");
+    await this.root.getByRole("button", { name: "Practice on five records first" }).click();
+    await answered(saved);
+    await expect(new HeaderPage(this.app).link("triage")).toHaveAttribute("aria-current", "page");
+    await expect(this.root.getByText(/^Practice: /)).toBeVisible();
   }
 
   #response(method: string, path: string): Promise<Response> {

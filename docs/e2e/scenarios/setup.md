@@ -178,17 +178,21 @@ whatever the count (`docs/FIRST_RUN.md`)
 
 Priority: **P1**.
 
-Practice round: the banner counts "1 of 5"; after five verdicts "That's digging."; Enter turns the
-sandbox off and the five records come round again; `/api/export/decisions.json` holds none of them;
-Esc ends it early
+Practice round, from the finished crate's "Practice on five records first": the sandbox is on and
+the banner counts "1 of 5" up to "5 of 5"; after five verdicts the card "That's digging." opens;
+its Enter turns the sandbox off (`/api/settings`, the header's stamp goes) and the five records come
+round again in their order; `/api/export/decisions.json` holds none of them. Esc after one verdict
+ends it early with the same card, and the first record comes round again
 
 ## SETUP-23
 
 Priority: **P1**.
 
-The load finishes: the "ready to dig" stamp and the `h1` "The catalogue is in: …"; the header status
-says "The catalogue is in: …" once, the indicator goes; "Delete it" deletes the dump (`/api/dumps`
-is empty)
+The load finishes: the "ready to dig" stamp and the `h1` "The catalogue is in: …", which names the
+crate's region (markup item 1); the header status says "The catalogue is in: …" once, the indicator
+goes. "Delete it" with its request aborted shows the reason in the crate's alert, in the page
+before its text (markup item 4); again, it deletes the dump (`/api/dumps` is empty), says "The
+catalogue file is deleted." and clears the alert
 
 ## SETUP-24
 
@@ -227,8 +231,11 @@ Discogs' checksum. Digga downloaded it twice." with "Start again", which downloa
 
 Priority: **P1**.
 
-A crash during the load (`relaunch({ crash: true })`): the jobs are marked failed as interrupted;
-the setup offers Pick up, which reads the dump from the start
+A crash during the load (`relaunch({ crash: true })`), the first transfer held at `100-to-dig`: the
+download and the load are marked failed as interrupted; the crate says "The catalogue stopped
+loading when Digga closed." (docs/FIRST_RUN.md, "Failure and resume"; it said "…: interrupted."
+until this scenario was built) and offers Pick up, which downloads again (two transfers) and reads
+the dump from the start: the new load scans all 1,500 releases
 
 ## SETUP-28
 
@@ -260,9 +267,10 @@ A library with a finished load never shows the setup; `#/setup` goes to Triage [
 
 Priority: **P1**.
 
-Digging during the load, held at `100-to-dig`: at the end of the queue "You have dug everything
-loaded so far."; after release, once `/api/stats` counts more records to dig, `runFor(10_000)` and
-the next record shows
+Digging during the load, held at `100-to-dig`, with Drum n Bass from 1998 alone picked, so 18
+records are to dig: once N has passed them, the end of the queue says "You have dug everything
+loaded so far."; the clock paused, the transfer released to `600-to-dig`, and `/api/stats` counting
+its 108 records to dig, `runFor(10_000)` makes Triage look again and a record not passed shows
 
 ## SETUP-32
 
@@ -277,7 +285,8 @@ before; the dumps folder stays empty
 
 Priority: **P1**.
 
-A load that finishes with fewer than 500 records to dig enables "Start digging"
+A load that finishes with fewer than 500 records to dig enables "Start digging": Drum n Bass from
+1998 alone keeps 305 of the bulk records to dig, and "ready at 500 records" does not show
 
 ## Completion contracts
 
@@ -292,3 +301,9 @@ A load that finishes with fewer than 500 records to dig enables "Start digging"
   `PUT /api/settings` and `POST /api/jobs/dump-load` have answered and the crate shows. "Fill the
   crate" with no style picked sends nothing and ends once the search field has `aria-invalid`. A
   year ends once Tab has left its field, which commits it (`change`), and the field shows it.
+- "Practice on five records first" ends once `PUT /api/settings` has answered and Triage shows the
+  practice's banner. The practice card (`PracticeCard` in `pages/dialogs.ts`) ends its Enter once
+  the `PUT /api/settings` that turns the sandbox off and the `GET /api/queue` after it have
+  answered and the card has closed. "Pick up" ends once `POST /api/jobs/dump-download` and
+  `POST /api/jobs/dump-load` have answered and the button has gone. The finished load ends once
+  the crate's `h1` reads "The catalogue is in: …" (`waitForCatalogue()`).

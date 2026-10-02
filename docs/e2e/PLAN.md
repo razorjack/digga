@@ -12,20 +12,14 @@ below are specified but unimplemented, and the observations below still need dec
 
 ## Next work
 
-1. Finish the setup's P1 scenarios: [SETUP-22](scenarios/setup.md#setup-22),
-   [SETUP-23](scenarios/setup.md#setup-23), [SETUP-27](scenarios/setup.md#setup-27),
-   [SETUP-31](scenarios/setup.md#setup-31) and [SETUP-33](scenarios/setup.md#setup-33).
-   Add the practice card's page object when implementing SETUP-22. The crate's headline is its
-   `h1#crate-title` once the load is done, and its error alert is in the page before its text;
-   SETUP-23 reads both.
-2. Implement the [Accessibility family](scenarios/accessibility.md), including axe scans.
+1. Implement the [Accessibility family](scenarios/accessibility.md), including axe scans.
    `@axe-core/playwright` is not installed yet. Directly assert region names as specified;
    the planned scans alone do not establish those names.
-3. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
+2. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
    Ubuntu, Node 24, Chromium with its system dependencies, `vp run verify`, then the remaining
    E2E tests with `@P0` excluded so smoke does not run twice. Upload the HTML report and failure
    artifacts; shard only if the suite exceeds its budget.
-4. Implement every remaining P2 scenario, then review the full suite for consolidation.
+3. Implement every remaining P2 scenario, then review the full suite for consolidation.
    The owner chose this order on 2026-10-02; do not prune P2 before that review.
 
 A slice is complete when its specified behavior is covered, the affected spec passes
