@@ -7,6 +7,7 @@ import { formatCount } from "../../../src/shared/display.ts";
 import { KeysDialog } from "../pages/dialogs.ts";
 import { HeaderPage, page } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
+import { SetupPage } from "../pages/setup.ts";
 import { TriagePage, verdictKey } from "../pages/triage.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -277,6 +278,121 @@ test(
   },
 );
 
+test(
+  "SHELL-06 opened on 127.0.0.1, the page warns and links to the same page on localhost",
+  { tag: ["@SHELL-06", "@P2", "@web"] },
+  async ({ app }) => {
+    const address = new URL(app.origin);
+    address.hostname = "127.0.0.1";
+    const localhost = `${app.origin}/#/twelves`;
+    const warning = app.page.getByText(/^YouTube refuses some videos on 127\.0\.0\.1\./);
+
+    await app.page.goto(`${address.origin}/#/twelves`);
+
+    await expect(shownPage(app, "twelves")).toBeVisible();
+    await expect(warning).toHaveText(
+      `YouTube refuses some videos on 127.0.0.1. Open ${localhost} instead.`,
+    );
+    const link = warning.getByRole("link", { name: localhost });
+    await expect(link).toHaveAttribute("href", localhost);
+    await link.click();
+    await expect(app.page).toHaveURL(localhost);
+    await expect(shownPage(app, "twelves")).toBeVisible();
+    await expect(warning).toBeHidden();
+  },
+);
+
+test("SHELL-08 an unknown hash opens Triage", { tag: ["@SHELL-08", "@P2"] }, async ({ app }) => {
+  const header = new HeaderPage(app);
+
+  await app.open("#/nowhere");
+
+  await expect(shownPage(app, "triage")).toBeVisible();
+  await expect(header.link("triage")).toHaveAttribute("aria-current", "page");
+  await expect(app.page).toHaveTitle(`${page("triage").label} – Digga`);
+});
+
+test(
+  "SHELL-10 the browser's Back and Forward move between the pages",
+  { tag: ["@SHELL-10", "@P2", "@web"] },
+  async ({ app }) => {
+    const header = new HeaderPage(app);
+    await app.open();
+    await expect(shownPage(app, "triage")).toBeVisible();
+    await header.goTo("twelves");
+    await header.goTo("settings");
+
+    for (const [move, route] of [
+      ["back", "twelves"],
+      ["back", "triage"],
+      ["forward", "twelves"],
+      ["forward", "settings"],
+    ] as const) {
+      if (move === "back") await app.page.goBack();
+      else await app.page.goForward();
+      await expect(shownPage(app, route), `${move} to ${route}`).toBeVisible();
+      await expect(header.link(route)).toHaveAttribute("aria-current", "page");
+      await expect(app.page).toHaveTitle(`${page(route).label} – Digga`);
+    }
+  },
+);
+
+test.describe("on a first run", () => {
+  test.use({ diggaOptions: { template: "empty", listedDump: "bulk" } });
+
+  test(
+    "SHELL-10 the browser's Back and Forward move between the setup's steps",
+    { tag: ["@SHELL-10", "@P2", "@web"] },
+    async ({ app }) => {
+      const setup = new SetupPage(app);
+      await app.open();
+      await setup.expectStep("catalogue");
+      await setup.fetchCatalogue();
+      await setup.skipDiscogs();
+
+      await app.page.goBack();
+      await setup.expectStep("discogs");
+      await app.page.goBack();
+      await setup.expectStep("catalogue");
+      await app.page.goForward();
+      await setup.expectStep("discogs");
+      await app.page.goForward();
+      await setup.expectStep("sound");
+    },
+  );
+});
+
+test.describe("in an 840 px window, in the sandbox", () => {
+  // The sandbox's stamp and a session count fill the header's row.
+  test.use({ diggaOptions: { sandbox: true } });
+
+  test(
+    "SHELL-11 Triage's columns stack, the header wraps, and every control stays reachable",
+    { tag: ["@SHELL-11", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const header = new HeaderPage(app);
+      await app.page.setViewportSize({ width: 840, height: 1000 });
+      await app.open();
+      await triage.judgeInSandbox("rejected");
+      await expect(header.root).toContainText("+1 this session");
+      await expect(triage.tracklist).toBeVisible();
+
+      // Stacked, the player's column starts below the record's, whose tracklist ends it.
+      const record = await box(triage.record, "the record");
+      const tracklist = await box(triage.tracklist, "the tracklist");
+      const player = await box(triage.player, "the player");
+      expect(player.y).toBeGreaterThanOrEqual(tracklist.y + tracklist.height);
+      expect(player.x).toBeLessThan(record.x + record.width);
+
+      await expectSideBySide(app, headerItems(header));
+      expect(await hasHorizontalScroll(app)).toBe(false);
+      await expectReachableButtons(triage.root.getByRole("group", { name: "Verdicts" }));
+      await expectTabOrderInView(app);
+    },
+  );
+});
+
 /** What shows that a page is open: Triage's record, or the other pages' heading. */
 function shownPage(app: DiggaApp, route: Route): Locator {
   if (route === "triage") return new TriagePage(app).record;
@@ -303,4 +419,105 @@ async function expectScheme(app: DiggaApp, scheme: ColorScheme, background: stri
   await expect(root).toHaveAttribute("data-color-scheme", scheme);
   await expect(root).toHaveCSS("color-scheme", scheme === "system" ? "light dark" : scheme);
   await expect(app.page.locator("body")).toHaveCSS("background-color", background);
+}
+
+async function box(locator: Locator, name: string): Promise<Box> {
+  const found = await locator.boundingBox();
+  if (!found) throw new Error(`${name} has no box`);
+  return found;
+}
+
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** What the header shows, by name: the wordmark, each page link, the sandbox stamp and each count. */
+function headerItems(header: HeaderPage): Map<string, Locator> {
+  const items = new Map([["wordmark", header.root.getByRole("link", { name: "Digga, triage" })]]);
+  for (const destination of ROUTES)
+    items.set(`${destination.label} link`, header.link(destination.route));
+  items.set("sandbox stamp", header.sandbox);
+  for (const count of ["dug", "to go", "this session"])
+    items.set(`"${count}"`, header.root.getByText(new RegExp(`${count}$`)));
+  return items;
+}
+
+/**
+ * Whether the items share a row or wrap onto another depends on the fonts, so only what holds
+ * either way is checked: each is whole inside the window and none overlaps another.
+ */
+async function expectSideBySide(app: DiggaApp, items: Map<string, Locator>): Promise<void> {
+  const width = await app.page.evaluate(() => document.documentElement.clientWidth);
+  const boxes: [string, Box][] = [];
+  for (const [name, item] of items) boxes.push([name, await box(item, name)]);
+  for (const [index, [name, item]] of boxes.entries()) {
+    expect(item.x, `${name} starts inside the window`).toBeGreaterThanOrEqual(0);
+    expect(item.x + item.width, `${name} ends inside the window`).toBeLessThanOrEqual(width);
+    for (const [otherName, other] of boxes.slice(index + 1))
+      expect(overlaps(item, other), `${name} overlaps ${otherName}`).toBe(false);
+  }
+}
+
+function overlaps(left: Box, right: Box): boolean {
+  const apart =
+    left.x + left.width <= right.x ||
+    right.x + right.width <= left.x ||
+    left.y + left.height <= right.y ||
+    right.y + right.height <= left.y;
+  return !apart;
+}
+
+async function hasHorizontalScroll(app: DiggaApp): Promise<boolean> {
+  return app.page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+}
+
+/**
+ * Every button of the group is whole in the window and not under anything, so a click reaches
+ * it, and has its key: the bar's buttons are out of the tab order.
+ */
+async function expectReachableButtons(group: Locator): Promise<void> {
+  const buttons = await group.getByRole("button").all();
+  expect(buttons.length).toBeGreaterThan(0);
+  for (const button of buttons) {
+    await expect(button).toBeInViewport({ ratio: 1 });
+    await expect(button).toHaveAttribute("aria-keyshortcuts", /\S/);
+    const hit = await button.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const found = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      return found !== null && element.contains(found);
+    });
+    expect(hit, `${await button.textContent()} is uncovered`).toBe(true);
+  }
+}
+
+/**
+ * Tab reaches each control in the tab order once, and the browser scrolls it into the window.
+ * The walk ends where focus comes back to a control it reached, or leaves the page.
+ */
+async function expectTabOrderInView(app: DiggaApp): Promise<void> {
+  let reached = 0;
+  for (let press = 0; press < 50; press += 1) {
+    await app.page.keyboard.press("Tab");
+    const focus = await app.page.evaluate(() => {
+      const element = document.activeElement;
+      if (element === null || element === document.body) return "left the page";
+      const page = window as unknown as { tabbed?: Set<Element> };
+      page.tabbed ??= new Set();
+      if (page.tabbed.has(element)) return "reached before";
+      page.tabbed.add(element);
+      return "new";
+    });
+    if (focus !== "new") break;
+    reached += 1;
+    await expect(app.page.locator(":focus")).toBeInViewport();
+  }
+  expect(reached).toBeGreaterThan(0);
 }

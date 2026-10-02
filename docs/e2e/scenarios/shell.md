@@ -78,8 +78,13 @@ history)
 
 Priority: **P2**.
 
-At 840 px wide the Triage columns are stacked (980 px and below) and the header wraps (860 px and
-below); every control stays reachable
+At 840 px wide the Triage columns are stacked (980 px and below): the player's column starts below
+the record's. The header may wrap (860 px and below): with the sandbox stamp and a session count,
+each of its items is whole inside the window and none overlaps another, on one row or two. Every
+control stays reachable: the verdict bar's buttons are whole in the window, uncovered and keyed,
+and Tab brings each control in the tab order into the window. Fonts differ by platform, so the
+test compares boxes with each other, never with pixel values; at 840 px the header's default
+items fit on one row on macOS, and with the stamp and the count they take two
 
 ## SHELL-12
 
