@@ -598,3 +598,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      restore an old snooze over the verdict given since, and the record would come back with the
      videos it had before the link. This also closes SETUP-01's gap: "Start digging" opens on a
      record without waiting for the next look.
+113. **One Esc closes the scope picker, whatever its search field holds.** In Chromium, Esc in a
+     `type="search"` field with text clears the field, and only a second Esc reaches the dialog;
+     other engines differ. The picker's keydown handler now cancels Esc's default action and
+     closes the dialog itself, which works the same in every engine. The field stays
+     `type="search"` for its `searchbox` role, and the picker opens again with it empty.

@@ -365,8 +365,8 @@ async function expectBuffered(triage: TriagePage, record: QueueItem, next: Queue
   await expect(triage.upNext).toContainText(`${next.artistDisplay} – ${next.title}`);
 }
 
-test.fail(
-  "TRI-21 gap: Esc closes the picker while its search field holds text",
+test(
+  "TRI-21 one Esc closes the picker while its search field holds text",
   { tag: ["@TRI-21", "@P1"] },
   async ({ app }) => {
     const triage = new TriagePage(app);
@@ -374,9 +374,12 @@ test.fail(
     await triage.openScopePicker();
     await triage.searchScopes("zzq");
 
-    await app.page.keyboard.press("Escape");
-    // Closing takes a frame once it works; the second is only how long the failure takes.
-    await expect(triage.scopePicker).toBeHidden({ timeout: 1000 });
+    await triage.closeScopePicker();
+    await expect(triage.banner).toBeHidden();
+
+    await triage.openScopePicker();
+    await expect(triage.scopeSearch).toHaveValue("");
+    await expect(triage.scopePicker.getByRole("group", { name: "On this record" })).toBeVisible();
   },
 );
 
@@ -414,10 +417,6 @@ test.describe("with a Discogs account and shopkeeper's shop read", () => {
         "Nothing matches “zzq”. A seller's shop is read in Settings, under Jobs.",
       );
       await expect(triage.scopePicker.getByRole("radio")).toHaveCount(0);
-      // Gap: Chromium's search field takes the first Esc to clear itself (see the test.fail).
-      await app.page.keyboard.press("Escape");
-      await expect(triage.scopeSearch).toHaveValue("");
-      await expect(triage.scopePicker.getByRole("group", { name: "On this record" })).toBeVisible();
       await triage.closeScopePicker();
     },
   );

@@ -58,14 +58,14 @@ name also covers its bracketed variants, such as `Not On Label (Artist Self-rele
 
 `F` opens a picker with the labels and artists of the record on screen, the artists of its tracks
 included, then the records the last dump load added that are still to dig, and a search field for
-any label or artist that has loaded records, and for any seller whose shop was read (Settings,
-Jobs, "Seller shop", or `digga import seller <username>`). `↓`
-moves from the field to the options, the arrows choose, Enter digs and Esc cancels. The queue then
-holds only the records on that label (on any of their labels), by that artist (on the release or
-on one of its tracks) or in that seller's shop, still under the filters and in the chosen order,
-and a banner counts what is left. In a shop the record shown is the pressing the seller has, so
-`A` puts that pressing on the wantlist, and Discogs' "Shop my wants" finds it there. Esc goes back
-to the whole queue. Records passed with `N` return to whichever queue comes next.
+any label or artist that has loaded records, and for any seller whose shop was read (Settings, Jobs,
+"Seller shop", or `digga import seller <username>`). `↓` moves from the field to the options, the
+arrows choose, Enter digs and Esc cancels, also while the field holds text. The queue then holds
+only the records on that label (on any of their labels), by that artist (on the release or on one of
+its tracks) or in that seller's shop, still under the filters and in the chosen order, and a banner
+counts what is left. In a shop the record shown is the pressing the seller has, so `A` puts that
+pressing on the wantlist, and Discogs' "Shop my wants" finds it there. Esc goes back to the whole
+queue. Records passed with `N` return to whichever queue comes next.
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is

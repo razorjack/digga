@@ -94,6 +94,16 @@
     option.focus();
   }
 
+  /**
+   * Esc cancels at once. Left to the browser, a search field with text takes the first Esc to
+   * clear itself in Chromium, and the dialog closes only on the second.
+   */
+  function closeOnEscape(event: KeyboardEvent & { currentTarget: HTMLDialogElement }): void {
+    if (event.key !== "Escape" || event.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.close();
+  }
+
   /** For browsers without `closedby`: a click on the backdrop targets the dialog itself. */
   function closeOnBackdrop(event: MouseEvent & { currentTarget: HTMLDialogElement }): void {
     if (event.target === event.currentTarget) event.currentTarget.close();
@@ -108,7 +118,10 @@
   {@attach syncOpen}
   onclose={reset}
   onclick={closeOnBackdrop}
-  onkeydown={(event) => event.stopPropagation()}
+  onkeydown={(event) => {
+    event.stopPropagation();
+    closeOnEscape(event);
+  }}
 >
   <form method="dialog" class="panel" onsubmit={pick}>
     <h2 id="{id}-title">Dig one label, artist or seller</h2>
