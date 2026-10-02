@@ -15,11 +15,7 @@ below still need decisions.
 
 ## Next work
 
-1. Add the CI workflow after confirming the provider. The working assumption is GitHub Actions:
-   Ubuntu, Node 24, Chromium with its system dependencies, `vp run verify`, then the remaining
-   E2E tests with `@P0` excluded so smoke does not run twice. Upload the HTML report and failure
-   artifacts; shard only if the suite exceeds its budget.
-2. Implement every remaining P2 scenario, then review the full suite for consolidation.
+1. Implement every remaining P2 scenario, then review the full suite for consolidation.
    The owner chose this order on 2026-10-02; do not prune P2 before that review.
 
 A slice is complete when its specified behavior is covered, the affected spec passes
@@ -69,14 +65,18 @@ Triage's stale queue and Twelves' re-judging copy, remain in history only.
   CON-02 accepts a supplied token but its client must refuse every method except GET;
   CON-03 reads the dump listing without downloading a dump. These checks are manual before
   release, never CI. Until they exist, they cannot detect drift in the fakes.
-- Add `e2e:nightly` with the planned P2 schedule and `--repeat-each=5` burn-in. Add Firefox and
-  WebKit only after Chromium has been stable for a few weeks. The owner chose limited effort
-  on 2026-10-02 because Electron is the main target: fix quick issues, mark the rest as
-  Chromium-only with reasons, and avoid larger product or harness changes for those engines.
-  Check the dialogs' `closedby` fallback.
+- [CI](../E2E_TESTING.md#ci) runs the whole suite on every push, and a burn-in only when someone
+  starts it; the owner decided on 2026-10-02 against scheduled or nightly runs. A P1/P2 split is
+  considered only if the suite outgrows its CI budget.
+- Add Firefox and WebKit only after the Linux burn-in passes and CI stays green on pushes for a
+  few weeks. The owner chose limited effort on 2026-10-02 because Electron is the main target:
+  fix quick issues, mark the rest as Chromium-only with reasons, and avoid larger product or
+  harness changes for those engines. Check the dialogs' `closedby` fallback.
 - Visual snapshots remain an open choice. If approved, start with a few main-screen
   `toHaveScreenshot` checks on Linux only, with human review of updates.
-- Keep the smoke budget near one minute and P0/P1 near six minutes on four workers. Exact
+- Keep the smoke budget near one minute and P0/P1 near six minutes on CI's four-vCPU runner,
+  where the configuration uses two workers. On 2026-10-02 the smoke set took 27 s there and the
+  whole suite 3.8 minutes ([CI on GitHub Actions](HISTORY.md#ci-on-github-actions)). Exact
   timings in history describe earlier runs. Per-test processes remain isolated. If measurements
   justify it, consider sharding, a template cache keyed by every input, or a
   `discogsMinIntervalMs` option. That option would stop E2E from exercising production spacing;

@@ -44,8 +44,36 @@ filter: without it, `@TRI-1` also selects TRI-10 to TRI-19. Without a global `vp
 
 The scripts in [package.json](../package.json) and the
 [Playwright configuration](../tests/e2e/playwright.config.ts) define the runnable suite.
-`e2e:nightly`, `e2e:electron` and `e2e:contract` are planned and do not exist yet. The CI workflow
-is also planned; the configuration already fails CI runs that pass only on retry.
+`e2e:electron` and `e2e:contract` are planned and do not exist yet.
+
+### CI
+
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on GitHub Actions (Ubuntu 24.04,
+Node 24, Chromium) for every push to any branch and for pull requests from forks. Each run is
+`npx vp run verify`, with the P0 smoke set, then the rest of the suite against the `dist/` that
+verify built (`--grep-invert @P0`), P2 included. Nothing runs on a schedule. Under `CI` one retry
+is allowed for diagnosis, but a test that passes only on retry fails the run
+([Runner and configuration](e2e/HARNESS.md#runner-and-configuration)).
+
+A burn-in runs the whole suite, P0 included, several times after verify. It runs only when
+someone starts it:
+
+```sh
+gh workflow run ci.yml --ref <branch> -f repeat_each=5
+gh run list --workflow ci.yml --event workflow_dispatch   # find the run
+gh run watch <run-id> --exit-status
+```
+
+GitHub dispatches a workflow only when its file is on the default branch; `--ref` then picks the
+branch to test.
+
+To read a failed run, start with the failed step's log and the annotations, which name each
+failing test at its line: `gh run view <run-id> --log-failed`. A failed run uploads
+`playwright-report/` and `test-results/e2e/` as the `e2e-report-<attempt>` artifact, kept for 14
+days. Download it to a folder outside the repository with
+`gh run download <run-id> --dir <folder>`, then read each failure's `error-context.md` and the
+attachments described in [Failure artifacts](e2e/AUTHORING.md#failure-artifacts), or open a trace
+with `npx playwright show-trace <folder>/.../trace.zip`. Never commit artifacts.
 
 A new or changed spec must pass `--repeat-each=10` before its commit. All repository checks
 must also pass as required by [AGENTS.md](../AGENTS.md#commands). Failure diagnostics are in

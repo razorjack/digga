@@ -21,6 +21,30 @@ The 30 s test timeout includes fixture setup; setup journeys use `test.slow()`. 
 separately limits server shutdown to 15 s. Locally there are no retries. Under `CI`, one retry
 is allowed for diagnosis, but `failOnFlakyTests` makes a pass on retry fail the run.
 
+**CI.** [ci.yml](../../.github/workflows/ci.yml) runs on GitHub Actions; the
+[E2E guide](../E2E_TESTING.md#ci) says what each run does and how to start a burn-in. The
+choices behind it:
+
+- `ubuntu-24.04`, not `ubuntu-latest`, so a new image arrives with a commit. Node is pinned to
+  24.18.0 because `devEngines.packageManager` in package.json requires npm 11.16.0, which that
+  release bundles; under another npm, every npm command, setup-node's included, stops with
+  `EBADDEVENGINES` (`onFail: "download"` does not download).
+- Under `CI` the configuration uses two workers. Every test runs its own server, fake services
+  and browser, so the runner's four vCPUs are saturated at two: on three and four workers the
+  whole suite finished only 8% and 11% sooner while each test ran 1.4 and 1.7 times slower, and on
+  four A11Y-01's Twelves scans reached the 30 s timeout ([measurements](HISTORY.md#ci-on-github-actions)).
+  Locally Playwright's default, half the cores, still applies.
+- `~/.cache/ms-playwright` is cached under a key of the runner's OS and architecture and the
+  locked `@playwright/test` version, so a Playwright update downloads its Chromium once. On a
+  hit, `playwright install-deps chromium` still installs the system libraries, which the cache
+  does not hold.
+- The rest of the suite runs with `--grep-invert @P0` against the `dist/` that verify built, so
+  the smoke set runs once and the client is built once.
+- The `github` reporter joins `list` and `html` on GitHub Actions and annotates each failure at
+  its line. A failed run uploads `playwright-report/` and `test-results/e2e/` for 14 days.
+- No secrets and `permissions: contents: read`. The guard stays as it is: the runner has
+  internet access, and the guard keeps Digga and the browser away from it.
+
 ## Architecture
 
 ```

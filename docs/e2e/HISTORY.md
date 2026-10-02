@@ -15,6 +15,7 @@ Search by scenario ID, error or date, or start with:
 - [Web spike and implementation results](#spike-results).
 - [Gap fixes on 2026-10-02](#closing-the-gaps-web).
 - [The setup's remaining scenarios and the Accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web).
+- [CI on GitHub Actions](#ci-on-github-actions): Linux findings, workers and durations.
 - Original planning records: [product changes](#product-changes-the-harness-needs),
   [running plan](#original-running-plan), [runner choice](#runner-choice-on-2026-09-30),
   [markup audit](#markup-audit-recorded-through-2026-10-02),
@@ -888,6 +889,66 @@ page object's practice, Pick up, Start without it and finished-crate actions, th
 - **`verify` has not grown.** The smoke set is still the P0 set. Timed alternately against a
   worktree of the previous commit, `vp run verify` took 22.1 to 22.8 s against 22.6 to 23.0 s, and
   its smoke set 11.4 to 11.5 s against 11.4 to 11.9 s, in three runs each.
+
+### CI on GitHub Actions
+
+Added on 2026-10-02 on the branch `ci`, from `65680cc`, as the
+[CI workflow](../../.github/workflows/ci.yml); the owner decided the same day on no scheduled or
+nightly runs. Every run used GitHub's `ubuntu-24.04` image, version 20260927.320 (Ubuntu 24.04.5
+LTS, 4 vCPUs), Node 24.18.0 with npm 11.16.0, and Playwright 1.63.0 with Chrome for Testing
+153.0.8010.12 (Playwright's chromium v1243). The runs are on
+`https://github.com/razorjack/digga/actions/runs/<id>`; the revisions they tested were rewritten
+when the branch's workflow fixups were folded in before the merge. The work showed:
+
+- **npm refused the runner's Node.** In the first run (37065981631) every job stopped in
+  setup-node, before any test: setup-node's Node 24 was 24.21.0 with npm 11.19.0, and
+  `devEngines.packageManager` in package.json requires npm 11.16.0 with `onFail: "download"`. npm
+  does not download that version; it stops every command in the project with `EBADDEVENGINES`,
+  including setup-node's own `npm config get cache`. Node 24.18.0 and 24.18.1 are the releases
+  that bundle npm 11.16.0, and 24.18.0 is the local version, so the workflow pins it. A newer Node
+  in CI needs the npm pin in package.json to move with it.
+- **Nothing else failed on Linux.** With two workers, all 144 tests passed in every run, P0 to P2,
+  with no retry. That includes the guard (GUARD-01 and GUARD-02, and no test recorded an
+  undeclared abort although the runner has internet access) and SETUP-12's Linux folders, which
+  had never run: the setup found Brave's history in `.config/BraveSoftware/Brave-Browser` and
+  Firefox's in `.mozilla/firefox`, and the import marked their releases as seen. The runner's user
+  is not root, so the unreadable-folder test ran rather than skipped, and `chmod 000` on
+  `.config/google-chrome` made Chrome unreadable as on macOS. No product or test change was
+  needed.
+- **Workers.** Run 37066093592 had a temporary job per worker count, each on its own runner: the
+  whole suite once with the list reporter, then three times with `--repeat-each 3`. The sum is of
+  the test durations the reporter printed for the single run.
+
+  | Workers | Whole suite | Sum of test durations | A11Y-01 Twelves shelves | A11Y-01 setup | `--repeat-each 3`        |
+  | ------- | ----------- | --------------------- | ----------------------- | ------------- | ------------------------ |
+  | 2       | 231.6 s     | 455 s                 | 11.6 s                  | 23.4 s        | 432 of 432 in 679.8 s    |
+  | 3       | 213.9 s     | 622 s                 | 19.5 s                  | 32.2 s        | 432 of 432 in 631.6 s    |
+  | 4       | 205.4 s     | 788 s                 | 29.5 s                  | 41.1 s        | 431, 1 flaky, in 625.6 s |
+
+  The runner is saturated at two workers: each further worker lengthens every test about as much
+  as it adds in parallel. On four, A11Y-01's "each Twelves shelf" reached its 30 s timeout once
+  and passed on retry, which `failOnFlakyTests` counts as a failure. Its trace shows no stalled
+  page: 4.5 s of fixture setup, then the eleven axe scans of the shelves at a steady 0.3 to 1.3 s
+  per call until the timeout, where locally the whole test takes 8.4 s. That is contention, not a
+  missing wait, so the test is unchanged and the configuration sets two workers under `CI`. Three
+  workers would save 18 s a run but leave that test at two thirds of its timeout.
+
+- **Durations.** The smoke set took 26.7 s and 25.0 s inside `vp run verify`, well within its
+  minute, and the whole suite about 3.8 minutes on two workers, within the six-minute budget, so
+  the suite is not sharded. On two workers A11Y-01's Twelves shelves took 11.6 to 14.4 s against
+  8.4 s locally, and its setup journey, the slowest test, 23.4 to 27.7 s against 17.1 s.
+
+  | Step                                  | Browser cache miss (37066093592) | Hit (37067890732) |
+  | ------------------------------------- | -------------------------------- | ----------------- |
+  | setup-node, with the npm cache        | 5 s                              | 7 s               |
+  | `npm ci`                              | 8 s                              | 6 s               |
+  | Restore Chromium                      | 0 s                              | 4 s               |
+  | Install Chromium, `--with-deps`       | 31 s                             | skipped           |
+  | `playwright install-deps chromium`    | skipped                          | 15 s              |
+  | `npx vp run verify`                   | 52 s                             | 48 s              |
+  | The rest of the suite, `@P0` excluded | 242 s                            | 225 s             |
+  | Saving the browser cache              | 3 s                              | none              |
+  | Job                                   | 5 min 48 s                       | 5 min 12 s        |
 
 ## Original status on 2026-10-02
 
