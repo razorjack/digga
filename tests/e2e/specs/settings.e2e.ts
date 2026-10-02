@@ -257,10 +257,8 @@ test.describe("with the September dump listed", () => {
       await settings.open();
       const update = await startHeldUpdate(settings, fakes);
 
-      // The gap: only the app's start and the setup ask whether a dump job runs.
-      await expect(header.loadIndicator).toBeHidden();
-      await app.page.reload();
-      await expect(header.loadIndicator).toBeVisible();
+      // The job Settings started reaches the header without a reload.
+      await expect(header.loadIndicator).toHaveAccessibleName(/^loading\b/);
       fakes.dumps.release();
       await settings.waitForJob(update, "done");
 
@@ -280,18 +278,6 @@ test.describe("with the September dump listed", () => {
       );
       await expect(settings.dump(september.name)).toContainText("the library was loaded from it");
       await expect(header.loadIndicator).toBeHidden();
-    },
-  );
-
-  test.fail(
-    "SET-17 gap: the header shows the update's load indicator without a reload",
-    { tag: ["@SET-17", "@P1"] },
-    async ({ app, fakes }) => {
-      const settings = new SettingsPage(app);
-      await settings.open();
-      await startHeldUpdate(settings, fakes);
-
-      await expect(new HeaderPage(app).loadIndicator).toBeVisible();
     },
   );
 });

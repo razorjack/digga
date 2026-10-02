@@ -16,6 +16,7 @@
   import type { Job, JobType } from "../../shared/types.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
+  import { loadStatus } from "../load-status.svelte.ts";
   import { getAnchor } from "../router.svelte.ts";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
 
@@ -225,6 +226,7 @@
   async function startJob(start: () => Promise<Job>): Promise<void> {
     try {
       const job = await start();
+      loadStatus.follow(job);
       showFlash(
         settings.sandbox && job.type === "import_list"
           ? "Reading your Discogs Maybe list; its maybes stay in this tab (sandbox)."

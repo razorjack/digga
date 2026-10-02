@@ -609,3 +609,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      margin would be right for one layout only. `Twelves.svelte` binds the footer's
      `offsetHeight` to `--foot-height`, and the rows of both tables take it as
      `scroll-margin-bottom`.
+115. **Settings tells the load status about the jobs it starts.** The header's indicator asked
+     whether a dump job runs when the app opened and when the setup started one, so an update,
+     download or load started in Settings showed only after a reload. `loadStatus.follow(job)`
+     checks again for a dump job, and Settings calls it for every job it starts; polling every
+     second for a job nobody started would cost a request a second on every page. A check now
+     drops an answer that a later check overtook, since the app's first check could otherwise
+     arrive after the job started and hide it.
