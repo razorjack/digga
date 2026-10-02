@@ -236,6 +236,8 @@ export function importSeconds(items: number): number {
 export function stoppedDownloadMessage(download: Job | null): string | null {
   if (download?.type !== "dump_download" || download.status !== "failed") return null;
   if (download.error === INTERRUPTED_JOB_ERROR) return null;
+  if ((download.progress?.checksumMismatches ?? 0) > 0)
+    return "The download does not match Discogs' checksum. Digga downloaded it twice.";
   const reason = (download.error ?? "no reason given").replace(/\.$/, "");
   const received = download.progress?.receivedBytes ?? 0;
   if (received === 0) return `The download stopped: ${reason}.`;
@@ -245,4 +247,12 @@ export function stoppedDownloadMessage(download: Job | null): string | null {
     `The download stopped at ${formatBytes(received)}${of}: ${reason}. ` +
     "Discogs does not allow resuming, so it starts again."
   );
+}
+
+/** While the download runs again because the first did not match Discogs' checksum. */
+export function checksumRetryNote(download: Job | null): string | null {
+  if (download?.type !== "dump_download") return null;
+  if (download.status !== "running" && download.status !== "queued") return null;
+  if ((download.progress?.checksumMismatches ?? 0) === 0) return null;
+  return "The download does not match Discogs' checksum, so Digga downloads it once more.";
 }

@@ -649,3 +649,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      app sent every page back to the setup until a load finished; the pages now open once the
      library has records to dig, after the setup has shown in the tab (`src/client/setup/access.ts`),
      so the app still opens on the setup, which says what stopped.
+119. **The download job retries a checksum mismatch, and the setup reads the new download.** The
+     design downloads once more by itself before asking. The setup page is unmounted while the
+     user digs in Triage, which is where they are for most of a download, so a retry the setup
+     started would often never run; the download job runs in the server, so it retries there,
+     once, and the CLI's `dump download` and Settings' update get the same retry. A load reading
+     the growing file holds the first download's file, which the mismatch threw away, and would
+     otherwise read it to the end and take the second download's "done" for its own; the job
+     counts mismatches in its progress, and the load's follower stops when the count changes, with
+     `DOWNLOAD_RETRIED_ERROR`. The setup starts a new load on the new download whenever it sees
+     that error, on a poll or when it opens, and shows "The download does not match Discogs'
+     checksum, so Digga downloads it once more." meanwhile; the releases the first load kept stay,
+     and the second upserts them again. After a second mismatch the job fails, and the setup says
+     "The download does not match Discogs' checksum. Digga downloaded it twice." with "Start
+     again".

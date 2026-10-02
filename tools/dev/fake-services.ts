@@ -347,6 +347,10 @@ export class FakeDataDumps {
   #bytesPerSecond: number | null = null;
   #unavailableStatus: number | null = null;
   #contentLength: number | null = null;
+  #wrongChecksums = 0;
+  /** The transfer the hold applies to, counting from 1; null for every transfer. */
+  #holdTransfer: number | null = null;
+  #transfers = 0;
   #gate = Promise.withResolvers<void>();
   #sentBytes = 0;
 
@@ -367,9 +371,14 @@ export class FakeDataDumps {
     return checkpoint;
   }
 
-  /** The transfer stops once it has sent the bytes before the checkpoint, until release(). */
-  holdAt(name: string): void {
+  /**
+   * The transfer stops once it has sent the bytes before the checkpoint, until release(). With
+   * `transfer`, only that transfer of the dump stops, counting from 1, such as the second
+   * download after a checksum mismatch.
+   */
+  holdAt(name: string, options: { transfer?: number } = {}): void {
     this.#holdAt = this.checkpoint(name).offset;
+    this.#holdTransfer = options.transfer ?? null;
   }
 
   /** Lets a held transfer go on: to the end, or to the next checkpoint when one is named. */
@@ -384,19 +393,27 @@ export class FakeDataDumps {
    * does; bytesPerSecond keeps each transfer to that rate; unavailableStatus answers every request
    * with that status, as the site does while it is down; contentLength is the size the transfer
    * announces instead of the dump's, which a downloader that checks for room reads first. Null
-   * turns each off.
+   * turns each off. wrongChecksums is how many of the next reads of CHECKSUM.txt name another
+   * hash than the dump's, as when a download arrives corrupted.
    */
   set(options: {
     failAfterBytes?: number | null;
     bytesPerSecond?: number | null;
     unavailableStatus?: number | null;
     contentLength?: number | null;
+    wrongChecksums?: number;
   }): void {
     if (options.failAfterBytes !== undefined) this.#failAfterBytes = options.failAfterBytes;
     if (options.bytesPerSecond !== undefined) this.#bytesPerSecond = options.bytesPerSecond;
     if (options.unavailableStatus !== undefined)
       this.#unavailableStatus = options.unavailableStatus;
     if (options.contentLength !== undefined) this.#contentLength = options.contentLength;
+    if (options.wrongChecksums !== undefined) this.#wrongChecksums = options.wrongChecksums;
+  }
+
+  /** How many transfers of the dump have started. */
+  get transfers(): number {
+    return this.#transfers;
   }
 
   /** The bytes of the dump the last transfer has sent so far. */
@@ -420,12 +437,20 @@ export class FakeDataDumps {
     if (prefix === `data/${year}/`)
       return sendText(response, 200, yearPage(dump, this.#listedBytes));
     if (download === `data/${year}/${checksumFile(dump)}`)
-      return sendText(response, 200, `${dump.sha256} ${dump.name}\n`);
+      return sendText(response, 200, `${this.#checksumOf(dump)} ${dump.name}\n`);
     if (download === `data/${year}/${dump.name}`) return this.#transfer(dump, response);
     return sendText(response, 404, "not found");
   }
 
+  #checksumOf(dump: DumpSource): string {
+    if (this.#wrongChecksums === 0) return dump.sha256;
+    this.#wrongChecksums -= 1;
+    return "0".repeat(64);
+  }
+
   async #transfer(dump: DumpSource, response: http.ServerResponse): Promise<void> {
+    this.#transfers += 1;
+    const transfer = this.#transfers;
     response.writeHead(200, {
       "content-type": "application/octet-stream",
       "content-length": String(this.#contentLength ?? dump.bytes),
@@ -437,11 +462,11 @@ export class FakeDataDumps {
         response.destroy();
         return;
       }
-      if (this.#sentBytes === this.#holdAt) {
+      if (this.#sentBytes === this.#holdAt && this.#holds(transfer)) {
         await this.#gate.promise;
         continue;
       }
-      const until = this.#nextStop(dump.bytes);
+      const until = this.#nextStop(dump.bytes, transfer);
       await this.#keepPace(started, until);
       const bytes = await dump.read(this.#sentBytes, until);
       if (!(await writeBytes(response, bytes))) return;
@@ -450,9 +475,14 @@ export class FakeDataDumps {
     response.end();
   }
 
+  #holds(transfer: number): boolean {
+    return this.#holdTransfer === null || this.#holdTransfer === transfer;
+  }
+
   /** The end, the next chunk's end, or the hold or failure point before them. */
-  #nextStop(size: number): number {
-    const stops = [this.#holdAt, this.#failAfterBytes].filter(
+  #nextStop(size: number, transfer: number): number {
+    const holdAt = this.#holds(transfer) ? this.#holdAt : null;
+    const stops = [holdAt, this.#failAfterBytes].filter(
       (stop): stop is number => stop !== null && stop > this.#sentBytes,
     );
     return Math.min(size, this.#sentBytes + this.#chunkBytes(), ...stops);
@@ -712,12 +742,13 @@ function matchPattern(
 }
 
 const USAGE = `usage: node tools/dev/fake-services.ts [<discogs_YYYYMMDD_releases.xml.gz>]
-         [--port 4567] [--mbps 40] [--checksum <sha256>]
+         [--port 4567] [--mbps 40] [--checksum <sha256>] [--wrong-checksums 0]
 
 Serves the end-to-end tests' fakes on 127.0.0.1 for a rehearsal by hand: the Discogs API with
 the test accounts (token e2e-token-dj for dj), YouTube's oEmbed, and data.discogs.com listing the
-dump given, sent at --mbps MiB per second. Without --checksum the dump is hashed first. Start
-Digga with the addresses printed and a throwaway DIGGA_DATA_DIR and DIGGA_DUMPS_DIR.`;
+dump given, sent at --mbps MiB per second. Without --checksum the dump is hashed first; the first
+--wrong-checksums reads of CHECKSUM.txt name another hash. Start Digga with the addresses printed
+and a throwaway DIGGA_DATA_DIR and DIGGA_DUMPS_DIR.`;
 
 /** Run as a program: the fakes until Ctrl-C, with each request and problem on the console. */
 async function serveRehearsal(args: string[]): Promise<void> {
@@ -728,6 +759,7 @@ async function serveRehearsal(args: string[]): Promise<void> {
       port: { type: "string", default: "4567" },
       mbps: { type: "string", default: "40" },
       checksum: { type: "string" },
+      "wrong-checksums": { type: "string", default: "0" },
       help: { type: "boolean", default: false },
     },
   });
@@ -737,6 +769,9 @@ async function serveRehearsal(args: string[]): Promise<void> {
   }
   const port = positiveNumber(values.port, "--port");
   const bytesPerSecond = positiveNumber(values.mbps, "--mbps") * 1024 * 1024;
+  const wrongChecksums = Number(values["wrong-checksums"]);
+  if (!Number.isInteger(wrongChecksums) || wrongChecksums < 0)
+    throw new Error(`--wrong-checksums ${values["wrong-checksums"]}: not a count\n\n${USAGE}`);
   const file = positionals[0];
   if (file && !values.checksum) console.log(`hashing ${path.basename(file)}…`);
   const dump = file ? await fileDump(file, values.checksum) : null;
@@ -748,7 +783,7 @@ async function serveRehearsal(args: string[]): Promise<void> {
   });
   if (dump) {
     fakes.dumps.list(dump);
-    fakes.dumps.set({ bytesPerSecond });
+    fakes.dumps.set({ bytesPerSecond, wrongChecksums });
   }
   console.log(rehearsalSummary(fakes, dump, values.mbps));
 }

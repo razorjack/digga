@@ -4,6 +4,7 @@ import {
   estimateCatalogue,
   loadYearsFor,
   middleSpan,
+  checksumRetryNote,
   roundEstimate,
   stoppedDownloadMessage,
   styleGroups,
@@ -208,6 +209,22 @@ describe("a download that stopped", () => {
     expect(stoppedDownloadMessage(download("failed", "The dump needs 900 TB free.", 0))).toBe(
       "The download stopped: The dump needs 900 TB free.",
     );
+  });
+
+  it("says a download that did not match the checksum twice does not, and notes the second try", () => {
+    const mismatched = (status: Job["status"], checksumMismatches: number) => {
+      const job = download(status, "does not match its published checksum", 10);
+      return { ...job, progress: { ...job.progress!, checksumMismatches } } as Job;
+    };
+
+    expect(stoppedDownloadMessage(mismatched("failed", 2))).toBe(
+      "The download does not match Discogs' checksum. Digga downloaded it twice.",
+    );
+    expect(checksumRetryNote(mismatched("running", 1))).toBe(
+      "The download does not match Discogs' checksum, so Digga downloads it once more.",
+    );
+    expect(checksumRetryNote(mismatched("running", 0))).toBeNull();
+    expect(checksumRetryNote(mismatched("failed", 2))).toBeNull();
   });
 
   it("says nothing of a download that runs, finished, was cancelled or ended with Digga", () => {

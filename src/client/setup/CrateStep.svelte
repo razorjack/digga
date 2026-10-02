@@ -23,9 +23,7 @@
   const loadProgress = $derived<DumpLoadProgress | null>(
     flow.load?.type === "dump_load" ? flow.load.progress : null,
   );
-  const stopped = $derived(
-    flow.load !== null && (flow.load.status === "failed" || flow.load.status === "cancelled"),
-  );
+  const stopped = $derived(flow.loadStopped);
   const toDig = $derived(stats.value?.remaining ?? 0);
   const picks = $derived(settings.value?.universe.styles ?? []);
   const span = $derived<[number, number] | null>(
@@ -122,7 +120,12 @@
 
   <!-- The alert is in the page before its text, so screen readers announce it. -->
   <div role="alert">
-    {#if stopped && flow.downloadStopped}
+    {#if flow.checksumRetry}
+      <div class="notice">
+        <p>{flow.checksumRetry}</p>
+        <p class="quiet">What loaded so far stays; the load reads the new download from the start.</p>
+      </div>
+    {:else if stopped && flow.downloadStopped}
       <div class="notice">
         <p>{flow.downloadStopped}</p>
         <p class="quiet">

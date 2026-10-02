@@ -5,7 +5,7 @@
   import CatalogueStep from "../setup/CatalogueStep.svelte";
   import CrateStep from "../setup/CrateStep.svelte";
   import DiscogsStep from "../setup/DiscogsStep.svelte";
-  import DownloadStopped from "../setup/DownloadStopped.svelte";
+  import DownloadNotice from "../setup/DownloadNotice.svelte";
   import DownloadStrip from "../setup/DownloadStrip.svelte";
   import { SetupFlow } from "../setup/flow.svelte.ts";
   import SoundStep from "../setup/SoundStep.svelte";
@@ -74,15 +74,18 @@
     <CrateStep {flow} />
   {/if}
 
-  {#if downloading && flow.download}
-    <DownloadStrip download={flow.download} />
-  {/if}
   {#if flow.step === "discogs" || flow.step === "sound"}
-    <DownloadStopped
-      message={flow.downloadStopped}
-      busy={flow.busy}
-      onrestart={() => void flow.restartDownload()}
-    />
+    <div class="foot">
+      <DownloadNotice
+        message={flow.downloadStopped ?? flow.checksumRetry}
+        canRestart={flow.downloadStopped !== null}
+        busy={flow.busy}
+        onrestart={() => void flow.restartDownload()}
+      />
+      {#if downloading && flow.download}
+        <DownloadStrip download={flow.download} />
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -94,6 +97,13 @@
     max-width: 880px;
     margin: 0 auto;
     padding: 36px 40px 120px;
+  }
+  /* The download runs behind steps 2 and 3, so what it does stays in sight at the window's foot. */
+  .foot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
   .steps {
     display: flex;

@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
-import { createJob, getJob, markJobStarted, updateJobProgress } from "../src/server/db/jobs.ts";
+import {
+  createJob,
+  getJob,
+  markJobFinished,
+  markJobStarted,
+  updateJobProgress,
+} from "../src/server/db/jobs.ts";
 import {
   checksumFor,
   createDataDumpClient,
@@ -16,8 +22,13 @@ import { createServer } from "../src/server/server.ts";
 import type { ApiError, DumpsResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { downloadDump } from "../src/server/jobs/dump-download.ts";
+import { followDownload } from "../src/server/jobs/follow-download.ts";
 import { jobProgress } from "../src/shared/job-display.ts";
-import type { DumpDownloadProgress, Job } from "../src/shared/types.ts";
+import {
+  DOWNLOAD_RETRIED_ERROR,
+  type DumpDownloadProgress,
+  type Job,
+} from "../src/shared/types.ts";
 import { FIXTURE_GZ, silentLogger, testSecrets } from "./helpers.ts";
 
 const ROOT = `<pre>
@@ -142,10 +153,39 @@ describe("downloading the newest dump", () => {
     expect(site.requests).toEqual(["data/", "data/2026/"]);
   });
 
-  it("keeps nothing of a download that does not match its checksum", async () => {
+  it("downloads once more after a mismatch, and keeps nothing of two that do not match", async () => {
     site.checksum = "0".repeat(64);
     await expect(download()).rejects.toThrow("does not match its published checksum");
     expect(fs.readdirSync(dumpsDir)).toEqual([]);
+    const downloads = site.requests.filter((request) => request.endsWith("releases.xml.gz"));
+    expect(downloads).toHaveLength(2);
+    expect(progress.at(-1)).toMatchObject({ phase: "downloading", checksumMismatches: 2 });
+  });
+
+  it("keeps the second download when the first does not match its checksum", async () => {
+    let wrongChecksums = 1;
+    const fetchImpl = fetchFrom(site);
+    const flaky: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (!url.includes("CHECKSUM") || wrongChecksums === 0) return fetchImpl(input, init);
+      wrongChecksums -= 1;
+      site.checksum = "0".repeat(64);
+      const response = await fetchImpl(input, init);
+      site.checksum = SUM;
+      return response;
+    };
+    const result = await downloadDump(
+      { dumps: createDataDumpClient({ fetchImpl: flaky }), logger: silentLogger },
+      { dumpsDir, freeBytes: plenty },
+      (update) => progress.push(update),
+    );
+
+    expect(result).toMatchObject({ phase: "done", checksumMismatches: 1 });
+    expect(fs.readdirSync(dumpsDir)).toEqual(["discogs_20260901_releases.xml.gz"]);
+    // The mismatch is reported before the second download starts, for a load reading the first.
+    const mismatch = progress.findIndex((update) => update.checksumMismatches === 1);
+    expect(progress[mismatch]).toMatchObject({ phase: "downloading", receivedBytes: BODY.length });
+    expect(progress.slice(mismatch).every((update) => update.checksumMismatches === 1)).toBe(true);
   });
 
   it("refuses to fill the disk", async () => {
@@ -213,6 +253,36 @@ describe("downloading the newest dump", () => {
     );
     await expect(cancelled).rejects.toThrow("aborted");
     expect(fs.readdirSync(dumpsDir)).toEqual([]);
+  });
+});
+
+describe("a load following the download", () => {
+  it("stops once the download throws its file away for another try, also when that try has finished", () => {
+    const db = openDb(":memory:");
+    try {
+      const job = createJob(db, "dump_download");
+      markJobStarted(db, job.id);
+      const progress: DumpDownloadProgress = {
+        phase: "downloading",
+        file: "discogs_20260901_releases.xml.gz",
+        receivedBytes: 10,
+        totalBytes: 100,
+        alreadyDownloaded: false,
+        checksumMismatches: 0,
+      };
+      updateJobProgress(db, job.id, progress);
+      const growing = followDownload(db, job.id);
+      expect(growing.state()).toEqual({ state: "writing" });
+
+      updateJobProgress(db, job.id, { ...progress, receivedBytes: 0, checksumMismatches: 1 });
+      expect(growing.state()).toEqual({ state: "failed", reason: DOWNLOAD_RETRIED_ERROR });
+      markJobFinished(db, job.id, "done");
+      expect(growing.state()).toEqual({ state: "failed", reason: DOWNLOAD_RETRIED_ERROR });
+      // A load that started on the second download reads it to its end.
+      expect(followDownload(db, job.id).state()).toEqual({ state: "whole" });
+    } finally {
+      db.close();
+    }
   });
 });
 

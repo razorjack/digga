@@ -27,6 +27,8 @@ export interface DumpDownloadResult extends DumpDownloadProgress {
 /** Room left beside the dump, so a download cannot fill the disk to the last byte. */
 export const SPARE_BYTES = 1024 ** 3;
 const PROGRESS_EVERY_MS = 1000;
+/** A dump that does not match Discogs' checksum is downloaded once more before the job fails. */
+const DOWNLOAD_ATTEMPTS = 2;
 
 /**
  * Downloads the newest releases dump from data.discogs.com into the dumps folder, unless it is
@@ -38,38 +40,88 @@ export async function downloadDump(
   options: DumpDownloadOptions,
   onProgress?: (progress: DumpDownloadProgress) => void,
 ): Promise<DumpDownloadResult> {
-  const { signal } = options;
   onProgress?.({ ...emptyProgress(), phase: "finding" });
-  const dump = await deps.dumps.newestReleasesDump(signal);
+  const dump = await deps.dumps.newestReleasesDump(options.signal);
   const target = path.join(options.dumpsDir, dump.file);
   if (fs.existsSync(target)) {
     const bytes = fs.statSync(target).size;
-    const done = { ...doneProgress(dump, bytes), alreadyDownloaded: true };
+    const done = { ...doneProgress(dump, bytes, 0), alreadyDownloaded: true };
     onProgress?.(done);
     deps.logger.info(`${dump.file} is downloaded already`);
     return { ...done, file: dump.file, path: target };
   }
 
-  const checksum = await deps.dumps.checksum(dump, signal);
-  const download = await deps.dumps.download(dump, signal);
+  const { bytes, checksumMismatches } = await downloadVerified(
+    deps,
+    options,
+    { dump, target },
+    onProgress,
+  );
+  const done = doneProgress(dump, bytes, checksumMismatches);
+  onProgress?.(done);
+  deps.logger.info(`downloaded ${dump.file} (${formatBytes(bytes)}), checksum verified`);
+  return { ...done, file: dump.file, path: target };
+}
+
+/**
+ * Downloads the dump until it matches Discogs' checksum, at most DOWNLOAD_ATTEMPTS times. Each
+ * mismatch is reported at once, so a load reading the thrown-away file stops (followDownload).
+ */
+async function downloadVerified(
+  deps: DumpDownloadDeps,
+  options: DumpDownloadOptions,
+  wanted: { dump: DataDump; target: string },
+  onProgress?: (progress: DumpDownloadProgress) => void,
+): Promise<{ bytes: number; checksumMismatches: number }> {
+  let checksumMismatches = 0;
+  for (;;) {
+    try {
+      const report = (progress: DumpDownloadProgress) =>
+        onProgress?.({ ...progress, checksumMismatches });
+      const bytes = await downloadOnce(deps, options, wanted, report);
+      return { bytes, checksumMismatches };
+    } catch (error) {
+      if (!(error instanceof ChecksumMismatchError)) throw error;
+      checksumMismatches += 1;
+      onProgress?.({ ...error.progress, checksumMismatches });
+      if (checksumMismatches >= DOWNLOAD_ATTEMPTS) throw error;
+      deps.logger.warn(`${error.message}; downloading it once more`);
+    }
+  }
+}
+
+/** One download into `<target>.part`, renamed to the target once its checksum matches. */
+async function downloadOnce(
+  deps: DumpDownloadDeps,
+  options: DumpDownloadOptions,
+  wanted: { dump: DataDump; target: string },
+  onProgress: (progress: DumpDownloadProgress) => void,
+): Promise<number> {
+  const { dump, target } = wanted;
+  const checksum = await deps.dumps.checksum(dump, options.signal);
+  const download = await deps.dumps.download(dump, options.signal);
   await ensureRoom(options, download.bytes);
   deps.logger.info(
     `downloading ${dump.file}${download.bytes ? ` (${formatBytes(download.bytes)})` : ""}`,
   );
-  const bytes = await saveVerified(download, { target, checksum, dump }, (receivedBytes) =>
-    onProgress?.({
-      phase: "downloading",
-      file: dump.file,
-      receivedBytes,
-      totalBytes: download.bytes,
-      alreadyDownloaded: false,
-    }),
-  );
+  const progressAt = (receivedBytes: number): DumpDownloadProgress => ({
+    ...emptyProgress(),
+    phase: "downloading",
+    file: dump.file,
+    receivedBytes,
+    totalBytes: download.bytes,
+  });
+  return saveVerified(download, { target, checksum, dump }, progressAt, onProgress);
+}
 
-  const done = doneProgress(dump, bytes);
-  onProgress?.(done);
-  deps.logger.info(`downloaded ${dump.file} (${formatBytes(bytes)}), checksum verified`);
-  return { ...done, file: dump.file, path: target };
+/** The download does not match the checksum Discogs publishes; nothing of it is kept. */
+class ChecksumMismatchError extends DataDumpError {
+  readonly progress: DumpDownloadProgress;
+
+  constructor(file: string, progress: DumpDownloadProgress) {
+    super(`${file} does not match its published checksum`);
+    this.progress = progress;
+  }
 }
 
 function emptyProgress(): DumpDownloadProgress {
@@ -79,16 +131,22 @@ function emptyProgress(): DumpDownloadProgress {
     receivedBytes: 0,
     totalBytes: null,
     alreadyDownloaded: false,
+    checksumMismatches: 0,
   };
 }
 
-function doneProgress(dump: DataDump, bytes: number): DumpDownloadProgress {
+function doneProgress(
+  dump: DataDump,
+  bytes: number,
+  checksumMismatches: number,
+): DumpDownloadProgress {
   return {
     phase: "done",
     file: dump.file,
     receivedBytes: bytes,
     totalBytes: bytes,
     alreadyDownloaded: false,
+    checksumMismatches,
   };
 }
 
@@ -115,7 +173,8 @@ export async function freeBytesIn(dir: string): Promise<number> {
 async function saveVerified(
   download: { body: AsyncIterable<Uint8Array> },
   expected: { target: string; checksum: string; dump: DataDump },
-  onBytes: (receivedBytes: number) => void,
+  progressAt: (receivedBytes: number) => DumpDownloadProgress,
+  onProgress: (progress: DumpDownloadProgress) => void,
 ): Promise<number> {
   const part = `${expected.target}.part`;
   const hash = createHash("sha256");
@@ -129,12 +188,12 @@ async function saveVerified(
       received += chunk.length;
       if (Date.now() - reportedAt < PROGRESS_EVERY_MS) continue;
       reportedAt = Date.now();
-      onBytes(received);
+      onProgress(progressAt(received));
     }
     await file.close();
   } catch (error) {
     // The setup says where the download stopped, so the last report is the exact count.
-    onBytes(received);
+    onProgress(progressAt(received));
     await file.close().catch(() => {});
     fs.rmSync(part, { force: true });
     throw error;
@@ -142,7 +201,7 @@ async function saveVerified(
 
   if (hash.digest("hex") !== expected.checksum) {
     fs.rmSync(part, { force: true });
-    throw new DataDumpError(`${expected.dump.file} does not match its published checksum`);
+    throw new ChecksumMismatchError(expected.dump.file, progressAt(received));
   }
   fs.renameSync(part, expected.target);
   return received;

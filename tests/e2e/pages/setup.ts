@@ -73,9 +73,17 @@ export class SetupPage {
     return this.root.getByRole("complementary", { name: "Download", exact: true });
   }
 
-  /** Where and why the download stopped, on steps 2 and 3 and in the crate. */
+  /**
+   * Where and why the download stopped, or that it did not match Discogs' checksum twice, on
+   * steps 2 and 3 and in the crate; "Start again" goes with it.
+   */
   get downloadStopped(): Locator {
-    return this.alert(/^The download stopped/);
+    return this.alert(/^The download (stopped|does not match Discogs' checksum\.)/);
+  }
+
+  /** The download did not match Discogs' checksum and runs once more by itself. */
+  get checksumRetry(): Locator {
+    return this.alert(/^The download does not match Discogs' checksum, so/);
   }
 
   get tokenField(): Locator {

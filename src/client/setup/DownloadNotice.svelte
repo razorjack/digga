@@ -1,37 +1,38 @@
 <script lang="ts">
-  /** Where the download stopped and why, at the foot of steps 2 and 3, where its strip was. */
+  /**
+   * What happened to the download, at the foot of steps 2 and 3: where and why it stopped, with
+   * "Start again", or that it runs once more after a checksum mismatch.
+   */
   import Action from "./Action.svelte";
 
   let {
     message,
+    canRestart,
     busy,
     onrestart,
   }: {
-    /** null while the download runs or has finished. */
+    /** null while the download runs or has finished as it should. */
     message: string | null;
+    canRestart: boolean;
     busy: boolean;
     onrestart: () => void;
   } = $props();
 </script>
 
 <!-- The alert is in the page before its text, so screen readers announce it. -->
-<div class="foot" role="alert">
+<div role="alert">
   {#if message}
-    <aside class="stopped" aria-label="Download stopped">
+    <div class="notice">
       <p>{message}</p>
-      <Action primary onclick={onrestart} disabled={busy}>Start again</Action>
-    </aside>
+      {#if canRestart}
+        <Action primary onclick={onrestart} disabled={busy}>Start again</Action>
+      {/if}
+    </div>
   {/if}
 </div>
 
 <style>
-  .foot {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-  .stopped {
+  .notice {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -43,7 +44,7 @@
     font-size: var(--text-sm);
   }
   @media (max-width: 860px) {
-    .stopped {
+    .notice {
       padding: 12px 20px;
     }
   }

@@ -24,6 +24,8 @@ const DumpDownloadProgressSchema = z.object({
   receivedBytes: count,
   totalBytes: count.nullable(),
   alreadyDownloaded: z.boolean(),
+  // Progress saved by older versions lacks it.
+  checksumMismatches: count.default(0),
 });
 // Defaults read progress saved by older versions, which lacked these fields.
 const DumpLoadProgressSchema = z.object({

@@ -452,7 +452,11 @@ allows it (libuv opens files with `FILE_SHARE_DELETE`, which should cover it). A
 earlier download has no `.part` and loads as today.
 
 If the checksum fails after the load has read everything, the load is not recorded as finished,
-so the next finished load takes its rows over.
+so the next finished load takes its rows over. The download job then downloads once more by
+itself and counts the mismatch in its progress (`checksumMismatches`); a load reading the
+rejected file sees the count change and stops, before it could take the second download's
+"done" for its own file, and the setup starts a new load on the new download. A second mismatch
+fails the download job, and the setup asks.
 
 ### The style census
 

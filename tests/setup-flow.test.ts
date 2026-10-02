@@ -4,7 +4,7 @@ import { confirmedPicks, SetupFlow, withChange } from "../src/client/setup/flow.
 import type { SetupStep } from "../src/client/setup/steps.ts";
 import type { SetupResponse, Stats } from "../src/shared/api.ts";
 import { type Config, DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type { Job } from "../src/shared/types.ts";
+import { DOWNLOAD_RETRIED_ERROR, type Job } from "../src/shared/types.ts";
 
 const FILE = "discogs_20260901_releases.xml.gz";
 
@@ -196,6 +196,41 @@ describe("the setup after the download stopped", () => {
     expect(flow.error).toBeNull();
     expect(calls).toEqual(["download", "load"]);
     expect(flow.downloadStopped).toBeNull();
+  });
+});
+
+describe("the setup after a checksum mismatch", () => {
+  it("starts the load again on the download that runs once more, without asking", async () => {
+    const retrying = {
+      ...DOWNLOAD,
+      progress: {
+        phase: "downloading",
+        file: FILE,
+        receivedBytes: 0,
+        totalBytes: 1000,
+        alreadyDownloaded: false,
+        checksumMismatches: 1,
+      },
+    } as Job;
+    const stoppedLoad = { ...LOAD, status: "failed", error: DOWNLOAD_RETRIED_ERROR } as Job;
+    vi.spyOn(api, "getSetup").mockResolvedValue(SETUP);
+    vi.spyOn(api, "getJobs").mockResolvedValue({ jobs: [stoppedLoad, retrying] });
+    vi.spyOn(api, "getDiscogsAccount").mockRejectedValue(new Error("no account"));
+    vi.spyOn(api, "getStyles").mockRejectedValue(new Error("not needed here"));
+    vi.spyOn(api, "getSettings").mockResolvedValue(DEFAULT_CONFIG);
+    vi.spyOn(api, "getJob").mockImplementation(async (id) => (id === LOAD.id ? LOAD : retrying));
+    const startDumpLoad = vi.spyOn(api, "startDumpLoad").mockResolvedValue(LOAD);
+    const flow = new SetupFlow();
+
+    await flow.open(null);
+    flow.close();
+
+    expect(startDumpLoad).toHaveBeenCalledWith({ file: FILE });
+    expect(flow.step).toBe("crate");
+    expect(flow.load?.status).toBe("running");
+    expect(flow.checksumRetry).toBe(
+      "The download does not match Discogs' checksum, so Digga downloads it once more.",
+    );
   });
 });
 

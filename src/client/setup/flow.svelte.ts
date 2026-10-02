@@ -6,11 +6,17 @@ import type {
 } from "../../shared/api.ts";
 import type { Config } from "../../shared/config.ts";
 import type { StyleCensus } from "../../shared/style-census.ts";
-import type { Job } from "../../shared/types.ts";
+import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
 import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
-import { DIG_THRESHOLD, loadYearsFor, stoppedDownloadMessage, type YearSpan } from "./model.ts";
+import {
+  checksumRetryNote,
+  DIG_THRESHOLD,
+  loadYearsFor,
+  stoppedDownloadMessage,
+  type YearSpan,
+} from "./model.ts";
 import type { SetupStep } from "./steps.ts";
 
 export interface Picks {
@@ -65,6 +71,16 @@ export class SetupFlow {
   canDig = $derived(this.loadDone || (stats.value?.remaining ?? 0) >= DIG_THRESHOLD);
   /** Why and where the download stopped, while it has not started again. */
   downloadStopped = $derived(stoppedDownloadMessage(this.download));
+  /** The download did not match Discogs' checksum and runs once more by itself. */
+  checksumRetry = $derived(checksumRetryNote(this.download));
+  /**
+   * The load has stopped and waits for the user. A load whose download is running once more
+   * after a checksum mismatch does not: the setup starts it again on the new download.
+   */
+  loadStopped = $derived(
+    (this.load?.status === "failed" || this.load?.status === "cancelled") &&
+      !(awaitsRetriedDownload(this.load) && this.download?.status !== "failed"),
+  );
   #timer: ReturnType<typeof setTimeout> | null = null;
   #statsAt = 0;
   #closed = false;
@@ -83,6 +99,7 @@ export class SetupFlow {
       this.picks = confirmedPicks(config);
       this.#adoptJobs(jobs);
       this.step = this.#resumeStep(requested);
+      await this.#loadAgainAfterRetry();
       if (account?.username || account?.tokenUsername) void this.#loadProfile();
       if (this.step === "sound" || this.step === "crate") void this.#loadCensus();
       this.#poll();
@@ -257,6 +274,16 @@ export class SetupFlow {
     loadStatus.follow(this.download);
   }
 
+  /**
+   * The download threw away the file a load was reading, to download it once more, so a new load
+   * reads the new download from the start; the releases the first one kept stay.
+   */
+  async #loadAgainAfterRetry(): Promise<void> {
+    if (!this.load || !awaitsRetriedDownload(this.load)) return;
+    if (!isRunning(this.download) && this.download?.status !== "done") return;
+    await this.#startLoad();
+  }
+
   async #startLoad(): Promise<void> {
     const file = this.dumpFile;
     if (!file) throw new Error("Digga does not know which catalogue to load yet");
@@ -300,6 +327,7 @@ export class SetupFlow {
     try {
       const importsWereRunning = this.importsRunning;
       await Promise.all([this.#refreshJobs(), this.#refreshStats()]);
+      await this.#loadAgainAfterRetry();
       if (importsWereRunning && !this.importsRunning) await this.#afterImports();
     } catch (error) {
       this.error = errorMessage(error);
@@ -354,6 +382,11 @@ export class SetupFlow {
       this.busy = false;
     }
   }
+}
+
+/** The load stopped because its download is downloading once more after a checksum mismatch. */
+function awaitsRetriedDownload(load: Job): boolean {
+  return load.status === "failed" && load.error === DOWNLOAD_RETRIED_ERROR;
 }
 
 export interface SettingsChange {

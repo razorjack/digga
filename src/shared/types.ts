@@ -42,6 +42,13 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 /** The error of a job the server found running when it started: Digga closed during it. */
 export const INTERRUPTED_JOB_ERROR = "interrupted";
 
+/**
+ * The error of a load whose download did not match Discogs' checksum and is downloading once more:
+ * the file it read was thrown away, so a load has to read the new download from the start.
+ */
+export const DOWNLOAD_RETRIED_ERROR =
+  "The download did not match Discogs' checksum, so it is downloading once more";
+
 export interface ArtistRef {
   id: number | null;
   name: string;
@@ -161,6 +168,8 @@ export interface DumpDownloadProgress {
   totalBytes: number | null;
   /** The newest dump was in the dumps folder already, so nothing was downloaded. */
   alreadyDownloaded: boolean;
+  /** Downloads that did not match Discogs' checksum; after the first, the dump comes once more. */
+  checksumMismatches: number;
 }
 
 export interface DumpLoadProgress {

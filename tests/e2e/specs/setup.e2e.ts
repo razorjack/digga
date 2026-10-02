@@ -8,6 +8,7 @@ import type {
 } from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
 import { formatBytes } from "../../../src/shared/display.ts";
+import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../../src/shared/types.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage } from "../pages/setup.ts";
 import { TriagePage } from "../pages/triage.ts";
@@ -292,6 +293,77 @@ test(
     await expect(setup.downloadStopped).toBeHidden();
   },
 );
+
+test(
+  "SETUP-26 a download that does not match Discogs' checksum comes once more by itself, and the load reads it again",
+  { tag: ["@SETUP-26", "@P2"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.set({ wrongChecksums: 1 });
+    fakes.dumps.holdAt(point.name, { transfer: 1 });
+    const regions = await LiveRegionWatch.install(app.page);
+
+    const setup = await fillTheCrate(app);
+    await setup.waitForRecordsToDig(point.recordsToDig);
+    // The first download ends with the wrong checksum; the second stops at the checkpoint.
+    fakes.dumps.release();
+    fakes.dumps.holdAt(point.name, { transfer: 2 });
+
+    await expect(setup.checksumRetry).toContainText(
+      "The download does not match Discogs' checksum, so Digga downloads it once more.",
+    );
+    expect(await regions.insertedWithText()).not.toContainEqual(
+      expect.stringContaining("does not match"),
+    );
+    await expect.poll(() => jobStatuses(app, "dump_load")).toEqual(["running", "failed"]);
+    fakes.dumps.release();
+
+    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    expect(fakes.dumps.transfers).toBe(2);
+    expect(await jobStatuses(app, "dump_download")).toEqual(["done"]);
+    const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+    expect(jobs.find((job) => job.type === "dump_load" && job.status === "failed")?.error).toBe(
+      DOWNLOAD_RETRIED_ERROR,
+    );
+  },
+);
+
+test(
+  "SETUP-26 a download that does not match Discogs' checksum twice asks before a third",
+  { tag: ["@SETUP-26", "@P2"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.set({ wrongChecksums: 2 });
+    fakes.dumps.holdAt(point.name, { transfer: 1 });
+
+    const setup = await fillTheCrate(app);
+    await setup.waitForRecordsToDig(point.recordsToDig);
+    fakes.dumps.release();
+    fakes.dumps.holdAt(point.name, { transfer: 2 });
+    await expect(setup.checksumRetry).toBeVisible();
+    // The second load reads the second download before it ends, as the first did.
+    await expect.poll(() => jobStatuses(app, "dump_load")).toEqual(["running", "failed"]);
+    fakes.dumps.release();
+
+    await expect(setup.downloadStopped).toContainText(
+      "The download does not match Discogs' checksum. Digga downloaded it twice.",
+    );
+    expect(fakes.dumps.transfers).toBe(2);
+    expect(await jobStatuses(app, "dump_download")).toEqual(["failed"]);
+
+    await setup.startLoadAgain();
+    await expect(setup.root.getByText(/^The catalogue is in: /)).toBeVisible({ timeout: 15_000 });
+    expect(fakes.dumps.transfers).toBe(3);
+  },
+);
+
+/** The statuses of the jobs of one type, newest first. */
+async function jobStatuses(app: DiggaApp, type: Job["type"]): Promise<Job["status"][]> {
+  const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+  return jobs.filter((job) => job.type === type).map((job) => job.status);
+}
 
 /** A held transfer closes its connection where it waits, as a dropped download does. */
 function dropTransferAt(fakes: FakeServices, offset: number): void {
