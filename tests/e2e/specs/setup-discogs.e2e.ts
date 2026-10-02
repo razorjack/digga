@@ -15,7 +15,7 @@ import { formatCount } from "../../../src/shared/display.ts";
 import type { StyleCensus } from "../../../src/shared/style-census.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import { DJ } from "../fixtures/catalogue.ts";
-import { SetupPage } from "../pages/setup.ts";
+import { type Picks, SetupPage, type SetupStep } from "../pages/setup.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { LiveRegionWatch } from "../support/live-regions.ts";
 import { expect, test } from "../support/test.ts";
@@ -143,6 +143,60 @@ test(
     );
   },
 );
+
+test(
+  "SETUP-28 a new page resumes at the first step not done, with the account and the picks filled in",
+  { tag: ["@SETUP-28", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.holdAt(point.name);
+    const wantlist = fakes.hold("GET /users/:user/wants");
+    const setup = new SetupPage(app);
+    const picks: Picks = {
+      styles: ["Drum n Bass", "Jungle"],
+      span: [1997, 2003],
+      vinylOnly: false,
+    };
+
+    // Nothing fetched: step 1, whatever the address asks.
+    await openNewPage(setup, "#/setup/sound", "catalogue");
+    await setup.fetchCatalogue();
+    // The catalogue comes: step 2, or step 3 when the address asks.
+    await openNewPage(setup, "#/setup", "discogs");
+    await openNewPage(setup, "#/setup/sound", "sound");
+
+    // By username: a token's account check would wait behind the held wantlist page, since the
+    // server sends Discogs one request at a time, and hold up every new page.
+    await openNewPage(setup, "#/setup/discogs", "discogs");
+    await setup.useUsername(DJ.username);
+    await openNewPage(setup, "#/setup/discogs", "discogs");
+    await expect(setup.account).toContainText(`Connected as ${DJ.username}`);
+    await setup.continueFromDiscogs(["collection", "wantlist"]);
+    await wantlist.received;
+    await setup.makePicks(picks);
+    await setup.fillCrateBehindImports();
+
+    // The load waits for the wantlist, so no load exists yet: step 3, with the picks confirmed.
+    await openNewPage(setup, "#/setup", "sound");
+    await setup.expectPicks(picks);
+
+    await setup.fillCrateBehindImports();
+    wantlist.release();
+    await setup.waitForRecordsToDig(point.recordsToDig);
+    // Once a load exists, its screen.
+    await openNewPage(setup, "#/setup/sound", "crate");
+  },
+);
+
+/**
+ * The setup in a new page at the address, as after closing the tab: the hash changes in the
+ * page, and the reload opens it afresh, so the setup resumes from what the server has.
+ */
+async function openNewPage(setup: SetupPage, address: string, step: SetupStep): Promise<void> {
+  await setup.app.open(address);
+  await setup.reload(step);
+}
 
 /** Step 2, with the download started from step 1. */
 async function openDiscogsStep(app: DiggaApp): Promise<SetupPage> {

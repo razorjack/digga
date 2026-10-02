@@ -103,6 +103,15 @@ export const ConfigSchema = z.object({
       colorScheme: z.enum(COLOR_SCHEMES).default("system"),
     })
     .prefault({}),
+  setup: z
+    .object({
+      /**
+       * The setup's step 3 wrote the styles, years and formats, so they are the user's picks and
+       * not the defaults a new config starts with; the setup starts from them when it returns.
+       */
+      picksConfirmed: z.boolean().default(false),
+    })
+    .prefault({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

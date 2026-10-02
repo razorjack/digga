@@ -623,3 +623,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      again, and Settings has "Try again". Both call `settings.retry()`, which shares a read
      already out, so a key held down asks once; `settings.load()` still reads afresh each time,
      since a token save calls it for the username the server adopted.
+117. **Confirmed picks are marked in the config.** Step 3 writes the styles, years and formats
+     to `digga.config.json`, but a new config already holds the schema's Drum n Bass defaults,
+     so the setup could not tell picks from defaults and started step 3 from the suggestions
+     every time, after "Change your picks" and on resume. `setup.picksConfirmed` (default
+     `false`) is set with the picks, in the same write; the setup reads the picks back from the
+     config (`confirmedPicks()`) and starts step 3 from them, before any suggestion. The flag
+     lives in the config beside the values it vouches for, so the two cannot disagree, a config
+     kept across a rebuilt library still counts, and a config the CLI made never does. A setup
+     with confirmed picks and no load yet, which waited for the imports, resumes at step 3
+     unless the address asks for step 2. Settings keeps the flag as it is, so styles changed
+     there during the load are what step 3 shows after "Change your picks".

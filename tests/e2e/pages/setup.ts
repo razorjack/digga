@@ -8,6 +8,13 @@ import { isRequest } from "./triage.ts";
 
 export type { SetupStep };
 
+/** What step 3 asks for, as the tests pick it. */
+export interface Picks {
+  styles: string[];
+  span: [number, number];
+  vinylOnly: boolean;
+}
+
 /** Each step's heading, which shows once the work that leads to the step has answered. */
 const STEP_HEADINGS: Record<SetupStep, string> = {
   catalogue: "Dig every record in your styles, by ear.",
@@ -191,6 +198,22 @@ export class SetupPage {
     await expect(this.button("Continue")).toBeEnabled();
   }
 
+  /**
+   * Step 2's "No token? Use your username": returns once the username is saved and the public
+   * profile's sizes show. Without a token the server asks Discogs nothing for the account.
+   */
+  async useUsername(username: string): Promise<void> {
+    await this.root.getByText("No token? Use your username", { exact: true }).click();
+    await this.root.getByLabel("Discogs username", { exact: true }).fill(username);
+    const saved = this.#response("PUT", "/api/settings");
+    const profile = this.#response("GET", "/api/discogs/profile");
+    await this.button("Use it").click();
+    await answered(saved);
+    await answered(profile);
+    await expect(this.account).toBeVisible();
+    await expect(this.button("Continue")).toBeEnabled();
+  }
+
   /** Step 2 with a token Discogs refuses: returns once the step has the answer and Connect again. */
   async connectRefused(token: string): Promise<void> {
     await this.tokenField.fill(token);
@@ -292,6 +315,49 @@ export class SetupPage {
     await answered(settingsSaved);
     await answered(loadStarted);
     await this.expectStep("crate");
+  }
+
+  /**
+   * Step 3 while the imports run: saves the picks and moves to the crate, where the load waits
+   * for the imports; returns once the crate says so.
+   */
+  async fillCrateBehindImports(): Promise<void> {
+    await expect(this.button("Fill the crate")).toBeEnabled();
+    const settingsSaved = this.#response("PUT", "/api/settings");
+    await this.button("Fill the crate").click();
+    await answered(settingsSaved);
+    await this.expectStep("crate");
+    await expect(this.root.getByText(/^Reading your collection and wantlist first/)).toBeVisible();
+  }
+
+  /**
+   * The crate's "Change your picks": returns on step 3 once the load has stopped and the releases
+   * it added without a verdict are gone.
+   */
+  async changePicks(): Promise<void> {
+    const forgotten = this.#response("DELETE", "/api/setup/load");
+    await this.button("Change your picks").click();
+    await answered(forgotten);
+    await this.expectStep("sound");
+  }
+
+  /** Step 3: picks the styles one by one, then the years, then Vinyl only. */
+  async makePicks(picks: Picks): Promise<void> {
+    for (const style of picks.styles) await this.pickStyle(style);
+    await this.setYear("from", picks.span[0]);
+    await this.setYear("to", picks.span[1]);
+    await this.setVinylOnly(picks.vinylOnly);
+  }
+
+  /** Step 3 shows these picks: the styles, the years to dig and Vinyl only, and no suggestion. */
+  async expectPicks(picks: Picks): Promise<void> {
+    await expect(this.pickedStyles.getByRole("button")).toHaveCount(picks.styles.length);
+    for (const style of picks.styles) await expect(this.removeButton(style)).toBeVisible();
+    await expect(this.yearField("from")).toHaveValue(String(picks.span[0]));
+    await expect(this.yearField("to")).toHaveValue(String(picks.span[1]));
+    if (picks.vinylOnly) await expect(this.vinylOnly).toBeChecked();
+    else await expect(this.vinylOnly).not.toBeChecked();
+    await expect(this.suggestion).toBeHidden();
   }
 
   /** The crate once it counts this many records to dig, which the setup reads every few seconds. */

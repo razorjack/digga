@@ -1,6 +1,6 @@
 <script lang="ts">
   /** Step 3: the styles and years the load keeps and Triage digs, with what they come to. */
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { formatBytes, formatCount } from "../../shared/display.ts";
   import Action from "./Action.svelte";
   import type { SetupFlow } from "./flow.svelte.ts";
@@ -20,13 +20,15 @@
 
   const names = new Intl.ListFormat("en-GB", { type: "conjunction" });
 
-  let picks = $state<string[]>([]);
-  let chosenSpan = $state<YearSpan | null>(null);
-  let chosenLoadYears = $state<YearSpan | null>(null);
-  let vinylOnly = $state(true);
+  // Nothing is chosen twice: picks confirmed earlier come back as they were, before any suggestion.
+  const confirmed = untrack(() => flow.picks);
+  let picks = $state<string[]>(confirmed ? [...confirmed.styles] : []);
+  let chosenSpan = $state<YearSpan | null>(confirmed?.span ?? null);
+  let chosenLoadYears = $state<YearSpan | null>(confirmed?.loadYears ?? null);
+  let vinylOnly = $state(confirmed?.vinylOnly ?? true);
   let search = $state<HTMLInputElement | null>(null);
   let styleProblem = $state("");
-  let suggestionsApplied = false;
+  let suggestionsApplied = confirmed !== null;
 
   const census = $derived(flow.census);
   const seeds = $derived(flow.setup?.seeds ?? { releases: 0, styles: [] });
@@ -83,7 +85,7 @@
     Digga keeps the releases in these styles and years. You can change both later in Settings and load again.
   </p>
 
-  {#if suggested.length > 0}
+  {#if suggested.length > 0 && !confirmed}
     <p class="suggested">
       Your Discogs records are mostly <b>{names.format(suggested.map((style) => style.name))}</b>, so
       {suggested.length === 1 ? "it is" : "they are"} picked. Change them as you like.

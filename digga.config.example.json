@@ -17,5 +17,6 @@
   },
   "queue": { "strategy": "label_sweep", "limit": 200 },
   "player": { "startAtFraction": 0.5, "seekStepSeconds": 10 },
-  "appearance": { "colorScheme": "system" }
+  "appearance": { "colorScheme": "system" },
+  "setup": { "picksConfirmed": false }
 }

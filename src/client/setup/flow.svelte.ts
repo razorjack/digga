@@ -10,7 +10,7 @@ import type { Job } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
 import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
-import { DIG_THRESHOLD, type YearSpan } from "./model.ts";
+import { DIG_THRESHOLD, loadYearsFor, type YearSpan } from "./model.ts";
 import type { SetupStep } from "./steps.ts";
 
 export interface Picks {
@@ -47,6 +47,8 @@ export class SetupFlow {
   waitingForImports = $state(false);
   /** The dump was deleted from the READY TO DIG screen. */
   dumpDeleted = $state(false);
+  /** What step 3 confirmed, in this visit or an earlier one; step 3 starts from it. */
+  picks = $state.raw<Picks | null>(null);
 
   importsRunning = $derived(this.imports.some(isRunning));
   loadRunning = $derived(isRunning(this.load));
@@ -68,13 +70,15 @@ export class SetupFlow {
   /** Reads what the server has and resumes at `requested` when it can, else the first step not done. */
   async open(requested: SetupStep | null = null): Promise<void> {
     try {
-      const [setup, { jobs }, account] = await Promise.all([
+      const [setup, { jobs }, account, config] = await Promise.all([
         api.getSetup(),
         api.getJobs(),
         api.getDiscogsAccount().catch(() => null),
+        settings.value ?? api.getSettings(),
       ]);
       this.setup = setup;
       this.account = account;
+      this.picks = confirmedPicks(config);
       this.#adoptJobs(jobs);
       this.step = this.#resumeStep(requested);
       if (account?.username || account?.tokenUsername) void this.#loadProfile();
@@ -150,6 +154,7 @@ export class SetupFlow {
   async fillCrate(picks: Picks): Promise<void> {
     await this.#act(async () => {
       await this.#saveSettings({ picks });
+      this.picks = picks;
       this.step = "crate";
       this.waitingForImports = this.importsRunning;
       if (!this.waitingForImports) await this.#startLoad();
@@ -219,17 +224,18 @@ export class SetupFlow {
 
   /**
    * Where to resume, from what the server has: the load's screen once there is a load, the step
-   * asked for once the catalogue is coming, and the first step otherwise. A catalogue that was in
-   * the dumps folder before any download is step 1's news, unless the address asks for a later step.
+   * asked for once the catalogue is coming, step 3 once its picks were confirmed, and the first
+   * step otherwise. A catalogue that was in the dumps folder before any download is step 1's
+   * news, unless the address or the confirmed picks say the user went past it.
    */
   #resumeStep(requested: SetupStep | null): SetupStep {
     if (this.load) return "crate";
     const fetched = isRunning(this.download) || this.download?.status === "done";
     const inFolder = this.setup?.catalogue.newest?.downloaded === true;
     if (!fetched && !inFolder) return "catalogue";
-    if (requested === "sound") return "sound";
-    if (!fetched && requested !== "discogs") return "catalogue";
-    return "discogs";
+    if (requested === "sound" || requested === "discogs") return requested;
+    if (this.picks) return "sound";
+    return fetched ? "discogs" : "catalogue";
   }
 
   async #startLoad(): Promise<void> {
@@ -347,6 +353,7 @@ export function withChange(config: Config, change: SettingsChange): Config {
   if (!change.picks) return next;
   const { styles, span, loadYears, vinylOnly } = change.picks;
   next.sandbox = false;
+  next.setup.picksConfirmed = true;
   next.universe.styles = styles;
   next.universe.loadYears = loadYears;
   next.filters = {
@@ -357,4 +364,17 @@ export function withChange(config: Config, change: SettingsChange): Config {
     formats: vinylOnly ? ["Vinyl"] : [],
   };
   return next;
+}
+
+/** The picks step 3 wrote to the config; null until it has, as in a new config or one the CLI made. */
+export function confirmedPicks(config: Config): Picks | null {
+  const { yearFrom, yearTo, formats } = config.filters;
+  if (!config.setup.picksConfirmed || yearFrom === null || yearTo === null) return null;
+  const span: YearSpan = [yearFrom, yearTo];
+  return {
+    styles: config.universe.styles,
+    span,
+    loadYears: config.universe.loadYears ?? loadYearsFor(span),
+    vinylOnly: formats.length === 1 && formats[0] === "Vinyl",
+  };
 }

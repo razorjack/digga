@@ -6,7 +6,7 @@ import type {
 } from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { SetupPage } from "../pages/setup.ts";
+import { type Picks, SetupPage } from "../pages/setup.ts";
 import { TriagePage } from "../pages/triage.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -161,6 +161,53 @@ test(
 
     await header.loadIndicator.click();
     await setup.startDigging();
+  },
+);
+
+test(
+  "SETUP-24 Change your picks stops the load, keeps what was dug, and step 3 starts from the picks",
+  { tag: ["@SETUP-24", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const point = fakes.dumps.checkpoint("100-to-dig");
+    fakes.dumps.holdAt(point.name);
+    const setup = new SetupPage(app);
+    const header = new HeaderPage(app);
+    const triage = new TriagePage(app);
+    const picks: Picks = {
+      styles: ["Drum n Bass", "Jungle"],
+      span: [1997, 2003],
+      vinylOnly: false,
+    };
+
+    await app.open();
+    await setup.fetchCatalogue();
+    await setup.skipDiscogs();
+    await setup.makePicks(picks);
+    await setup.fillCrate();
+    await setup.waitForRecordsToDig(point.recordsToDig);
+    await header.goTo("triage");
+    const judged = await triage.currentKey();
+    await triage.judge("rejected");
+    await header.loadIndicator.click();
+    await setup.expectStep("crate");
+
+    await setup.changePicks();
+    await setup.expectPicks(picks);
+    const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+    expect(jobs.find((job) => job.type === "dump_load")?.status).toBe("cancelled");
+    // Only the judged release stays, with its verdict.
+    expect((await app.api.get<Stats>("/api/stats")).universe.releases).toBe(1);
+    const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+    expect(exported.verdicts).toEqual([
+      expect.objectContaining({ key: judged, status: "rejected" }),
+    ]);
+
+    // A new page finds the cancelled load, and the way back to step 3 starts from the picks again.
+    await setup.reload("crate");
+    await expect(setup.alert(/^The catalogue stopped loading/)).toBeVisible();
+    await setup.changePicks();
+    await setup.expectPicks(picks);
   },
 );
 

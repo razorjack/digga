@@ -103,9 +103,12 @@ pace either way.
 - Once the load has started, `T`, `W` and `,` work again, and `#/setup` shows the loading screen
   until the load finishes. After that `#/setup` goes to Triage; monthly updates stay in Settings.
 - Nothing is chosen twice. Styles, years and formats go to `digga.config.json` when step 3 is
-  confirmed, the token to the library, and the download, imports and load are jobs in the
+  confirmed, with `setup.picksConfirmed`, which tells them apart from the defaults a new config
+  starts with; the token goes to the library, and the download, imports and load are jobs in the
   database. Closing Digga at any point and opening it again resumes at the first step that is
-  not done, with the earlier answers filled in.
+  not done, with the earlier answers filled in: step 3 starts from the confirmed picks, not from
+  the suggestions, and a setup whose picks are confirmed but whose load has not started resumes
+  there.
 
 ## Step 1: Fetch the catalogue
 
@@ -327,7 +330,7 @@ Shows the load, and lets the user start digging as soon as there is enough to di
 - The last sentence of the screen says that closing the page does not stop the load while the
   server runs (in Electron, see below).
 - "Change your picks" cancels the load, deletes the releases it added that have no verdict, and
-  returns to step 3. The download continues.
+  returns to step 3 with the picks as they were confirmed. The download continues.
 
 ### Real or practice
 

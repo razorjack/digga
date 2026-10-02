@@ -206,8 +206,10 @@ the Discogs wantlist.
 from the schema defaults, which the committed `digga.config.example.json` shows.
 `PUT /api/settings` validates and rewrites the file. Besides the
 Discogs account, universe, filters, order and player, it holds `sandbox` (default `true`, so a
-first run changes nothing by accident) and `filters.skipWithoutVideos` (default `false`), which
-drops releases without an embeddable video from the queue and its counts.
+first run changes nothing by accident), `filters.skipWithoutVideos` (default `false`), which
+drops releases without an embeddable video from the queue and its counts, and
+`setup.picksConfirmed` (default `false`), which the setup's step 3 sets when it writes the styles,
+years and formats, so the setup starts from them and not from the defaults when it returns.
 
 `src/server/paths.ts` decides every filesystem location. The library (database, backups, config,
 saved token, temp files) defaults to the per-user app folder, named as Electron names `userData`
