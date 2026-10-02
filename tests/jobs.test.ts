@@ -11,6 +11,7 @@ import {
   updateJobProgress,
 } from "../src/server/db/jobs.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
+import { createLogger } from "../src/server/logger.ts";
 import { runWorker } from "../src/server/jobs/worker.ts";
 import { elapsed, jobProgress } from "../src/shared/job-display.ts";
 import { silentLogger } from "./helpers.ts";
@@ -153,7 +154,11 @@ describe("job contracts", () => {
 
 it("waits for cancelled async work before releasing its database", async () => {
   const db = openDb(":memory:");
-  const runner = createJobRunner(db, silentLogger);
+  const logged: string[] = [];
+  const logger = createLogger({
+    sink: { write: (_level, _scope, message) => logged.push(message) },
+  });
+  const runner = createJobRunner(db, logger);
   let release!: () => void;
   const pending = new Promise<void>((resolve) => {
     release = resolve;
@@ -170,6 +175,8 @@ it("waits for cancelled async work before releasing its database", async () => {
   await Promise.resolve();
   expect(stopped).toBe(false);
   expect(runner.active()).toEqual([job.id]);
+  // Said once the job is aborted, while the stop still waits for it.
+  expect(logged).toContain("stopping: cancelled 1 running job(s), waiting for them");
   release();
   await stopping;
   expect(runner.get(job.id)?.status).toBe("cancelled");

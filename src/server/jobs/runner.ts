@@ -122,6 +122,9 @@ class Runner implements JobRunner {
     this.#stopping = true;
     const active = [...this.#active.values()];
     for (const job of active) job.abort();
+    // A Discogs request in flight takes no abort signal, so the wait can take seconds.
+    if (active.length > 0)
+      this.#logger.info(`stopping: cancelled ${active.length} running job(s), waiting for them`);
     await Promise.allSettled(active.map((job) => job.finished));
   }
 
