@@ -13,8 +13,10 @@ import { Deck, type DeckListener } from "./deck.ts";
 import type { PlayerStatus } from "./status.ts";
 import { embedErrorReason, loadYouTubeApi, PlayerState } from "./youtube.ts";
 
-/** A listen counts (and the tune turns heard) after this many seconds of playback. */
+/** A play turns the tune heard after this many seconds; a shorter one is logged as not heard. */
 const LOG_AFTER_SECONDS = 4;
+/** The log keeps seconds to a tenth; a play that rounds to nothing is not logged. */
+const SHORTEST_PLAY_SECONDS = 0.05;
 const TICK_MS = 250;
 /** How long a "play" load may sit unstarted before we assume the browser blocked sound. */
 const BLOCKED_AFTER_MS = 3500;
@@ -468,7 +470,7 @@ export class TriagePlayer {
     if (this.status !== "playing" || !listen) return;
     listen.seconds += elapsedSeconds;
     if (listen.logged === 0 && listen.seconds >= LOG_AFTER_SECONDS) {
-      this.#postListen(listen, listen.seconds);
+      this.#postListen(listen, { seconds: listen.seconds, heard: true });
       listen.logged = listen.seconds;
       if (listen.position) this.heardNow.add(listen.position);
       if (listen.heardKey) {
@@ -490,22 +492,31 @@ export class TriagePlayer {
     };
   }
 
-  /** Logs the playback since the last post when the listener leaves a track. */
+  /**
+   * Logs the playback since the last post when the listener leaves a track. A play shorter than
+   * the threshold is logged too, but leaves the tune unheard (decision 38).
+   */
   #flushListen(): void {
     const listen = this.#listen;
     this.#listen = null;
-    // A tap shorter than the logging threshold is not a listen (decision 38).
-    if (!listen || listen.logged === 0 || listen.seconds - listen.logged < 1) return;
-    this.#postListen(listen, listen.seconds - listen.logged);
+    if (!listen) return;
+    if (listen.logged === 0) {
+      if (listen.seconds >= SHORTEST_PLAY_SECONDS)
+        this.#postListen(listen, { seconds: listen.seconds, heard: false });
+      return;
+    }
+    if (listen.seconds - listen.logged < 1) return;
+    this.#postListen(listen, { seconds: listen.seconds - listen.logged, heard: true });
   }
 
-  #postListen(listen: Listen, seconds: number): void {
+  #postListen(listen: Listen, play: { seconds: number; heard: boolean }): void {
     listen.client
       .postListenLog({
         releaseId: listen.releaseId,
         position: listen.position,
         videoId: listen.videoId,
-        seconds: Math.round(seconds * 10) / 10,
+        seconds: Math.round(play.seconds * 10) / 10,
+        heard: play.heard,
       })
       .catch(() => {
         // A lost listen only affects greying; the next listen of the tune logs it again.

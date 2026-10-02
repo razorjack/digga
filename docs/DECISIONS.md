@@ -703,3 +703,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      `dugAtAfter()`, decides it for the server and the sandbox. The migration fills it for
      verdicts made in Digga; one an import replaced before it existed cannot be told apart from a
      seed.
+124. **Every play is logged; only 4 s or more make a tune heard.** A play shorter than 4 s posted
+     nothing (decisions 38 and 63), so a record skipped after two seconds of each track left no
+     trace of what was heard. At a few seconds per track, much of a fast session would be missing
+     from the listen log, and it cannot be filled in later. The player now posts such a play when
+     the listener leaves it, with `heard: false`; the server appends it to `listen_log` and leaves
+     `heard_tracks` alone, and so does the sandbox. Greying out a tune still needs 4 s, so a tap
+     that skips past a track does not hide the tune elsewhere. A play that rounds to no tenth of a
+     second is not posted.

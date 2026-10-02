@@ -202,6 +202,7 @@ test.describe("with the clock", () => {
         position: SECOND_RECORD.tracks[0]!.position,
         videoId: SECOND_RECORD.videos[0]!.id,
         seconds: 1.5,
+        heard: true,
       });
       await expect.poll(() => app.youtube.audible()).toBeNull();
       // Listens are posted in order, so the first leaving, 0.5 s past its listen, posted nothing.
@@ -393,7 +394,7 @@ test.describe("digging a tune that another release repeats, with the clock", () 
   });
 
   test(
-    "TRI-06 4 s of playback log a listen; the track then reads played, and the tune reads heard on another release",
+    "TRI-06 4 s of playback log a listen; the track then reads played, and the tune reads heard on another release; a shorter play is logged unheard",
     { tag: ["@TRI-06", "@P1"] },
     async ({ app }) => {
       const triage = new TriagePage(app);
@@ -409,11 +410,24 @@ test.describe("digging a tune that another release repeats, with the clock", () 
         position: tune!.position,
         videoId: videoOf(FIRST_RECORD, tune!.position).id,
         seconds: 4,
+        heard: true,
       });
       expect(await triage.nextTrack()).toBe(after!.position);
       await expect(triage.track(tune!.position).getByText("played", { exact: true })).toBeVisible();
 
-      await triage.judge("rejected");
+      await app.clock.runFor(2000);
+      const tap = await triage.listenLoggedBy(() => triage.judge("rejected"));
+      expect(tap).toEqual({
+        releaseId: FIRST_RECORD.id,
+        position: after!.position,
+        videoId: videoOf(FIRST_RECORD, after!.position).id,
+        seconds: 2,
+        heard: false,
+      });
+      const judged = await app.api.get<ReleaseDetail>(`/api/releases/${FIRST_RECORD.id}`);
+      expect(judged.tracks.map((track) => track.heard)).toEqual(
+        FIRST_RECORD.tracks.map((track) => track === tune),
+      );
       await expect(triage.record).toHaveAttribute(
         "data-release-id",
         String(SAME_TUNE_ELSEWHERE.id),

@@ -264,22 +264,26 @@ export function countHeardTracks(db: Db): number {
   return (db.prepare("SELECT COUNT(*) AS n FROM heard_tracks").get() as { n: number }).n;
 }
 
-/** Appends to listen_log and, when the position maps to a track, accumulates heard_tracks. */
+export interface ListenWrite {
+  releaseId: number;
+  position: string | null;
+  videoId: string;
+  seconds: number;
+  /** False for a play too short to make the tune heard; it is logged all the same. */
+  heard?: boolean;
+}
+
+/**
+ * Appends to listen_log and, when the play counts as heard and its position maps to a track,
+ * accumulates heard_tracks.
+ */
 export function logListen(
   db: Db,
-  input: { releaseId: number; position: string | null; videoId: string; seconds: number },
+  input: ListenWrite,
 ): { id: number; heardKey: string | null; heard: HeardTrack | null } {
   const at = nowIso();
-  let heardKey: string | null = null;
-  if (input.position !== null && input.position !== "") {
-    const track = db
-      .prepare(
-        "SELECT heard_key FROM tracks WHERE release_id = ? AND position = ? ORDER BY seq LIMIT 1",
-      )
-      .get(input.releaseId, input.position) as { heard_key: string } | undefined;
-    heardKey = track?.heard_key ?? null;
-  }
-  const write = db.transaction(() => {
+  const heardKey = input.heard === false ? null : listenedTune(db, input);
+  const id = db.transaction(() => {
     const info = db
       .prepare(
         "INSERT INTO listen_log (release_id, position, video_id, seconds, at) VALUES (?, ?, ?, ?, ?)",
@@ -294,24 +298,25 @@ export function logListen(
       ).run(heardKey, input.releaseId, input.seconds, at, at);
     }
     return Number(info.lastInsertRowid);
-  });
-  const id = write();
-  const heard = heardKey
-    ? (db.prepare("SELECT * FROM heard_tracks WHERE heard_key = ?").get(heardKey) as
-        | HeardRow
-        | undefined)
-    : undefined;
+  })();
+  return { id, heardKey, heard: heardKey === null ? null : getHeardTrack(db, heardKey) };
+}
+
+function listenedTune(db: Db, input: ListenWrite): string | null {
+  if (input.position === null || input.position === "") return null;
+  return trackTune(db, input.releaseId, input.position)?.heard_key ?? null;
+}
+
+function getHeardTrack(db: Db, heardKey: string): HeardTrack | null {
+  const row = db.prepare("SELECT * FROM heard_tracks WHERE heard_key = ?").get(heardKey) as
+    | HeardRow
+    | undefined;
+  if (!row) return null;
   return {
-    id,
-    heardKey,
-    heard: heard
-      ? {
-          heardKey: heard.heard_key,
-          firstReleaseId: heard.first_release_id,
-          secondsListened: heard.seconds_listened,
-          firstHeardAt: heard.first_heard_at,
-          lastHeardAt: heard.last_heard_at,
-        }
-      : null,
+    heardKey: row.heard_key,
+    firstReleaseId: row.first_release_id,
+    secondsListened: row.seconds_listened,
+    firstHeardAt: row.first_heard_at,
+    lastHeardAt: row.last_heard_at,
   };
 }

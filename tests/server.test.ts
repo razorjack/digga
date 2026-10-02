@@ -274,6 +274,22 @@ describe("HTTP API", () => {
     expect(stats.body.remaining).toBe(2);
   });
 
+  it("logs a play too short to count without making its tune heard", async () => {
+    const tap = await send<{ id: number; heardKey: string | null }>("POST", "/api/listen-log", {
+      releaseId: 1001,
+      position: "B1",
+      videoId: "aaaaaaaaaa1",
+      seconds: 1.7,
+      heard: false,
+    });
+    expect(tap.body.heardKey).toBeNull();
+    expect(db.prepare("SELECT position, seconds FROM listen_log").all()).toEqual([
+      { position: "B1", seconds: 1.7 },
+    ]);
+    expect((await get<ReleaseDetail>("/api/releases/1001")).body.tracks[2]!.heard).toBe(false);
+    expect((await get<Stats>("/api/stats")).body.heardTracks).toBe(0);
+  });
+
   it("reads and rewrites settings, changing the queue without a reload", async () => {
     const before = await get<typeof DEFAULT_CONFIG>("/api/settings");
     expect(before.body.filters.yearFrom).toBe(1998);

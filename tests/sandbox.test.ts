@@ -142,6 +142,20 @@ describe("sandbox api", () => {
     expect((await sandbox.searchScopes("konflict")).items).toHaveLength(1);
   });
 
+  it("leaves a tune unheard after a play too short to count", async () => {
+    await sandbox.getRelease(1001);
+    const tap = await sandbox.postListenLog({
+      releaseId: 1001,
+      position: "A1",
+      videoId: "aaaaaaaaaa1",
+      seconds: 2,
+      heard: false,
+    });
+    expect(tap.heardKey).toBeNull();
+    expect((await sandbox.getRelease(1001)).tracks[0]!.heard).toBe(false);
+    expect(tableCounts()).toMatchObject({ listen_log: 0 });
+  });
+
   it("marks tunes heard across releases and keeps track marks in memory", async () => {
     await sandbox.getRelease(1001);
     const log = await sandbox.postListenLog({

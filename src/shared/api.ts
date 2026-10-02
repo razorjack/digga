@@ -167,10 +167,13 @@ export const ListenLogInputSchema = z.object({
   position: z.string().nullable().optional(),
   videoId: z.string().min(1),
   seconds: z.number().nonnegative(),
+  /** False for a play shorter than the player's threshold: logged, the tune stays unheard. */
+  heard: z.boolean().default(true),
 });
-export type ListenLogInput = z.infer<typeof ListenLogInputSchema>;
+export type ListenLogInput = z.input<typeof ListenLogInputSchema>;
 export interface ListenLogResponse {
   id: number;
+  /** The tune the listen made heard; null for a play logged as not heard. */
   heardKey: string | null;
 }
 

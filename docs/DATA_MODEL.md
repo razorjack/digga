@@ -129,6 +129,9 @@ backup.
 ## listen_log
 
 Append-only proof of coverage: `id`, `release_id`, `position` (nullable), `video_id`, `seconds`, `at`.
+It has every play, also one shorter than the 4 s after which a tune turns heard; such a play
+(`heard: false` in `POST /api/listen-log`) leaves `heard_tracks` alone. A play of 4 s or more is
+logged at 4 s and again with the rest when the listener leaves it, so one play can be two rows.
 
 ## seed_items
 

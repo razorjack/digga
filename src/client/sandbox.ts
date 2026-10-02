@@ -428,7 +428,7 @@ class SandboxApi implements Api {
     this.#listenSeq += 1;
     const position = log.position ?? null;
     const track =
-      position === null || position === ""
+      position === null || position === "" || !log.heard
         ? undefined
         : this.#details.get(log.releaseId)?.tracks.find((track) => track.position === position);
     if (track && !track.heard) this.#heard.add(track.heardKey);
