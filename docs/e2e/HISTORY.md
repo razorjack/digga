@@ -1050,6 +1050,10 @@ Related, smaller:
 - The scope picker's Enter button and "Start digging", which Enter also starts, do not declare
   Enter in `aria-keyshortcuts`.
 
+Both were fixed in the setup's remaining P1 and Accessibility slice: the header hides them as
+`.visually-hidden` does (A11Y-06), and the dig button declares `Enter`, "Start digging" `T Enter`
+(A11Y-05).
+
 ### Handles for identity and state
 
 The rule: start with identity, which has no semantic equivalent, and add a state attribute only

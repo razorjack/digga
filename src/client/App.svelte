@@ -310,16 +310,29 @@
   .scroll {
     overflow-y: auto;
   }
-  /* The load indicator needs the room the sandbox's explanation takes. */
+  /*
+   * The load indicator needs the room the sandbox's explanation takes. Narrow windows hide the
+   * explanation and the ETA as .visually-hidden does, so screen readers still have them.
+   */
   @media (max-width: 1440px) {
     .busy .sandbox span {
-      display: none;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
   @media (max-width: 1180px) {
     .sandbox span,
     .counter .eta {
-      display: none;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
   @media (max-width: 860px) {

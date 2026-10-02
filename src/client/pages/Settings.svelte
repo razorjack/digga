@@ -73,7 +73,10 @@
   const batchProblem = $derived(problemAt("queue.limit"));
   const seekProblem = $derived(problemAt("player.seekStepSeconds"));
   const startAtPercent = $derived(Math.round((draft?.player.startAtFraction ?? 0) * 100));
-  /** The header's sandbox link points here. */
+  /**
+   * The header's sandbox link points here. The section is then the page's current location
+   * (aria-current), which also draws its highlight, so what shows and what is announced agree.
+   */
   const highlighted = $derived(getAnchor() === "sandbox");
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
   const tokenFromEnvironment = $derived(discogs.account?.tokenSource === "environment");
@@ -337,8 +340,8 @@
   {:else}
     <section
       class="mode"
-      class:highlight={highlighted}
       id="sandbox"
+      aria-current={highlighted ? "location" : undefined}
       aria-labelledby="{id}-sandbox-title"
       bind:this={modeEl}
     >
@@ -1072,7 +1075,7 @@
   .mode p {
     max-width: 72ch;
   }
-  .mode.highlight {
+  .mode[aria-current="location"] {
     max-width: calc(940px + 23px);
     margin-left: -23px;
     padding-left: 20px;

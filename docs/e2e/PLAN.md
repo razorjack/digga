@@ -45,15 +45,6 @@ House releases and additional records in other styles. Check the current
 [catalogue](../../tests/e2e/fixtures/catalogue.ts) before adding them. Its implemented records
 and accounts, not the original target of about 40 records, define today's given state.
 
-## Remaining markup work
-
-The original [markup audit](HISTORY.md#markup-audit-recorded-through-2026-10-02) numbers these
-findings; the current [authoring contract](AUTHORING.md#markup-audit) describes the rules.
-
-- Check the smaller audit findings during accessibility work: keep the header's hidden sandbox
-  explanation and ETA accessible at narrow widths, and declare Enter on the scope picker's
-  dig button and the crate's Start digging control.
-
 ## Observations awaiting a decision
 
 These are observations from earlier runs, not approved implementation tasks or expected-failure
@@ -66,7 +57,6 @@ Triage's stale queue and Twelves' re-judging copy, remain in history only.
 | A cued track is marked current and says "playing" while the player waits for Space        | [First Triage slice](HISTORY.md#the-first-triage-p1-slice-web). Decide the track's accessible state before playback.                                                          |
 | Keys used in Settings activate the page, so Triage's cued video can read "paused"         | [Settings slice](HISTORY.md#the-settings-p1-slice-web). Decide whether the existing activation behavior needs any change.                                                     |
 | Read my lists is enabled by the typed username but requests the saved username            | [Settings slice](HISTORY.md#the-settings-p1-slice-web). An unsaved first username produced `400`; decide when the action should be available.                                 |
-| The Sandbox anchor's highlight is visual only; focus moves to the switch                  | [Shell slice](HISTORY.md#the-shell-sandbox-and-persistence-p1-slice-web). Decide whether focus is sufficient.                                                                 |
 | Resuming setup with a saved token waits for the account check behind a held import page   | [SETUP-28 finding](HISTORY.md#closing-the-gaps-web). The earlier estimate was up to about 15 s with a 13-page wantlist; decide whether account lookup should delay the setup. |
 
 ## Breadth and release checks

@@ -152,8 +152,9 @@ The completion contracts for each page are kept with its scenarios: [triage](sce
 ## Determinism
 
 - Viewport 1600 x 1000; the Electron plan uses the same content size. The header hides the sandbox
-  explanation while a dump job runs at 1440 px and below, and hides it and the ETA at 1180 px and
-  below (`App.svelte`), which changes accessible names; responsive checks set their own viewport.
+  explanation from sight while a dump job runs at 1440 px and below, and it and the ETA at 1180 px
+  and below (`App.svelte`), as `.visually-hidden` does, so accessible names stay the same;
+  responsive checks set their own viewport.
 - `locale: "en-US"`, `timezoneId: "UTC"` in the browser; `TZ=UTC` in the server, so backup file
   names (`localDay()`) and the Twelves day column agree. The `random` strategy's seed is the
   server's UTC day.
@@ -222,8 +223,8 @@ incomplete checks are read there.
 
 The current locator contract uses native roles, accessible names, ARIA state and domain
 identity. For the original findings and their fixes, read the
-[dated audit](HISTORY.md#markup-audit-recorded-through-2026-10-02). Outstanding findings are
-tracked in [PLAN](PLAN.md#remaining-markup-work); do not treat the historical audit as a task list.
+[dated audit](HISTORY.md#markup-audit-recorded-through-2026-10-02); its findings are all fixed,
+and new ones go to [PLAN](PLAN.md). Do not treat the historical audit as a task list.
 
 ### Handles for identity and state
 
@@ -256,6 +257,8 @@ element, and explain that exception in a comment.
 
 - Settings names the Sandbox, Library, Backups and exports, Discogs, and Jobs regions with
   `aria-labelledby`. Discogs is inside the settings form; other form sections stay unnamed.
+  Opened at `#/settings/sandbox`, the Sandbox region has `aria-current="location"`, which also
+  draws its highlight.
 - The slips are groups named "Last action" and "Up next", retaining the last action's
   `aria-live`. Groups identify the slips without adding landmarks. The last action is busy
   from a verdict or undo key until the request has answered and the page has acted on it;

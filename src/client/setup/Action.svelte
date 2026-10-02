@@ -6,6 +6,7 @@
   let {
     children,
     keys = null,
+    shortcuts = null,
     primary = false,
     type = "button",
     disabled = false,
@@ -14,6 +15,8 @@
     children: Snippet;
     /** The key cap shown, and declared with aria-keyshortcuts. */
     keys?: string | null;
+    /** aria-keyshortcuts when the control answers more keys than its cap shows, such as "T Enter". */
+    shortcuts?: string | null;
     primary?: boolean;
     type?: "button" | "submit";
     disabled?: boolean;
@@ -22,7 +25,7 @@
 
 </script>
 
-<button {type} class:primary {disabled} aria-keyshortcuts={keys ?? undefined} {onclick}>
+<button {type} class:primary {disabled} aria-keyshortcuts={shortcuts ?? keys ?? undefined} {onclick}>
   {@render children()}
   {#if keys}<Key label={keys} size="sm" aria-hidden="true" />{/if}
 </button>

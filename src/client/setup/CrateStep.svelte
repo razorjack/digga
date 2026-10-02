@@ -208,7 +208,9 @@
     <p class="problem" role="alert">{flow.error ?? ""}</p>
     {#if !flow.nothingMatches}
       <div class="actions">
-        <Action primary keys="T" onclick={startDigging} disabled={!flow.canDig}>Start digging</Action>
+        <Action primary keys="T" shortcuts="T Enter" onclick={startDigging} disabled={!flow.canDig}>
+          Start digging
+        </Action>
         {#if flow.canDig}
           <button type="button" class="link" onclick={() => void practice()} disabled={flow.busy}>
             Practice on five records first

@@ -170,7 +170,7 @@
     <p class="status" id="{id}-status" role="status">{status}</p>
 
     <div class="actions">
-      <button type="submit" disabled={!checked}>
+      <button type="submit" disabled={!checked} aria-keyshortcuts="Enter">
         <Key label="Enter" primary aria-hidden="true" /> dig
       </button>
       <button type="button" aria-keyshortcuts="Escape" onclick={() => dialog?.close()}>
