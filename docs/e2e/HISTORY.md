@@ -993,7 +993,8 @@ and some names that are missing or ambiguous.
    once the load is done the `h1#crate-title` is not rendered, so the region loses its name and
    the page has no `h1`. Keep an `h1` in both states: when the load is done, the headline
    paragraph ("The catalogue is in: …") becomes the `h1` with that id. The "ready to dig" stamp
-   stays a `span`.
+   stays a `span`. Fixed in the setup's remaining P1 slice: the headline is `h1#crate-title`, so the
+   region is named "The catalogue is in: …" (SETUP-23).
 2. **`src/client/twelves/Pager.svelte`:** `<nav aria-label="Pages">` repeats the header's
    `<nav aria-label="Pages">`, so Twelves has two navigation landmarks with the same name. Name
    the pager "Shelf pages". Fixed in the Twelves P1 slice; TWL-03 reads the pager by that name.
@@ -1036,8 +1037,10 @@ and some names that are missing or ambiguous.
    alerts and buttons share a column whose alerts take a margin only when not `:empty`. SETUP-05,
    SETUP-08 and SETUP-09 check that their message's region was in the page before the message
    (`LiveRegionWatch`, see [Synchronisation](AUTHORING.md#synchronisation)); against the old markup all three failed. The
-   crate's "stopped loading" notice and error paragraph are still inserted with their text; they
-   come with the crate's scenarios.
+   crate's "stopped loading" notice and error paragraph were still inserted with their text. The
+   notices later moved into a persistent `role="alert"` container (SETUP-25); in the setup's
+   remaining P1 slice the error paragraph became an empty `role="alert"` paragraph too, which
+   SETUP-23 checks with `LiveRegionWatch` after a failed "Delete it".
 
 Related, smaller:
 

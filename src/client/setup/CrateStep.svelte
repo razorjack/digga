@@ -110,10 +110,10 @@
   {:else if flow.loadDone}
     <div class="ready">
       <Stamp text="ready to dig" tone="accent" size="xl" seed={4} slam />
-      <p class="headline">
+      <h1 id="crate-title" class="headline">
         The catalogue is in: {formatCount(stats.value?.universe.releases ?? loadProgress?.upserted ?? 0)} releases,
         {formatCount(toDig)} records to dig.
-      </p>
+      </h1>
     </div>
   {:else}
     <h1 id="crate-title">Fill the crate</h1>
@@ -203,25 +203,30 @@
     </p>
   {/if}
 
-  {#if flow.error}<p class="problem" role="alert">{flow.error}</p>{/if}
+  <div class="outcome">
+    <!-- In the page before its text, so screen readers announce it. -->
+    <p class="problem" role="alert">{flow.error ?? ""}</p>
+    {#if !flow.nothingMatches}
+      <div class="actions">
+        <Action primary keys="T" onclick={startDigging} disabled={!flow.canDig}>Start digging</Action>
+        {#if flow.canDig}
+          <button type="button" class="link" onclick={() => void practice()} disabled={flow.busy}>
+            Practice on five records first
+          </button>
+        {/if}
+        {#if !flow.canDig && !stopped}
+          <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
+        {/if}
+        {#if flow.loadRunning}
+          <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
+            Change your picks
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
 
   {#if !flow.nothingMatches}
-    <div class="actions">
-      <Action primary keys="T" onclick={startDigging} disabled={!flow.canDig}>Start digging</Action>
-      {#if flow.canDig}
-        <button type="button" class="link" onclick={() => void practice()} disabled={flow.busy}>
-          Practice on five records first
-        </button>
-      {/if}
-      {#if !flow.canDig && !stopped}
-        <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
-      {/if}
-      {#if flow.loadRunning}
-        <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
-          Change your picks
-        </button>
-      {/if}
-    </div>
     {#if !settings.sandbox && flow.account?.tokenUsername}
       <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
     {/if}
@@ -361,6 +366,13 @@
   }
   .problem {
     color: var(--fg-accent);
+  }
+  .outcome {
+    display: flex;
+    flex-direction: column;
+  }
+  .outcome .problem:not(:empty) {
+    margin-bottom: 24px;
   }
   kbd {
     font-family: var(--mono);

@@ -15,8 +15,9 @@ below are specified but unimplemented, and the observations below still need dec
 1. Finish the setup's P1 scenarios: [SETUP-22](scenarios/setup.md#setup-22),
    [SETUP-23](scenarios/setup.md#setup-23), [SETUP-27](scenarios/setup.md#setup-27),
    [SETUP-31](scenarios/setup.md#setup-31) and [SETUP-33](scenarios/setup.md#setup-33).
-   Add the practice card's page object when implementing SETUP-22. Resolve the crate's
-   remaining markup findings below alongside its scenarios.
+   Add the practice card's page object when implementing SETUP-22. The crate's headline is its
+   `h1#crate-title` once the load is done, and its error alert is in the page before its text;
+   SETUP-23 reads both.
 2. Implement the [Accessibility family](scenarios/accessibility.md), including axe scans.
    `@axe-core/playwright` is not installed yet. Directly assert region names as specified;
    the planned scans alone do not establish those names.
@@ -59,15 +60,6 @@ and accounts, not the original target of about 40 records, define today's given 
 The original [markup audit](HISTORY.md#markup-audit-recorded-through-2026-10-02) numbers these
 findings; the current [authoring contract](AUTHORING.md#markup-audit) describes the rules.
 
-- **Audit item 1, SETUP-23:** the successful `flow.loadDone` branch in
-  `CrateStep.svelte` still renders its headline as a paragraph, leaving the region's
-  `aria-labelledby="crate-title"` without a target. Render the headline as `h1#crate-title`
-  and keep the ready stamp a span. The zero-match branch already has its heading.
-- **Audit item 4, crate errors:** the stopped-download, checksum and stopped-load notices now
-  share a persistent `role="alert"` container. The separate `{#if flow.error}` alert at the
-  end of the component is still conditional. Check its insertion order with the crate scenarios
-  and keep it mounted before its text. The earlier statement that all crate notices still
-  mount with their text is obsolete.
 - Check the smaller audit findings during accessibility work: keep the header's hidden sandbox
   explanation and ETA accessible at narrow widths, and declare Enter on the scope picker's
   dig button and the crate's Start digging control.
