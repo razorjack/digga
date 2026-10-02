@@ -219,16 +219,17 @@ export class SetupFlow {
 
   /**
    * Where to resume, from what the server has: the load's screen once there is a load, the step
-   * asked for once the catalogue is coming, and the first step otherwise.
+   * asked for once the catalogue is coming, and the first step otherwise. A catalogue that was in
+   * the dumps folder before any download is step 1's news, unless the address asks for a later step.
    */
   #resumeStep(requested: SetupStep | null): SetupStep {
     if (this.load) return "crate";
-    const fetching =
-      isRunning(this.download) ||
-      this.download?.status === "done" ||
-      this.setup?.catalogue.newest?.downloaded === true;
-    if (!fetching) return "catalogue";
-    return requested === "sound" ? "sound" : "discogs";
+    const fetched = isRunning(this.download) || this.download?.status === "done";
+    const inFolder = this.setup?.catalogue.newest?.downloaded === true;
+    if (!fetched && !inFolder) return "catalogue";
+    if (requested === "sound") return "sound";
+    if (!fetched && requested !== "discogs") return "catalogue";
+    return "discogs";
   }
 
   async #startLoad(): Promise<void> {

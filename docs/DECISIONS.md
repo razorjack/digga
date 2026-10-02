@@ -565,7 +565,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      and the browser's Back should go a step back. The server knows which jobs ran, not which
      screen the user was on, so `#/setup/sound` says it; what the server has still decides where
      a step can resume: nothing before the download starts, and nothing but the load's screen
-     once the load runs.
+     once the load runs. A catalogue that was in the dumps folder before any download opens step
+     1, which says Digga has it, unless the address asks for a later step.
 110. **The setup turns the sandbox off, and offers a practice round.** The schema default stays
      on, for configs the CLI creates. Someone who has just set Digga up and digs in the sandbox
      loses the evening's verdicts on reload; the choice is explicit instead. "Practice on five

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../src/client/api.ts";
 import { SetupFlow } from "../src/client/setup/flow.svelte.ts";
+import type { SetupStep } from "../src/client/setup/steps.ts";
 import type { SetupResponse, Stats } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { Job } from "../src/shared/types.ts";
@@ -39,6 +40,50 @@ const LOAD = job("load", "dump_load");
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+
+describe("where the setup resumes", () => {
+  function serverHas(jobs: Job[], downloaded: boolean): void {
+    const newest = { ...SETUP.catalogue.newest!, downloaded };
+    vi.spyOn(api, "getSetup").mockResolvedValue({
+      ...SETUP,
+      catalogue: { ...SETUP.catalogue, newest },
+    });
+    vi.spyOn(api, "getJobs").mockResolvedValue({ jobs });
+    vi.spyOn(api, "getDiscogsAccount").mockRejectedValue(new Error("no account"));
+    vi.spyOn(api, "getStyles").mockRejectedValue(new Error("not needed here"));
+    vi.spyOn(api, "getJob").mockResolvedValue(DOWNLOAD);
+  }
+
+  async function resumedStep(requested: SetupStep | null): Promise<SetupStep> {
+    const flow = new SetupFlow();
+    await flow.open(requested);
+    flow.close();
+    return flow.step;
+  }
+
+  it("opens step 1 on a catalogue that was in the dumps folder before any download", async () => {
+    serverHas([], true);
+
+    expect(await resumedStep(null)).toBe("catalogue");
+    expect(await resumedStep("catalogue")).toBe("catalogue");
+    expect(await resumedStep("discogs")).toBe("discogs");
+    expect(await resumedStep("sound")).toBe("sound");
+  });
+
+  it("opens step 2 while the catalogue downloads, or step 3 when the address asks", async () => {
+    serverHas([DOWNLOAD], false);
+
+    expect(await resumedStep(null)).toBe("discogs");
+    expect(await resumedStep("catalogue")).toBe("discogs");
+    expect(await resumedStep("sound")).toBe("sound");
+  });
+
+  it("opens step 1 before anything is fetched, whatever the address asks", async () => {
+    serverHas([], false);
+
+    expect(await resumedStep("sound")).toBe("catalogue");
+  });
 });
 
 describe("the setup following its jobs", () => {
