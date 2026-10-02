@@ -1,13 +1,23 @@
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { MARK_COPY } from "../../../src/client/twelves/model.ts";
 import type { BackupsResponse, DecisionsExport } from "../../../src/shared/api.ts";
-import { FIRST_RECORD, releaseById, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
+import { INTERRUPTED_JOB_ERROR, type Job } from "../../../src/shared/types.ts";
+import {
+  DJ,
+  FIRST_RECORD,
+  releaseById,
+  SECOND_RECORD,
+  triageKeyOf,
+} from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { HeaderPage } from "../pages/header.ts";
+import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, TriagePage, verdictKey } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
+
+const COLLECTION_PAGE = "GET /users/:user/collection/folders/0/releases";
 
 /** A snooze with a note, and a keep mark on one of the record's tracks. */
 interface KeptDecisions {
@@ -101,6 +111,61 @@ test(
     await expect(twelves.track(FIRST_RECORD.id, kept!.position)).toContainText(MARK_COPY.keep);
   },
 );
+
+test.describe("with an account to import", () => {
+  test.use({
+    diggaOptions: { config: { discogs: { username: DJ.username } }, savedToken: "e2e-token-dj" },
+  });
+
+  test(
+    "PER-03 a crash during an import leaves the job failed as interrupted",
+    { tag: ["@PER-03", "@P2"] },
+    async ({ app, fakes }) => {
+      const settings = new SettingsPage(app);
+      const page = fakes.hold(COLLECTION_PAGE);
+      const job = await startHeldImport(settings, page);
+
+      await app.relaunch({ crash: true });
+      await settings.open();
+
+      await settings.waitForJob(job, "failed");
+      await expect(settings.job(job)).toContainText(`: ${INTERRUPTED_JOB_ERROR}`);
+      expect(await app.api.get<Job>(`/api/jobs/${job}`)).toMatchObject({
+        status: "failed",
+        error: INTERRUPTED_JOB_ERROR,
+      });
+    },
+  );
+
+  test(
+    "PER-03 a graceful relaunch during an import cancels the job once its page in flight has returned",
+    { tag: ["@PER-03", "@P2"] },
+    async ({ app, fakes }) => {
+      const settings = new SettingsPage(app);
+      const page = fakes.hold(COLLECTION_PAGE);
+      const job = await startHeldImport(settings, page);
+      const stopping = app.servers.at(-1)!;
+
+      let relaunched = false;
+      const relaunching = app.relaunch().then(() => {
+        relaunched = true;
+      });
+      // The stop aborts the job, then waits for it: a Discogs request takes no abort signal.
+      await expect
+        .poll(() => stopping.stdout)
+        .toContain("stopping: cancelled 1 running job(s), waiting for them");
+      expect(relaunched).toBe(false);
+      page.release();
+      await relaunching;
+      await settings.open();
+
+      await settings.waitForJob(job, "cancelled");
+      expect((await app.api.get<Job>(`/api/jobs/${job}`)).status).toBe("cancelled");
+      expect(fakes.requests(COLLECTION_PAGE)).toHaveLength(1);
+      expect(stopping.stdout).toMatch(/waiting for them\n(.*\n)*.*job \S+ cancelled\n/);
+    },
+  );
+});
 
 test(
   "PER-05 after restartServer() the open page keeps its session without a reload, and the next verdict is saved",
@@ -202,4 +267,16 @@ async function exportedStatus(app: DiggaApp, key: string): Promise<string | unde
 
 function backups(app: DiggaApp): Promise<BackupsResponse> {
   return app.api.get<BackupsResponse>("/api/backups");
+}
+
+/** Starts the collection import from Settings; returns its id once it runs, its page held. */
+async function startHeldImport(
+  settings: SettingsPage,
+  page: { received: Promise<void> },
+): Promise<string> {
+  await settings.open();
+  const job = await settings.startJob(settings.jobs.getByRole("button", { name: "Collection" }));
+  await page.received;
+  await settings.waitForJob(job, "running");
+  return job;
 }

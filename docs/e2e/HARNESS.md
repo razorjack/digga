@@ -105,12 +105,16 @@ A graceful stop and a crash leave different state, and scenarios need both.
   worker died does not keep running. Ctrl-C reaches the servers directly and they stop on
   `SIGINT`, so the helper treats an already closed channel as stopped.
 - **Crash.** `kill("SIGKILL")`. Running jobs stay `running` in the database, and the next start
-  marks them failed as interrupted (`failStaleJobs()`). The planned SETUP-27 and PER-03 scenarios use this.
+  marks them failed as interrupted (`failStaleJobs()`). SETUP-27 and PER-03 use this.
 
 Discogs requests take no abort signal (`discogs/transport.ts`), and importers check theirs
 between pages, so a cancel or a graceful stop waits for the request in flight. Fake delays
 therefore stay at 5 s or less, well inside the 15 s limit, and a cancelled job's row reads
-`running` until that request has returned.
+`running` until that request has returned. A graceful stop with a page held at the fake waits for
+the page, so the test releases it while `relaunch()` is pending, and only once the server has
+aborted the job: the runner then logs "stopping: cancelled N running job(s), waiting for them",
+which PER-03 reads from the stopping server's output (`app.servers.at(-1)`). A page released
+earlier returns before the abort and the job ends done.
 
 The app fixture depends on the fake-services fixture, so Playwright tears the app down first; the
 fakes keep answering until the server has exited. The temp folder is deleted after the exit.

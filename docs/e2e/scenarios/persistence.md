@@ -25,9 +25,13 @@ start writes before `digga backup`, which writes the day's copy to the same path
 
 Priority: **P2**.
 
+Given: `small` with the username `dj` and a saved token.
+
 `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful
 `relaunch()` during one records it cancelled once its page in flight has returned; Settings shows
-each
+each. The collection import's page is held at the fake. The graceful stop aborts the job and then
+waits for that page, so the test releases it once the stopping server has logged the abort, while
+`relaunch()` is still pending; the job's row then reads cancelled, after one page request
 
 ## PER-04
 
