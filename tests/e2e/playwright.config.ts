@@ -18,6 +18,10 @@ export default defineConfig({
   outputDir: "../../test-results/e2e",
   globalSetup: "./support/global-setup.ts",
   fullyParallel: true,
+  // Each test runs its own server and browser, so CI's four vCPUs are busy with two workers.
+  // More workers finish the suite little sooner and slow every test: on four, A11Y-01's Twelves
+  // scans reached the 30 s timeout (docs/e2e/HARNESS.md#runner-and-configuration).
+  workers: CI ? 2 : undefined,
   forbidOnly: CI,
   retries: CI ? 1 : 0,
   failOnFlakyTests: CI,
