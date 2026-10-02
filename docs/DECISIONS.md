@@ -736,3 +736,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      earlier ones. A misfired `A` now costs an add and a remove on Discogs. The setup's copy and
      TRI-12, TRI-13 and SBX-07 changed with it: a live want that the sandbox switch follows is now
      on the wantlist.
+127. **A failed push is tried again three times.** A want whose push failed stayed off the
+     Discogs wantlist until the user pressed `A` in Twelves or "add all", and a flash that
+     vanished after 6 s was the only notice; in a long session a Wi-Fi drop or a Discogs 5xx
+     would leave wants behind unnoticed. Triage now tries again after 5 s, 30 s and 2 min when
+     the request failed on the way or the server answered 5xx (a Discogs error is `502`), and not
+     when the server refused it (`4xx`: no username, unknown release, sandbox), which another try
+     would not change. The slip says "trying again in 30 s" while it waits, which is also what
+     the end-to-end tests wait for before they run the clock. Each try decides from the undo
+     history when it runs, so a want undone meanwhile is not pushed, and a mode switch or the end
+     of the session stops the tries. After the last one the slip says the want is not on the
+     wantlist, and the message now names the record, since by then the listener has moved on. The
+     tries live in the tab: a reload during the waits leaves the want for Twelves to mark.

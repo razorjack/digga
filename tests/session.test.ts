@@ -1,6 +1,6 @@
 import { queueItem } from "./helpers/catalog.ts";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { type Api, type AppApi, createAppApi } from "../src/client/api.ts";
+import { type Api, ApiRequestError, type AppApi, createAppApi } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
 import { stats } from "../src/client/stores.svelte.ts";
 import type {
@@ -132,7 +132,7 @@ function fakeServer(queue: number[], labelName: string | null = null) {
 
 async function started(queue: number[]) {
   const server = fakeServer(queue);
-  const session = new TriageSession(server.app);
+  const session = new TriageSession(server.app, { pushRetryDelaysMs: [5, 5, 5] });
   await session.start(50);
   return { ...server, session };
 }
@@ -216,6 +216,55 @@ describe("triage session", () => {
     await wait(60);
     expect(calls.filter((c) => c.startsWith("put") || c.startsWith("remove"))).toEqual(["put 1"]);
     expect(session.slip).toMatchObject({ kind: "verdict", push: "done" });
+  });
+
+  it("tries a push that failed on the way again, and lands it", async () => {
+    const { session, http, calls } = await started([1, 2]);
+    vi.spyOn(http, "pushToWantlist").mockRejectedValueOnce(new Error("Failed to fetch"));
+    session.judge("accepted");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "done");
+    expect(calls.filter((call) => call.startsWith("put"))).toEqual(["put 1"]);
+    expect(session.flash).toBeNull();
+  });
+
+  it("gives up after the last retry, naming the record", async () => {
+    const { session, http } = await started([1, 2]);
+    const pushes = vi
+      .spyOn(http, "pushToWantlist")
+      .mockRejectedValue(new ApiRequestError(502, "Discogs answered 503"));
+    session.judge("accepted");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "failed");
+    expect(pushes).toHaveBeenCalledTimes(4);
+    expect(session.flash).toBe(
+      `${queueItem(1).artistDisplay} – ${queueItem(1).title} is not on the Discogs wantlist: Discogs answered 503. A in Twelves tries again.`,
+    );
+  });
+
+  it("does not try again a push the server refused", async () => {
+    const { session, http } = await started([1, 2]);
+    const pushes = vi
+      .spyOn(http, "pushToWantlist")
+      .mockRejectedValue(new ApiRequestError(400, "Set your Discogs username in Settings first"));
+    session.judge("candidate");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "failed");
+    await wait(20);
+    expect(pushes).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops trying when the want is undone while it waits to try again", async () => {
+    const server = fakeServer([1, 2]);
+    const session = new TriageSession(server.app, { pushRetryDelaysMs: [30] });
+    await session.start(50);
+    const pushes = vi
+      .spyOn(server.http, "pushToWantlist")
+      .mockRejectedValueOnce(new Error("Failed to fetch"));
+    session.judge("accepted");
+    await until(() => pushes.mock.calls.length === 1);
+    session.undo();
+    await until(() => server.calls.includes("forget r:1"));
+    await wait(60);
+    expect(pushes).toHaveBeenCalledTimes(1);
+    expect(server.calls.filter((call) => call.startsWith("remove"))).toEqual([]);
   });
 
   it("does not push a want re-judged elsewhere while it waited for a slow push", async () => {
@@ -638,6 +687,20 @@ describe("track mark recovery", () => {
       atSeconds: 61.5,
     });
   });
+});
+
+it("stops trying a failed push again once the session is destroyed", async () => {
+  const server = fakeServer([1, 2]);
+  const session = new TriageSession(server.app, { pushRetryDelaysMs: [30] });
+  await session.start(50);
+  const pushes = vi
+    .spyOn(server.http, "pushToWantlist")
+    .mockRejectedValueOnce(new Error("Failed to fetch"));
+  session.judge("accepted");
+  await until(() => pushes.mock.calls.length === 1);
+  session.destroy();
+  await wait(60);
+  expect(pushes).toHaveBeenCalledTimes(1);
 });
 
 it("pushes nothing once the session is destroyed before the verdict is saved", async () => {

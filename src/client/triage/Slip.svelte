@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { QueueItem } from "../../shared/api.ts";
+  import { formatWait } from "../../shared/display.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
   import { STATUS_COPY, STATUS_TONE, type TriageStatus } from "../keymap.ts";
@@ -61,6 +62,8 @@
         <p class="quiet">
           {#if slip.kind === "verdict" && slip.push === "pending"}
             Adding to your Discogs wantlist…
+          {:else if slip.kind === "verdict" && slip.push === "retrying"}
+            Not on your Discogs wantlist yet; trying again in {formatWait(slip.retryInMs ?? 0)}.
           {:else if slip.kind === "verdict" && slip.push === "done"}
             {sandbox ? "Added to your wantlist (sandbox: nothing sent)." : "Added to your Discogs wantlist."}
           {:else if slip.kind === "verdict" && slip.push === "failed"}

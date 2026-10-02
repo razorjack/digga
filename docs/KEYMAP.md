@@ -67,6 +67,10 @@ counts what is left. In a shop the record shown is the pressing the seller has, 
 pressing on the wantlist, and Discogs' "Shop my wants" finds it there. Esc goes back to the whole
 queue. Records passed with `N` return to whichever queue comes next.
 
+A want or grail that does not reach Discogs, because the network or Discogs failed, is tried
+again after 5 s, 30 s and 2 min, and the slip says when; after the last try it stays a want in
+Digga, and Twelves marks it for `A` or "add all".
+
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is
 undone locally. Undoing a want or grail that already reached the Discogs wantlist takes it off again. The

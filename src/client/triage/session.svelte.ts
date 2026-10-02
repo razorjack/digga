@@ -1,8 +1,8 @@
 import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
 import type { QueueScope } from "../../shared/scope.ts";
 import type { ReleaseSnapshot, TrackMark, Verdict } from "../../shared/types.ts";
-import { isWantlistVerdict } from "../../shared/wantlist.ts";
-import { type Api, type AppApi, api as appApi } from "../api.ts";
+import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
+import { type Api, ApiRequestError, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
@@ -21,6 +21,9 @@ type LabelEntry = { kind: "label"; item: QueueItem; label: string };
 
 type HistoryEntry = VerdictEntry | { kind: "pass"; item: QueueItem } | LabelEntry;
 
+/** How far a want's push to the Discogs wantlist has got. */
+export type PushState = "pending" | "retrying" | "done" | "failed";
+
 /** What the slip under the player shows: the last thing that happened to a release. */
 export type Slip =
   | {
@@ -28,7 +31,9 @@ export type Slip =
       item: QueueItem;
       status: TriageStatus;
       id: number;
-      push: "pending" | "done" | "failed" | null;
+      push: PushState | null;
+      /** While a failed push waits to be tried again: how long the wait is. */
+      retryInMs?: number;
     }
   | { kind: "pass"; item: QueueItem; id: number; stays: "queue" | "snoozed" }
   | { kind: "label"; item: QueueItem; label: string; id: number }
@@ -56,6 +61,8 @@ const REFILL_BELOW = 8;
 const PREFETCH = 3;
 const MAX_QUEUE_LIMIT = 5000;
 export interface SessionOptions {
+  /** The waits before each new try of a failed push; PUSH_RETRY_DELAYS_MS unless a test sets them. */
+  pushRetryDelaysMs?: number[];
   /** Leaves a label out of the queue filters, or lets it back in; saving restarts the queue. */
   setLabelHidden?: (label: string, hidden: boolean) => Promise<void>;
 }
@@ -89,6 +96,7 @@ export class TriageSession {
   finished = $derived(this.status === "ready" && this.upcoming.length === 0 && this.exhausted);
 
   #api: AppApi;
+  #pushRetryDelaysMs: number[];
   #setLabelHidden: SessionOptions["setLabelHidden"];
   #batch = 200;
   /** Market data fetched this session, by release id, for records that moved on before it came. */
@@ -116,10 +124,12 @@ export class TriageSession {
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
+  #retryTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
 
   constructor(api: AppApi = appApi, opts: SessionOptions = {}) {
     this.#api = api;
     this.#apiGeneration = api.generation;
+    this.#pushRetryDelaysMs = opts.pushRetryDelaysMs ?? PUSH_RETRY_DELAYS_MS;
     this.#setLabelHidden = opts.setLabelHidden;
   }
 
@@ -128,6 +138,11 @@ export class TriageSession {
     this.#generation += 1;
     this.#apiGeneration = -1;
     if (this.#flashTimer) clearTimeout(this.#flashTimer);
+    for (const [timer, resolve] of this.#retryTimers) {
+      clearTimeout(timer);
+      resolve();
+    }
+    this.#retryTimers.clear();
   }
 
   async start(batch: number): Promise<void> {
@@ -589,20 +604,59 @@ export class TriageSession {
   async #pushWant(entry: HistoryEntry, slipId: number, client: Api): Promise<void> {
     const generation = this.#apiGeneration;
     if (!this.history.includes(entry)) return;
-    let push: "done" | "failed" | null;
-    try {
-      await this.#syncWantlist(entry.item, client);
-      push = this.#onWantlist.has(entry.item.triageKey) ? "done" : null;
-    } catch (error) {
-      if (generation !== this.#apiGeneration) return;
-      push = "failed";
-      this.#flash(
-        `Not added to the Discogs wantlist: ${errorMessage(error)}. A in Twelves tries again.`,
-      );
-    }
+    const push = await this.#pushWithRetries(entry.item, client, {
+      generation,
+      onRetry: (retryInMs) => this.#showPush(slipId, "retrying", retryInMs),
+    });
     if (generation !== this.#apiGeneration) return;
+    this.#showPush(slipId, push);
+  }
+
+  #showPush(slipId: number, push: PushState | null, retryInMs?: number): void {
     const slip = this.slip;
-    if (slip?.kind === "verdict" && slip.id === slipId) this.slip = { ...slip, push };
+    if (slip?.kind === "verdict" && slip.id === slipId) this.slip = { ...slip, push, retryInMs };
+  }
+
+  /**
+   * Tries the push again after each of the retry delays while it fails on the way or in
+   * Discogs. Each try decides from the history when it runs, so a want undone meanwhile is not
+   * pushed. Returns null when the record is no longer a want or the api mode changed.
+   */
+  async #pushWithRetries(
+    item: QueueItem,
+    client: Api,
+    retry: { generation: number; onRetry: (retryInMs: number) => void },
+  ): Promise<"done" | "failed" | null> {
+    const { generation } = retry;
+    for (let tries = 0; ; tries += 1) {
+      try {
+        await this.#syncWantlist(item, client);
+        return this.#onWantlist.has(item.triageKey) ? "done" : null;
+      } catch (error) {
+        if (generation !== this.#apiGeneration) return null;
+        const delayMs = this.#pushRetryDelaysMs[tries];
+        if (delayMs === undefined || !mayPassLater(error)) {
+          this.#flash(
+            `${item.artistDisplay} – ${item.title} is not on the Discogs wantlist: ${errorMessage(error)}. A in Twelves tries again.`,
+          );
+          return "failed";
+        }
+        retry.onRetry(delayMs);
+        await this.#waitBeforeRetry(delayMs);
+        if (generation !== this.#apiGeneration) return null;
+      }
+    }
+  }
+
+  /** Resolves after the delay, or at once when the session is destroyed. */
+  #waitBeforeRetry(delayMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.#retryTimers.delete(timer);
+        resolve();
+      }, delayMs);
+      this.#retryTimers.set(timer, resolve);
+    });
   }
 
   async #takeOffWantlist(item: QueueItem, client: Api): Promise<void> {
@@ -920,4 +974,9 @@ function withMarketData(item: QueueItem, snapshot: ReleaseSnapshot): QueueItem {
     communityWant: snapshot.communityWant,
     enrichedAt: snapshot.enrichedAt,
   };
+}
+
+/** A push that failed on the way or in Discogs may pass later; one the server refused (4xx) will not. */
+function mayPassLater(error: unknown): boolean {
+  return !(error instanceof ApiRequestError) || error.status >= 500;
 }

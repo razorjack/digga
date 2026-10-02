@@ -29,6 +29,7 @@ import {
   type WantlistPushResponse,
 } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
+import { formatWait } from "../shared/display.ts";
 import type { StyleCensus } from "../shared/style-census.ts";
 import { scopeParam } from "../shared/scope.ts";
 import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
@@ -305,11 +306,4 @@ async function fetchText(
       throw new Error(`No answer within ${formatWait(timeoutMs)}`);
     throw error;
   }
-}
-
-/** 30000 -> "30 s", 300000 -> "5 min". */
-function formatWait(ms: number): string {
-  if (ms >= 60_000) return `${Math.round(ms / 60_000)} min`;
-  if (ms >= 1000) return `${Math.round(ms / 1000)} s`;
-  return `${ms} ms`;
 }

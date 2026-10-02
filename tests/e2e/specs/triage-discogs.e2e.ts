@@ -1,7 +1,8 @@
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import type { DecisionsExport } from "../../../src/shared/api.ts";
 import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
-import { formatCount, formatPrice } from "../../../src/shared/display.ts";
+import { formatCount, formatPrice, formatWait } from "../../../src/shared/display.ts";
+import { PUSH_RETRY_DELAYS_MS } from "../../../src/shared/wantlist.ts";
 import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { DJ, FIRST_RECORD } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
@@ -45,39 +46,6 @@ test.describe("with a Discogs account", () => {
           body: { notes: `grail ${grail!.position}; keep ${keep!.position}; ${note}` },
         }),
       ]);
-    },
-  );
-
-  test(
-    "TRI-15 a push Discogs fails is saved in Digga, and Twelves marks it as not on the wantlist",
-    { tag: ["@TRI-15", "@P1"] },
-    async ({ app, fakes }) => {
-      const triage = new TriagePage(app);
-      const twelves = new TwelvesPage(app);
-      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 502$/] });
-      fakes.fail("PUT /users/:user/wants/:id", { status: 500, times: 1 });
-      await app.open();
-      const key = await triage.currentKey();
-      const releaseId = Number(await triage.record.getAttribute("data-release-id"));
-
-      const response = await triage.judgeAndPush("accepted");
-
-      expect(response.status()).toBe(502);
-      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
-      await expect(triage.messages).toHaveText(
-        /^Not added to the Discogs wantlist: .+\. A in Twelves tries again\.$/,
-      );
-      expect(fakes.wantlists.get(DJ.username)!.has(releaseId)).toBe(false);
-      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
-      expect(exported.verdicts).toContainEqual(
-        expect.objectContaining({ key, status: "accepted" }),
-      );
-
-      await new HeaderPage(app).goTo("twelves");
-      await twelves.showShelf("accepted");
-      await expect(twelves.row("accepted", FIRST_RECORD.title)).toContainText(
-        "not on your Discogs wantlist",
-      );
     },
   );
 
@@ -167,6 +135,75 @@ test(
     ]);
   },
 );
+
+test.describe("with a Discogs account and the clock", () => {
+  test.use({ diggaOptions: { ...ACCOUNT, clock: true } });
+
+  test(
+    "TRI-15 a push Discogs keeps failing is tried three more times, then stays saved in Digga, and Twelves marks it",
+    { tag: ["@TRI-15", "@P1"] },
+    async ({ app, fakes }) => {
+      const triage = new TriagePage(app);
+      const twelves = new TwelvesPage(app);
+      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 502$/] });
+      fakes.fail("PUT /users/:user/wants/:id", { status: 500, times: 4 });
+      await app.open();
+      const key = await triage.currentKey();
+      const releaseId = Number(await triage.record.getAttribute("data-release-id"));
+
+      // Paused, each try waits for runFor(), and the slip names the wait it has armed.
+      await app.clock.pause();
+      await triage.judge("accepted");
+      for (const delayMs of PUSH_RETRY_DELAYS_MS) {
+        await expect(triage.lastAction).toContainText(`trying again in ${formatWait(delayMs)}.`);
+        await app.clock.runFor(delayMs);
+      }
+
+      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
+      await expect(triage.messages).toHaveText(
+        / is not on the Discogs wantlist: .+\. A in Twelves tries again\.$/,
+      );
+      await expect(triage.messages).toContainText(FIRST_RECORD.title);
+      expect(fakes.requests("PUT /users/:user/wants/:id")).toHaveLength(4);
+      expect(fakes.wantlists.get(DJ.username)!.has(releaseId)).toBe(false);
+      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+      expect(exported.verdicts).toContainEqual(
+        expect.objectContaining({ key, status: "accepted" }),
+      );
+
+      await new HeaderPage(app).goTo("twelves");
+      await twelves.showShelf("accepted");
+      await expect(twelves.row("accepted", FIRST_RECORD.title)).toContainText(
+        "not on your Discogs wantlist",
+      );
+    },
+  );
+
+  test(
+    "TRI-45 a push Discogs fails once is tried again 5 s later and reaches the wantlist",
+    { tag: ["@TRI-45", "@P1"] },
+    async ({ app, fakes }) => {
+      const triage = new TriagePage(app);
+      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 502$/] });
+      fakes.fail("PUT /users/:user/wants/:id", { status: 500, times: 1 });
+      await app.open();
+      const releaseId = Number(await triage.record.getAttribute("data-release-id"));
+      const [firstDelayMs] = PUSH_RETRY_DELAYS_MS;
+
+      await app.clock.pause();
+      await triage.judge("accepted");
+      await expect(triage.lastAction).toContainText(
+        `Not on your Discogs wantlist yet; trying again in ${formatWait(firstDelayMs!)}.`,
+      );
+      await app.clock.runFor(firstDelayMs!);
+
+      await expect(triage.lastAction).toContainText("Added to your Discogs wantlist.");
+      expect(fakes.requests("PUT /users/:user/wants/:id")).toHaveLength(2);
+      expect(fakes.wantlists.get(DJ.username)!.has(releaseId)).toBe(true);
+      await expect(triage.messages).toHaveText("");
+    },
+  );
+});
 
 test.describe("in the sandbox", () => {
   test.use({ diggaOptions: { sandbox: true } });

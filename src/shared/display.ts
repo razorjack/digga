@@ -16,6 +16,13 @@ export function formatDuration(seconds: number | null): string {
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
+/** 30000 -> "30 s", 300000 -> "5 min". */
+export function formatWait(ms: number): string {
+  if (ms >= 60_000) return `${Math.round(ms / 60_000)} min`;
+  if (ms >= 1000) return `${Math.round(ms / 1000)} s`;
+  return `${ms} ms`;
+}
+
 /** Price in the currency Discogs reported; a plain number when the currency is unknown. */
 export function formatPrice(amount: number, currency: string | null): string {
   if (currency !== null && /^[A-Z]{3}$/.test(currency)) {

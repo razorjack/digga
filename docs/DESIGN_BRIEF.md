@@ -83,7 +83,7 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   mark as a small stamp, and the duration. Heard tunes are set in dust; the playing row gets the
   flyer bar.
 - **States:** loading, "Space: start listening" before the first gesture, no videos / none will
-  play (with `S` and `D`), a notice for a skipped embed, pending and done wantlist pushes on
+  play (with `S` and `D`), a notice for a skipped embed, pending, retried and done wantlist pushes on
   the slip, undo ("undone" stamp), queue failed (`Enter` retries), no releases loaded, filters
   that match nothing, and the end of the queue: a large ALL DUG stamp with a way to go round the
   releases passed with `N` or to hear the snoozed records again. A round of snoozed records shows

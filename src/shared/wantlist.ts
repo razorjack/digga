@@ -8,6 +8,12 @@ export function isWantlistVerdict(status: VerdictStatus): boolean {
   return status === "accepted" || status === "candidate";
 }
 
+/**
+ * The waits before each new try of a push that failed on the way to Discogs or in Discogs; after
+ * the last, the want stays in Digga and Twelves offers to add it.
+ */
+export const PUSH_RETRY_DELAYS_MS = [5_000, 30_000, 120_000];
+
 /** Longest note Digga sends with a want. */
 export const WANTLIST_NOTE_LENGTH = 255;
 
