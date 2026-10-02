@@ -48,13 +48,31 @@ class StatsStore {
 class SettingsStore {
   value = $state<Config | null>(null);
   error = $state<string | null>(null);
+  /** A read is out, the app's first or a retry. */
+  loading = $state(false);
   /** Increments on every save but a color scheme change, so the triage queue knows to reload. */
   version = $state(0);
   /** True until the config says otherwise, like the api, so nothing is saved before it is known. */
   sandbox = $derived(this.value?.sandbox ?? true);
   #colorSchemeWrites: Promise<unknown> = Promise.resolve();
+  #read: Promise<void> | null = null;
 
   async load(): Promise<void> {
+    const read = this.#readSettings();
+    this.#read = read;
+    this.loading = true;
+    await read;
+    if (this.#read !== read) return;
+    this.#read = null;
+    this.loading = false;
+  }
+
+  /** After a failed read: reads again, or waits for the read already out, so a key held down asks once. */
+  retry(): Promise<void> {
+    return this.#read ?? this.load();
+  }
+
+  async #readSettings(): Promise<void> {
     try {
       this.#apply(await api.getSettings());
       this.error = null;

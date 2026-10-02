@@ -75,3 +75,36 @@ describe("color scheme saves", () => {
     expect(settings.value?.appearance.colorScheme).toBe("dark");
   });
 });
+
+describe("a failed read of the settings", () => {
+  it("is retried once however often the retry is asked for while the read is out", async () => {
+    fake.api.getSettings = async () => {
+      throw new Error("fetch failed");
+    };
+    await settings.load();
+    expect(settings.error).toBe("fetch failed");
+
+    const read = deferred<Config>();
+    const getSettings = vi.fn(() => read.promise);
+    fake.api.getSettings = getSettings;
+    const first = settings.retry();
+    const second = settings.retry();
+    expect(getSettings).toHaveBeenCalledTimes(1);
+    expect(settings.loading).toBe(true);
+
+    read.resolve(withColorScheme("light"));
+    await Promise.all([first, second]);
+    expect(settings.loading).toBe(false);
+    expect(settings.error).toBeNull();
+    expect(settings.value?.appearance.colorScheme).toBe("light");
+  });
+
+  it("does not share a read with a load asked for meanwhile, which may follow a change", async () => {
+    const getSettings = vi.fn(async () => DEFAULT_CONFIG);
+    fake.api.getSettings = getSettings;
+
+    await Promise.all([settings.load(), settings.load()]);
+
+    expect(getSettings).toHaveBeenCalledTimes(2);
+  });
+});

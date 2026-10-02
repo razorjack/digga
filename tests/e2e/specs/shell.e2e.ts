@@ -183,6 +183,65 @@ test(
   },
 );
 
+test.describe("with the settings unreachable as the app opens", () => {
+  test.beforeEach(async ({ app }) => {
+    app.expectProblems({
+      aborted: [/^GET \/api\/settings$/],
+      consoleErrors: [/^Failed to load resource: net::ERR_FAILED/],
+    });
+  });
+
+  test(
+    "SHELL-12 Triage says the settings did not load, starts no queue, and Enter reads them again",
+    { tag: ["@SHELL-12", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const settingsRead = await app.abortRequests(
+        { method: "GET", path: "/api/settings" },
+        { times: Infinity },
+      );
+      await app.open();
+
+      await expect(
+        triage.root.getByText("The settings did not load.", { exact: true }),
+      ).toBeVisible();
+      await expect(triage.root.getByRole("button", { name: "try again" })).toHaveAttribute(
+        "aria-keyshortcuts",
+        "Enter",
+      );
+      // The queue starts from the settings, so it was never asked for.
+      expect(queueReadCount(app)).toBe(0);
+
+      await settingsRead.lift();
+      await triage.retrySettings();
+    },
+  );
+
+  test(
+    "SHELL-12 Settings says it did not load, and Try again shows the form",
+    { tag: ["@SHELL-12", "@P2"] },
+    async ({ app }) => {
+      const settings = new SettingsPage(app);
+      const triage = new TriagePage(app);
+      const header = new HeaderPage(app);
+      const settingsRead = await app.abortRequests(
+        { method: "GET", path: "/api/settings" },
+        { times: Infinity },
+      );
+      await app.open("#/settings");
+
+      await expect(settings.root.getByText(/^Settings did not load: /)).toBeVisible();
+      await expect(settings.saveButton).toBeHidden();
+
+      await settingsRead.lift();
+      await settings.retryLoad();
+      // Triage, mounted behind Settings, starts its queue once the settings are in.
+      await header.goTo("triage");
+      await expect(triage.record).toBeVisible();
+    },
+  );
+});
+
 test(
   "SHELL-09 System follows the emulated scheme, Light and Dark apply at once and survive a reload, and none restarts Triage's queue",
   { tag: ["@SHELL-09", "@P1"] },

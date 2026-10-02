@@ -324,7 +324,16 @@
   </header>
 
   {#if !draft}
-    <p class="quiet">{settings.error ? `Settings did not load: ${settings.error}` : "Loading…"}</p>
+    {#if settings.error}
+      <p class="quiet">Settings did not load: {settings.error}</p>
+      <p>
+        <button type="button" class="secondary" aria-busy={settings.loading} onclick={() => void settings.retry()}>
+          Try again
+        </button>
+      </p>
+    {:else}
+      <p class="quiet">Loading…</p>
+    {/if}
   {:else}
     <section
       class="mode"

@@ -616,3 +616,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      second for a job nobody started would cost a request a second on every page. A check now
      drops an answer that a later check overtook, since the app's first check could otherwise
      arrive after the job started and hide it.
+116. **Triage and Settings retry a failed read of the settings.** The queue starts from the
+     settings, so when `/api/settings` failed as the app opened, Triage waited for good with
+     nothing on screen but "Loading the queue…", and Settings named the error with no way on but
+     a reload. Triage now says "The settings did not load." with the reason and `Enter` to try
+     again, and Settings has "Try again". Both call `settings.retry()`, which shares a read
+     already out, so a key held down asks once; `settings.load()` still reads afresh each time,
+     since a token save calls it for the username the server adopted.

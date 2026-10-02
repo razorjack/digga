@@ -29,7 +29,7 @@ or Alt. Holding a key down never repeats a verdict.
 | `S`       | open a YouTube search for artist + title                             |
 | `E`       | write a note on the record; Enter keeps it, its verdict saves it     |
 | `⌘V`      | attach a copied YouTube link to the release and play it              |
-| `Enter`   | retry when the queue or the release failed to load                   |
+| `Enter`   | retry when the settings, the queue or the release failed to load     |
 
 `P` asks Discogs once for the record on screen and shows the answer with its age ("checked 3
 days ago"); pressing it again refreshes it. Digga asks for nothing ahead, so the records you skip

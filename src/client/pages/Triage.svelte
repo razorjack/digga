@@ -54,6 +54,8 @@
 
   let apiGeneration = api.generation;
   const settingsLoaded = $derived(settings.value !== null);
+  /** The queue starts from the settings, so without them there is nothing to dig. */
+  const settingsFailed = $derived(settings.value === null && settings.error !== null);
 
   // (Re)start the queue once settings are known and after every save: filters may have changed.
   // The config is read untracked, so a color scheme change, which keeps the version, does not.
@@ -217,6 +219,10 @@
 
   /** Returns false when there is nothing to retry, so Enter keeps its usual meaning. */
   function retry(): boolean {
+    if (settingsFailed) {
+      void settings.retry();
+      return true;
+    }
     if (session.status === "error" && settings.value) {
       const config = settings.value;
       void session.start(config.queue.limit);
@@ -354,7 +360,23 @@
   </div>
   <div class="desk">
     <div class="record">
-      {#if session.status === "error"}
+      {#if settingsFailed}
+        <div class="state">
+          <p class="headline">The settings did not load.</p>
+          <p class="quiet">{settings.error}</p>
+          <p class="quiet">The queue starts from your settings. Check that the server runs, then try again.</p>
+          <p class="actions">
+            <button
+              type="button"
+              aria-keyshortcuts="Enter"
+              aria-busy={settings.loading}
+              onclick={() => void settings.retry()}
+            >
+              <Key label="Enter" primary aria-hidden="true" /> try again
+            </button>
+          </p>
+        </div>
+      {:else if session.status === "error"}
         <div class="state">
           <p class="headline">The queue did not load.</p>
           <p class="quiet">{session.error}</p>

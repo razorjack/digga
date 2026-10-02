@@ -160,6 +160,17 @@ export class SettingsPage {
     await expect(this.saveButton).toBeVisible();
   }
 
+  /** "Try again" after the settings failed to load: returns once they have loaded and the form shows. */
+  async retryLoad(): Promise<void> {
+    await expect(this.root.getByText(/^Settings did not load: /)).toBeVisible();
+    const loaded = this.app.page.waitForResponse((response) =>
+      isRequest(response, "GET", "/api/settings"),
+    );
+    await this.root.getByRole("button", { name: "Try again" }).click();
+    expect((await loaded).ok()).toBe(true);
+    await expect(this.saveButton).toBeVisible();
+  }
+
   /** Clicks Save; returns once the save and the queue's reload have answered and the bar says so. */
   async save(): Promise<void> {
     await this.#saveBy(() => this.saveButton.click());

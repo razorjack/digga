@@ -374,6 +374,20 @@ export class TriagePage {
     await expect(this.record).toBeVisible();
   }
 
+  /** Enter after the settings failed to load: returns once they and the queue they start have loaded. */
+  async retrySettings(): Promise<void> {
+    await expect(this.root.getByText("The settings did not load.", { exact: true })).toBeVisible();
+    const loaded = waitForResponses(
+      this.app.page,
+      (response) => isRequest(response, "GET", "/api/settings"),
+      (response) => isRequest(response, "GET", "/api/queue"),
+    );
+    await this.app.page.keyboard.press("Enter");
+    await this.#completed(await loaded.first);
+    await this.#completed(await loaded.next);
+    await expect(this.record).toBeVisible();
+  }
+
   /** Enter after the tracklist failed to load: returns once it has loaded and shows. */
   async retryTracklist(): Promise<void> {
     await expect(this.root.getByText(/^The tracklist did not load/)).toBeVisible();
