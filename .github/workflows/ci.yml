@@ -1,0 +1,86 @@
+name: CI
+
+# Every push runs the whole suite: verify (with the P0 smoke set), then every other E2E test.
+# A burn-in is started by hand (docs/E2E_TESTING.md#running); nothing runs on a schedule.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      repeat_each:
+        description: "Burn-in: above 1, run the whole E2E suite this many times after verify"
+        type: number
+        default: 1
+
+permissions:
+  contents: read
+
+# A newer push cancels the branch's running push. Runs on master and dispatched runs get a group
+# of their own, so nothing cancels them or leaves them pending behind a newer run.
+concurrency:
+  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # A pull request from a branch of this repository already runs on its push.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    # A push run takes about 6 minutes, a burn-in at 5 about 21.
+    timeout-minutes: 45
+    env:
+      REPEAT_EACH: ${{ inputs.repeat_each || 1 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # package.json's devEngines requires npm 11.16.0, which Node 24.18 bundles; npm refuses to
+      # run under another version.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Read the locked Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Chromium
+        id: browser-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium and its system dependencies
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium's system dependencies
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Verify (checks, unit tests and the E2E smoke set)
+        run: npx vp run verify
+
+      - name: The rest of the E2E suite
+        if: env.REPEAT_EACH <= 1
+        run: npx playwright test --config tests/e2e/playwright.config.ts --grep-invert @P0
+
+      - name: Burn-in of the whole E2E suite
+        if: env.REPEAT_EACH > 1
+        run: npx playwright test --config tests/e2e/playwright.config.ts --repeat-each "$REPEAT_EACH"
+
+      - name: Upload the E2E report and failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-report-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/e2e/
+          retention-days: 14
+          if-no-files-found: ignore
