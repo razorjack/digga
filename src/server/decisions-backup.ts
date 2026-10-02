@@ -9,7 +9,6 @@ import {
   type DecisionsBackup,
   DecisionsBackupSchema,
 } from "../shared/decisions-backup.ts";
-import { isTriageSource } from "../shared/verdict-rank.ts";
 import { type BackupFile, listDatedFiles } from "./db/backup.ts";
 import type { Db } from "./db/db.ts";
 import { readBackedUpData } from "./db/user-data.ts";
@@ -119,7 +118,7 @@ function formatSections(data: BackedUpData): string {
 /** Anything made in Digga; seeds alone come back from the Discogs and history imports. */
 function hasDiggaData(data: BackedUpData): boolean {
   return (
-    data.verdicts.some((verdict) => isTriageSource(verdict.source)) ||
+    data.verdicts.some((verdict) => typeof verdict.dugAt === "string") ||
     data.trackMarks.length > 0 ||
     data.heardTunes.length > 0 ||
     data.attachedVideos.length > 0

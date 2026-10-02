@@ -70,8 +70,9 @@ queue. Records passed with `N` return to whichever queue comes next.
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is
 undone locally. Undoing a want or grail that already reached the Discogs wantlist takes it off again. The
-counter reads "4,312 dug", where dug counts every verdict made in Digga (source `triage` or
-`manual`), not seeds.
+counter reads "4,312 dug", where dug counts every record judged in Digga (source `triage` or
+`manual`), also after an import has replaced its verdict with a seed, and never a record only
+seeded.
 
 A round of snoozed records starts from Twelves (`Enter` on a snoozed record) or from the end of
 the queue. The records come before the queue: a verdict replaces the snooze, `N` leaves it, and

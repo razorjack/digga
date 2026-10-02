@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { isTriageSource, seedRank } from "../src/shared/verdict-rank.ts";
+import { dugAtAfter, isTriageSource, seedRank } from "../src/shared/verdict-rank.ts";
 
 describe("seed precedence", () => {
   it("ranks account facts over opinions, and a grail between the collection and the wantlist", () => {
@@ -19,6 +19,16 @@ describe("seed precedence", () => {
     expect(listMaybe).toBeGreaterThan(triageMaybe);
     expect([skip, snooze]).toEqual([triageMaybe, triageMaybe]);
     expect(triageMaybe).toBeGreaterThan(seen);
+  });
+
+  it("dates a record dug by the decisions made in Digga, through the seeds that replace them", () => {
+    const decidedAt = "2026-10-03T10:00:00.000Z";
+    const dug = { dugAt: "2026-10-02T09:00:00.000Z" };
+    expect(dugAtAfter({ source: "triage", decidedAt }, dug)).toBe(decidedAt);
+    expect(dugAtAfter({ source: "manual", decidedAt }, null)).toBe(decidedAt);
+    expect(dugAtAfter({ source: "seed:wantlist", decidedAt }, dug)).toBe(dug.dugAt);
+    expect(dugAtAfter({ source: "seed:list", decidedAt }, null)).toBeNull();
+    expect(dugAtAfter({ source: "seed:wantlist", decidedAt, dugAt: null }, dug)).toBeNull();
   });
 
   it("tells Digga's decisions from seeds", () => {

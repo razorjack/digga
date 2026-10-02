@@ -86,6 +86,7 @@ in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
 | `notes`      | nullable                                                                                              |
 | `release_id` | the release that was on screen or imported, nullable for master-only history hits                     |
 | `decided_at` | ISO; seeds use Discogs `date_added` or the last browser visit                                         |
+| `dug_at`     | when the record was last judged in Digga; a seed that replaces the verdict keeps it, null if never    |
 
 Seed precedence (`applySeedVerdict`, ranks in `src/shared/verdict-rank.ts`): collection (3) >
 `candidate` (grail, 2.5) > wantlist (2) > `accepted` from triage (1.6) > the Discogs Maybe list,
@@ -94,7 +95,9 @@ downgrades a higher rank. A grail is on the wantlist too, so the wantlist import
 there yet, from `seed:list` it is. `snoozed` is "hear it again later": a round of snoozed records
 in Triage replaces it with the new verdict, and undo there restores the snooze with its original
 `decided_at` (`POST /api/verdicts` accepts `decidedAt` for that). The "dug" count is every verdict
-with source `triage` or `manual`.
+with a `dug_at`, and the rate reads those times (`dugAtAfter()` in `src/shared/verdict-rank.ts`):
+a `triage` or `manual` write sets `dug_at` to its `decided_at`, a seed keeps the record's, and undo
+in Twelves restores the one it had (`dugAt`).
 
 ## track_verdicts
 

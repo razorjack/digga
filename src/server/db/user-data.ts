@@ -1,6 +1,5 @@
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
 import type { TrackMark, VerdictSource, VerdictStatus } from "../../shared/types.ts";
-import { isTriageSource } from "../../shared/verdict-rank.ts";
 import type { Db } from "./db.ts";
 import { getVerdict, upsertVerdict } from "./verdicts.ts";
 
@@ -54,6 +53,7 @@ function readVerdicts(db: Db): BackedUpData["verdicts"] {
     notes: string | null;
     release_id: number | null;
     decided_at: string;
+    dug_at: string | null;
   }[];
   return rows.map((row) => ({
     key: row.key,
@@ -62,6 +62,7 @@ function readVerdicts(db: Db): BackedUpData["verdicts"] {
     notes: row.notes,
     releaseId: row.release_id,
     decidedAt: row.decided_at,
+    dugAt: row.dug_at,
   }));
 }
 
@@ -145,7 +146,10 @@ function readNoAudioVideos(db: Db): BackedUpData["noAudioVideos"] {
   }));
 }
 
-/** A verdict made in Digga after the backup stays; so do the videos its no-audio record had. */
+/**
+ * A record judged in Digga after the backup keeps its verdict, also when a seed has replaced it
+ * since; so do the videos its no-audio record had.
+ */
 function restoreVerdicts(
   db: Db,
   data: Pick<BackedUpData, "verdicts" | "noAudioVideos">,
@@ -159,8 +163,8 @@ function restoreVerdicts(
   const forgetVideos = db.prepare("DELETE FROM no_audio_videos WHERE key = ?");
   const outcome = { restored: 0, keptNewer: 0 };
   for (const verdict of data.verdicts) {
-    const current = getVerdict(db, verdict.key);
-    if (current && isTriageSource(current.source) && Date.parse(current.decidedAt) > backupTime) {
+    const dugAt = getVerdict(db, verdict.key)?.dugAt ?? null;
+    if (dugAt !== null && Date.parse(dugAt) > backupTime) {
       outcome.keptNewer += 1;
       continue;
     }

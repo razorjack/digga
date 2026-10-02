@@ -18,6 +18,7 @@ interface VerdictExportRow extends ReleaseColumns {
   source: VerdictSource;
   notes: string | null;
   decided_at: string;
+  dug_at: string | null;
 }
 
 interface TrackMarkExportRow extends ReleaseColumns {
@@ -40,7 +41,7 @@ const RELEASE_COLUMNS =
 export function listVerdictExports(db: Db): VerdictExport[] {
   const rows = db
     .prepare(
-      `SELECT v.key, v.status, v.source, v.notes, v.decided_at, ${RELEASE_COLUMNS}
+      `SELECT v.key, v.status, v.source, v.notes, v.decided_at, v.dug_at, ${RELEASE_COLUMNS}
        FROM verdicts v
        LEFT JOIN releases r ON r.id = COALESCE(v.release_id, (
          SELECT k.id FROM releases k WHERE k.triage_key = v.key
@@ -54,6 +55,7 @@ export function listVerdictExports(db: Db): VerdictExport[] {
     source: row.source,
     notes: row.notes,
     decidedAt: row.decided_at,
+    dugAt: row.dug_at,
     ...exportedRelease(row),
   }));
 }

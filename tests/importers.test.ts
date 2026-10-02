@@ -5,7 +5,13 @@ import { importCollection } from "../src/server/importers/collection.ts";
 import { importWantlist } from "../src/server/importers/wantlist.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
 import { getRelease } from "../src/server/db/releases.ts";
-import { applySeedVerdict, getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
+import {
+  applySeedVerdict,
+  countDug,
+  getVerdict,
+  triageDecisionTimes,
+  upsertVerdict,
+} from "../src/server/db/verdicts.ts";
 import { fixtureDb, silentLogger } from "./helpers.ts";
 
 const basic = (id: number, master: number | null, title: string) => ({
@@ -192,6 +198,26 @@ describe("seed precedence", () => {
     expect(getVerdict(db, "m:501")?.status).toBe("candidate");
     applySeedItem(db, { ...seed, kind: "collection", basicInformation: info });
     expect(getVerdict(db, "m:501")?.status).toBe("collection");
+    db.close();
+  });
+
+  it("still counts a want as dug, at its own time, after the wantlist import takes it over", async () => {
+    const db = await fixtureDb();
+    const dugAt = "2026-10-03T21:15:00.000Z";
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", decidedAt: dugAt });
+    upsertVerdict(db, { key: "m:506", status: "wantlist", source: "seed:wantlist" });
+    const seed = { releaseId: 1001, masterId: 501, rating: null, notes: null };
+    applySeedItem(db, {
+      ...seed,
+      kind: "wantlist",
+      dateAdded: "2026-10-03T21:15:02.000Z",
+      basicInformation: basic(1001, 501, "Wormhole"),
+    });
+
+    expect(getVerdict(db, "m:501")).toMatchObject({ status: "wantlist", dugAt });
+    expect(getVerdict(db, "m:506")?.dugAt).toBeNull();
+    expect(countDug(db)).toBe(1);
+    expect(triageDecisionTimes(db)).toEqual([dugAt]);
     db.close();
   });
 

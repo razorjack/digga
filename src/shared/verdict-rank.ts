@@ -6,6 +6,20 @@ export function isTriageSource(source: VerdictSource): boolean {
 }
 
 /**
+ * When the record was last judged in Digga, after a verdict write: a decision made in Digga sets
+ * it to its own date, and a seed keeps the one the record had, so a want that the wantlist import
+ * turns into a seed still counts as dug. A write that names it (undo, restore) sets it.
+ */
+export function dugAtAfter(
+  write: { source: VerdictSource; decidedAt: string; dugAt?: string | null },
+  previous: { dugAt: string | null } | null,
+): string | null {
+  if (write.dugAt !== undefined) return write.dugAt;
+  if (isTriageSource(write.source)) return write.decidedAt;
+  return previous?.dugAt ?? null;
+}
+
+/**
  * Which verdict a seed import may replace: a seed never overwrites a higher rank. Facts about
  * the Discogs account outrank opinions: collection 3 > grail 2.5 > wantlist 2 > want from
  * triage 1.6 > the Discogs Maybe list 1.55 > other triage and manual decisions 1.5 > seen in

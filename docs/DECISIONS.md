@@ -692,3 +692,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      would lose exactly the history the log is for. A log of what was decided is data only the
      user made, like the listen log, so the daily database copies keep it; the decisions backup
      leaves both out for now.
+123. **A record stays dug after an import replaces its verdict.** "Dug" counted verdicts with
+     source `triage` or `manual` (decision 51), and the rate read their dates. The imports replace
+     such verdicts by rank: the wantlist import every pushed want, re-reading the Maybe list every
+     triage maybe. So after a weekend of wants and an import, the counter dropped by the number of
+     wants and the rate lost those decisions. `verdicts.dug_at` records when the record was last
+     judged in Digga; a decision made in Digga sets it to its own date, and a seed keeps it. The
+     counter, the rate, the sandbox's overlay, the decisions backup and its restore (whose "made
+     here after the backup" test now reads `dug_at`) and the exports use it. One pure function,
+     `dugAtAfter()`, decides it for the server and the sandbox. The migration fills it for
+     verdicts made in Digga; one an import replaced before it existed cannot be told apart from a
+     seed.

@@ -7,7 +7,7 @@ import type {
   VerdictStatus,
 } from "../../shared/types.ts";
 import { VERDICT_STATUSES } from "../../shared/types.ts";
-import { seedRank } from "../../shared/verdict-rank.ts";
+import { dugAtAfter, seedRank } from "../../shared/verdict-rank.ts";
 import { type Db, nowIso } from "./db.ts";
 
 interface VerdictRow {
@@ -17,6 +17,7 @@ interface VerdictRow {
   notes: string | null;
   release_id: number | null;
   decided_at: string;
+  dug_at: string | null;
 }
 
 interface TrackVerdictRow {
@@ -45,6 +46,7 @@ const rowToVerdict = (row: VerdictRow): Verdict => ({
   notes: row.notes,
   releaseId: row.release_id,
   decidedAt: row.decided_at,
+  dugAt: row.dug_at,
 });
 
 const rowToTrackVerdict = (row: TrackVerdictRow): TrackVerdict => ({
@@ -65,6 +67,8 @@ export interface VerdictWrite {
   notes?: string | null;
   releaseId?: number | null;
   decidedAt?: string;
+  /** Omitted, a decision made in Digga sets it and a seed keeps it (dugAtAfter()). */
+  dugAt?: string | null;
 }
 
 export function getVerdict(db: Db, key: string): Verdict | null {
@@ -84,18 +88,21 @@ export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
 
 /** Unconditional write (triage and manual decisions). */
 export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
+  const decidedAt = verdict.decidedAt ?? nowIso();
+  const dugAt = dugAtAfter({ ...verdict, decidedAt }, getVerdict(db, verdict.key));
   db.prepare(
-    `INSERT INTO verdicts (key, status, source, notes, release_id, decided_at)
-     VALUES (@key, @status, @source, @notes, @release_id, @decided_at)
+    `INSERT INTO verdicts (key, status, source, notes, release_id, decided_at, dug_at)
+     VALUES (@key, @status, @source, @notes, @release_id, @decided_at, @dug_at)
      ON CONFLICT(key) DO UPDATE SET status = excluded.status, source = excluded.source, notes = excluded.notes,
-       release_id = excluded.release_id, decided_at = excluded.decided_at`,
+       release_id = excluded.release_id, decided_at = excluded.decided_at, dug_at = excluded.dug_at`,
   ).run({
     key: verdict.key,
     status: verdict.status,
     source: verdict.source,
     notes: verdict.notes ?? null,
     release_id: verdict.releaseId ?? null,
-    decided_at: verdict.decidedAt ?? nowIso(),
+    decided_at: decidedAt,
+    dug_at: dugAt,
   });
   return getVerdict(db, verdict.key)!;
 }
@@ -147,23 +154,21 @@ export function listVerdicts(db: Db, statuses: VerdictStatus[]): Verdict[] {
   return rows.map(rowToVerdict);
 }
 
-/** Verdicts made in Digga (triage or manual): the "dug" count. */
+/** Records judged in Digga, also those whose verdict a seed has replaced: the "dug" count. */
 export function countDug(db: Db): number {
   return (
-    db.prepare("SELECT COUNT(*) AS n FROM verdicts WHERE source IN ('triage', 'manual')").get() as {
+    db.prepare("SELECT COUNT(*) AS n FROM verdicts WHERE dug_at IS NOT NULL").get() as {
       n: number;
     }
   ).n;
 }
 
-/** Timestamps of triage decisions, oldest first, for the rate/ETA estimate. */
+/** When each record was last judged in Digga, oldest first, for the rate/ETA estimate. */
 export function triageDecisionTimes(db: Db, limit = 5000): string[] {
   const rows = db
-    .prepare(
-      "SELECT decided_at FROM verdicts WHERE source IN ('triage', 'manual') ORDER BY decided_at DESC LIMIT ?",
-    )
-    .all(limit) as { decided_at: string }[];
-  return rows.map((row) => row.decided_at).reverse();
+    .prepare("SELECT dug_at FROM verdicts WHERE dug_at IS NOT NULL ORDER BY dug_at DESC LIMIT ?")
+    .all(limit) as { dug_at: string }[];
+  return rows.map((row) => row.dug_at).reverse();
 }
 
 export interface TrackMarkWrite {

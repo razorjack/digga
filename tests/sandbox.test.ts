@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { type Api, ApiRequestError, createAppApi, createHttpApi } from "../src/client/api.ts";
 import { createSandboxApi } from "../src/client/sandbox.ts";
 import type { Db } from "../src/server/db/db.ts";
+import { applySeedVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
@@ -92,6 +93,19 @@ describe("sandbox api", () => {
     expect(await sandbox.deleteVerdict("m:506")).toEqual({ deleted: false, previous: null });
     await expect(sandbox.postVerdict({ key: "nope", status: "accepted" })).rejects.toThrow();
     expect(tableCounts()).toEqual(before);
+  });
+
+  it("counts a record dug on the server after a seed replaced its verdict, and adds its own", async () => {
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1001 });
+    applySeedVerdict(db, { key: "m:501", status: "wantlist", source: "seed:wantlist" });
+    expect((await sandbox.getStats()).dug).toBe(1);
+
+    await sandbox.getRelease(1001);
+    await sandbox.postVerdict({ key: "m:501", status: "maybe", source: "manual", releaseId: 1001 });
+    await sandbox.postVerdict({ key: "m:506", status: "rejected", releaseId: 1006 });
+    expect((await sandbox.getStats()).dug).toBe(2);
+    await sandbox.deleteVerdict("m:506");
+    expect((await sandbox.getStats()).dug).toBe(1);
   });
 
   it("pages past sandbox verdicts when they fill a whole server page", async () => {

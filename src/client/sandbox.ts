@@ -14,7 +14,7 @@ import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type ScopeRef, scopeKey } from "../shared/scope.ts";
 import type { Job, TrackVerdict, Verdict } from "../shared/types.ts";
-import { isTriageSource, seedRank } from "../shared/verdict-rank.ts";
+import { dugAtAfter, seedRank } from "../shared/verdict-rank.ts";
 import type { Api } from "./api.ts";
 
 export interface SandboxOptions {
@@ -187,9 +187,9 @@ class SandboxApi implements Api {
   #dugDelta = () => {
     let delta = 0;
     for (const { verdict, base } of this.#verdicts.values()) {
-      const wasDug = base ? isTriageSource(base.source) : false;
-      if (isTriageSource(verdict.source) && !wasDug) delta += 1;
-      if (!isTriageSource(verdict.source) && wasDug) delta -= 1;
+      const wasDug = base ? base.dugAt !== null : false;
+      if (verdict.dugAt !== null && !wasDug) delta += 1;
+      if (verdict.dugAt === null && wasDug) delta -= 1;
     }
     return delta;
   };
@@ -226,13 +226,15 @@ class SandboxApi implements Api {
     if (!this.#serverVerdicts.has(entry.key)) this.#serverVerdicts.set(entry.key, entry.verdict);
     const previous =
       this.#verdicts.get(entry.key)?.verdict ?? this.#serverVerdicts.get(entry.key) ?? null;
+    const decidedAt = this.#now().toISOString();
     const seed: Verdict = {
       key: entry.key,
       status: "maybe",
       source: "seed:list",
       notes: entry.comment ?? previous?.notes ?? null,
       releaseId: entry.release?.id ?? null,
-      decidedAt: this.#now().toISOString(),
+      decidedAt,
+      dugAt: dugAtAfter({ source: "seed:list", decidedAt }, previous),
     };
     if (!shouldApplyListSeed(seed, previous)) return false;
     const existing = this.#verdicts.get(entry.key);
@@ -325,15 +327,18 @@ class SandboxApi implements Api {
 
   postVerdict: Api["postVerdict"] = async (input) => {
     const inputVerdict = VerdictInputSchema.parse(input);
+    const existing = this.#verdicts.get(inputVerdict.key);
+    const previous = existing?.verdict ?? this.#serverVerdicts.get(inputVerdict.key) ?? null;
+    const decidedAt = inputVerdict.decidedAt ?? this.#now().toISOString();
     const verdict: Verdict = {
       key: inputVerdict.key,
       status: inputVerdict.status,
       source: inputVerdict.source,
       notes: inputVerdict.notes ?? null,
       releaseId: inputVerdict.releaseId ?? null,
-      decidedAt: inputVerdict.decidedAt ?? this.#now().toISOString(),
+      decidedAt,
+      dugAt: dugAtAfter({ ...inputVerdict, decidedAt }, previous),
     };
-    const existing = this.#verdicts.get(inputVerdict.key);
     this.#verdicts.set(inputVerdict.key, {
       verdict,
       base: existing ? existing.base : this.#serverVerdicts.get(inputVerdict.key),
@@ -468,13 +473,9 @@ class SandboxApi implements Api {
     const scopeRemaining = query.scope
       ? this.#remainingAfterLocal(stats.scopeRemaining ?? 0, query.scope)
       : null;
-    const times = [...this.#verdicts.values()]
-      .filter(
-        (localVerdict) =>
-          localVerdict.verdict.source === "triage" || localVerdict.verdict.source === "manual",
-      )
-      .map((localVerdict) => localVerdict.verdict.decidedAt)
-      .sort();
+    const times: string[] = [];
+    for (const { verdict } of this.#verdicts.values()) if (verdict.dugAt) times.push(verdict.dugAt);
+    times.sort();
     const local = rateSummary(times, remaining);
     const serverRate = stats.rate.verdictsPerHour;
     const rate =

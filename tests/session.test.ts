@@ -80,6 +80,7 @@ function fakeServer(queue: number[], labelName: string | null = null) {
         notes: input.notes ?? null,
         releaseId: input.releaseId ?? null,
         decidedAt: input.decidedAt ?? new Date().toISOString(),
+        dugAt: input.decidedAt ?? new Date().toISOString(),
       };
       verdicts.set(input.key, v);
       return v;
@@ -144,6 +145,7 @@ const snoozed = (id: number, decidedAt: string): TwelvesItem => ({
     notes: "check the flip",
     releaseId: id,
     decidedAt,
+    dugAt: decidedAt,
   },
   release: queueItem(id),
   onWantlist: false,

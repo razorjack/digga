@@ -26,6 +26,7 @@ function record(id: number): TwelvesItem {
       releaseId: id,
       notes: null,
       decidedAt: "2026-01-01T00:00:00.000Z",
+      dugAt: "2026-01-01T00:00:00.000Z",
     },
   };
 }

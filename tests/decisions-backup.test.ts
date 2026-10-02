@@ -167,7 +167,7 @@ describe("the decisions backup", () => {
       '  "verdicts": [',
     ]);
     expect(lines).toContain(
-      '    {"key":"m:501","status":"candidate","source":"triage","notes":"the Kool FM tune","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z"},',
+      '    {"key":"m:501","status":"candidate","source":"triage","notes":"the Kool FM tune","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z","dugAt":"2026-09-01T10:00:00.000Z"},',
     );
     db.close();
   });

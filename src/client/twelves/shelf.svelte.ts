@@ -219,6 +219,7 @@ export class TwelvesShelf {
         notes: previous.notes,
         releaseId: previous.releaseId,
         decidedAt: previous.decidedAt,
+        dugAt: previous.dugAt,
       });
     } catch (error) {
       this.showFlash(`Undo failed: ${errorMessage(error)}`);

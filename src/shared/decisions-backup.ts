@@ -12,6 +12,10 @@ export const DECISIONS_BACKUP_VERSION = 1;
 const id = z.number().int().positive();
 const timestamp = z.string().min(1);
 
+/**
+ * `dugAt` is absent from backups written before Digga kept it; restoring such a verdict dates it
+ * as a new write would (dugAtAfter()).
+ */
 const BackupVerdictSchema = z.object({
   key: z.string().min(1),
   status: z.enum(VERDICT_STATUSES),
@@ -19,6 +23,7 @@ const BackupVerdictSchema = z.object({
   notes: z.string().nullable(),
   releaseId: id.nullable(),
   decidedAt: timestamp,
+  dugAt: timestamp.nullable().optional(),
 });
 
 /** Backups written before Digga saved a mark's tune and moment read those as null. */

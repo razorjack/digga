@@ -132,6 +132,8 @@ export interface Verdict {
   notes: string | null;
   releaseId: number | null;
   decidedAt: string;
+  /** When the record was last judged in Digga, kept when a seed replaces the verdict. */
+  dugAt: string | null;
 }
 
 export interface TrackVerdict {

@@ -132,6 +132,8 @@ export const VerdictInputSchema = z.object({
   releaseId: z.number().int().positive().nullable().optional(),
   /** Restores a verdict's original date (undo); omitted, the verdict is dated now. */
   decidedAt: z.iso.datetime({ offset: true }).optional(),
+  /** Restores when the record was last judged in Digga (undo); omitted, see dugAtAfter(). */
+  dugAt: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 export type VerdictInput = z.input<typeof VerdictInputSchema>;
 export type VerdictResponse = Verdict;
@@ -241,7 +243,7 @@ export const StatsQuerySchema = z.object({
 export type StatsQuery = z.infer<typeof StatsQuerySchema>;
 
 export interface Stats {
-  /** Releases dug: verdicts made in Digga (triage or manual), not seeds. */
+  /** Records judged in Digga (triage or manual), also those whose verdict a seed has replaced. */
   dug: number;
   universe: {
     releases: number;
@@ -497,6 +499,7 @@ export interface VerdictExport extends ExportedRelease {
   source: VerdictSource;
   notes: string | null;
   decidedAt: string;
+  dugAt: string | null;
 }
 
 export interface TrackMarkExport extends ExportedRelease {
