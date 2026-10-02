@@ -1,6 +1,15 @@
 import type { DecisionsExport, Stats } from "../../../src/shared/api.ts";
 import { formatCount } from "../../../src/shared/display.ts";
-import { DJ, IN_COLLECTION, releaseById } from "../fixtures/catalogue.ts";
+import { JOB_LABEL } from "../../../src/shared/job-display.ts";
+import {
+  DJ,
+  FIRST_RECORD,
+  IN_COLLECTION,
+  MAYBE_LIST,
+  releaseById,
+  SECOND_RECORD,
+  triageKeyOf,
+} from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, LOGGED_LISTEN_MS, PAST_SANDBOX_PUSH_MS, TriagePage } from "../pages/triage.ts";
@@ -248,6 +257,69 @@ test.describe("in the sandbox, with dj's username and token", () => {
       expect(fakes.requests("GET /releases/:id")).toEqual([
         expect.objectContaining({ params: { id: releaseId }, query: { curr_abbr: "EUR" } }),
       ]);
+    },
+  );
+});
+
+test.describe("in the sandbox, with a Discogs account and its Maybe list", () => {
+  test.use({
+    diggaOptions: {
+      template: "small-account",
+      savedToken: "e2e-token-dj",
+      sandbox: true,
+      config: { discogs: { maybeListId: MAYBE_LIST.id } },
+    },
+  });
+
+  test(
+    "SBX-06 the Maybe list import in the sandbox reads the real list and keeps its maybes in the tab",
+    { tag: ["@SBX-06", "@P2"] },
+    async ({ app, fakes }) => {
+      const settings = new SettingsPage(app);
+      const twelves = new TwelvesPage(app);
+      const header = new HeaderPage(app);
+      const maybes = [FIRST_RECORD, SECOND_RECORD].map((fixture) => triageKeyOf(fixture));
+      const job = settings.jobs
+        .getByRole("row")
+        .filter({ has: app.page.getByRole("rowheader", { name: JOB_LABEL.import_list }) });
+      await settings.open();
+
+      const read = app.page.waitForResponse((response) =>
+        isRequest(response, "GET", `/api/discogs/lists/${MAYBE_LIST.id}`),
+      );
+      await settings.jobs.getByRole("button", { name: "Maybe list", exact: true }).click();
+      expect((await read).ok()).toBe(true);
+      await expect(
+        settings.root.getByText(
+          "Reading your Discogs Maybe list; its maybes stay in this tab (sandbox).",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(job.getByRole("cell", { name: "done", exact: true })).toBeVisible();
+      await expect(job).toContainText(`${MAYBE_LIST.items.length} items`);
+
+      await header.goTo("twelves");
+      await twelves.showShelf("maybe");
+      await expect(twelves.shelfOption("maybe")).toHaveAccessibleName(
+        `Maybe ${MAYBE_LIST.items.length}`,
+      );
+      await expect.poll(() => twelves.recordKeys()).toEqual(expect.arrayContaining(maybes));
+      await expect(twelves.maybeHandoff).toHaveText(
+        /^Every maybe here is on your Discogs Maybe list\./,
+      );
+
+      expect(fakes.requests("GET /lists/:id")).toEqual([
+        expect.objectContaining({ params: { id: String(MAYBE_LIST.id) } }),
+      ]);
+      expect(app.apiRequests()).not.toContain("POST /api/jobs/import/list");
+      expect(app.apiRequests().filter((request) => DIGGING_WRITE.test(request))).toEqual([]);
+      expect(
+        (await exportedVerdicts(app)).filter((verdict) => maybes.includes(verdict.key)),
+      ).toEqual([]);
+
+      await twelves.reload();
+      await twelves.showShelf("maybe");
+      await expect(twelves.shelfOption("maybe")).toHaveAccessibleName("Maybe 0");
     },
   );
 });

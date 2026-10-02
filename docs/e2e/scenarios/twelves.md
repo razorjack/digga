@@ -141,7 +141,11 @@ Priority: **P2**.
 
 Priority: **P2**.
 
-Switching the sandbox remounts the shelf in the new mode
+Switching the sandbox remounts the shelf in the new mode. The app starts in the sandbox until the
+settings have loaded, so Twelves opened at `#/twelves` on a live library mounts again once they
+arrive, as the header's sandbox stamp goes, and a re-judgement is saved. With the sandbox turned on
+in Settings, Twelves has no undo history (`Z` says "Nothing to undo.") and a re-judgement stays in
+the tab
 
 ## Completion contracts
 

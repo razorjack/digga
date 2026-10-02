@@ -50,7 +50,13 @@ Setup work is real in the sandbox: a collection import fills the Owned shelf, wh
 
 Priority: **P2**.
 
-The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab
+Given: `small-account` with a saved token and the Maybe list 9001.
+
+The Maybe list import in the sandbox reads the real list and keeps its maybes in the tab: Settings'
+Maybe list button reads `GET /api/discogs/lists/9001` (the fake gets one `GET /lists/9001`), starts
+no `POST /api/jobs/import/list` and says the maybes stay in the tab; the job's row ends done with
+the list's two items; Twelves' Maybe shelf holds both, on the list; the export has neither, and a
+reload empties the shelf
 
 ## SBX-07
 
@@ -67,6 +73,10 @@ on afterwards leaves the verdict saved (export), the fake has the `PUT`, and Twe
 - The sandbox sends no verdict request. Its helpers wait for the record to change and the slip to
   settle, and a sandbox want ends when the slip reads "Added to your wantlist (sandbox: nothing
   sent).", after a real `GET /api/releases/:id` and the sandbox's 350 ms delay.
+
+- The sandbox's Maybe list import (SBX-06) sends no job request. It ends once
+  `GET /api/discogs/lists/:id` has answered and the job's row, which Settings reads every second,
+  says done.
 
 - A negative check after a sandbox push that a mode switch interrupted (SBX-04) runs the clock
   past the push's 350 ms, then waits for the answer to a later request, the `GET /api/queue` that
