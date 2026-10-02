@@ -363,7 +363,7 @@
     <div class="record">
       {#if settingsFailed}
         <div class="state">
-          <p class="headline">The settings did not load.</p>
+          <h1 class="headline">The settings did not load.</h1>
           <p class="quiet">{settings.error}</p>
           <p class="quiet">The queue starts from your settings. Check that the server runs, then try again.</p>
           <p class="actions">
@@ -379,7 +379,7 @@
         </div>
       {:else if session.status === "error"}
         <div class="state">
-          <p class="headline">The queue did not load.</p>
+          <h1 class="headline">The queue did not load.</h1>
           <p class="quiet">{session.error}</p>
           <p class="quiet">
             Check that the server runs (<code>npm run digga -- serve</code>), then press
@@ -388,7 +388,7 @@
         </div>
       {:else if session.finished && loadStatus.loading}
         <div class="state">
-          <p class="headline">You have dug everything loaded so far.</p>
+          <h1 class="headline">You have dug everything loaded so far.</h1>
           <p class="quiet">
             {loadStatus.fraction === null ? "The catalogue is loading" : `${Math.floor(loadStatus.fraction * 100)}% of the catalogue is read`};
             records join the queue as they arrive, and the next one shows here.
@@ -396,7 +396,7 @@
         </div>
       {:else if session.finished && noReleases}
         <div class="state">
-          <p class="headline">No releases loaded yet.</p>
+          <h1 class="headline">No releases loaded yet.</h1>
           <p class="quiet">
             Digga digs a Discogs releases dump. In settings, under Jobs, "Update from the newest dump"
             downloads the latest one, over 10 GB, and loads it. The styles and years it keeps are under
@@ -410,7 +410,7 @@
         </div>
       {:else if session.finished && nothingMatches}
         <div class="state">
-          <p class="headline">Your filters match no records.</p>
+          <h1 class="headline">Your filters match no records.</h1>
           <p class="quiet">
             {formatCount(stats.value?.universe.keys ?? 0)} records are loaded. Widen the years, formats or
             countries in settings{settings.value?.filters.skipWithoutVideos
@@ -425,7 +425,7 @@
         </div>
       {:else if session.finished && session.scope}
         <div class="state">
-          <p class="headline">Nothing is left to dig from {SCOPE_NOUN[session.scope.kind]} {session.scope.name}.</p>
+          <h1 class="headline">Nothing is left to dig from {SCOPE_NOUN[session.scope.kind]} {session.scope.name}.</h1>
           <p class="quiet">
             Under your filters, that is: widen the years, formats or countries in settings to dig further.
           </p>
@@ -443,7 +443,7 @@
       {:else if session.finished}
         <div class="state finished">
           <Stamp text="all dug" tone="accent" size="xl" seed={1} slam />
-          <p class="headline">{endOfQueueHeadline(session.passed.length)}</p>
+          <h1 class="headline">{endOfQueueHeadline(session.passed.length)}</h1>
           <p class="quiet">
             {stats.value ? `${formatCount(stats.value.dug)} dug so far.` : ""}
             Widen the years, formats or countries in settings to dig further.

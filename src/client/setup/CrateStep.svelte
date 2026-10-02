@@ -231,7 +231,7 @@
       <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
     {/if}
 
-    <div class="keys" aria-label="Keys while you dig">
+    <div class="keys">
       <span class="quiet">Keys while you dig:</span>
       <span><Key label="Space" size="sm" /> listen</span>
       <span><Key label="R" size="sm" primary /> skip</span>
