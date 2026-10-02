@@ -2,7 +2,7 @@ import type { BrowserContext, Request } from "@playwright/test";
 import { type BrowserGuardLog, emptyGuardLog } from "./browser-guard.ts";
 
 /**
- * Problems a test causes on purpose (docs/E2E_TESTING.md, "Failure artifacts"). Each pattern is
+ * Problems a test causes on purpose (docs/e2e/AUTHORING.md#failure-artifacts). Each pattern is
  * matched against the entry as the log records it, such as "POST /api/verdicts".
  */
 export interface ExpectedProblems {

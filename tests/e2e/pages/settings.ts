@@ -26,7 +26,7 @@ const JOB_TIMEOUT_MS = 15_000;
 
 /**
  * The Settings page's locators and actions. Each action returns once the work it starts has
- * finished (docs/E2E_TESTING.md, "Synchronisation"); checks stay in the tests.
+ * finished (docs/e2e/AUTHORING.md#synchronisation); checks stay in the tests.
  */
 export class SettingsPage {
   readonly app: DiggaApp;

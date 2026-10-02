@@ -26,7 +26,7 @@ import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
 // Triage's queue: its end, rounds of snoozed records, hidden labels, scopes and batches
-// (docs/E2E_TESTING.md, "Triage").
+// (docs/e2e/scenarios/triage.md).
 
 /** A label with two records, BLT 010 and BLT 011, and nothing after them. */
 const TWO_RECORDS = ["Bassline Theory"];

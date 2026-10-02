@@ -25,7 +25,7 @@ export interface DumpFile {
 /**
  * A point where the compressor made a full flush. A gunzip stream given the bytes up to it yields
  * all the XML before it, so a transfer held there gives the load every release before it and no
- * part of the next one (docs/E2E_TESTING.md, "The fixture catalogue").
+ * part of the next one (docs/e2e/FIXTURES.md#the-fixture-catalogue).
  */
 export interface DumpCheckpoint {
   name: string;
@@ -180,7 +180,7 @@ function escapeXml(text: string): string {
 }
 
 /**
- * The small catalogue's monthly dumps (docs/E2E_TESTING.md, "The fixture catalogue"). The templates
+ * The small catalogue's monthly dumps (docs/e2e/FIXTURES.md#the-fixture-catalogue). The templates
  * load August; September adds three releases and drops one, and data.discogs.com lists it for the
  * update (SET-17), which a test can hold at its checkpoint; July is an older dump that only lies in
  * a dumps folder (SET-16).

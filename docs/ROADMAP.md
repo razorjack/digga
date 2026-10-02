@@ -74,6 +74,9 @@ Decisions 105 to 111; the design is `docs/FIRST_RUN.md`.
 
 ## Next
 
+- Continue the [E2E implementation plan](e2e/PLAN.md); its remaining coverage and dependencies
+  are tracked there. For individual test changes, use the [E2E guide](E2E_TESTING.md).
+
 - The style picker in Settings, instead of the comma-separated Styles field.
 - "Update from the newest dump" reading the dump while it downloads, as the setup does.
 

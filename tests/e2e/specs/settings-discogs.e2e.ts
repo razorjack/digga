@@ -9,7 +9,7 @@ import { TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
 
 // Settings and Discogs: the token, the requests a visit costs, the Maybe list and the import
-// jobs (docs/E2E_TESTING.md, "Settings").
+// jobs (docs/e2e/scenarios/settings.md).
 
 const ACCOUNT = { template: "small-account", savedToken: "e2e-token-dj" } as const;
 

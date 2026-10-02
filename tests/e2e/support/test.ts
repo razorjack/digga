@@ -160,7 +160,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 });
 
-/** Only a fake token may reach a Digga process (docs/E2E_TESTING.md, "Secrets"). */
+/** Only a fake token may reach a Digga process (docs/e2e/HARNESS.md#secrets-and-the-discogs-token). */
 function checkedToken(token: string | null): string | undefined {
   if (token === null) return undefined;
   if (!token.startsWith("e2e-")) throw new Error("only e2e- tokens reach a test's environment");
@@ -181,7 +181,7 @@ function testConfig(config: Config, options: DiggaOptions): Config {
   return { ...parsed, filters };
 }
 
-/** Text an agent can read without a trace viewer (docs/E2E_TESTING.md, "Failure artifacts"). */
+/** Text an agent can read without a trace viewer (docs/e2e/AUTHORING.md#failure-artifacts). */
 async function attachArtifacts(
   app: WebApp,
   fakes: FakeServices,

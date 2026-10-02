@@ -252,7 +252,7 @@ export class WebApp implements DiggaApp {
 
   /**
    * A blank page in a context that has everything the app needs before its first script
-   * (docs/E2E_TESTING.md, "Startup order").
+   * (docs/e2e/HARNESS.md#startup-order).
    */
   async #preparePage(origin: string): Promise<{ context: BrowserContext; page: Page }> {
     const context = await this.#options.browser.newContext(CONTEXT_OPTIONS);

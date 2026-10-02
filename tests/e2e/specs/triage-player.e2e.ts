@@ -24,7 +24,7 @@ import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
-// Triage's player and tracklist (docs/E2E_TESTING.md, "Triage").
+// Triage's player and tracklist (docs/e2e/scenarios/triage.md).
 
 test(
   "TRI-05 the next release's first video and J's track wait muted on hidden decks, and play without a new load",

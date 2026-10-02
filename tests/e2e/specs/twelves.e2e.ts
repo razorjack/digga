@@ -29,7 +29,7 @@ import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
 // Twelves without Discogs: the shelves, moving and sorting, the filter, notes, a round of snoozed
-// records, the Tracks shelf and the No audio shelf (docs/E2E_TESTING.md, "Twelves").
+// records, the Tracks shelf and the No audio shelf (docs/e2e/scenarios/twelves.md).
 
 test.describe("on an account's library", () => {
   test.use({ diggaOptions: { template: "small-account" } });

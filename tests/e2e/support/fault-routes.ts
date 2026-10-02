@@ -15,7 +15,7 @@ export interface AbortedRequests {
 /**
  * Aborts the page's next `times` requests that match, as a dropped connection would, or every
  * one until lift() with `times: Infinity`; the transport failure is the one thing a test may fake
- * about Digga's own /api (docs/E2E_TESTING.md, "The fake services"). Registered after the base
+ * about Digga's own /api (docs/e2e/FIXTURES.md#the-fake-services). Registered after the base
  * route, it passes every other request back to it with route.fallback(), since Playwright tries
  * the newest matching route first.
  */

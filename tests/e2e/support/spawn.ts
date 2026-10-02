@@ -7,7 +7,7 @@ import type { ServiceUrls } from "../../../tools/dev/fake-services.ts";
  * Starts every Digga process the harness needs, with the same isolation: the repository's CLI
  * under the running Node, a working directory without a .env, an environment built from nothing,
  * paths checked against the run's temp root, and the network guard loaded before the app
- * (docs/E2E_TESTING.md, "Launching processes").
+ * (docs/e2e/HARNESS.md#launching-processes).
  */
 
 const CLI = fileURLToPath(new URL("../../../src/cli/digga.ts", import.meta.url));

@@ -1,5 +1,7 @@
 # Electron plan
 
+For the test host, preload and release checks, read the [Electron E2E plan](e2e/ELECTRON.md).
+
 Packaging recipe against the current code. No Electron dependency exists yet; this documents how
 the shell wraps the server without changing it.
 

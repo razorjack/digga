@@ -16,7 +16,7 @@ import { TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
 
 // Twelves and Discogs: re-judging, retried pushes, the Maybe list and undo, with dj's collection
-// and wantlist imported (docs/E2E_TESTING.md, "Twelves").
+// and wantlist imported (docs/e2e/scenarios/twelves.md).
 
 const ACCOUNT = { template: "small-account", savedToken: "e2e-token-dj" } as const;
 

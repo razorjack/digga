@@ -13,7 +13,7 @@ import { BULK, type FixtureRelease, triageKeyOf } from "./catalogue.ts";
 
 /**
  * Decisions backups as `digga backup` writes them, for given state too large to write through the
- * API one verdict at a time (docs/E2E_TESTING.md, "Libraries").
+ * API one verdict at a time (docs/e2e/FIXTURES.md#libraries).
  */
 
 /** When the generated backups were written; their verdicts were decided before it. */

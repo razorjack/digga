@@ -8,8 +8,9 @@ import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import { type DiggaEnvironment, type DiggaLibrary, runDiggaOrThrow } from "./spawn.ts";
 
 /**
- * Libraries built once per run with the real CLI, which each test copies (docs/E2E_TESTING.md,
- * "Libraries"). A template is built the first time a test asks for it, in a folder of its own,
+ * Libraries built once per run with the real CLI, which each test copies
+ * (docs/e2e/FIXTURES.md#libraries). A template is built the first time a test asks for it,
+ * in a folder of its own,
  * and renamed into place; a worker that finds it there already discards its copy.
  */
 

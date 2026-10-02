@@ -2,7 +2,7 @@ import type { YTPlayer, YTPlayerOptions } from "../../../src/client/player/youtu
 
 /**
  * A stand-in for the YouTube IFrame API, installed by an init script before the app's first line
- * (docs/E2E_TESTING.md, "The fake YouTube IFrame API"). `loadYouTubeApi()` finds `window.YT`
+ * (docs/e2e/FIXTURES.md#the-fake-youtube-iframe-api). `loadYouTubeApi()` finds `window.YT`
  * and loads nothing. The functions and the class below run in the page: fakeYouTubeScript()
  * sends their source, so they may use nothing from this module at run time.
  */

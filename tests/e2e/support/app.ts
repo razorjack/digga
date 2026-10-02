@@ -8,7 +8,7 @@ import type { DiggaLibrary, DiggaRun } from "./spawn.ts";
 
 /**
  * What a test gets: the window under test and the app's own API, whichever host runs it
- * (docs/E2E_TESTING.md, "The app host"). The web host implements all of it; the Electron host
+ * (docs/e2e/HARNESS.md#the-app-host). The web host implements all of it; the Electron host
  * will not have restartServer().
  */
 export interface DiggaApp {
@@ -94,7 +94,7 @@ export class AppApiClient {
 
 /**
  * Decisions a test starts from, written through the app's own /api as the page would write them,
- * before the page opens (docs/E2E_TESTING.md, "Libraries").
+ * before the page opens (docs/e2e/FIXTURES.md#libraries).
  */
 export class Given {
   readonly #api: () => AppApiClient;
@@ -185,7 +185,7 @@ export class FakeYouTubeHandle {
 const PAUSE_LEAD_MS = 1000;
 
 /**
- * Playwright's clock in the current page (docs/E2E_TESTING.md, "Time"). The host installs it before
+ * Playwright's clock in the current page (docs/e2e/AUTHORING.md#time). The host installs it before
  * the app starts when the test asks for it; time then flows, so polling runs, until pause().
  */
 export class PageClock {

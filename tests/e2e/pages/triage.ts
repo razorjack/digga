@@ -32,7 +32,7 @@ export function trackMarkKey(mark: TrackMark): string {
 
 /**
  * Triage's locators and actions. Each action returns once the work it starts has finished, not at
- * its first visible sign (docs/E2E_TESTING.md, "Synchronisation"); checks stay in the tests.
+ * its first visible sign (docs/e2e/AUTHORING.md#synchronisation); checks stay in the tests.
  */
 export class TriagePage {
   readonly app: DiggaApp;

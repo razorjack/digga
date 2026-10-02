@@ -9,7 +9,7 @@ declare global {
 
 /**
  * Screen readers announce changes inside a live region that is already in the page, and may say
- * nothing of a region inserted together with its text (docs/E2E_TESTING.md, "Markup audit", bug 4).
+ * nothing of a region inserted together with its text (docs/e2e/AUTHORING.md#markup-audit, bug 4).
  * The watch records every live region inserted holding text, from the page's first script on.
  */
 export class LiveRegionWatch {

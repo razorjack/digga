@@ -3,7 +3,7 @@ import { triageKeyFor } from "../../../src/shared/triage-key.ts";
 /**
  * Every release, label, track, video and Discogs account the end-to-end tests use. The dump
  * files, the fake Discogs API and the fake YouTube player all read it, so the three agree
- * (docs/E2E_TESTING.md, "The fixture catalogue").
+ * (docs/e2e/FIXTURES.md#the-fixture-catalogue).
  */
 
 export interface FixtureTrack {
@@ -577,7 +577,7 @@ const BULK_ARTISTS = 200;
 
 /**
  * The transfer of the bulk dump can be held after this many records, each one to dig, so the
- * setup reaches exact states (docs/E2E_TESTING.md, "The fixture catalogue").
+ * setup reaches exact states (docs/e2e/FIXTURES.md#the-fixture-catalogue).
  */
 export const BULK_CHECKPOINTS = { "100-to-dig": 100, "600-to-dig": 600 };
 

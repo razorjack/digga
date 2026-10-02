@@ -29,7 +29,7 @@ import type { FakeServices } from "../../../tools/dev/fake-services.ts";
 import { expect, test } from "../support/test.ts";
 
 // Settings without Discogs: the form, the filter preview, the player, the dumps folder and the
-// exports (docs/E2E_TESTING.md, "Settings").
+// exports (docs/e2e/scenarios/settings.md).
 
 test(
   "SET-01 the form shows the saved config; a change is unsaved until Save or Cmd+S, Revert restores, a reload keeps it",

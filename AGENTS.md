@@ -50,8 +50,10 @@ vp run verify                    # all four of the above, then vp run e2e:smoke 
 ### End-to-end tests
 
 Playwright drives the built app in Chromium against fake Discogs and YouTube services
-(`docs/E2E_TESTING.md`, whose "Rules for agents writing E2E tests" apply). Install the browser once
-with `npx playwright install chromium`.
+([docs/E2E_TESTING.md](docs/E2E_TESTING.md)). When writing or debugging E2E tests, read its
+binding rules and follow the task router to the relevant documents. Load the implementation
+plan only when continuing E2E project work, and history only when investigating earlier findings.
+Install the browser once with `npx playwright install chromium`.
 
 ```sh
 vp run e2e                       # vp build, then every scenario in tests/e2e/specs/
@@ -92,6 +94,7 @@ digga.config.example.json  the schema defaults a new digga.config.json starts wi
 .env.example           DIGGA_DATA_DIR, DIGGA_DUMPS_DIR, DIGGA_CONFIG_FILE, DISCOGS_TOKEN (copy to .env, gitignored)
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
                        FIRST_RUN (the setup's design) STYLE_CENSUS (what it is, how to refresh the shipped one)
+                       E2E_TESTING (commands, rules and task routes), e2e/ (task-specific references and scenarios)
 scripts/check-portability.ts
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
@@ -356,5 +359,6 @@ client TypeScript and CSS.
 - `docs/FIRST_RUN.md` for the first run (the setup) being built, and `docs/STYLE_CENSUS.md` for
   refreshing the style census it ships.
 - `docs/ELECTRON_PLAN.md` for packaging.
-- `docs/E2E_TESTING.md` for the end-to-end tests: the harness, the scenarios and what the runs showed.
+- [docs/E2E_TESTING.md](docs/E2E_TESTING.md) for E2E commands, binding rules and task-specific
+  document routes; [docs/e2e/PLAN.md](docs/e2e/PLAN.md) when continuing the E2E implementation.
 - `docs/DECISIONS.md` for why things are the way they are.

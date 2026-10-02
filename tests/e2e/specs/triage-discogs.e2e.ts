@@ -12,7 +12,7 @@ import { MARKET } from "../../../tools/dev/fake-services.ts";
 import { expect, test } from "../support/test.ts";
 
 // Triage and Discogs: pushes to the wantlist, the market line, and the links out
-// (docs/E2E_TESTING.md, "Triage").
+// (docs/e2e/scenarios/triage.md).
 
 const ACCOUNT = { template: "small-account", savedToken: "e2e-token-dj" } as const;
 

@@ -52,7 +52,7 @@ test(
       `from ${formatDumpDate(dump.date)}: ${formatBytes(dump.bytes)}, into ` +
         homeRelative(app.library.dumpsDir),
     );
-    // The disk is the machine's own (docs/E2E_TESTING.md, "Disk space"), so only its shape is known.
+    // The disk is the machine's own (docs/e2e/HARNESS.md#disk-space), so only its shape is known.
     await expect(catalogueLine(setup)).toContainText(/\(\d+(\.\d)? (B|KB|MB|GB) free\)\./);
     expect(dumpDownloads(fakes)).toEqual([]);
     expect(app.apiRequests()).not.toContain("POST /api/jobs/dump-download");

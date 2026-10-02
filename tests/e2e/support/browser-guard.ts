@@ -14,8 +14,8 @@ export function emptyGuardLog(): BrowserGuardLog {
 }
 
 /**
- * The browser's layers of the network guard (docs/E2E_TESTING.md). Only the app's exact origin
- * gets through, and the harness fetches those requests itself with redirects refused, since
+ * The browser's layers of the network guard (docs/e2e/HARNESS.md#the-network-and-filesystem-guard).
+ * Only the app's exact origin gets through, and the harness fetches those requests itself with redirects refused, since
  * Playwright does not route the requests that follow a redirect in Chromium. Every WebSocket is
  * closed. Routes registered later call route.fallback() for what they do not handle.
  */
