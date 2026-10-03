@@ -103,3 +103,8 @@ export function resolveDumpFile(paths: Paths, file: string): string {
   if (file === "-" || path.isAbsolute(file)) return file;
   return path.resolve(paths.dumpsDir, file);
 }
+
+/** A schema upgrade keeps the pre-migration database separately from rotating daily copies. */
+export function migrationBackupFile(dbFile: string, version: number): string {
+  return path.join(path.dirname(dbFile), "backups", `before-migration-${version}.sqlite`);
+}

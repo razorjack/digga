@@ -543,6 +543,8 @@ class SandboxApi implements Api {
 
   getDiscogsList: Api["getDiscogsList"] = (id) => this.#inner.getDiscogsList(id);
 
+  backupNow: Api["backupNow"] = () => this.#inner.backupNow();
+
   getBackups: Api["getBackups"] = () => this.#inner.getBackups();
 
   getSetup: Api["getSetup"] = () => this.#inner.getSetup();

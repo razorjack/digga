@@ -122,9 +122,10 @@ describe("exports", () => {
     expect(body).toEqual({
       directory: path.join(tmp, "backups"),
       databaseFile: ":memory:",
-      kept: 2,
+      kept: 7,
       backups: [],
       decisions: { kept: 30, backups: [] },
+      checkpoints: { kept: 48, backups: [] },
     });
   });
 });

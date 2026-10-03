@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { backupDaily, listBackups, localDay, writeBackup } from "../src/server/db/backup.ts";
-import { type Db, openDb } from "../src/server/db/db.ts";
+import { type Db, openDb, applyMigrations, listMigrations, getMeta } from "../src/server/db/db.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { listDecisionsBackups } from "../src/server/decisions-backup.ts";
@@ -26,6 +26,32 @@ afterEach(() => {
 });
 
 describe("database backups", () => {
+  it("copies the old schema and decisions before applying new migrations", () => {
+    const migrations = path.join(tmp, "old-migrations");
+    fs.mkdirSync(migrations);
+    for (const migration of listMigrations().filter((item) => item.version <= 10))
+      fs.copyFileSync(migration.file, path.join(migrations, migration.name));
+    const file = path.join(tmp, "old.sqlite");
+    const old = openDb(file, { foreign: true });
+    applyMigrations(old, migrations);
+    upsertVerdict(old, {
+      key: "r:1",
+      status: "accepted",
+      source: "triage",
+      notes: "before upgrade",
+    });
+    old.close();
+    const upgraded = openDb(file);
+    expect(Number(getMeta(upgraded, "schema_version"))).toBeGreaterThan(10);
+    upgraded.close();
+    const snapshot = openDb(path.join(tmp, "backups", "before-migration-10.sqlite"), {
+      readonly: true,
+    });
+    expect(getMeta(snapshot, "schema_version")).toBe("10");
+    expect(getVerdict(snapshot, "r:1")?.notes).toBe("before upgrade");
+    snapshot.close();
+  });
+
   it("copies the database once per day, as a database that opens", async () => {
     const dir = path.join(tmp, "backups");
     const first = await backupDaily(db, { dir, day: "2026-09-28" });

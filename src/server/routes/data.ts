@@ -1,7 +1,14 @@
 import { type Context, Hono } from "hono";
 import { type BackupSummary, type BackupsResponse, EXPORT_FILES } from "../../shared/api.ts";
-import { type BackupFile, BACKUPS_KEPT, localDay, listBackups } from "../db/backup.ts";
-import { DECISIONS_BACKUPS_KEPT, listDecisionsBackups } from "../decisions-backup.ts";
+import { type BackupFile, BACKUPS_KEPT, localDay, listBackups, writeBackup } from "../db/backup.ts";
+import {
+  DECISIONS_BACKUPS_KEPT,
+  listDecisionsBackups,
+  checkpointDecisions,
+  listCheckpoints,
+  CHECKPOINTS_KEPT,
+  writeDecisionsBackup,
+} from "../decisions-backup.ts";
 import { buildExport } from "../export.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest } from "./request.ts";
@@ -9,6 +16,19 @@ import { badRequest } from "./request.ts";
 /** The user's own data: the daily database copies and exports of every decision. */
 export function registerDataRoutes(api: Hono, context: AppContext): void {
   api.get("/backups", (request) => backups(request, context));
+  api.post("/backups", async (request) => {
+    const now = new Date();
+    const options = {
+      dir: context.paths.backupsDir,
+      day: localDay(now),
+      now,
+      config: context.getConfig(),
+    };
+    await writeDecisionsBackup(context.db, options);
+    await checkpointDecisions(context.db, options);
+    await writeBackup(context.db, options);
+    return backups(request, context);
+  });
   api.get("/export/:file", (request) => exportFile(request, context));
 }
 
@@ -19,6 +39,7 @@ function backups(request: Context, context: AppContext) {
     databaseFile: context.paths.dbFile,
     kept: BACKUPS_KEPT,
     backups: listBackups(directory).map(summarize),
+    checkpoints: { kept: CHECKPOINTS_KEPT, backups: listCheckpoints(directory).map(summarize) },
     decisions: {
       kept: DECISIONS_BACKUPS_KEPT,
       backups: listDecisionsBackups(directory).map(summarize),

@@ -1,3 +1,4 @@
+import { migrationBackupFile } from "../paths.ts";
 import BetterSqlite3 from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
@@ -28,10 +29,18 @@ export function openDb(file: string, options: OpenOptions = {}): Db {
     fileMustExist: options.readonly ?? false,
   });
   if (options.foreign) return db;
-  if (file !== ":memory:") db.pragma("journal_mode = WAL");
+  if (file !== ":memory:" && !options.readonly) db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
-  if (!options.readonly) applyMigrations(db);
+  if (!options.readonly) {
+    try {
+      backupBeforeMigration(db, file);
+      applyMigrations(db);
+    } catch (error) {
+      db.close();
+      throw error;
+    }
+  }
   return db;
 }
 
@@ -83,4 +92,19 @@ export function setMeta(db: Db, key: string, value: string): void {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+function backupBeforeMigration(db: Db, file: string): void {
+  if (file === ":memory:") return;
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get())
+    return;
+  const version = Number(getMeta(db, "schema_version") ?? 0);
+  if (version === 0 || !listMigrations().some((migration) => migration.version > version)) return;
+  const backup = migrationBackupFile(file, version);
+  fs.mkdirSync(path.dirname(backup), { recursive: true });
+  // VACUUM INTO takes a consistent snapshot including WAL contents before any migration runs.
+  const partial = `${backup}.partial`;
+  fs.rmSync(partial, { force: true });
+  db.prepare("VACUUM INTO ?").run(partial);
+  fs.renameSync(partial, backup);
 }

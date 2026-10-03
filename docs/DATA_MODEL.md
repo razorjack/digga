@@ -189,3 +189,12 @@ census shipped with Digga instead.
 ## meta
 
 Key/value: `schema_version`, `dump_date` (from the dump file name), `dump_file`, `dump_loaded_at`.
+
+## Backup schedule
+
+The server writes daily database copies (seven retained) and daily portable decisions backups
+(thirty retained). Every fifteen minutes and at clean shutdown it also writes a checkpoint of
+changed personal data and settings (forty-eight retained). Settings offers **Back up now**.
+Opening an existing database with pending migrations first writes a consistent
+`backups/before-migration-<version>.sqlite` copy, including committed WAL data. These copies do
+not participate in daily retention. Checkpoints restore through the same CLI as daily backups.

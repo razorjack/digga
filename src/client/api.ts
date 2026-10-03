@@ -88,6 +88,7 @@ export interface Api {
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
   getBackups(): Promise<BackupsResponse>;
+  backupNow(): Promise<BackupsResponse>;
   /** What the first run needs: whether it is needed, the newest catalogue, suggestions. */
   getSetup(): Promise<SetupResponse>;
   /** Releases per style and year in the catalogue, for the style picker. */
@@ -188,6 +189,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getDiscogsLists: () => callDiscogs("GET", "/discogs/lists"),
     getDiscogsList: (id) => callList("GET", `/discogs/lists/${id}`),
     getBackups: () => call("GET", "/backups"),
+    backupNow: () => call("POST", "/backups"),
     getSetup: () => call("GET", "/setup"),
     getStyles: () => call("GET", "/styles"),
     getDiscogsProfile: () => callDiscogs("GET", "/discogs/profile"),
@@ -257,6 +259,7 @@ export function createAppApi(
     getDiscogsLists: () => current.getDiscogsLists(),
     getDiscogsList: (id) => current.getDiscogsList(id),
     getBackups: () => current.getBackups(),
+    backupNow: () => current.backupNow(),
     getSetup: () => current.getSetup(),
     getStyles: () => current.getStyles(),
     getDiscogsProfile: () => current.getDiscogsProfile(),

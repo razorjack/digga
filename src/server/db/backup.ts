@@ -1,9 +1,10 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Db } from "./db.ts";
 
 /** Daily copies kept in the backups directory; older ones are deleted. */
-export const BACKUPS_KEPT = 2;
+export const BACKUPS_KEPT = 7;
 
 const BACKUP_FILE = /^digga-(\d{4}-\d{2}-\d{2})\.sqlite$/;
 
@@ -31,7 +32,7 @@ export async function backupDaily(db: Db, options: BackupOptions): Promise<Backu
 export async function writeBackup(db: Db, options: BackupOptions): Promise<BackupFile> {
   const file = backupPath(options.dir, options.day);
   // A copy interrupted halfway must not count as the day's backup.
-  const partial = `${file}.partial`;
+  const partial = `${file}.${randomUUID()}.partial`;
   fs.mkdirSync(options.dir, { recursive: true });
   await db.backup(partial);
   fs.renameSync(partial, file);

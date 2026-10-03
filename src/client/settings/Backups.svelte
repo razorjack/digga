@@ -9,6 +9,22 @@
   let backups = $state<BackupsResponse | null>(null);
   let error = $state<string | null>(null);
 
+  let saving = $state(false);
+  let message = $state<string | null>(null);
+
+  async function backupNow(): Promise<void> {
+    saving = true;
+    message = null;
+    try {
+      backups = await api.backupNow();
+      message = "Backup saved.";
+    } catch (error) {
+      message = `Backup failed: ${errorMessage(error)}`;
+    } finally {
+      saving = false;
+    }
+  }
+
   const latest = $derived(backups?.backups[0] ?? null);
   const latestDecisions = $derived(backups?.decisions.backups[0] ?? null);
 
@@ -22,6 +38,8 @@
 
 <section class="data" aria-labelledby="{id}-title">
   <h2 id="{id}-title">Backups and exports</h2>
+  <div><button type="button" disabled={saving} aria-busy={saving} onclick={() => void backupNow()}>Back up now</button></div>
+  <p role="status">{message ?? ""}</p>
   {#if error}
     <p>Backups did not load: {error}</p>
   {:else if backups}
@@ -33,8 +51,7 @@
       {:else}
         no backup yet.
       {/if}
-      Once a day Digga writes what only you made here, your verdicts with their notes, track marks, the tunes you
-      heard and the links you attached, to <code>decisions-YYYY-MM-DD.json.gz</code>, and keeps the last
+      Once a day Digga writes your verdicts, notes, track marks, listening and decision histories, attached links and settings, to <code>decisions-YYYY-MM-DD.json.gz</code>, and keeps the last
       {backups.decisions.kept}. Days when nothing changed add none. <code>npm run digga -- restore</code> with
       the file brings them back into a library loaded from a dump.
     </p>
@@ -49,7 +66,16 @@
       Digga copies it once a day while the server runs and keeps the last {backups.kept}. To restore one, stop the
       server and copy it over <code>{backups.databaseFile}</code>.
     </p>
-    <p>Both are in <code>{backups.directory}</code>.</p>
+    <p>
+      Every fifteen minutes and when the server stops cleanly, changed personal data gets a checkpoint.
+      Digga keeps the last {backups.checkpoints.kept} in addition to the daily backups.
+      {#if backups.checkpoints.backups[0]}
+        Latest checkpoint: <code>{backups.checkpoints.backups[0].day}</code>.
+      {/if}
+      Schema upgrades first save a separate <code>before-migration</code> database copy.
+      Use <code>restore &lt;file&gt; --config</code> to restore settings as well.
+    </p>
+    <p>All backups are in <code>{backups.directory}</code>.</p>
   {/if}
   <p>
     Export what is saved:

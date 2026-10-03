@@ -1,4 +1,5 @@
 import type { Config } from "../shared/config.ts";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -91,24 +92,11 @@ async function saveDecisionsBackup(
   data: BackedUpData,
   options: DecisionsBackupOptions,
 ): Promise<BackupFile> {
-  const backup: DecisionsBackup = {
-    app: "digga",
-    kind: "decisions",
-    version: DECISIONS_BACKUP_VERSION,
-    backedUpAt: options.now.toISOString(),
-    config: options.config ?? null,
-    ...data,
-  };
-  const compressed = await gzip(formatDecisionsBackup(backup), { level: 9 });
   const file = decisionsPath(options.dir, options.day);
-  // A write interrupted halfway must not count as the day's backup.
-  const partial = `${file}.partial`;
-  fs.mkdirSync(options.dir, { recursive: true });
-  fs.writeFileSync(partial, compressed);
-  fs.renameSync(partial, file);
+  const bytes = await writeDecisionsFile(data, options, file);
   for (const old of listDecisionsBackups(options.dir).slice(options.keep ?? DECISIONS_BACKUPS_KEPT))
     fs.rmSync(old.file, { force: true });
-  return { file, day: options.day, bytes: compressed.length };
+  return { file, day: options.day, bytes };
 }
 
 function formatSections(data: BackedUpData): string {
@@ -143,4 +131,53 @@ function unchangedSince(file: string, data: BackedUpData): boolean {
 
 function decisionsPath(dir: string, day: string): string {
   return path.join(dir, `decisions-${day}.json.gz`);
+}
+
+const CHECKPOINT_FILE = /^checkpoint-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json\.gz$/;
+export const CHECKPOINTS_KEPT = 48;
+
+export function listCheckpoints(dir: string): BackupFile[] {
+  return listDatedFiles(dir, CHECKPOINT_FILE);
+}
+
+/** Changed personal data every fifteen minutes, and at a clean server shutdown. */
+export async function checkpointDecisions(
+  db: Db,
+  options: DecisionsBackupOptions,
+): Promise<BackupFile | null> {
+  const data = readBackedUpData(db);
+  const newest = listCheckpoints(options.dir)[0];
+  if (
+    newest &&
+    unchangedSince(newest.file, data) &&
+    JSON.stringify(readDecisionsBackup(newest.file).config) ===
+      JSON.stringify(options.config ?? null)
+  )
+    return null;
+  const stamp = options.now.toISOString().replace(/[:.]/g, "-");
+  const file = path.join(options.dir, `checkpoint-${stamp}.json.gz`);
+  const bytes = await writeDecisionsFile(data, options, file);
+  for (const old of listCheckpoints(options.dir).slice(CHECKPOINTS_KEPT)) fs.rmSync(old.file);
+  return { file, day: stamp, bytes };
+}
+
+async function writeDecisionsFile(
+  data: BackedUpData,
+  options: DecisionsBackupOptions,
+  file: string,
+): Promise<number> {
+  const backup: DecisionsBackup = {
+    app: "digga",
+    kind: "decisions",
+    version: DECISIONS_BACKUP_VERSION,
+    backedUpAt: options.now.toISOString(),
+    config: options.config ?? null,
+    ...data,
+  };
+  const compressed = await gzip(formatDecisionsBackup(backup), { level: 9 });
+  const partial = `${file}.${randomUUID()}.partial`;
+  fs.mkdirSync(options.dir, { recursive: true });
+  fs.writeFileSync(partial, compressed);
+  fs.renameSync(partial, file);
+  return compressed.length;
 }

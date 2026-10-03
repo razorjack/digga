@@ -479,6 +479,7 @@ export interface BackupsResponse {
   backups: BackupSummary[];
   /** The daily decisions backups in the same folder, newest first. */
   decisions: { kept: number; backups: BackupSummary[] };
+  checkpoints: { kept: number; backups: BackupSummary[] };
 }
 
 // GET /api/export/:file
