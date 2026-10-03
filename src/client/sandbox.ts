@@ -1,5 +1,3 @@
-import { assertTrackIdentity, markForTrack } from "../shared/track-identity.ts";
-import type { TuneSnapshot, TrackVerdictInput } from "../shared/api.ts";
 import {
   ImportJobInputSchema,
   ListenLogInputSchema,
@@ -9,11 +7,14 @@ import {
   type MarkedTrack,
   type QueueItem,
   type ReleaseDetail,
+  type TrackVerdictInput,
+  type TuneSnapshot,
   type TwelvesItem,
 } from "../shared/api.ts";
 import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type ScopeRef, scopeKey } from "../shared/scope.ts";
+import { assertTrackIdentity, markForTrack } from "../shared/track-identity.ts";
 import type { Job, TrackVerdict, Verdict } from "../shared/types.ts";
 import { dugAtAfter, seedRank } from "../shared/verdict-rank.ts";
 import type { Api } from "./api.ts";
@@ -35,6 +36,12 @@ interface LocalVerdict {
 const MAX_QUEUE_LIMIT = 5000;
 
 const markKey = (releaseId: number, position: string) => `${releaseId}\n${position}`;
+
+/** The track still at the mark's position with the mark's tune, as the server's list matches it. */
+function isMarkedTrack(track: TuneSnapshot & { position: string }, mark: TrackVerdict): boolean {
+  if (track.position !== mark.position) return false;
+  return !mark.heardKey || track.heardKey === mark.heardKey;
+}
 
 function queueItemFromDetail(detail: ReleaseDetail, videoCount: number): QueueItem {
   const release = detail.release;
@@ -110,11 +117,16 @@ class SandboxApi implements Api {
     }
   >();
 
+  /** Triage keys the server listed on the wantlist in the latest Twelves or track marks read. */
   #serverWantlist = new Set<string>();
+
+  /** The queue filter of the same name, as the latest queue or stats read found it. */
   #skipHistory = true;
 
+  /** The tune each mark made in the sandbox was first saved with, by markKey(). */
   #markTunes = new Map<string, TuneSnapshot>();
 
+  /** Release notes written in the sandbox, by release id. */
   #notes = new Map<number, string | null>();
 
   #listenSeq = 0;
@@ -135,15 +147,17 @@ class SandboxApi implements Api {
       if (trackVerdict) trackVerdicts.set(position, trackVerdict);
       else trackVerdicts.delete(position);
     }
+    const marks = [...trackVerdicts.values()];
+    const releaseId = detail.release.id;
     return {
       ...detail,
-      note: this.#notes.has(detail.release.id) ? this.#notes.get(detail.release.id)! : detail.note,
+      note: this.#notes.has(releaseId) ? this.#notes.get(releaseId) : detail.note,
       tracks: detail.tracks.map((track) => ({
         ...track,
         heard: track.heard || this.#heard.has(track.heardKey),
-        mark: markForTrack(track, [...trackVerdicts.values()], detail.tracks)?.mark ?? null,
+        mark: markForTrack(track, marks, detail.tracks)?.mark ?? null,
       })),
-      trackVerdicts: [...trackVerdicts.values()],
+      trackVerdicts: marks,
       verdict: this.#verdicts.get(detail.release.triageKey)?.verdict ?? detail.verdict,
     };
   };
@@ -166,18 +180,28 @@ class SandboxApi implements Api {
     return detail ? queueItemFromDetail(detail, detail.videos.length) : null;
   };
 
-  /** Local verdicts on previously undecided keys reduce the remaining count. */
+  /** Local verdicts that took a record out of the queue reduce the remaining count. */
   #newlyDecided = () =>
-    [...this.#verdicts.values()].filter((local) => this.#changesQueue(local)).length;
+    [...this.#verdicts.values()].filter((local) => this.#leftQueue(local)).length;
 
+  /**
+   * The queue holds a record with this verdict: none (null), or a history "seen" while the
+   * filters do not skip history. Undefined is a verdict the sandbox never saw.
+   */
   #isQueued(verdict: Verdict | null | undefined): boolean {
-    return verdict === null || (!this.#skipHistory && verdict?.status === "seen");
+    if (verdict === null) return true;
+    return verdict?.status === "seen" && !this.#skipHistory;
   }
 
-  #changesQueue(
-    local: { base: Verdict | null | undefined; verdict: Verdict } | undefined,
-  ): boolean {
-    return local !== undefined && this.#isQueued(local.base) && !this.#isQueued(local.verdict);
+  #leftQueue(local: LocalVerdict | undefined): boolean {
+    if (!local) return false;
+    return this.#isQueued(local.base) && !this.#isQueued(local.verdict);
+  }
+
+  /** A wantlist change made in the sandbox wins over what the server reports. */
+  #isOnWantlist(release: QueueItem | null, onServer: boolean): boolean {
+    if (!release) return false;
+    return this.#wantlist.get(release.triageKey) ?? onServer;
   }
 
   #keysInScope = (scope: ScopeRef): Set<string> => {
@@ -193,7 +217,7 @@ class SandboxApi implements Api {
   #remainingAfterLocal = (remaining: number, scope?: ScopeRef): number => {
     if (!scope) return Math.max(0, remaining - this.#newlyDecided());
     const keys = [...this.#keysInScope(scope)];
-    const decided = keys.filter((key) => this.#changesQueue(this.#verdicts.get(key))).length;
+    const decided = keys.filter((key) => this.#leftQueue(this.#verdicts.get(key))).length;
     return Math.max(0, remaining - decided);
   };
 
@@ -310,7 +334,8 @@ class SandboxApi implements Api {
         if (!this.#serverVerdicts.has(item.triageKey))
           this.#serverVerdicts.set(item.triageKey, null);
         const local = this.#verdicts.get(item.triageKey);
-        if ((!local || this.#isQueued(local.verdict)) && items.length < want) items.push(item);
+        const stillQueued = !local || this.#isQueued(local.verdict);
+        if (stillQueued && items.length < want) items.push(item);
       }
       offset += response.items.length;
       if (items.length >= want || response.items.length < limit)
@@ -391,9 +416,11 @@ class SandboxApi implements Api {
       this.#marks.set(key, null);
       return null;
     }
-    // Omitted notes and moment stay; an unchanged mark keeps its date.
+
+    // As on the server, a mark keeps the tune it was first saved with.
     const tune = this.#trackTune(trackVerdict);
     if (tune && !previous) this.#markTunes.set(key, tune);
+    // Omitted notes and moment stay; an unchanged mark keeps its date.
     const mark: TrackVerdict = {
       releaseId: trackVerdict.releaseId,
       position: trackVerdict.position,
@@ -408,6 +435,7 @@ class SandboxApi implements Api {
     return { ...mark };
   };
 
+  /** The tune the input names, else the one the tracklist has at the position. */
   #trackTune(input: TrackVerdictInput): TuneSnapshot | undefined {
     return (
       input.tune ??
@@ -430,9 +458,7 @@ class SandboxApi implements Api {
       if (this.#marks.has(markKey(item.mark.releaseId, item.mark.position))) continue;
       items.push({
         ...item,
-        onWantlist: item.release
-          ? (this.#wantlist.get(item.release.triageKey) ?? item.onWantlist)
-          : false,
+        onWantlist: this.#isOnWantlist(item.release, item.onWantlist ?? false),
         verdict: this.#localVerdict(item.release) ?? item.verdict,
       });
     }
@@ -443,21 +469,17 @@ class SandboxApi implements Api {
 
   #markedTrack(mark: TrackVerdict): MarkedTrack {
     const detail = this.#details.get(mark.releaseId);
-    const track = detail?.tracks.find(
-      (candidate) =>
-        candidate.position === mark.position &&
-        (!mark.heardKey || candidate.heardKey === mark.heardKey),
-    );
+    const track = detail?.tracks.find((candidate) => isMarkedTrack(candidate, mark));
     const tune = this.#markTunes.get(markKey(mark.releaseId, mark.position)) ?? track;
     const release = detail
       ? queueItemFromDetail(detail, detail.videos.length)
       : (this.#releases.get(mark.releaseId) ?? null);
-    const serverVerdict = release ? (this.#serverVerdicts.get(release.triageKey) ?? null) : null;
+    const key = release?.triageKey;
+    const serverVerdict = key === undefined ? null : (this.#serverVerdicts.get(key) ?? null);
+    const onServerWantlist = key !== undefined && this.#serverWantlist.has(key);
     return {
       mark: { ...mark },
-      onWantlist:
-        release !== null &&
-        (this.#wantlist.get(release.triageKey) ?? this.#serverWantlist.has(release.triageKey)),
+      onWantlist: this.#isOnWantlist(release, onServerWantlist),
       tracklistChanged: !track,
       track: tune
         ? {
@@ -496,7 +518,7 @@ class SandboxApi implements Api {
       if (item.release) this.#rememberRelease(item.release);
     }
     const serverWantlist = new Set(
-      response.items.filter((i) => i.onWantlist).map((i) => i.verdict.key),
+      response.items.filter((item) => item.onWantlist).map((item) => item.verdict.key),
     );
     const onWantlist = (key: string) => this.#wantlist.get(key) ?? serverWantlist.has(key);
     const local: TwelvesItem[] = [...this.#verdicts.values()]
