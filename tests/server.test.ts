@@ -412,6 +412,65 @@ describe("HTTP API", () => {
     const res = await fetch(`${info.url}/api/health`);
     expect(await res.json()).toEqual({ ok: true, name: "digga" });
   });
+
+  it("refuses to listen on a network address", async () => {
+    await expect(server.start(0, "0.0.0.0")).rejects.toThrow("not a loopback address");
+  });
+});
+
+describe("requests from outside the app", () => {
+  const verdict = JSON.stringify({ key: "m:501", status: "accepted", releaseId: 1001 });
+  const savedVerdict = () => db.prepare("SELECT key FROM verdicts").all();
+
+  it("refuses a request that names another host, as a rebound domain does", async () => {
+    const write = await server.app.request("http://untrusted.example/api/verdicts", {
+      method: "POST",
+      headers: { "content-type": "text/plain", origin: "https://untrusted.example" },
+      body: verdict,
+    });
+    const read = await server.app.request("http://untrusted.example/api/settings");
+
+    expect(write.status).toBe(403);
+    expect(read.status).toBe(403);
+    expect(savedVerdict()).toEqual([]);
+  });
+
+  it("refuses a write from another site's page or another local port", async () => {
+    for (const origin of ["https://untrusted.example", "http://localhost:8080"]) {
+      const response = await server.app.request("http://localhost:3456/api/verdicts", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: verdict,
+      });
+      expect(response.status).toBe(403);
+    }
+    expect(savedVerdict()).toEqual([]);
+  });
+
+  it("takes a write from its own page under either name, and from a tool without an origin", async () => {
+    const own = await server.app.request("http://127.0.0.1:3456/api/verdicts", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3456" },
+      body: verdict,
+    });
+    const tool = await send("DELETE", "/api/verdicts/m:501");
+
+    expect(own.status).toBe(200);
+    expect(tool.status).toBe(200);
+  });
+
+  it("refuses a body that is not JSON, or that is too large", async () => {
+    const plain = await server.app.request("/api/verdicts", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: verdict,
+    });
+    const huge = await send("PUT", "/api/settings", { padding: "x".repeat(5 * 1024 * 1024) });
+
+    expect(plain.status).toBe(415);
+    expect(huge.status).toBe(413);
+    expect(savedVerdict()).toEqual([]);
+  });
 });
 
 describe("createServer with its own database file", () => {

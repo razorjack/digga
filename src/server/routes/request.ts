@@ -25,6 +25,15 @@ export async function parseJson<T>(
   let raw: unknown = {};
   const text = await request.req.text();
   if (text.trim() !== "") {
+    // A page on another site can send a text/plain body without asking the browser first.
+    if (!request.req.header("content-type")?.startsWith("application/json"))
+      return {
+        ok: false,
+        response: request.json(
+          { error: "Send the body as application/json" } satisfies ApiError,
+          415,
+        ),
+      };
     try {
       raw = JSON.parse(text);
     } catch {

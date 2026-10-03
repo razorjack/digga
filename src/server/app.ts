@@ -1,5 +1,6 @@
 import { JobInputError } from "./jobs/start.ts";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { type ApiError } from "../shared/api.ts";
 import { DiscogsApiError } from "./discogs/client.ts";
 import { createStaticHandler } from "./static.ts";
@@ -13,11 +14,23 @@ import { registerSetupRoutes } from "./routes/setup.ts";
 import { registerSessionRoutes } from "./routes/sessions.ts";
 import type { AppContext } from "./context.ts";
 import { discogsErrorMessage } from "./routes/request.ts";
+import { localOnly } from "./local-only.ts";
+
+/** Room for the largest body the client sends: a session with 50,000 passed releases. */
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
 
 export function createApp(context: AppContext): Hono {
   const app = new Hono();
   const api = new Hono();
   const { logger } = context;
+  app.use(localOnly());
+  api.use(
+    bodyLimit({
+      maxSize: MAX_BODY_BYTES,
+      onError: (request) =>
+        request.json({ error: "The request body is too large" } satisfies ApiError, 413),
+    }),
+  );
   registerSessionRoutes(api, context);
   registerCatalogRoutes(api, context);
   registerVerdictsRoutes(api, context);

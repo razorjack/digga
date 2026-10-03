@@ -54,6 +54,11 @@ describe("config schema", () => {
     expect(c.universe.loadYears).toBeNull();
   });
 
+  it("listens on this computer only", () => {
+    expect(ConfigSchema.parse({ server: { host: "::1" } }).server.host).toBe("::1");
+    expect(validateConfig({ server: { host: "0.0.0.0" } }).ok).toBe(false);
+  });
+
   it("reports invalid values with paths", () => {
     const r = validateConfig({
       queue: { strategy: "nope" },

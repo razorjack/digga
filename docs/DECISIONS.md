@@ -768,3 +768,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      server, as the end-to-end tests do. A lock whose process has ended is taken over, since a
      crash or `kill -9` leaves the file behind. Jobs stay recorded without a process id: only the
      owner can have running ones.
+130. **The server answers this computer's browser and tools only.** The pre-release review (F08)
+     saved a verdict posted as `text/plain` with a foreign `Origin` and `Host`, and the config
+     accepted `server.host: "0.0.0.0"`. A page on any site can send such a `POST` to
+     `localhost:3456` without a preflight, and `/api/discogs/wantlist/:id` writes to the user's
+     Discogs account; a site that points its own domain at 127.0.0.1 could also read responses.
+     So `server.host` is one of `127.0.0.1`, `::1` and `localhost`, the listener refuses others,
+     every request must name a loopback host, a write that carries an `Origin` must come from the
+     app's page (the same port under any loopback name, since the app opens on `localhost` or
+     `127.0.0.1`), bodies must be JSON, and a body is at most 4 MB. There is no per-launch
+     token: a process on the same computer can read the database file anyway, and requiring one
+     would break curl and the CLI-style tools the owner uses.

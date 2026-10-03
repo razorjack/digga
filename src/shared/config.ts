@@ -5,6 +5,9 @@ export type QueueStrategy = (typeof QUEUE_STRATEGIES)[number];
 
 export const COLOR_SCHEMES = ["system", "light", "dark"] as const;
 
+/** Where the server may listen: on this computer only, never on a network. */
+export const LOOPBACK_HOSTS = ["127.0.0.1", "::1", "localhost"] as const;
+
 /** The currencies Discogs' API prices releases in (`curr_abbr`); it has no PLN, for example. */
 export const DISCOGS_CURRENCIES = [
   "EUR",
@@ -57,7 +60,7 @@ export const ConfigSchema = z.object({
   sandbox: z.boolean().default(true),
   server: z
     .object({
-      host: z.string().default("127.0.0.1"),
+      host: z.enum(LOOPBACK_HOSTS).default("127.0.0.1"),
       port: z.number().int().min(0).max(65535).default(3456),
     })
     .prefault({}),

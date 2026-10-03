@@ -22,6 +22,15 @@ browser  --HTTP-->  src/client/api.ts  --/api/*-->  src/server/app.ts (Hono)  --
 job runner and the Discogs client into `createApp()`, and exposes `start(port, host)` / `stop()`.
 The CLI's `serve` command calls it; an Electron main process will call the same function.
 
+The server answers this computer only. It listens on a loopback address (`server.host` accepts
+`127.0.0.1`, `::1` or `localhost`, and the listener refuses anything else), and
+`src/server/local-only.ts` refuses a request whose `Host` is not a loopback name, which stops a
+site that points its own domain at 127.0.0.1, and a write whose `Origin` is not the app's page:
+the same port under a loopback name, since the app opens on `localhost` or `127.0.0.1`. Browsers
+send another site's simple `POST` without a preflight. Tools such as curl send no `Origin` and
+are let through. Request bodies must be `application/json` and at most 4 MB. The Vite dev proxy
+keeps the browser's `Host`, so the dev server's page counts as the app's own.
+
 ## The client
 
 `src/client/api.ts` defines the `Api` interface and its HTTP implementation. Every request has a

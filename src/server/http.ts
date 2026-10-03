@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from "node:http";
 import { serve, type ServerType } from "@hono/node-server";
 import type { Hono } from "hono";
+import { LOOPBACK_HOSTS } from "../shared/config.ts";
 import type { Logger } from "./logger.ts";
 
 export interface StartInfo {
@@ -11,6 +12,7 @@ export interface StartInfo {
   browserUrl: string;
 }
 const LOOPBACK = new Set(["127.0.0.1", "::1"]);
+const LISTEN_HOSTS: ReadonlySet<string> = new Set(LOOPBACK_HOSTS);
 
 export class HttpListener {
   #app: Hono;
@@ -24,6 +26,10 @@ export class HttpListener {
 
   start(port: number, hostname: string): Promise<StartInfo> {
     if (this.#server) return Promise.reject(new Error("Server is already started"));
+    if (!LISTEN_HOSTS.has(hostname))
+      return Promise.reject(
+        new Error(`Digga listens on this computer only; ${hostname} is not a loopback address`),
+      );
     return new Promise((resolve, reject) => {
       const server = serve({ fetch: this.#app.fetch, port, hostname }, (info) => {
         const start = startInfo(info.address, info.port);
