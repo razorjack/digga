@@ -51,7 +51,7 @@
       {:else}
         no backup yet.
       {/if}
-      Once a day Digga writes your verdicts, notes, track marks, listening and decision histories, attached links and settings, to <code>decisions-YYYY-MM-DD.json.gz</code>, and keeps the last
+      Once a day Digga writes your verdicts, notes, track marks, listening and decision histories, saved sessions, attached links and settings, to <code>decisions-YYYY-MM-DD.json.gz</code>, and keeps the last
       {backups.decisions.kept}. Days when nothing changed add none. <code>npm run digga -- restore</code> with
       the file brings them back into a library loaded from a dump.
     </p>
@@ -87,6 +87,16 @@
 </section>
 
 <style>
+  button {
+    padding: 7px 14px;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--fg);
+    font-weight: 600;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+
   .data {
     display: grid;
     gap: 12px;
