@@ -114,6 +114,7 @@ export interface ReleaseSibling {
 }
 
 export interface ReleaseDetail {
+  note?: string | null;
   release: ReleaseRecord;
   tracks: TrackDetail[];
   videos: VideoRecord[];
@@ -122,6 +123,8 @@ export interface ReleaseDetail {
   /** Other releases sharing the master, excluding this one. */
   siblings: ReleaseSibling[];
 }
+
+export const ReleaseNoteInputSchema = z.object({ notes: z.string().max(4000).nullable() });
 
 // POST /api/verdicts
 export const VerdictInputSchema = z.object({

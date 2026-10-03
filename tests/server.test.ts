@@ -78,6 +78,25 @@ describe("HTTP API", () => {
     },
   );
 
+  it("saves a release note without a verdict and keeps it after undo", async () => {
+    expect(
+      (await send("PUT", "/api/releases/1001/note", { notes: "hear the B side again" })).status,
+    ).toBe(200);
+    let detail = (await get<ReleaseDetail>("/api/releases/1001")).body;
+    expect(detail.note).toBe("hear the B side again");
+    expect(detail.verdict).toBeNull();
+    await send("POST", "/api/verdicts", { key: "m:501", releaseId: 1001, status: "snoozed" });
+    expect((await get<ReleaseDetail>("/api/releases/1001")).body.verdict?.notes).toBe(
+      "hear the B side again",
+    );
+    await send("DELETE", "/api/verdicts/m:501");
+    detail = (await get<ReleaseDetail>("/api/releases/1001")).body;
+    expect(detail.verdict).toBeNull();
+    expect(detail.note).toBe("hear the B side again");
+    await send("PUT", "/api/releases/1001/note", { notes: null });
+    expect((await get<ReleaseDetail>("/api/releases/1001")).body.note).toBeNull();
+  });
+
   it("serves the queue with config defaults and query overrides", async () => {
     const q = await get<QueueResponse>("/api/queue");
     expect(q.status).toBe(200);

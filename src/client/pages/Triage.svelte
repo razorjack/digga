@@ -359,6 +359,7 @@
       </p>
     {/if}
   </div>
+  <p class="quiet" role="status" aria-label="Note save status">{session.noteStatus ?? ""}</p>
   <div class="desk">
     <div class="record">
       {#if settingsFailed}

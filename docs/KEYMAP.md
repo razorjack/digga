@@ -27,7 +27,7 @@ or Alt. Holding a key down never repeats a verdict.
 | `O`       | open the release on discogs.com                                      |
 | `P`       | ask Discogs for the lowest price, copies for sale and have/want      |
 | `S`       | open a YouTube search for artist + title                             |
-| `E`       | write a note on the record; Enter keeps it, its verdict saves it     |
+| `E`       | write a note on the record; Enter saves it without a verdict         |
 | `⌘V`      | attach a copied YouTube link to the release and play it              |
 | `Enter`   | retry when the settings, the queue or the release failed to load     |
 

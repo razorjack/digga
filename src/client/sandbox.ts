@@ -109,6 +109,8 @@ class SandboxApi implements Api {
     }
   >();
 
+  #notes = new Map<number, string | null>();
+
   #listenSeq = 0;
 
   #jobSeq = 0;
@@ -139,6 +141,7 @@ class SandboxApi implements Api {
     }
     return {
       ...detail,
+      note: this.#notes.has(detail.release.id) ? this.#notes.get(detail.release.id)! : detail.note,
       tracks,
       trackVerdicts: [...trackVerdicts.values()],
       verdict: this.#verdicts.get(detail.release.triageKey)?.verdict ?? detail.verdict,
@@ -323,6 +326,14 @@ class SandboxApi implements Api {
     const key = detail.release.triageKey;
     if (this.#verdicts.get(key)?.verdict.status === "no_audio") this.#verdicts.delete(key);
     return this.#overlayDetail(detail);
+  };
+
+  putReleaseNote: Api["putReleaseNote"] = async (id, notes) => {
+    this.#notes.set(id, notes);
+    const key = this.#keyForRelease(id);
+    const saved = key ? this.#verdicts.get(key) : undefined;
+    if (saved) saved.verdict = { ...saved.verdict, notes };
+    return { notes };
   };
 
   postVerdict: Api["postVerdict"] = async (input) => {

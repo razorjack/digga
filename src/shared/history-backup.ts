@@ -10,6 +10,7 @@ const event = {
 };
 
 export const HISTORY_SCHEMAS = {
+  releaseNotes: z.object({ release_id: z.number(), notes: text, updated_at: z.string() }),
   listenLog: z.object({
     event_id: event.event_id,
     release_id: z.number(),

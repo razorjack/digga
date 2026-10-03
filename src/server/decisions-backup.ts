@@ -114,6 +114,7 @@ function hasDiggaData(data: BackedUpData): boolean {
     data.trackMarks.length > 0 ||
     data.heardTunes.length > 0 ||
     data.attachedVideos.length > 0 ||
+    data.releaseNotes.length > 0 ||
     data.listenLog.length > 0 ||
     data.verdictLog.some((entry) => entry.source === "triage" || entry.source === "manual") ||
     data.trackMarkLog.length > 0

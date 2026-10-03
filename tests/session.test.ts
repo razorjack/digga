@@ -68,6 +68,7 @@ function fakeServer(queue: number[], labelName: string | null = null) {
       if (verdicts.get(`r:${id}`)?.status === "no_audio") verdicts.delete(`r:${id}`);
       return detail(id);
     },
+    putReleaseNote: async (_id: number, notes: string | null) => ({ notes }),
     postVerdict: async (input: VerdictInput) => {
       calls.push(
         `verdict ${input.key} ${input.status}${input.decidedAt ? ` ${input.decidedAt}` : ""}`,
@@ -763,7 +764,7 @@ describe("pricing with P", () => {
 });
 
 describe("notes in Triage", () => {
-  it("keeps a note with its record until the verdict saves it", async () => {
+  it("saves a note independently and includes it in a later verdict", async () => {
     const { session, calls, notes } = await started([1, 2]);
     session.setNote(session.current!, "  the Kool FM tune  ");
     session.pass();
@@ -774,6 +775,20 @@ describe("notes in Triage", () => {
     expect(session.noteFor(session.current!)).toBe("the Kool FM tune");
     session.judge("accepted");
     await until(() => notes.includes("r:1 the Kool FM tune"));
+    session.destroy();
+  });
+
+  it("reports a failed note save and leaves the previous note visible", async () => {
+    const server = fakeServer([1]);
+    server.http.putReleaseNote = async () => {
+      throw new Error("disk full");
+    };
+    const session = new TriageSession(server.app);
+    await session.start(50);
+    session.setNote(session.current!, "new note");
+    await until(() => session.noteStatus?.includes("disk full") ?? false);
+    expect(session.noteFor(session.current!)).toBeNull();
+    expect(server.calls).toEqual([]);
     session.destroy();
   });
 

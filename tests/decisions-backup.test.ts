@@ -4,6 +4,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import type { Db } from "../src/server/db/db.ts";
+import { saveReleaseNote } from "../src/server/db/notes.ts";
 import { addUserVideo } from "../src/server/db/releases.ts";
 import { readBackedUpData, restoreBackedUpData } from "../src/server/db/user-data.ts";
 import {
@@ -108,6 +109,22 @@ describe("the decisions backup", () => {
     restoreBackedUpData(target, second, "2099-01-01T00:00:00Z");
     restoreBackedUpData(target, second, "2099-01-01T00:00:00Z");
     expect(readBackedUpData(target)).toEqual(second);
+    source.close();
+    target.close();
+  });
+
+  it("keeps an independent note edited after the backup without changing the verdict date", async () => {
+    const source = await libraryWithDecisions();
+    const backup = readBackedUpData(source);
+    const target = await fixtureDb();
+    restoreBackedUpData(target, backup, "2026-09-10T12:00:00Z");
+    const decidedAt = getVerdict(target, "m:501")?.decidedAt;
+    saveReleaseNote(target, 1001, "newer independent note");
+    restoreBackedUpData(target, backup, "2026-09-10T12:00:00Z");
+    expect(getVerdict(target, "m:501")).toMatchObject({
+      notes: "newer independent note",
+      decidedAt,
+    });
     source.close();
     target.close();
   });

@@ -77,6 +77,7 @@ export const DecisionsBackupSchema = z.object({
   listenLog: z.array(HISTORY_SCHEMAS.listenLog).default([]),
   verdictLog: z.array(HISTORY_SCHEMAS.verdictLog).default([]),
   trackMarkLog: z.array(HISTORY_SCHEMAS.trackMarkLog).default([]),
+  releaseNotes: z.array(HISTORY_SCHEMAS.releaseNotes).default([]),
   config: ConfigSchema.nullable().default(null),
 });
 
@@ -90,6 +91,7 @@ export type BackedUpData = Pick<
   | "heardTunes"
   | "attachedVideos"
   | "noAudioVideos"
+  | "releaseNotes"
   | "listenLog"
   | "verdictLog"
   | "trackMarkLog"
@@ -102,6 +104,7 @@ export const BACKUP_FIELDS: { [Section in keyof BackedUpData]: string[] } = {
   heardTunes: Object.keys(BackupHeardTuneSchema.shape),
   attachedVideos: Object.keys(BackupAttachedVideoSchema.shape),
   noAudioVideos: Object.keys(BackupNoAudioVideosSchema.shape),
+  releaseNotes: Object.keys(HISTORY_SCHEMAS.releaseNotes.shape),
   listenLog: Object.keys(HISTORY_SCHEMAS.listenLog.shape),
   verdictLog: Object.keys(HISTORY_SCHEMAS.verdictLog.shape),
   trackMarkLog: Object.keys(HISTORY_SCHEMAS.trackMarkLog.shape),

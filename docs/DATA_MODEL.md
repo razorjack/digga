@@ -198,3 +198,10 @@ changed personal data and settings (forty-eight retained). Settings offers **Bac
 Opening an existing database with pending migrations first writes a consistent
 `backups/before-migration-<version>.sqlite` copy, including committed WAL data. These copies do
 not participate in daily retention. Checkpoints restore through the same CLI as daily backups.
+
+## release_notes
+
+Independent notes keyed by `release_id`, with nullable `notes` and `updated_at`. A cleared note
+keeps a null row so an older backup cannot bring it back. Verdict writes keep their note in
+step with this table; undoing a verdict leaves the independent note. Release details expose
+`note` even without a verdict. Portable backups include these rows.

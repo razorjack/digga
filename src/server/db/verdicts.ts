@@ -1,3 +1,4 @@
+import { releaseNote } from "./notes.ts";
 import type {
   HeardTrack,
   TrackMark,
@@ -99,7 +100,10 @@ export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
     key: verdict.key,
     status: verdict.status,
     source: verdict.source,
-    notes: verdict.notes ?? null,
+    notes:
+      verdict.notes === undefined
+        ? (releaseNote(db, verdict.releaseId ?? 0) ?? null)
+        : verdict.notes,
     release_id: verdict.releaseId ?? null,
     decided_at: decidedAt,
     dug_at: dugAt,

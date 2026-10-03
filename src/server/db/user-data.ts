@@ -9,7 +9,7 @@ type RestorableData = Pick<
   BackedUpData,
   "verdicts" | "trackMarks" | "heardTunes" | "attachedVideos" | "noAudioVideos"
 > &
-  Partial<Pick<BackedUpData, "listenLog" | "verdictLog" | "trackMarkLog">>;
+  Partial<Pick<BackedUpData, "listenLog" | "verdictLog" | "trackMarkLog" | "releaseNotes">>;
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
@@ -186,6 +186,15 @@ function restoreVerdicts(
       outcome.keptNewer += 1;
       continue;
     }
+    const newerNote =
+      verdict.releaseId === null
+        ? undefined
+        : (db
+            .prepare("SELECT notes FROM release_notes WHERE release_id = ? AND updated_at > ?")
+            .get(verdict.releaseId, new Date(backupTime).toISOString()) as
+            | { notes: string | null }
+            | undefined);
+    if (newerNote) verdict.notes = newerNote.notes;
     upsertVerdict(db, verdict);
     const videoIds = recorded.get(backedUp.key);
     if (verdict.status === "no_audio" && videoIds)

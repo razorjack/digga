@@ -37,7 +37,7 @@
       {onkeydown}
       onblur={oncancel}
     />
-    <span class="hint" id="{id}-hint"><Key label="Enter" size="sm" /> keep, saved with the verdict</span>
+    <span class="hint" id="{id}-hint"><Key label="Enter" size="sm" /> save note</span>
   {:else if note}
     <p class="note"><Key label="E" size="sm" /> <span>{note}</span></p>
   {/if}

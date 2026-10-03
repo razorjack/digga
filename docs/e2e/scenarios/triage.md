@@ -395,3 +395,10 @@ message shows
   scope once the one without it has. A tracklist's retry ends with its `GET /api/releases/:id`.
   `T` from another page ends once the `GET /api/queue` that Triage sends when it is shown has
   answered (`showAgain()`).
+
+## TRI-46
+
+Priority: **P1**.
+
+`E`, a note and Enter save it without a verdict. After the saved status and a reload, the note
+is visible on the same record and the release API still has no verdict.

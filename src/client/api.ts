@@ -51,6 +51,7 @@ export interface Api {
   enrichRelease(id: number): Promise<ReleaseDetail>;
   /** Attaches a YouTube link the user found to the release; answers the release with it. */
   attachVideo(releaseId: number, url: string): Promise<ReleaseDetail>;
+  putReleaseNote(releaseId: number, notes: string | null): Promise<{ notes: string | null }>;
   postVerdict(input: VerdictInput): Promise<Verdict>;
   deleteVerdict(key: string): Promise<DeleteVerdictResponse>;
   postTrackVerdict(input: TrackVerdictInput): Promise<TrackVerdictResponse>;
@@ -156,6 +157,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getRelease: (id) => call("GET", `/releases/${id}`),
     enrichRelease: (id) => callDiscogs("POST", `/releases/${id}/enrich`),
     attachVideo: (releaseId, url) => call("POST", `/releases/${releaseId}/videos`, { url }),
+    putReleaseNote: (id, notes) => call("PUT", `/releases/${id}/note`, { notes }),
     postVerdict: (input) => call("POST", "/verdicts", input),
     deleteVerdict: (key) => call("DELETE", `/verdicts/${encodeURIComponent(key)}`),
     postTrackVerdict: (input) => call("POST", "/track-verdicts", input),
@@ -234,6 +236,7 @@ export function createAppApi(
     getRelease: (id) => current.getRelease(id),
     enrichRelease: (id) => current.enrichRelease(id),
     attachVideo: (releaseId, url) => current.attachVideo(releaseId, url),
+    putReleaseNote: (id, notes) => current.putReleaseNote(id, notes),
     postVerdict: (input) => current.postVerdict(input),
     deleteVerdict: (key) => current.deleteVerdict(key),
     postTrackVerdict: (input) => current.postTrackVerdict(input),

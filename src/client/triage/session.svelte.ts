@@ -102,6 +102,8 @@ export class TriageSession {
   /** Market data fetched this session, by release id, for records that moved on before it came. */
   #marketData = new Map<number, ReleaseSnapshot>();
   #loading = new Set<number>();
+  #noteVersions = new Map<string, number>();
+  noteStatus = $state<string | null>(null);
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
   /** The queue read in flight, a refill or a read after the page is shown again. */
   #reading: Promise<void> | null = null;
@@ -300,13 +302,33 @@ export class TriageSession {
   /** The record's note: written in this session, else the one its snoozed verdict has. */
   noteFor(item: QueueItem): string | null {
     if (this.notes.has(item.triageKey)) return this.notes.get(item.triageKey) ?? null;
+    const detail = this.details.get(item.id);
+    if (detail?.note !== undefined) return detail.note;
     return this.#roundVerdicts.get(item.triageKey)?.notes ?? null;
   }
 
-  /** Keeps a note for the record until its verdict saves it; an empty note removes it. */
+  /** Saves a note without making or changing a judgement. */
   setNote(item: QueueItem, text: string): void {
+    const previous = this.noteFor(item);
     const note = text.trim() === "" ? null : text.trim();
-    this.notes = new Map(this.notes).set(item.triageKey, note);
+    const key = item.triageKey;
+    const version = (this.#noteVersions.get(key) ?? 0) + 1;
+    this.#noteVersions.set(key, version);
+    this.notes = new Map(this.notes).set(key, note);
+    this.noteStatus = "Saving note…";
+    const client = this.#api.pinned();
+    const generation = this.#apiGeneration;
+    void this.#write(async () => {
+      try {
+        await client.putReleaseNote(item.id, note);
+        if (generation === this.#apiGeneration && this.#noteVersions.get(key) === version)
+          this.noteStatus = client.mode === "sandbox" ? "Note kept in sandbox." : "Note saved.";
+      } catch (error) {
+        if (generation !== this.#apiGeneration || this.#noteVersions.get(key) !== version) return;
+        this.notes = new Map(this.notes).set(key, previous);
+        this.noteStatus = `Note not saved: ${errorMessage(error)}`;
+      }
+    });
   }
 
   /** N: leave the release undecided and move on; it comes back when the queue goes round. */
@@ -733,6 +755,8 @@ export class TriageSession {
     this.#unanswered = new Map();
     this.#roundVerdicts.clear();
     this.notes = new Map();
+    this.noteStatus = null;
+    this.#noteVersions.clear();
     this.round = null;
     this.#queueBeforeRound = null;
     this.pricing = new Set();

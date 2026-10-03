@@ -2,6 +2,7 @@ import { type Context, Hono } from "hono";
 import {
   type DeleteVerdictResponse,
   ListenLogInputSchema,
+  ReleaseNoteInputSchema,
   type ListenLogResponse,
   TrackVerdictInputSchema,
   VerdictInputSchema,
@@ -9,9 +10,12 @@ import {
 import { deleteVerdict, logListen, setTrackVerdict, upsertVerdict } from "../db/verdicts.ts";
 import { recordNoAudioVideos } from "../queue/no-audio.ts";
 import type { AppContext } from "../context.ts";
-import { parseJson, refuseInSandbox } from "./request.ts";
+import { getRelease } from "../db/releases.ts";
+import { saveReleaseNote } from "../db/notes.ts";
+import { parseJson, refuseInSandbox, parseId, badRequest } from "./request.ts";
 
 export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
+  api.put("/releases/:id/note", (request) => saveNote(request, context));
   api.post("/verdicts", (request) => saveVerdict(request, context));
   api.delete("/verdicts/:key", (request) => removeVerdict(request, context));
   api.post("/track-verdicts", (request) => saveTrackMark(request, context));
@@ -57,4 +61,16 @@ async function listen(request: Context, context: AppContext) {
   const listen = logListen(db, { ...body.data, position: body.data.position ?? null });
   const res: ListenLogResponse = { id: listen.id, heardKey: listen.heardKey };
   return request.json(res);
+}
+
+async function saveNote(request: Context, context: AppContext) {
+  const refused = refuseInSandbox(request, context);
+  if (refused) return refused;
+  const id = parseId(request.req.param("id") ?? "");
+  if (id === null) return badRequest(request, "Invalid release id");
+  if (!getRelease(context.db, id)) return request.json({ error: "Release not found" }, 404);
+  const body = await parseJson(request, ReleaseNoteInputSchema);
+  if (!body.ok) return body.response;
+  saveReleaseNote(context.db, id, body.data.notes);
+  return request.json(body.data);
 }
