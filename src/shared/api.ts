@@ -114,11 +114,12 @@ export interface ReleaseSibling {
 }
 
 export interface ReleaseDetail {
-  note?: string | null;
   release: ReleaseRecord;
   tracks: TrackDetail[];
   videos: VideoRecord[];
   verdict: Verdict | null;
+  /** The release's note, saved apart from the verdict; absent from details built before notes. */
+  note?: string | null;
   trackVerdicts: TrackVerdict[];
   /** Other releases sharing the master, excluding this one. */
   siblings: ReleaseSibling[];
@@ -246,8 +247,6 @@ export interface TwelvesResponse {
 
 // GET /api/track-marks
 export interface MarkedTrack {
-  onWantlist?: boolean;
-  tracklistChanged?: boolean;
   mark: TrackVerdict;
   /**
    * The saved tune snapshot, falling back to a matching current track for legacy marks;
@@ -257,6 +256,10 @@ export interface MarkedTrack {
   release: QueueItem | null;
   /** The verdict on the record the track is on, if it has one. */
   verdict: Verdict | null;
+  /** The record is on the Discogs wantlist, so replaying it in Triage keeps it there. */
+  onWantlist?: boolean;
+  /** The release no longer lists the marked tune at the mark's position. */
+  tracklistChanged?: boolean;
 }
 export interface TrackMarksResponse {
   /** Newest mark first. */

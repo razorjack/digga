@@ -37,8 +37,9 @@ export const FiltersSchema = z.object({
   includeUnknownYearOnCoverage: z.boolean().default(true),
   formats: z.array(z.string().min(1)).default(["Vinyl"]),
   countries: z.array(z.string().min(1)).default([]),
-  /** Leave out releases without an embeddable video, so every record in the queue can play. */
+  /** Leave out releases opened before, as the browser history import recorded them. */
   skipHistory: z.boolean().default(true),
+  /** Leave out releases without an embeddable video, so every record in the queue can play. */
   skipWithoutVideos: z.boolean().default(false),
   /** Labels left out, by the exact name of a release's first label (the one the sweep uses). */
   excludeLabels: z.array(z.string().min(1)).default([]),
@@ -94,6 +95,7 @@ export const ConfigSchema = z.object({
     .prefault({}),
   player: z
     .object({
+      /** Start a record on, and move forward to, tunes not heard before. */
       skipHeard: z.boolean().default(true),
       startAtFraction: z.number().min(0).max(1).default(0.5),
       seekStepSeconds: z.number().positive().default(10),
