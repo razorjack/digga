@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { replayTrack } from "../../shared/replay.ts";
   import { onMount } from "svelte";
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+  import { type ReplayRequest, replayTrack } from "../../shared/replay.ts";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
@@ -71,23 +71,30 @@
     table?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
   });
 
+  /** Enter: hear the selected marked track, or the selected record and those after it, in Triage. */
   function hearAgain(): void {
-    if (shelfState.shelf === "tracks") {
-      const track = shelfState.selectedTrack;
-      if (!track?.release) {
-        shelfState.showFlash("This track's release is not in the loaded dump.");
-        return;
-      }
-      ui.replay = replayTrack(track);
-    } else {
-      const items = shelfState.visible.slice(shelfState.selectedIndex).filter((item) => item.release);
-      if (items.length === 0) {
-        shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
-        return;
-      }
-      ui.replay = { items };
-    }
+    const request = shelfState.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay();
+    if (!request) return;
+    ui.replay = request;
     navigate("triage");
+  }
+
+  function selectedTrackReplay(): ReplayRequest | null {
+    const track = shelfState.selectedTrack;
+    if (!track?.release) {
+      shelfState.showFlash("This track's release is not in the loaded dump.");
+      return null;
+    }
+    return replayTrack(track);
+  }
+
+  function selectedRecordsReplay(): ReplayRequest | null {
+    const items = shelfState.visible.slice(shelfState.selectedIndex).filter((item) => item.release);
+    if (items.length === 0) {
+      shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+      return null;
+    }
+    return { items };
   }
 
   function startEditing(item: TwelvesItem): void {

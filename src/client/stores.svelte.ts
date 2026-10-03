@@ -1,6 +1,6 @@
-import type { ReplayRequest } from "../shared/replay.ts";
 import type { Stats } from "../shared/api.ts";
 import type { ColorScheme, Config } from "../shared/config.ts";
+import type { ReplayRequest } from "../shared/replay.ts";
 import type { ScopeRef } from "../shared/scope.ts";
 import { api } from "./api.ts";
 

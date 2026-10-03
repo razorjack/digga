@@ -1,6 +1,7 @@
 import type { MarkedTrack, QueueItem, TuneSnapshot } from "./api.ts";
 import type { Verdict } from "./types.ts";
 
+/** A moment in an upload to start playing from, and the tune it belongs to when known. */
 export interface PlaybackPosition {
   releaseId: number;
   videoId: string;
@@ -8,6 +9,7 @@ export interface PlaybackPosition {
   tune?: TuneSnapshot;
 }
 
+/** A record Twelves hands to Triage, with its saved decision. */
 export interface ReplayItem {
   release: QueueItem | null;
   verdict: Verdict | null;
@@ -19,16 +21,19 @@ export interface ReplayRequest {
   playback?: PlaybackPosition;
 }
 
+/** Replays a marked track's record, from the moment saved with the mark when it has one. */
 export function replayTrack(track: MarkedTrack): ReplayRequest {
-  const request: ReplayRequest = { items: [track] };
-  if (!track.mark.videoId) return request;
-  request.playback = {
-    releaseId: track.mark.releaseId,
-    videoId: track.mark.videoId,
-    atSeconds: track.mark.atSeconds ?? 0,
+  const { mark } = track;
+  if (!mark.videoId) return { items: [track] };
+
+  const playback: PlaybackPosition = {
+    releaseId: mark.releaseId,
+    videoId: mark.videoId,
+    atSeconds: mark.atSeconds ?? 0,
   };
-  if (track.mark.heardKey && track.track) {
-    request.playback.tune = { heardKey: track.mark.heardKey, ...track.track };
+  if (mark.heardKey && track.track) {
+    const { artistDisplay, title } = track.track;
+    playback.tune = { heardKey: mark.heardKey, artistDisplay, title };
   }
-  return request;
+  return { items: [track], playback };
 }
