@@ -453,6 +453,22 @@ describe("session recovery", () => {
     expect(calls).toEqual(["verdict r:1 rejected", "forget r:1"]);
   });
 
+  it("undoes a verdict under the key the server saved it, after a load moved its release", async () => {
+    const { session, http, calls } = await started([1, 2]);
+    const postVerdict = http.postVerdict.bind(http);
+    // The server files the verdict under the record release 1 is on since a dump load.
+    vi.spyOn(http, "postVerdict").mockImplementationOnce(async (input) => ({
+      ...(await postVerdict(input)),
+      key: "m:900",
+    }));
+    session.judge("rejected");
+    await until(() => !session.slipBusy);
+
+    session.undo();
+    await until(() => !session.slipBusy);
+    expect(calls).toEqual(["verdict r:1 rejected", "forget m:900"]);
+  });
+
   it("returns a rejected verdict to the queue without pushing it", async () => {
     const { session, http, calls } = await started([1, 2]);
     vi.spyOn(http, "postVerdict").mockRejectedValueOnce(new Error("disk full"));

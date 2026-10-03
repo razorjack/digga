@@ -168,6 +168,18 @@ describe("HTTP API", () => {
     expect((await get("/api/releases/abc")).status).toBe(400);
   });
 
+  it("files a verdict under the record its release is on now, whatever key the page sent", async () => {
+    // 1001 is on master 501; a page that read the queue before a load may still say r:1001.
+    const saved = await send<Verdict>("POST", "/api/verdicts", {
+      key: "r:1001",
+      releaseId: 1001,
+      status: "rejected",
+    });
+
+    expect(saved.body.key).toBe("m:501");
+    expect(db.prepare("SELECT key FROM verdicts").pluck().all()).toEqual(["m:501"]);
+  });
+
   it("writes, lists and undoes verdicts and track verdicts", async () => {
     const v = await send<Verdict>("POST", "/api/verdicts", {
       key: "m:501",

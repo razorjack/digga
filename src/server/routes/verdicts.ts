@@ -11,6 +11,7 @@ import { TrackIdentityConflict } from "../../shared/track-identity.ts";
 import { saveReleaseNote } from "../db/notes.ts";
 import { getRelease } from "../db/releases.ts";
 import { deleteVerdict, logListen, setTrackVerdict, upsertVerdict } from "../db/verdicts.ts";
+import { recordKeyOf } from "../db/verdict-keys.ts";
 import { recordNoAudioVideos } from "../queue/no-audio.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseId, parseJson, refuseInSandbox } from "./request.ts";
@@ -29,7 +30,8 @@ async function saveVerdict(request: Context, context: AppContext) {
   if (refused) return refused;
   const body = await parseJson(request, VerdictInputSchema);
   if (!body.ok) return body.response;
-  const verdict = upsertVerdict(db, body.data);
+  // A page that read the queue before a dump load may send the key the release had then.
+  const verdict = upsertVerdict(db, { ...body.data, key: recordKeyOf(db, body.data) });
   // A later video that was not there now sends the record back to the queue.
   if (verdict.status === "no_audio") recordNoAudioVideos(db, verdict);
   return request.json(verdict);

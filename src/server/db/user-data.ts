@@ -4,7 +4,7 @@ import type { Db } from "./db.ts";
 import { readSessions, restoreSessions } from "./digging-sessions.ts";
 import { readHistory, restoreHistory } from "./history-backup.ts";
 import { releaseNoteSavedAfter } from "./notes.ts";
-import { currentReleaseKey } from "./verdict-keys.ts";
+import { recordKeyOf } from "./verdict-keys.ts";
 import { getVerdict, upsertVerdict } from "./verdicts.ts";
 
 /** What a restore wrote, and what it left because the library had it already. */
@@ -190,7 +190,7 @@ function restoreVerdicts(
   const forgetVideos = db.prepare("DELETE FROM no_audio_videos WHERE key = ?");
   const outcome = { restored: 0, keptNewer: 0, moved: 0 };
   for (const backedUp of data.verdicts) {
-    const verdict = { ...backedUp, key: currentKeyOf(db, backedUp) };
+    const verdict = { ...backedUp, key: recordKeyOf(db, backedUp) };
     const dugAt = getVerdict(db, verdict.key)?.dugAt ?? null;
     if (dugAt !== null && Date.parse(dugAt) > backupTime) {
       outcome.keptNewer += 1;
@@ -217,12 +217,6 @@ function restoredNote(
   if (verdict.releaseId === null) return verdict.notes;
   const newer = releaseNoteSavedAfter(db, verdict.releaseId, new Date(backupTime).toISOString());
   return newer ? newer.notes : verdict.notes;
-}
-
-/** The key of the record the verdict's release is on now; its own key without a release. */
-function currentKeyOf(db: Db, verdict: { key: string; releaseId: number | null }): string {
-  if (verdict.releaseId === null) return verdict.key;
-  return currentReleaseKey(db, verdict.releaseId) ?? verdict.key;
 }
 
 function restoreTrackMarks(

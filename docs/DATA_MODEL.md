@@ -113,9 +113,12 @@ in Twelves restores the one it had (`dugAt`).
 A verdict follows the release it was given on (`release_id`, indexed): a dump load that changes the
 release's key moves the verdict, and the videos of a no-audio record, to the new key
 (`moveVerdictsToReleaseKeys()` in `src/server/db/verdict-keys.ts`). When the new key has a verdict,
-the higher rank stays, then the newer decision (`preferredVerdict()`); the notes of both are kept
-and the later `dug_at`. `digga restore` puts each verdict on the key its release has in the library
-it restores into. A verdict without a `release_id` stays on its key.
+the higher rank stays, then the newer decision (`preferredVerdict()`); the notes of all are kept
+and the latest `dug_at`. A load's moves are worked out together before any is made, so verdicts
+whose releases swap masters swap keys instead of merging. `POST /api/verdicts` and `digga restore`
+put a verdict with a `releaseId` on the key its release has now, whatever key the page or the
+backup had. A verdict without a `release_id`, such as a browser-history hit on a master, stays on
+its key, and stops applying if Discogs retires that master.
 
 ## track_verdicts
 

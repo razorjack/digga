@@ -17,6 +17,11 @@ type VerdictEntry = {
   notes: string | null;
   /** The verdict this one replaced (a record heard again from Twelves); undo restores it. */
   previous: Verdict | null;
+  /**
+   * The key the server saved the verdict under: the record its release is on now, which a dump
+   * load may have changed since the queue was read. Null until the server answers.
+   */
+  savedKey: string | null;
 };
 
 /** X hid the label of the record on screen; undo lets it back into the queue. */
@@ -301,7 +306,7 @@ export class TriageSession {
     }
 
     const notes = this.noteFor(item);
-    const entry: VerdictEntry = { kind: "verdict", item, status, notes, previous };
+    const entry: VerdictEntry = { kind: "verdict", item, status, notes, previous, savedKey: null };
     this.upcoming = this.upcoming.slice(1);
     this.history = [...this.history, entry];
     const id = ++this.#slipSeq;
@@ -330,7 +335,13 @@ export class TriageSession {
     const { item, status, notes } = entry;
     const { client, generation, slipId } = operation;
     try {
-      await client.postVerdict({ key: item.triageKey, status, releaseId: item.id, notes });
+      const saved = await client.postVerdict({
+        key: item.triageKey,
+        status,
+        releaseId: item.id,
+        notes,
+      });
+      entry.savedKey = saved.key;
     } catch (error) {
       this.#settleSlip(slipId);
       if (generation !== this.#apiGeneration) return;
@@ -572,7 +583,7 @@ export class TriageSession {
     const { client, generation, slipId } = operation;
     try {
       if (entry.previous) await client.postVerdict(entry.previous);
-      else await client.deleteVerdict(entry.item.triageKey);
+      else await client.deleteVerdict(entry.savedKey ?? entry.item.triageKey);
     } catch (error) {
       this.#settleSlip(slipId);
       if (generation !== this.#apiGeneration) return;

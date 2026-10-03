@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { loadDump } from "../tools/dump/load.ts";
 import type { Db } from "../src/server/db/db.ts";
 import { restoreBackedUpData } from "../src/server/db/user-data.ts";
+import { moveVerdictsToReleaseKeys } from "../src/server/db/verdict-keys.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { FIXTURE_GZ, fixtureDb } from "./helpers.ts";
 
@@ -101,6 +102,35 @@ describe("verdicts when a dump load changes a release's key", () => {
       decidedAt: "2026-10-03T10:00:00.000Z",
       dugAt: "2026-10-04T10:00:00.000Z",
     });
+  });
+
+  it("keep apart when two releases swap masters", async () => {
+    const db = await library();
+    upsertVerdict(db, { key: "m:501", status: "candidate", source: "triage", releaseId: 1001 });
+    upsertVerdict(db, { key: "m:506", status: "no_audio", source: "triage", releaseId: 1006 });
+    db.prepare(
+      "INSERT INTO no_audio_videos (key, video_ids_json) VALUES ('m:506', '[\"x\"]')",
+    ).run();
+    // As a load that finds Discogs moved each release to the other's master would leave them.
+    db.prepare("UPDATE releases SET master_id = 506, triage_key = 'm:506' WHERE id = 1001").run();
+    db.prepare("UPDATE releases SET master_id = 501, triage_key = 'm:501' WHERE id = 1006").run();
+
+    expect(moveVerdictsToReleaseKeys(db, [1001, 1006])).toBe(2);
+
+    expect(getVerdict(db, "m:506")).toMatchObject({ status: "candidate", releaseId: 1001 });
+    expect(getVerdict(db, "m:501")).toMatchObject({ status: "no_audio", releaseId: 1006 });
+    expect(noAudioVideos(db)).toEqual([{ key: "m:501", video_ids_json: '["x"]' }]);
+  });
+
+  it("merge every verdict arriving at one key, keeping the strongest", async () => {
+    const db = await library();
+    upsertVerdict(db, { key: "r:1001", status: "rejected", source: "triage", releaseId: 1001 });
+    upsertVerdict(db, { key: "r:1002", status: "candidate", source: "triage", releaseId: 1002 });
+
+    expect(moveVerdictsToReleaseKeys(db, [1001, 1002])).toBe(2);
+
+    expect(getVerdict(db, "m:501")).toMatchObject({ status: "candidate", releaseId: 1002 });
+    expect(db.prepare("SELECT COUNT(*) FROM verdicts").pluck().get()).toBe(1);
   });
 
   it("leave a release that lost its master as a record of its own", async () => {

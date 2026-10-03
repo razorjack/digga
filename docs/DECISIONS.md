@@ -797,3 +797,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      of the new picks; and restore keeps every attachment, which applies once its release loads.
      A later feature that prunes releases a load no longer finds (`docs/ROADMAP.md`) has to keep
      the same rows.
+133. **A load moves verdicts all at once, and the server decides a verdict's key.** The
+     pre-release review (F01) gave two releases each other's masters: moving the verdicts one at a
+     time merged the first into the second before the second moved, so one decision was lost from
+     the verdicts. All moves of a batch are now worked out first; each key keeps one verdict by
+     the precedence of decision 125, a verdict leaving a key never merges with one arriving, and a
+     cycle of keys is rewritten instead of moved. The review also saved a verdict under a key its
+     release no longer had: a tab that read the queue before a load sends the old key, and the
+     queue then ignores the verdict. `POST /api/verdicts` now files a verdict with a `releaseId`
+     under the release's current key and answers that key, which Triage's undo uses. A decision
+     stays keyed by record rather than by release: re-judging a record is then one write, and the
+     merged-away verdict stays in the log.
