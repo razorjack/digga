@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SessionCheckpoint } from "./checkpoint.svelte.ts";
+
   let { checkpoint }: { checkpoint: SessionCheckpoint } = $props();
   const savedAt = $derived(
     checkpoint.pending ? new Date(checkpoint.pending.updatedAt).toLocaleString() : "",
@@ -13,8 +14,12 @@
       Resume restores its filters, scope, passed records, and playback position.
     </p>
     <div>
-      <button type="button" disabled={checkpoint.restoring} onclick={() => void checkpoint.resume()}>Resume session</button>
-      <button type="button" disabled={checkpoint.restoring} onclick={() => checkpoint.startFresh()}>Start fresh</button>
+      <button type="button" disabled={checkpoint.restoring} onclick={() => void checkpoint.resume()}>
+        Resume session
+      </button>
+      <button type="button" disabled={checkpoint.restoring} onclick={() => checkpoint.startFresh()}>
+        Start fresh
+      </button>
     </div>
   </section>
 {/if}

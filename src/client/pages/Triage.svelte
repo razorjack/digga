@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { SessionCheckpoint } from "../triage/checkpoint.svelte.ts";
-  import ResumeSession from "../triage/ResumeSession.svelte";
   import { onDestroy, untrack } from "svelte";
   import { withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
@@ -27,7 +25,9 @@
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
   import ScopePicker from "../triage/ScopePicker.svelte";
   import { loadStatus } from "../load-status.svelte.ts";
-  import { TriageSession } from "../triage/session.svelte.ts";
+  import { SessionCheckpoint } from "../triage/checkpoint.svelte.ts";
+  import ResumeSession from "../triage/ResumeSession.svelte";
+  import { type Round, TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
   import { endOfQueueHeadline } from "../triage/end-of-queue.ts";
   import Tracklist from "../triage/Tracklist.svelte";
@@ -46,22 +46,21 @@
     await settings.save({ ...config, filters: withLabelExcluded(config.filters, label, hidden) });
   }
   onDestroy(() => session.destroy());
-  const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5, { skipHeard: () => settings.value?.player.skipHeard ?? true });
+  const player = new TriagePlayer(api, {
+    startAtFraction: () => settings.value?.player.startAtFraction ?? 0.5,
+    skipHeard: () => settings.value?.player.skipHeard ?? true,
+  });
   const checkpoint = new SessionCheckpoint(api, session, player, settings);
   onDestroy(() => checkpoint.destroy());
-  let restartGeneration = 0;
 
   $effect(() => {
-    if (!active) return;
-    const save = () => void checkpoint.save();
-    const timer = setInterval(save, 5000);
-    document.addEventListener("visibilitychange", save);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", save);
-      save();
-    };
+    if (active) return checkpoint.autosave();
   });
+
+  const ROUND_TITLES: Record<Round["kind"], string> = {
+    snoozed: "Hearing snoozed records again:",
+    replay: "Replaying Twelves:",
+  };
 
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
   const startAt = $derived(settings.value?.player.startAtFraction ?? 0.5);
@@ -71,6 +70,8 @@
   );
 
   let apiGeneration = api.generation;
+  /** Bumped by each queue restart; only the latest one opens the session checkpoint. */
+  let restartGeneration = 0;
   const settingsLoaded = $derived(settings.value !== null);
   /** The queue starts from the settings, so without them there is nothing to dig. */
   const settingsFailed = $derived(settings.value === null && settings.error !== null);
@@ -83,6 +84,7 @@
     untrack(() => {
       const config = settings.value;
       if (!config) return;
+      // A resume saves the session's settings and reloads the queue itself.
       if (checkpoint.restoring && api.generation === apiGeneration) return;
       const generation = ++restartGeneration;
       if (api.generation !== apiGeneration) {
@@ -90,7 +92,7 @@
         player.forgetHeard();
       }
       void session.start(config.queue.limit).then(() => {
-        if (generation === restartGeneration) return checkpoint.open();
+        if (generation === restartGeneration) void checkpoint.open();
       });
     });
   });
@@ -106,7 +108,7 @@
     };
   });
 
-  // Snoozed records handed over by Twelves.
+  // Records, or a marked track to play from its saved moment, handed over by Twelves.
   $effect(() => {
     const request = ui.replay;
     if (!request) return;
@@ -365,7 +367,7 @@
     {:else if session.round}
       <p class="banner">
         <span>
-          {session.round.kind === "snoozed" ? "Hearing snoozed records again:" : "Replaying Twelves:"} <b>{formatCount(session.upcoming.length)}</b> of
+          {ROUND_TITLES[session.round.kind]} <b>{formatCount(session.upcoming.length)}</b> of
           {formatCount(session.round.total)} left. Only a verdict key changes the saved decision; <Key label="N" size="sm" /> leaves it.
         </span>
         <button type="button" aria-keyshortcuts="Escape" onclick={() => session.endRound()}>

@@ -16,8 +16,8 @@ const fake = vi.hoisted(() => {
     state = -1;
     primed = false;
     ready = true;
-    load = vi.fn(async (videoId: string) => {
-      this.videoId = videoId;
+    load = vi.fn(async (video: { videoId: string }) => {
+      this.videoId = video.videoId;
     });
     play = vi.fn();
     pause = vi.fn();
@@ -86,11 +86,18 @@ function withVideos(id: number, videoIds: string[]): ReleaseDetail {
   return { ...base, videos: videoIds.map((videoId) => ({ ...base.videos[0]!, videoId })) };
 }
 
+/** The arguments Deck.load() gets for a 300-second video started halfway. */
+function deckLoad(videoId: string, mode: string) {
+  return [expect.objectContaining({ videoId, durationSeconds: 300 }), mode, { fraction: 0.5 }];
+}
+
 async function setup() {
   const http = { mode: "live", postListenLog: vi.fn(async () => ({})) } as unknown as Api;
   const player = new TriagePlayer(
     createAppApi(http, (inner) => inner),
-    () => 0.5,
+    {
+      startAtFraction: () => 0.5,
+    },
   );
   players.push(player);
   player.show(detail(1), detail(2));
@@ -102,13 +109,13 @@ describe("player deck ownership", () => {
   it("adopts the next release's preload without loading it again", async () => {
     const player = await setup();
     const [first, second] = fake.decks;
-    expect(second!.load).toHaveBeenCalledWith("video-2", 300, 0.5, "preload");
+    expect(second!.load).toHaveBeenCalledWith(...deckLoad("video-2", "preload"));
     player.show(detail(2), detail(3));
     expect(player.active).toBe(1);
     expect(player.entry?.video.videoId).toBe("video-2");
     expect(second!.load).toHaveBeenCalledTimes(1);
     expect(second!.play).toHaveBeenCalledTimes(1);
-    expect(first!.load).toHaveBeenLastCalledWith("video-3", 300, 0.5, "preload");
+    expect(first!.load).toHaveBeenLastCalledWith(...deckLoad("video-3", "preload"));
   });
 
   it("keeps a promoted preload silent while the page is suspended", async () => {
@@ -151,7 +158,7 @@ describe("player deck ownership", () => {
     const attached = detail(1);
     attached.videos.push({ ...attached.videos[0]!, videoId: "pasted" });
     player.show(attached, detail(2));
-    expect(active.load).toHaveBeenLastCalledWith("pasted", 300, 0.5, "play");
+    expect(active.load).toHaveBeenLastCalledWith(...deckLoad("pasted", "play"));
     expect(player.entry?.video.videoId).toBe("pasted");
 
     const silent = { ...detail(3), videos: [] };
@@ -168,8 +175,8 @@ describe("the track deck", () => {
     const player = await setup();
     player.show(withVideos(5, ["a", "b", "c"]), detail(6));
     const [first, second, third] = fake.decks;
-    expect(first!.load).toHaveBeenLastCalledWith("a", 300, 0.5, "play");
-    expect(third!.load).toHaveBeenLastCalledWith("b", 300, 0.5, "preload");
+    expect(first!.load).toHaveBeenLastCalledWith(...deckLoad("a", "play"));
+    expect(third!.load).toHaveBeenLastCalledWith(...deckLoad("b", "preload"));
 
     player.nextTrack();
     expect(player.active).toBe(2);
@@ -177,8 +184,8 @@ describe("the track deck", () => {
     expect(third!.load).toHaveBeenCalledTimes(1);
     expect(third!.play).toHaveBeenCalledTimes(1);
     // The deck that played "a" now buffers "c"; the next release stays buffered.
-    expect(first!.load).toHaveBeenLastCalledWith("c", 300, 0.5, "preload");
-    expect(second!.load).toHaveBeenLastCalledWith("video-6", 300, 0.5, "preload");
+    expect(first!.load).toHaveBeenLastCalledWith(...deckLoad("c", "preload"));
+    expect(second!.load).toHaveBeenLastCalledWith(...deckLoad("video-6", "preload"));
   });
 
   it("buffers the track after one that fails to embed", async () => {
@@ -186,7 +193,7 @@ describe("the track deck", () => {
     player.show(withVideos(5, ["a", "b", "c"]), null);
     fake.decks[2]!.emitError("b");
     expect(player.failed.has("b")).toBe(true);
-    expect(fake.decks[2]!.load).toHaveBeenLastCalledWith("c", 300, 0.5, "preload");
+    expect(fake.decks[2]!.load).toHaveBeenLastCalledWith(...deckLoad("c", "preload"));
     player.nextTrack();
     expect(player.entry?.video.videoId).toBe("c");
     expect(player.active).toBe(2);

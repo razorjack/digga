@@ -1,4 +1,3 @@
-import type { SavedSession, SessionInput, SessionResolution } from "../shared/digging-session.ts";
 import {
   filtersParam,
   type BackupsResponse,
@@ -30,6 +29,7 @@ import {
   type WantlistPushResponse,
 } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
+import type { SavedSession, SessionInput, SessionResolution } from "../shared/digging-session.ts";
 import { formatWait } from "../shared/display.ts";
 import type { StyleCensus } from "../shared/style-census.ts";
 import { scopeParam } from "../shared/scope.ts";
@@ -44,8 +44,11 @@ import { createSandboxApi } from "./sandbox.ts";
 export interface Api {
   /** "sandbox" when writes are faked in memory by createSandboxApi(), "live" when they reach the server. */
   readonly mode: "live" | "sandbox";
+  /** The digging session saved last, to offer resuming it; null when there is none. */
   getLatestSession(): Promise<SavedSession | null>;
+  /** Saves where the digging session is; the sandbox saves nothing. */
   putSession(input: SessionInput): Promise<{ saved: boolean }>;
+  /** The records a saved session pointed at, as the catalogue and verdicts have them now. */
   resolveSession(id: string): Promise<SessionResolution>;
   getQueue(query?: QueueQuery): Promise<QueueResponse>;
   /** Sellers, labels and artists whose name contains the text, to narrow the queue to. */
@@ -55,6 +58,7 @@ export interface Api {
   enrichRelease(id: number): Promise<ReleaseDetail>;
   /** Attaches a YouTube link the user found to the release; answers the release with it. */
   attachVideo(releaseId: number, url: string): Promise<ReleaseDetail>;
+  /** Saves the release's note apart from any verdict; null removes it. */
   putReleaseNote(releaseId: number, notes: string | null): Promise<{ notes: string | null }>;
   postVerdict(input: VerdictInput): Promise<Verdict>;
   deleteVerdict(key: string): Promise<DeleteVerdictResponse>;
@@ -93,6 +97,7 @@ export interface Api {
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
   getBackups(): Promise<BackupsResponse>;
+  /** Writes today's backups and a checkpoint now; answers the backups with them. */
   backupNow(): Promise<BackupsResponse>;
   /** What the first run needs: whether it is needed, the newest catalogue, suggestions. */
   getSetup(): Promise<SetupResponse>;

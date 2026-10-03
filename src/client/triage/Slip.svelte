@@ -31,6 +31,12 @@
 
   const name = (i: QueueItem) => `${i.artistDisplay} – ${i.title}`;
 
+  const PASS_TEXT: Record<Extract<Slip, { kind: "pass" }>["stays"], string> = {
+    queue: "Stays in the queue for another go.",
+    snoozed: "Stays snoozed.",
+    saved: "Its saved verdict stays unchanged.",
+  };
+
   function undoneText(undone: TriageStatus | "pass" | "label"): string {
     if (undone === "label") return "Its label is back in the queue.";
     const what = undone === "pass" ? "next" : STATUS_COPY[undone];
@@ -73,9 +79,7 @@
           {:else if slip.kind === "verdict" && slip.status === "snoozed"}
             On the Snoozed shelf, out of the queue.
           {:else if slip.kind === "pass"}
-            {#if slip.stays === "snoozed"}Stays snoozed.
-            {:else if slip.stays === "saved"}Its saved verdict stays unchanged.
-            {:else}Stays in the queue for another go.{/if}
+            {PASS_TEXT[slip.stays]}
           {:else if slip.kind === "label"}
             Every record on {slip.label} is out of the queue; Settings lists the hidden labels.
           {:else if slip.kind === "undo"}

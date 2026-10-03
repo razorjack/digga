@@ -64,14 +64,18 @@ export class Deck {
     });
   }
 
+  /**
+   * Loads a video to start at `fraction` of its length, or at `atSeconds` for a saved moment.
+   * `fraction` also places a video whose length is only known once it plays.
+   */
   async load(
-    videoId: string,
-    durationSeconds: number | null,
-    fraction: number,
-    playback: DeckMode | { mode: DeckMode; atSeconds: number },
+    video: { videoId: string; durationSeconds: number | null },
+    requestedMode: DeckMode,
+    start: { fraction: number; atSeconds?: number },
   ): Promise<void> {
-    let mode = typeof playback === "string" ? playback : playback.mode;
-    const atSeconds = typeof playback === "string" ? null : playback.atSeconds;
+    const { videoId, durationSeconds } = video;
+    const { fraction, atSeconds } = start;
+    let mode = requestedMode;
     this.videoId = videoId;
     this.primed = false;
     await this.#readiness.promise;
@@ -81,11 +85,11 @@ export class Deck {
     this.#mode = mode;
     this.#fraction = fraction;
     this.#started = false;
-    const start = atSeconds ?? startSeconds(durationSeconds, fraction);
-    this.#seekWhenPlaying = start === null;
+    const startAt = atSeconds ?? startSeconds(durationSeconds, fraction);
+    this.#seekWhenPlaying = startAt === null;
     if (mode === "play") this.#player.unMute();
     else this.#player.mute();
-    const opts = { videoId, startSeconds: start ?? 0 };
+    const opts = { videoId, startSeconds: startAt ?? 0 };
     if (mode === "cue") this.#player.cueVideoById(opts);
     else this.#player.loadVideoById(opts);
   }
