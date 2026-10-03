@@ -1,6 +1,6 @@
-import type { SavedSession } from "../../../src/shared/digging-session.ts";
+import type { SavedSession, SessionResolution } from "../../../src/shared/digging-session.ts";
 import { FIRST_RECORD, SECOND_RECORD, THIRD_RECORD } from "../fixtures/catalogue.ts";
-import { TriagePage } from "../pages/triage.ts";
+import { isRequest, TriagePage } from "../pages/triage.ts";
 import { expect, test } from "../support/test.ts";
 
 test.use({
@@ -31,7 +31,15 @@ test(
     expect(saved.state.playback?.videoId).toBe(SECOND_RECORD.videos[0]!.id);
     await app.page.reload();
     await expect(triage.resumeSession).toBeVisible();
+    // The page saves its position once more as the reload hides it, which may land before the
+    // resume reads the session, so the resumed position is the one the server answers with.
+    const resolving = app.page.waitForResponse((response) =>
+      isRequest(response, "GET", `/api/sessions/${saved.id}/resume`),
+    );
     await triage.resumeSessionFromCheckpoint();
+    const resumed = ((await (await resolving).json()) as SessionResolution).session.state.playback!;
+    expect(resumed.videoId).toBe(saved.state.playback!.videoId);
+    expect(resumed.atSeconds).toBeGreaterThanOrEqual(saved.state.playback!.atSeconds);
     await expect(triage.record).toHaveAttribute("data-release-id", String(SECOND_RECORD.id));
     await expect(triage.playerStatus("paused")).toBeVisible();
     await expect
@@ -39,8 +47,8 @@ test(
       .toContainEqual(
         expect.objectContaining({
           kind: "cue",
-          videoId: saved.state.playback!.videoId,
-          startSeconds: saved.state.playback!.atSeconds,
+          videoId: resumed.videoId,
+          startSeconds: resumed.atSeconds,
         }),
       );
     await triage.pass();
