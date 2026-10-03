@@ -1,3 +1,4 @@
+import type { BackupFailure } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
 import { backupDaily, localDay } from "./db/backup.ts";
 import type { Db } from "./db/db.ts";
@@ -14,6 +15,8 @@ const CHECKPOINT_MS = 15 * 60 * 1000;
 export interface DailyBackups {
   /** Stops checking and waits for a backup that is being written. */
   stop(): Promise<void>;
+  /** The latest scheduled check that failed, until a later one succeeds; for Settings. */
+  failure(): BackupFailure | null;
 }
 
 interface BackupDeps {
@@ -33,9 +36,15 @@ export function startDailyBackups(
   schedule: { everyMs?: number; now?: () => Date } = {},
 ): DailyBackups {
   const now = schedule.now ?? (() => new Date());
-  let latest = writeDailyBackups(db, deps, now());
+  let failure: BackupFailure | null = null;
+  const check = async () => {
+    const at = now();
+    const failed = await writeDailyBackups(db, deps, at);
+    failure = failed.length > 0 ? { at: at.toISOString(), message: failed.join("; ") } : null;
+  };
+  let latest = check();
   const timer = setInterval(() => {
-    latest = latest.then(() => writeDailyBackups(db, deps, now()));
+    latest = latest.then(check);
   }, schedule.everyMs ?? CHECKPOINT_MS);
   timer.unref();
   return {
@@ -44,37 +53,51 @@ export function startDailyBackups(
       await latest;
       await writeCheckpoint(db, deps, now());
     },
+    failure: () => failure,
   };
 }
 
 /**
  * The day's decisions backup and database copy, which reads a consistent snapshot, then a
  * checkpoint. Each daily backup skips a day that has one, and one failing does not stop the other.
+ * Returns what failed.
  */
-async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<void> {
+async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<string[]> {
   const { logger } = deps;
   const options = backupOptions(deps, now);
 
-  const decisions = backupDecisionsDaily(db, options)
-    .then((backup) => {
+  const failures = await Promise.all([
+    attempt(logger, "the daily decisions backup", async () => {
+      const backup = await backupDecisionsDaily(db, options);
       if (backup) logger.info(`backed up your decisions to ${backup.file}`);
-    })
-    .catch((error: unknown) => logger.warn("the daily decisions backup failed", error));
-  const database = backupDaily(db, options)
-    .then((backup) => {
+    }),
+    attempt(logger, "the daily database backup", async () => {
+      const backup = await backupDaily(db, options);
       if (backup) logger.info(`backed up the database to ${backup.file}`);
-    })
-    .catch((error: unknown) => logger.warn("the daily database backup failed", error));
-  await Promise.all([decisions, database]);
-
-  await writeCheckpoint(db, deps, now);
+    }),
+  ]);
+  failures.push(await writeCheckpoint(db, deps, now));
+  return failures.filter((failure) => failure !== null);
 }
 
-async function writeCheckpoint(db: Db, deps: BackupDeps, now: Date): Promise<void> {
+function writeCheckpoint(db: Db, deps: BackupDeps, now: Date): Promise<string | null> {
+  return attempt(deps.logger, "the decisions checkpoint", () =>
+    checkpointDecisions(db, backupOptions(deps, now)),
+  );
+}
+
+/** Runs one backup; a failure is logged and returned as a sentence. */
+async function attempt(
+  logger: Logger,
+  backup: string,
+  write: () => Promise<unknown>,
+): Promise<string | null> {
   try {
-    await checkpointDecisions(db, backupOptions(deps, now));
+    await write();
+    return null;
   } catch (error) {
-    deps.logger.warn("the decisions checkpoint failed", error);
+    logger.warn(`${backup} failed`, error);
+    return `${backup} failed: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 

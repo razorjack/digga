@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { BackupsResponse } from "../../shared/api.ts";
-  import { formatBytes, formatDay } from "../../shared/display.ts";
+  import { formatAge, formatBytes, formatDay } from "../../shared/display.ts";
   import { api } from "../api.ts";
   import { errorMessage, settings } from "../stores.svelte.ts";
 
@@ -46,6 +46,12 @@
   {#if error}
     <p>Backups did not load: {error}</p>
   {:else if backups}
+    {#if backups.failure}
+      <p class="problem">
+        A scheduled backup failed <time datetime={backups.failure.at}>{formatAge(backups.failure.at)}</time>:
+        {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at once.
+      </p>
+    {/if}
     <p>
       <b>Your decisions</b>:
       {#if latestDecisions}
@@ -119,6 +125,9 @@
   }
   b {
     color: var(--fg);
+  }
+  .problem {
+    color: var(--fg-accent);
   }
   code {
     font-family: inherit;

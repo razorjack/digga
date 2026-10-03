@@ -125,6 +125,7 @@ describe("exports", () => {
       backups: [],
       decisions: { kept: 30, backups: [] },
       checkpoints: { kept: 48, backups: [] },
+      failure: null,
     });
   });
 });

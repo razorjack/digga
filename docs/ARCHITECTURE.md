@@ -174,12 +174,13 @@ counted, or the one shipped with Digga (`src/server/style-census.json`) before t
 
 ## Backups and exports
 
-`createServer()` starts `daily-backups.ts`, which checks every hour while the server runs, so a
-server left open for days still copies the database into `paths.backupsDir` (`backups/` in the
-library) once a day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest two
+`createServer()` starts `daily-backups.ts`, which checks every fifteen minutes while the server
+runs, so a server left open for days still copies the database into `paths.backupsDir`
+(`backups/` in the library) once a day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest two
 (`src/server/db/backup.ts`). The copy
 uses SQLite's online backup, so it runs in steps beside requests and reads a consistent snapshot;
-`stop()` waits for it before closing the database.
+`stop()` waits for it before closing the database. A check that fails is logged, and Settings
+shows it (`failure` in `GET /api/backups`) until a later check succeeds.
 
 `digga restore` with a `.sqlite` file, a daily copy or a `before-migration-<version>.sqlite`,
 replaces the database with it (`src/server/db/restore-copy.ts`). It holds the library lock, so it

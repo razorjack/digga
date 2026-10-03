@@ -552,6 +552,14 @@ export interface BackupsResponse {
   /** The daily decisions backups in the same folder, newest first. */
   decisions: { kept: number; backups: BackupSummary[] };
   checkpoints: { kept: number; backups: BackupSummary[] };
+  /** The latest scheduled backup that failed, until a later one succeeds. */
+  failure: BackupFailure | null;
+}
+
+export interface BackupFailure {
+  at: string;
+  /** What failed and why, one sentence per backup. */
+  message: string;
 }
 
 // GET /api/export/:file

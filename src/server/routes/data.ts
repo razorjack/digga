@@ -46,6 +46,7 @@ function backups(request: Context, context: AppContext) {
       kept: DECISIONS_BACKUPS_KEPT,
       backups: listDecisionsBackups(directory).map(summarize),
     },
+    failure: context.backupFailure(),
   };
   return request.json(body);
 }

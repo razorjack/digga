@@ -80,4 +80,21 @@ describe("daily backups", () => {
     await wait(50);
     expect(days().database).toEqual(["2026-10-01", "2026-09-30"]);
   });
+
+  it("reports a failed check until a later one succeeds", async () => {
+    const paths = resolvePaths({ dataDir: tmp });
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage" });
+    // A file where the backups folder belongs makes every backup fail.
+    fs.writeFileSync(paths.backupsDir, "");
+    const backups = startDailyBackups(db, { paths, logger: silentLogger }, { everyMs: 10 });
+
+    await expect
+      .poll(() => backups.failure()?.message ?? "")
+      .toMatch(
+        /^the daily decisions backup failed: .*; the daily database backup failed: .*; the decisions checkpoint failed: /,
+      );
+    fs.rmSync(paths.backupsDir);
+    await expect.poll(() => backups.failure()).toBeNull();
+    await backups.stop();
+  });
 });

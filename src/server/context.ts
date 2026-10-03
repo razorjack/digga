@@ -1,4 +1,5 @@
 import { type Config } from "../shared/config.ts";
+import type { BackupFailure } from "../shared/api.ts";
 import type { Db } from "./db/db.ts";
 import { type DiscogsClient } from "./discogs/client.ts";
 import type { DataDumpClient } from "./discogs/data-dumps.ts";
@@ -22,4 +23,6 @@ export interface AppContext {
   lookupVideoTitle: VideoTitleLookup;
   /** Serve dist/ for non-API routes (production). */
   serveStatic: boolean;
+  /** The latest scheduled backup that failed, until a later one succeeds. */
+  backupFailure(): BackupFailure | null;
 }

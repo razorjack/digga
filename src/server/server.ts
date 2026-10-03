@@ -84,6 +84,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       baseUrl: options.youtubeOembedUrl,
     }),
     serveStatic: options.serveStatic ?? true,
+    backupFailure: () => backups?.failure() ?? null,
   });
 
   const listener = new HttpListener(app, logger);
