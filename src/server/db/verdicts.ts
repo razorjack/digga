@@ -1,3 +1,4 @@
+import type { ListenContext } from "../../shared/api.ts";
 import { releaseNote } from "./notes.ts";
 import type {
   HeardTrack,
@@ -275,6 +276,7 @@ export interface ListenWrite {
   seconds: number;
   /** False for a play too short to make the tune heard; it is logged all the same. */
   heard?: boolean;
+  context?: ListenContext;
 }
 
 /**
@@ -286,13 +288,10 @@ export function logListen(
   input: ListenWrite,
 ): { id: number; heardKey: string | null; heard: HeardTrack | null } {
   const at = nowIso();
-  const heardKey = input.heard === false ? null : listenedTune(db, input);
+  const tune = listenedTune(db, input);
+  const heardKey = input.heard === false ? null : (tune?.heardKey ?? null);
   const id = db.transaction(() => {
-    const info = db
-      .prepare(
-        "INSERT INTO listen_log (release_id, position, video_id, seconds, at) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(input.releaseId, input.position, input.videoId, input.seconds, at);
+    const id = insertListen(db, input, { at, tune });
     if (heardKey !== null) {
       db.prepare(
         `INSERT INTO heard_tracks (heard_key, first_release_id, seconds_listened, first_heard_at, last_heard_at)
@@ -301,14 +300,58 @@ export function logListen(
            last_heard_at = excluded.last_heard_at`,
       ).run(heardKey, input.releaseId, input.seconds, at, at);
     }
-    return Number(info.lastInsertRowid);
+    return id;
   })();
   return { id, heardKey, heard: heardKey === null ? null : getHeardTrack(db, heardKey) };
 }
 
-function listenedTune(db: Db, input: ListenWrite): string | null {
-  if (input.position === null || input.position === "") return null;
-  return trackTune(db, input.releaseId, input.position)?.heard_key ?? null;
+function insertListen(
+  db: Db,
+  input: ListenWrite,
+  snapshot: { at: string; tune: ListenContext["tune"] },
+): number {
+  const context = input.context ?? {
+    playbackId: null,
+    sessionId: null,
+    startedAt: null,
+    startSeconds: null,
+    endSeconds: null,
+    videoTitle: null,
+  };
+  const tune = snapshot.tune ?? { heardKey: null, artistDisplay: null, title: null };
+  const { at } = snapshot;
+  const info = db
+    .prepare(`INSERT INTO listen_log
+    (release_id, position, video_id, seconds, at, heard_key, artist_display, title, playback_id,
+      session_id, started_at, start_seconds, end_seconds, heard, video_title)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(
+      input.releaseId,
+      input.position,
+      input.videoId,
+      input.seconds,
+      at,
+      tune.heardKey,
+      tune.artistDisplay,
+      tune.title,
+      context.playbackId,
+      context.sessionId,
+      context.startedAt,
+      context.startSeconds,
+      context.endSeconds,
+      input.heard === false ? 0 : 1,
+      context.videoTitle,
+    );
+  return Number(info.lastInsertRowid);
+}
+
+function listenedTune(db: Db, input: ListenWrite): ListenContext["tune"] {
+  if (input.context) return input.context.tune;
+  if (!input.position) return null;
+  const tune = trackTune(db, input.releaseId, input.position);
+  return tune
+    ? { heardKey: tune.heard_key, artistDisplay: tune.artist_display, title: tune.title }
+    : null;
 }
 
 function getHeardTrack(db: Db, heardKey: string): HeardTrack | null {

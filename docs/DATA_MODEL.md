@@ -139,6 +139,10 @@ restores it explicitly and keeps the previous configuration beside it. Saved tok
 ## listen_log
 
 Append-only proof of coverage: `id`, `release_id`, `position` (nullable), `video_id`, `seconds`, `at`.
+Each new row also keeps the heard key, artist and title snapshot, upload title, playback ID,
+optional session ID, client start time, sampled video offsets and the heard flag. Older rows have
+null context. Seeking starts a new sampled segment; the threshold and remainder of a continuous
+play share a playback ID. Catalogue changes never rewrite this evidence.
 It has every play, also one shorter than the 4 s after which a tune turns heard; such a play
 (`heard: false` in `POST /api/listen-log`) leaves `heard_tracks` alone. A play of 4 s or more is
 logged at 4 s and again with the rest when the listener leaves it, so one play can be two rows.

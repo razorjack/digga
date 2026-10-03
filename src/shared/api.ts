@@ -164,6 +164,23 @@ export const TrackVerdictInputSchema = z
 export type TrackVerdictInput = z.infer<typeof TrackVerdictInputSchema>;
 export type TrackVerdictResponse = TrackVerdict | null;
 
+export const ListenContextSchema = z.object({
+  playbackId: z.uuid(),
+  sessionId: z.uuid().nullable(),
+  startedAt: z.iso.datetime(),
+  startSeconds: z.number().nonnegative(),
+  endSeconds: z.number().nonnegative(),
+  videoTitle: z.string().max(4000),
+  tune: z
+    .object({
+      heardKey: z.string().max(4000),
+      artistDisplay: z.string().max(4000),
+      title: z.string().max(4000),
+    })
+    .nullable(),
+});
+export type ListenContext = z.infer<typeof ListenContextSchema>;
+
 // POST /api/listen-log
 export const ListenLogInputSchema = z.object({
   releaseId: z.number().int().positive(),
@@ -172,6 +189,7 @@ export const ListenLogInputSchema = z.object({
   seconds: z.number().nonnegative(),
   /** False for a play shorter than the player's threshold: logged, the tune stays unheard. */
   heard: z.boolean().default(true),
+  context: ListenContextSchema.optional(),
 });
 export type ListenLogInput = z.input<typeof ListenLogInputSchema>;
 export interface ListenLogResponse {

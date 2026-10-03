@@ -1,5 +1,5 @@
 import { SvelteSet } from "svelte/reactivity";
-import type { ReleaseDetail } from "../../shared/api.ts";
+import type { ListenContext, ReleaseDetail } from "../../shared/api.ts";
 import {
   buildPlaylist,
   firstEntry,
@@ -24,6 +24,7 @@ const BLOCKED_AFTER_MS = 3500;
 interface Listen {
   /** The api of the mode the tune was heard in; a sandbox listen never reaches the server. */
   client: Api;
+  context: ListenContext;
   releaseId: number;
   position: string | null;
   heardKey: string | null;
@@ -66,6 +67,7 @@ export class TriagePlayer {
    */
   readonly heardKeys = new SvelteSet<string>();
 
+  sessionId: string | null = null;
   #api: AppApi;
   #fraction: () => number;
   #decks: Deck[] = [];
@@ -143,7 +145,7 @@ export class TriagePlayer {
       deck.pause();
       return;
     }
-    if (this.status === "ended") deck.seekTo(deck.startOffset());
+    if (this.status === "ended") this.seekTo(deck.startOffset());
     deck.play();
   }
 
@@ -175,15 +177,24 @@ export class TriagePlayer {
     const deck = this.#activeDeck();
     if (!deck?.videoId || !this.#holdsOpenRelease(deck)) return;
     const end = this.duration > 0 ? this.duration - 1 : Number.POSITIVE_INFINITY;
-    deck.seekTo(Math.min(end, deck.currentTime() + seconds));
-    this.time = deck.currentTime();
+    this.seekTo(Math.max(0, Math.min(end, deck.currentTime() + seconds)));
   }
 
   jumpTo(fraction: number): void {
     const deck = this.#activeDeck();
     if (!deck?.videoId || !this.#holdsOpenRelease(deck) || this.duration <= 0) return;
-    deck.seekTo(this.duration * fraction);
+    this.seekTo(this.duration * fraction);
     if (this.status !== "playing" && this.#canPlay()) deck.play();
+  }
+
+  seekTo(seconds: number): void {
+    const deck = this.#activeDeck();
+    if (!deck || !this.release || !this.entry) return;
+    this.time = deck.currentTime();
+    this.#flushListen();
+    this.time = Math.max(0, seconds);
+    deck.seekTo(this.time);
+    this.#beginListen(this.release.release.id, this.entry);
   }
 
   playEntry(index: number): void {
@@ -468,6 +479,7 @@ export class TriagePlayer {
   #countListen(elapsedSeconds: number): void {
     const listen = this.#listen;
     if (this.status !== "playing" || !listen) return;
+    if (listen.seconds === 0) listen.context.startSeconds = Math.max(0, this.time - elapsedSeconds);
     listen.seconds += elapsedSeconds;
     if (listen.logged === 0 && listen.seconds >= LOG_AFTER_SECONDS) {
       this.#postListen(listen, { seconds: listen.seconds, heard: true });
@@ -483,6 +495,21 @@ export class TriagePlayer {
   #beginListen(releaseId: number, entry: PlaylistEntry): void {
     this.#listen = {
       client: this.#api.pinned(),
+      context: {
+        playbackId: crypto.randomUUID(),
+        sessionId: this.sessionId,
+        startedAt: new Date().toISOString(),
+        startSeconds: this.time,
+        endSeconds: this.time,
+        videoTitle: entry.video.title,
+        tune: entry.track
+          ? {
+              heardKey: entry.track.heardKey,
+              artistDisplay: entry.track.artistDisplay,
+              title: entry.track.title,
+            }
+          : null,
+      },
       releaseId,
       position: entry.track?.position ?? null,
       heardKey: entry.track?.heardKey ?? null,
@@ -517,10 +544,12 @@ export class TriagePlayer {
         videoId: listen.videoId,
         seconds: Math.round(play.seconds * 10) / 10,
         heard: play.heard,
+        context: { ...listen.context, endSeconds: this.time },
       })
       .catch(() => {
-        // A lost listen only affects greying; the next listen of the tune logs it again.
+        // Listening remains best effort; a missed sample must not interrupt digging.
       });
+    listen.context.startSeconds = this.time;
   }
 
   #notify(message: string): void {

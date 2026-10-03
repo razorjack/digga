@@ -195,9 +195,10 @@ test.describe("with the clock", () => {
       await expect(triage.record).toHaveAttribute("data-triage-key", kept);
 
       await triage.resume();
-      expect((await triage.listenFor(5500)).seconds).toBe(4);
+      const resumedListen = await triage.listenFor(5500);
+      expect(resumedListen.seconds).toBe(4);
       const onLeaving = await triage.listenLoggedBy(() => header.goTo("twelves"));
-      expect(onLeaving).toEqual({
+      expect(onLeaving).toMatchObject({
         releaseId: SECOND_RECORD.id,
         position: SECOND_RECORD.tracks[0]!.position,
         videoId: SECOND_RECORD.videos[0]!.id,
@@ -205,6 +206,8 @@ test.describe("with the clock", () => {
         heard: true,
       });
       await expect.poll(() => app.youtube.audible()).toBeNull();
+      expect(onLeaving.context?.playbackId).toBe(resumedListen.context?.playbackId);
+      expect(onLeaving.context?.startSeconds).toBe(resumedListen.context?.endSeconds);
       // Listens are posted in order, so the first leaving, 0.5 s past its listen, posted nothing.
       const listens = app.apiRequests().filter((request) => request === "POST /api/listen-log");
       expect(listens).toHaveLength(3);
@@ -405,19 +408,23 @@ test.describe("digging a tune that another release repeats, with the clock", () 
 
       await app.clock.pause();
       await triage.startListening();
-      expect(await triage.listenFor()).toEqual({
+      const listen = await triage.listenFor();
+      expect(listen).toMatchObject({
         releaseId: FIRST_RECORD.id,
         position: tune!.position,
         videoId: videoOf(FIRST_RECORD, tune!.position).id,
         seconds: 4,
         heard: true,
       });
+      expect(listen.context?.tune?.title).toBe(tune!.title);
+      expect(listen.context?.playbackId).toBeTruthy();
+      expect(listen.context!.endSeconds - listen.context!.startSeconds).toBeCloseTo(4, 0);
       expect(await triage.nextTrack()).toBe(after!.position);
       await expect(triage.track(tune!.position).getByText("played", { exact: true })).toBeVisible();
 
       await app.clock.runFor(2000);
       const tap = await triage.listenLoggedBy(() => triage.judge("rejected"));
-      expect(tap).toEqual({
+      expect(tap).toMatchObject({
         releaseId: FIRST_RECORD.id,
         position: after!.position,
         videoId: videoOf(FIRST_RECORD, after!.position).id,

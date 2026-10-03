@@ -51,7 +51,8 @@ Priority: **P1**.
 
 After `runFor(4500)` of playback a listen is posted (awaited); once `J` moves on, the track reads
 "played"; 2 s of the next track are posted as not heard when a verdict leaves it, and that tune
-stays unheard; the same tune on another release reads "heard"
+stays unheard; the same tune on another release reads "heard". The posted listen preserves the
+playing tune, playback ID and sampled video offsets.
 
 ## TRI-07
 
