@@ -9,6 +9,7 @@ import {
   type DumpLoadJobInput,
   type DumpsResponse,
   type ExportFile,
+  type ForgetDiscogsDataResponse,
   type ImportJobInput,
   type ImportKind,
   type JobsResponse,
@@ -93,6 +94,8 @@ export interface Api {
   getDiscogsAccount(): Promise<DiscogsAccountResponse>;
   /** Saves the token, or removes the saved one with null; answers the account as the token finds it. */
   setDiscogsToken(token: string | null): Promise<DiscogsAccountResponse>;
+  /** Forgets the Discogs account's collection, wantlist and Maybe list, so another can be used. */
+  forgetDiscogsData(): Promise<ForgetDiscogsDataResponse>;
   getDiscogsLists(): Promise<DiscogsListsResponse>;
   /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
   getDiscogsList(id: number): Promise<DiscogsListResponse>;
@@ -200,6 +203,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     removeFromWantlist: (releaseId) => callDiscogs("DELETE", `/discogs/wantlist/${releaseId}`),
     getDiscogsAccount: () => callDiscogs("GET", "/discogs/account"),
     setDiscogsToken: (token) => callDiscogs("PUT", "/discogs/token", { token }),
+    forgetDiscogsData: () => call("DELETE", "/discogs/data"),
     getDiscogsLists: () => callDiscogs("GET", "/discogs/lists"),
     getDiscogsList: (id) => callList("GET", `/discogs/lists/${id}`),
     getBackups: () => call("GET", "/backups"),
@@ -274,6 +278,7 @@ export function createAppApi(
     removeFromWantlist: (releaseId) => current.removeFromWantlist(releaseId),
     getDiscogsAccount: () => current.getDiscogsAccount(),
     setDiscogsToken: (token) => current.setDiscogsToken(token),
+    forgetDiscogsData: () => current.forgetDiscogsData(),
     getDiscogsLists: () => current.getDiscogsLists(),
     getDiscogsList: (id) => current.getDiscogsList(id),
     getBackups: () => current.getBackups(),

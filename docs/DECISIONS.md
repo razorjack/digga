@@ -860,3 +860,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      queue, since the user has been through it, and a want or grail decided in Digga leaves the
      Want and Grail shelves, as an owned record does, and is no longer offered for the wantlist.
      The decision itself stays, so the record is still dug and a later `A` brings the want back.
+138. **A library holds one Discogs account's data.** `memberships` had no account, and the
+     username in Settings could change while another account's collection and wantlist stayed
+     (F10). The owner chose to refuse the change instead of storing an account per item. The
+     library records the account in `meta.discogs_account` when an import or a wantlist push
+     uses it; a library from before that counts as the configured account's. While memberships
+     are stored, Settings refuses a username of another account, a token of another account is
+     not kept, and imports and pushes for another account fail. Discogs usernames ignore case.
+     Settings names the account and offers to forget its collection, wantlist and Maybe list
+     (`DELETE /api/discogs/data`); verdicts, notes and marks stay, and records only the account
+     held return to the queue until the next imports.

@@ -14,7 +14,6 @@ export async function importCollection(
   options: SeedImportOptions,
   onProgress?: (p: ImportProgress) => void,
 ): Promise<SeedImportResult> {
-  if (options.username === "") throw new Error("discogs.username is not set in digga.config.json");
   const perPage = options.perPage ?? 100;
   const readPage = async (page: number) => {
     const data = await deps.discogs.getCollectionPage(options.username, page, perPage);
@@ -22,7 +21,7 @@ export async function importCollection(
   };
   return importSeedPages(
     deps,
-    { kind: "collection", readPage, signal: options.signal },
+    { kind: "collection", username: options.username, readPage, signal: options.signal },
     onProgress,
   );
 }

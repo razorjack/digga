@@ -211,7 +211,9 @@ census shipped with Digga instead.
 
 ## meta
 
-Key/value: `schema_version`, `dump_date` (from the dump file name), `dump_file`, `dump_loaded_at`.
+Key/value: `schema_version`, `dump_date` (from the dump file name), `dump_file`, `dump_loaded_at`,
+`discogs_account` (whose collection, wantlist and lists `memberships` holds; another account is
+refused until Settings forgets them).
 
 ## Backup schedule
 

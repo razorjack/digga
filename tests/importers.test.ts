@@ -4,7 +4,12 @@ import type { DiscogsCollectionPage, DiscogsWantlistPage } from "../src/server/d
 import { importCollection } from "../src/server/importers/collection.ts";
 import { importWantlist } from "../src/server/importers/wantlist.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
-import { recordMembershipOf } from "../src/server/db/memberships.ts";
+import {
+  accountConflict,
+  forgetAccountData,
+  heldAccount,
+  recordMembershipOf,
+} from "../src/server/db/memberships.ts";
 import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import {
@@ -224,6 +229,54 @@ describe("collection and wantlist importers", () => {
     await expect(
       importWantlist({ db, discogs: fakeDiscogs([], []), logger: silentLogger }, { username: "" }),
     ).rejects.toThrow(/username/);
+    db.close();
+  });
+
+  it("refuses another account while the library holds one's items, until they are forgotten", async () => {
+    const db = await fixtureDb();
+    const wants: DiscogsWantlistPage[] = [
+      {
+        pagination: { page: 1, pages: 1, per_page: 100, items: 1 },
+        wants: [
+          {
+            id: 9001,
+            date_added: "2026-09-01T00:00:00-07:00",
+            basic_information: basic(9001, null, "Unknown EP"),
+          },
+        ],
+      },
+    ];
+    const deps = { db, discogs: fakeDiscogs([], wants), logger: silentLogger };
+    await importWantlist(deps, { username: "dj" });
+
+    await expect(importCollection(deps, { username: "Other" })).rejects.toThrow(
+      "This library holds the Discogs collection and wantlist of dj; forget them in Settings before using Other",
+    );
+    await importWantlist(deps, { username: "DJ" });
+    expect(heldAccount(db, "")).toBe("DJ");
+
+    expect(forgetAccountData(db)).toBe(1);
+    expect(heldAccount(db, "dj")).toBeNull();
+    await importWantlist(deps, { username: "Other" });
+    expect(heldAccount(db, "")).toBe("Other");
+    db.close();
+  });
+
+  it("takes a library from before Digga recorded the account as the configured account's", async () => {
+    const db = await fixtureDb();
+    applySeedItem(db, {
+      kind: "collection",
+      releaseId: 9001,
+      masterId: null,
+      dateAdded: null,
+      rating: null,
+      notes: null,
+      basicInformation: basic(9001, null, "Unknown EP"),
+    });
+
+    expect(heldAccount(db, "dj")).toBe("dj");
+    expect(accountConflict(db, "other", "dj")).toMatch(/of dj; forget them/);
+    expect(accountConflict(db, "", "dj")).toBeNull();
     db.close();
   });
 });

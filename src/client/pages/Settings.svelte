@@ -219,6 +219,18 @@
     draft.discogs.username = usernameAfterTokenSave(draft.discogs.username, savedUsername, discogs.account);
   }
 
+  async function forgetDiscogsData(account: string): Promise<void> {
+    const question = `Forget the collection, wantlist and Maybe list of ${account} in Digga? Verdicts, notes and marks stay, and Discogs keeps the account as it is.`;
+    if (!confirm(question)) return;
+    try {
+      const forgotten = await discogs.forgetData();
+      showFlash(`Forgot ${formatCount(forgotten)} Discogs items of ${account}.`);
+      void stats.refresh();
+    } catch (error) {
+      showFlash(`Not forgotten: ${errorMessage(error)}`);
+    }
+  }
+
   function submitToken(event: SubmitEvent): void {
     event.preventDefault();
     void saveToken(tokenDraft.trim());
@@ -729,7 +741,7 @@
             <label class="name" for="{id}-username">Username</label>
             <input
               id="{id}-username"
-              aria-describedby="{id}-username-hint"
+              aria-describedby="{id}-username-hint {id}-data-account"
               bind:value={draft.discogs.username}
               autocomplete="off"
               spellcheck="false"
@@ -737,6 +749,16 @@
             <span class="hint" id="{id}-username-hint">
               Collection and wantlist imports read this account.
             </span>
+            {#if discogs.account?.dataAccount}
+              {@const dataAccount = discogs.account.dataAccount}
+              <span class="hint" id="{id}-data-account">
+                The library holds the collection, wantlist and Maybe list of {dataAccount}; another account needs them
+                forgotten first.
+                <button type="button" class="link" disabled={discogs.forgetting} onclick={() => void forgetDiscogsData(dataAccount)}>
+                  Forget them
+                </button>
+              </span>
+            {/if}
           </div>
           <div class="field">
             <label class="name" for="{id}-token">Token</label>

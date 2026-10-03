@@ -31,7 +31,10 @@ const fakeFetch: typeof fetch = async (input, init) => {
   if (typeof init?.body === "string") bodies.push(JSON.parse(init.body));
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  if (url.pathname === "/oauth/identity") return json({ id: 1, username: "dj" });
+  if (url.pathname === "/oauth/identity") {
+    const authorization = new Headers(init?.headers).get("authorization") ?? "";
+    return json({ id: 1, username: authorization.includes("other") ? "other" : "dj" });
+  }
   if (url.pathname === "/users/dj/wants/1002") return json({ message: "Unauthorized" }, 401);
   if (url.pathname.startsWith("/users/dj/wants/"))
     return method === "DELETE" ? new Response(null, { status: 204 }) : json({ id: 1 }, 201);
@@ -161,6 +164,7 @@ describe("Discogs wantlist over HTTP", () => {
       tokenSource: "saved",
       tokenUsername: "dj",
       error: null,
+      dataAccount: null,
     });
     token = undefined;
     const none = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
@@ -188,6 +192,39 @@ describe("Discogs wantlist over HTTP", () => {
     });
     expect(removed.body).toMatchObject({ hasToken: false, tokenSource: null });
     expect(fs.readFileSync(envFile, "utf8")).toBe("");
+  });
+
+  it("refuses another account while the library holds one's Discogs data, until it is forgotten", async () => {
+    const envFile = path.join(tmp, ".env");
+    await server.stop();
+    server = serverWith(createSecrets({ envFile, env: {} }));
+    await send("PUT", "/api/discogs/token", { token: "token" });
+    await send("POST", "/api/discogs/wantlist/1001");
+    const config = server.getConfig();
+    const rename = (username: string) =>
+      send<ApiError>("PUT", "/api/settings", {
+        ...config,
+        discogs: { ...config.discogs, username },
+      });
+    const dataAccount = async () =>
+      (await send<DiscogsAccountResponse>("GET", "/api/discogs/account")).body.dataAccount;
+
+    expect(await rename("someone")).toEqual({
+      status: 409,
+      body: {
+        error:
+          "This library holds the Discogs collection and wantlist of dj; forget them in Settings before using someone",
+      },
+    });
+    const otherToken = await send<ApiError>("PUT", "/api/discogs/token", { token: "other" });
+    expect(otherToken.status).toBe(409);
+    expect(otherToken.body.error).toMatch(/of dj; forget them in Settings before using other$/);
+    expect(fs.readFileSync(envFile, "utf8")).toBe("DISCOGS_TOKEN=token\n");
+    expect(await dataAccount()).toBe("dj");
+
+    expect((await send("DELETE", "/api/discogs/data")).body).toEqual({ forgotten: 1 });
+    expect(await dataAccount()).toBeNull();
+    expect((await rename("someone")).status).toBe(200);
   });
 
   it("leaves a token from the environment alone", async () => {

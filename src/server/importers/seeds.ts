@@ -10,7 +10,12 @@ import type {
   ReleaseRecord,
 } from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
-import { forgetMembership, markMissingMemberships, recordMembership } from "../db/memberships.ts";
+import {
+  claimAccount,
+  forgetMembership,
+  markMissingMemberships,
+  recordMembership,
+} from "../db/memberships.ts";
 import { releaseNote } from "../db/notes.ts";
 import { getRelease, getTracks, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
 import { getTrackVerdicts } from "../db/verdicts.ts";
@@ -101,18 +106,22 @@ interface SeedPage {
 /**
  * Reads every page of the account's collection or wantlist, each page in one transaction. Once
  * every page is read, the items the account no longer lists left it outside Digga and are marked;
- * a cancelled read marks nothing.
+ * a cancelled read marks nothing. A library holding another account's data refuses the import.
  */
 export async function importSeedPages(
   deps: SeedImportDeps,
   read: {
     kind: SeedImportResult["kind"];
+    username: string;
     readPage: (page: number) => Promise<SeedPage>;
     signal?: AbortSignal;
   },
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<SeedImportResult> {
   const { kind } = read;
+  if (read.username === "") throw new Error("discogs.username is not set in digga.config.json");
+  const conflict = claimAccount(deps.db, read.username);
+  if (conflict !== null) throw new Error(conflict);
   const progress: ImportProgress = {
     page: 0,
     pages: null,

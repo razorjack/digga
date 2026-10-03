@@ -1,6 +1,8 @@
 import { toUtcTimestamp } from "../../shared/timestamp.ts";
 import type { MembershipKind, RecordMembership } from "../../shared/types.ts";
-import { type Db, nowIso } from "./db.ts";
+import { type Db, getMeta, nowIso, setMeta } from "./db.ts";
+
+const ACCOUNT_KEY = "discogs_account";
 
 /** A release the Discogs account holds, as an import or Digga's own push found it. */
 export interface MembershipWrite {
@@ -118,6 +120,41 @@ export function countMemberships(db: Db): Record<MembershipKind, number> {
   return counts;
 }
 
+/**
+ * The Discogs account whose collection, wantlist and lists the library holds; null when it holds
+ * none. A library from before Digga recorded the account holds the configured one's.
+ */
+export function heldAccount(db: Db, configured: string): string | null {
+  const holds = db.prepare("SELECT 1 FROM memberships LIMIT 1").get() !== undefined;
+  if (!holds) return null;
+  return getMeta(db, ACCOUNT_KEY) ?? (configured === "" ? null : configured);
+}
+
+/** Why the library refuses the account: it holds another account's data. Null when it does not. */
+export function accountConflict(db: Db, requested: string, configured: string): string | null {
+  const held = heldAccount(db, configured);
+  if (held === null || requested === "" || sameAccount(held, requested)) return null;
+  return `This library holds the Discogs collection and wantlist of ${held}; forget them in Settings before using ${requested}`;
+}
+
+/**
+ * Records that the library's Discogs data comes from the account. While it holds another account's,
+ * records nothing and returns why it refuses this one.
+ */
+export function claimAccount(db: Db, username: string): string | null {
+  const conflict = accountConflict(db, username, username);
+  if (conflict === null) setMeta(db, ACCOUNT_KEY, username);
+  return conflict;
+}
+
+/** Forgets what the account holds, so another account can be used; returns how many items. */
+export function forgetAccountData(db: Db): number {
+  return db.transaction(() => {
+    db.prepare("DELETE FROM meta WHERE key = ?").run(ACCOUNT_KEY);
+    return db.prepare("DELETE FROM memberships").run().changes;
+  })();
+}
+
 export const NOT_HELD: RecordMembership = {
   owned: false,
   onWantlist: false,
@@ -152,4 +189,9 @@ function newestItem(items: HeldItem[]): { since: string; releaseId: number } {
   return (held.length > 0 ? held : items)
     .map((item) => ({ since: toUtcTimestamp(item.since), releaseId: item.releaseId }))
     .reduce((left, right) => (right.since > left.since ? right : left));
+}
+
+/** Discogs usernames ignore case. */
+function sameAccount(left: string, right: string): boolean {
+  return left.toLowerCase() === right.toLowerCase();
 }

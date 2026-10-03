@@ -14,13 +14,16 @@ export async function importWantlist(
   options: SeedImportOptions,
   onProgress?: (p: ImportProgress) => void,
 ): Promise<SeedImportResult> {
-  if (options.username === "") throw new Error("discogs.username is not set in digga.config.json");
   const perPage = options.perPage ?? 100;
   const readPage = async (page: number) => {
     const data = await deps.discogs.getWantlistPage(options.username, page, perPage);
     return { pages: data.pagination.pages, items: data.wants.map(wantlistItem) };
   };
-  return importSeedPages(deps, { kind: "wantlist", readPage, signal: options.signal }, onProgress);
+  return importSeedPages(
+    deps,
+    { kind: "wantlist", username: options.username, readPage, signal: options.signal },
+    onProgress,
+  );
 }
 
 function wantlistItem(item: DiscogsWantItem): SeedItemInput {

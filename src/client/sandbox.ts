@@ -672,6 +672,7 @@ class SandboxApi implements Api {
 
   getDiscogsAccount: Api["getDiscogsAccount"] = () => this.#inner.getDiscogsAccount();
   setDiscogsToken: Api["setDiscogsToken"] = (token) => this.#inner.setDiscogsToken(token);
+  forgetDiscogsData: Api["forgetDiscogsData"] = () => this.#inner.forgetDiscogsData();
 
   getDiscogsLists: Api["getDiscogsLists"] = () => this.#inner.getDiscogsLists();
 

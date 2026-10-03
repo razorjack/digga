@@ -455,6 +455,17 @@ export interface DiscogsAccountResponse {
   /** The account the token belongs to; null without a token or when Discogs could not be asked. */
   tokenUsername: string | null;
   error: string | null;
+  /**
+   * The account whose collection, wantlist and Maybe list the library holds; null when it holds
+   * none. Another account is refused until that data is forgotten.
+   */
+  dataAccount: string | null;
+}
+
+// DELETE /api/discogs/data: forget the account's collection, wantlist and Maybe list
+export interface ForgetDiscogsDataResponse {
+  /** How many items were forgotten. */
+  forgotten: number;
 }
 
 // GET /api/discogs/profile: the account behind the token, for the setup

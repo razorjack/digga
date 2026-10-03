@@ -6,9 +6,11 @@ import {
   type DiscogsListsResponse,
   type DiscogsProfileResponse,
   DiscogsTokenInputSchema,
+  type ForgetDiscogsDataResponse,
   type WantlistPushResponse,
 } from "../../shared/api.ts";
 import { DISCOGS_CURRENCIES } from "../../shared/config.ts";
+import { accountConflict, forgetAccountData, heldAccount } from "../db/memberships.ts";
 import { getRelease } from "../db/releases.ts";
 import { DiscogsApiError } from "../discogs/client.ts";
 import { listUserLists } from "../discogs/lists.ts";
@@ -32,6 +34,7 @@ export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
   api.get("/discogs/account", (request) => account(request, context));
   api.get("/discogs/profile", (request) => profile(request, context));
   api.put("/discogs/token", (request) => saveToken(request, context));
+  api.delete("/discogs/data", (request) => forgetData(request, context));
   api.post("/discogs/wantlist/:id", (request) => pushWantlist(request, context));
   api.delete("/discogs/wantlist/:id", (request) => removeWantlist(request, context));
   api.post("/releases/:id/enrich", (request) => enrichOne(request, context));
@@ -98,14 +101,16 @@ async function askIdentity(context: AppContext): Promise<Identity> {
   }
 }
 
-/** Whether a token is set and whose it is. */
+/** Whether a token is set and whose it is, and whose Discogs data the library holds. */
 function accountResponse(context: AppContext, identity: Identity | null): DiscogsAccountResponse {
+  const { username } = context.getConfig().discogs;
   return {
-    username: context.getConfig().discogs.username,
+    username,
     hasToken: context.getDiscogs().hasToken(),
     tokenSource: context.secrets.discogsTokenSource(),
     tokenUsername: identity && "username" in identity ? identity.username : null,
     error: identity && "error" in identity ? identity.error : null,
+    dataAccount: heldAccount(context.db, username),
   };
 }
 
@@ -124,8 +129,9 @@ async function profile(request: Context, context: AppContext) {
 }
 
 /**
- * Setup rather than digging, so the sandbox does not refuse it. A token Discogs refuses is not
- * kept, and the first token sets the Discogs username, so nobody has to type it.
+ * Setup rather than digging, so the sandbox does not refuse it. A token Discogs refuses, or one of
+ * another account than the library's Discogs data, is not kept. The first token sets the Discogs
+ * username, so nobody has to type it.
  */
 async function saveToken(request: Context, context: AppContext) {
   const body = await parseJson(request, DiscogsTokenInputSchema);
@@ -147,19 +153,42 @@ async function saveToken(request: Context, context: AppContext) {
   }
 
   const identity = await askIdentity(context);
-  if ("refused" in identity && identity.refused) {
+  const refusal = tokenRefusal(context, identity);
+  if (refusal !== null) {
     context.secrets.setDiscogsToken(previous);
-    return badRequest(request, "Discogs refused this token; copy it again from discogs.com");
+    return request.json({ error: refusal.error } satisfies ApiError, refusal.status);
   }
   if ("username" in identity) adoptUsername(context, identity.username);
   context.logger.info("Discogs token saved");
   return request.json(accountResponse(context, identity));
 }
 
+function tokenRefusal(
+  context: AppContext,
+  identity: Identity,
+): { error: string; status: 400 | 409 } | null {
+  if ("refused" in identity && identity.refused)
+    return { error: "Discogs refused this token; copy it again from discogs.com", status: 400 };
+  if (!("username" in identity)) return null;
+  const configured = context.getConfig().discogs.username;
+  const conflict = accountConflict(context.db, identity.username, configured);
+  return conflict === null ? null : { error: conflict, status: 409 };
+}
+
 function adoptUsername(context: AppContext, username: string): void {
   const config = context.getConfig();
   if (config.discogs.username !== "") return;
   context.setConfig({ ...config, discogs: { ...config.discogs, username } });
+}
+
+/**
+ * Forgets the collection, wantlist and Maybe list the library holds, so another Discogs account
+ * can be used. Verdicts, notes and marks stay; the next imports read the account again.
+ */
+function forgetData(request: Context, context: AppContext) {
+  const forgotten = forgetAccountData(context.db);
+  context.logger.info(`forgot ${forgotten} Discogs collection, wantlist and list items`);
+  return request.json({ forgotten } satisfies ForgetDiscogsDataResponse);
 }
 
 async function pushWantlist(request: Context, context: AppContext) {

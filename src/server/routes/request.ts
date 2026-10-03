@@ -2,6 +2,7 @@ import { parseInteger } from "../../shared/integer.ts";
 import { type Context } from "hono";
 import type { z } from "zod";
 import { type ApiError } from "../../shared/api.ts";
+import { claimAccount } from "../db/memberships.ts";
 import { DiscogsApiError } from "../discogs/client.ts";
 import type { AppContext } from "../context.ts";
 
@@ -81,6 +82,10 @@ const SANDBOX_REFUSAL = {
 export function refuseInSandbox(request: Context, context: AppContext): Response | null {
   return context.getConfig().sandbox ? request.json(SANDBOX_REFUSAL, 409) : null;
 }
+/**
+ * The account a wantlist change goes to, which the library's Discogs data then comes from; a
+ * response instead when the change cannot go there.
+ */
 export function wantlistAccount(
   request: Context,
   context: AppContext,
@@ -96,5 +101,8 @@ export function wantlistAccount(
     return { response: badRequest(request, "Set your Discogs username in Settings first") };
   if (!context.getDiscogs().hasToken())
     return { response: badRequest(request, "Set your Discogs token in Settings first") };
+  const conflict = claimAccount(context.db, username);
+  if (conflict !== null)
+    return { response: request.json({ error: conflict } satisfies ApiError, 409) };
   return { username };
 }

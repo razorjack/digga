@@ -6,6 +6,7 @@ export class DiscogsSettings {
   account = $state<DiscogsAccountResponse | null>(null);
   accountError = $state<string | null>(null);
   tokenSaving = $state(false);
+  forgetting = $state(false);
   tokenError = $state<string | null>(null);
   lists = $state.raw<DiscogsListSummary[]>([]);
   listsState = $state<"idle" | "loading" | "error">("idle");
@@ -49,6 +50,18 @@ export class DiscogsSettings {
       return false;
     } finally {
       this.tokenSaving = false;
+    }
+  }
+
+  /** Forgets the account's collection, wantlist and Maybe list; returns how many items. */
+  async forgetData(): Promise<number> {
+    this.forgetting = true;
+    try {
+      const { forgotten } = await this.#client.forgetDiscogsData();
+      await this.loadAccount();
+      return forgotten;
+    } finally {
+      this.forgetting = false;
     }
   }
 

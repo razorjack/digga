@@ -128,6 +128,7 @@ describe("Settings request ownership", () => {
       tokenSource: null,
       tokenUsername: null,
       error: null,
+      dataAccount: null,
       ...fields,
     });
     const setDiscogsToken = vi
@@ -161,6 +162,7 @@ describe("the Username field after a token save", () => {
     tokenSource: "saved",
     tokenUsername: "dj",
     error: null,
+    dataAccount: null,
   });
 
   it("takes the username the server adopted with the first token", () => {
