@@ -13,7 +13,7 @@ export interface RestoreOutcome {
   verdicts: { restored: number; keptNewer: number; moved: number };
   trackMarks: { restored: number; keptNewer: number };
   heardTunes: { added: number };
-  attachedVideos: { added: number; withoutRelease: number };
+  attachedVideos: { added: number };
   /** `leftOut`: saved sessions this version cannot resume. */
   sessions: { restored: number; leftOut: number };
 }
@@ -37,8 +37,7 @@ export function readBackedUpData(db: Db): BackedUpData {
 /**
  * Writes a backup into the library in one transaction. The backup wins, except over a verdict or
  * track mark made in Digga after the backup was written. Heard tunes and attached videos are
- * added to what the library has; a video whose release the library lacks is left out, since
- * videos belong to loaded releases.
+ * added to what the library has; a video whose release the library has not loaded waits for it.
  */
 export function restoreBackedUpData(
   db: Db,
@@ -52,7 +51,7 @@ export function restoreBackedUpData(
         verdicts: restoreVerdicts(db, data, backupTime),
         trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
         heardTunes: { added: addHeardTunes(db, data.heardTunes) },
-        attachedVideos: addAttachedVideos(db, data.attachedVideos),
+        attachedVideos: { added: addAttachedVideos(db, data.attachedVideos) },
       };
       restoreHistory(db, data);
       return { ...outcome, sessions: restoreSessions(db, data.sessions) };
@@ -268,23 +267,13 @@ function addHeardTunes(db: Db, tunes: BackedUpData["heardTunes"]): number {
   return added;
 }
 
-function addAttachedVideos(
-  db: Db,
-  videos: BackedUpData["attachedVideos"],
-): RestoreOutcome["attachedVideos"] {
-  const hasRelease = db.prepare("SELECT 1 FROM releases WHERE id = ?");
+function addAttachedVideos(db: Db, videos: BackedUpData["attachedVideos"]): number {
   const insert = db.prepare(
     `INSERT INTO user_videos (release_id, video_id, src, title, matched_position, added_at)
      VALUES (@releaseId, @videoId, @src, @title, @matchedPosition, @addedAt)
      ON CONFLICT(release_id, video_id) DO NOTHING`,
   );
-  const outcome = { added: 0, withoutRelease: 0 };
-  for (const video of videos) {
-    if (hasRelease.get(video.releaseId) === undefined) {
-      outcome.withoutRelease += 1;
-      continue;
-    }
-    outcome.added += insert.run(video).changes;
-  }
-  return outcome;
+  let added = 0;
+  for (const video of videos) added += insert.run(video).changes;
+  return added;
 }

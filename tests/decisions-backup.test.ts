@@ -93,7 +93,7 @@ describe("the decisions backup", () => {
       verdicts: { restored: 3, keptNewer: 0, moved: 0 },
       trackMarks: { restored: 1, keptNewer: 0 },
       heardTunes: { added: 1 },
-      attachedVideos: { added: 1, withoutRelease: 0 },
+      attachedVideos: { added: 1 },
       sessions: { restored: 0, leftOut: 0 },
     });
     expect(readBackedUpData(target)).toEqual(readBackedUpData(source));
@@ -166,7 +166,10 @@ describe("the decisions backup", () => {
     expect(getVerdict(target, "m:506")?.status).toBe("no_audio");
     expect(outcome.verdicts).toEqual({ restored: 2, keptNewer: 1, moved: 0 });
     expect(outcome.trackMarks).toEqual({ restored: 0, keptNewer: 1 });
-    expect(outcome.attachedVideos).toEqual({ added: 1, withoutRelease: 1 });
+    expect(outcome.attachedVideos).toEqual({ added: 2 });
+    expect(
+      target.prepare("SELECT 1 FROM user_videos WHERE release_id = 999999").get(),
+    ).toBeTruthy();
     source.close();
     target.close();
   });

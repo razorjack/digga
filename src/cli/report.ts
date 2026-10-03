@@ -93,7 +93,6 @@ export function showRestore(restore: {
     count > 0 ? `, ${count} kept: decided here after the backup` : "";
   const moved =
     verdicts.moved > 0 ? `, ${verdicts.moved} on the record their release is on now` : "";
-  const leftOut = attachedVideos.withoutRelease;
   console.log(`copied the database first: ${restore.copy.file}`);
   console.log(`restored ${restore.file}, backed up ${restore.backup.backedUpAt}`);
   console.log(
@@ -101,9 +100,7 @@ export function showRestore(restore: {
   );
   console.log(`  track marks:     ${trackMarks.restored} restored${kept(trackMarks.keptNewer)}`);
   console.log(`  heard tunes:     ${heardTunes.added} added`);
-  console.log(
-    `  attached videos: ${attachedVideos.added} added${leftOut > 0 ? `, ${leftOut} left out: load the dump with their releases, then restore again` : ""}`,
-  );
+  console.log(`  attached videos: ${attachedVideos.added} added`);
   const unresumable =
     sessions.leftOut > 0 ? `, ${sessions.leftOut} left out: this version cannot resume them` : "";
   console.log(`  sessions:        ${sessions.restored} restored${unresumable}`);

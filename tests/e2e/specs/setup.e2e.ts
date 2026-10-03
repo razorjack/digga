@@ -252,11 +252,11 @@ test(
     await setup.expectPicks(picks);
     const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
     expect(jobs.find((job) => job.type === "dump_load")?.status).toBe("cancelled");
-    // Only the judged release stays, with its verdict.
-    expect((await app.api.get<Stats>("/api/stats")).universe.releases).toBe(1);
+    // The judged release leaves the universe with the others, but stays with its verdict.
+    expect((await app.api.get<Stats>("/api/stats")).universe.releases).toBe(0);
     const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
     expect(exported.verdicts).toEqual([
-      expect.objectContaining({ key: judged, status: "rejected" }),
+      expect.objectContaining({ key: judged, status: "rejected", title: expect.any(String) }),
     ]);
 
     // A new page finds the cancelled load, and the way back to step 3 starts from the picks again.

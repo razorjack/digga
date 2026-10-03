@@ -787,3 +787,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      backup's times are converted as it is read, and migration 15 converts the stored verdicts and
      their log without logging the change as a decision. `seed_items.date_added` keeps Discogs'
      text, since that table is the raw import.
+132. **Personal data outlives the catalogue rows it names.** The pre-release review (F05) deleted
+     a release that an unfinished load had added and the user had attached a video to: "Change
+     your picks" protected only releases with a verdict, and `user_videos` followed its release
+     through `ON DELETE CASCADE`. A restore also skipped attachments whose release the library had
+     not loaded. Migration 16 rebuilds `user_videos` without the foreign key; "Change your picks"
+     turns a release the user has data on (a verdict, mark, note, listen, attached video or
+     import) into a stub outside the universe instead of deleting it, so it also leaves the queue
+     of the new picks; and restore keeps every attachment, which applies once its release loads.
+     A later feature that prunes releases a load no longer finds (`docs/ROADMAP.md`) has to keep
+     the same rows.

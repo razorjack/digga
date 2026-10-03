@@ -74,7 +74,9 @@ Non-YouTube videos are dropped at load time.
 YouTube videos the user attached by pasting a link: `(release_id, video_id)` PK, `src`, `title`
 (from YouTube's oEmbed, empty when it gave none), `matched_position`, `added_at`. Dump loads and
 enrich replace `videos` per release and never touch this table; release details add these videos
-after the ones from Discogs.
+after the ones from Discogs. The table has no foreign key to `releases` (migration 16): an
+attached video stays when its release row goes or is not loaded, and applies again when a load
+brings the release back.
 
 ## no_audio_videos
 

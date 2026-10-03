@@ -190,7 +190,7 @@ changed since the newest file, so idle days and a new library never push older b
 `digga backup` writes both backups on demand. `digga restore <file>` copies the database, then
 writes the file into the library in one transaction (`restoreBackedUpData`): the backup wins,
 except over a verdict or track mark made in Digga after it was written; heard tunes and attached
-videos are added, the latter only for releases the library has.
+videos are added, the latter also for releases the library has not loaded, which they wait for.
 
 `GET /api/export/decisions.json`, `verdicts.csv` and `track-marks.csv` download every saved
 verdict and track mark with the release they belong to (`src/server/export.ts`). They read the

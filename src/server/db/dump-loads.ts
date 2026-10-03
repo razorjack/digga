@@ -98,19 +98,32 @@ function rowToSummary(row: DumpLoadRow): DumpLoadSummary {
   };
 }
 
+const ADDED_BY_UNFINISHED_LOAD =
+  "added_by_load IN (SELECT id FROM dump_loads WHERE finished_at IS NULL)";
+
+/** Anything the user made or imported that names the release or its record. */
+const HAS_PERSONAL_DATA = `(
+  EXISTS (SELECT 1 FROM verdicts v WHERE v.key = releases.triage_key OR v.release_id = releases.id)
+  OR EXISTS (SELECT 1 FROM track_verdicts t WHERE t.release_id = releases.id)
+  OR EXISTS (SELECT 1 FROM release_notes n WHERE n.release_id = releases.id)
+  OR EXISTS (SELECT 1 FROM user_videos u WHERE u.release_id = releases.id)
+  OR EXISTS (SELECT 1 FROM listen_log l WHERE l.release_id = releases.id)
+  OR EXISTS (SELECT 1 FROM seed_items s WHERE s.release_id = releases.id))`;
+
 /**
- * Undoes loads that did not finish, for the setup's "Change your picks": deletes the releases
- * they brought into the universe, except those with a verdict on their record, which the next
- * finished load takes over. Returns how many it deleted.
+ * Undoes loads that did not finish, for the setup's "Change your picks": the releases they
+ * brought into the universe leave it. Those the user has data on stay as stubs, outside the
+ * universe like a seed's release, so a later load that finds them takes them back; the others
+ * are deleted. Returns how many it deleted.
  */
 export function forgetUnfinishedLoads(db: Db): number {
-  return db
-    .prepare(
-      `DELETE FROM releases
-       WHERE added_by_load IN (SELECT id FROM dump_loads WHERE finished_at IS NULL)
-         AND NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = releases.triage_key)`,
-    )
-    .run().changes;
+  return db.transaction(() => {
+    db.prepare(
+      `UPDATE releases SET in_universe = 0, added_by_load = NULL, written_by_load = NULL
+       WHERE ${ADDED_BY_UNFINISHED_LOAD} AND ${HAS_PERSONAL_DATA}`,
+    ).run();
+    return db.prepare(`DELETE FROM releases WHERE ${ADDED_BY_UNFINISHED_LOAD}`).run().changes;
+  })();
 }
 
 /**

@@ -2,11 +2,17 @@ import { describe, expect, it } from "vite-plus/test";
 import { openDb } from "../src/server/db/db.ts";
 import {
   finishDumpLoadRecord,
+  forgetUnfinishedLoads,
   latestDumpLoad,
   startDumpLoadRecord,
 } from "../src/server/db/dump-loads.ts";
 import { createJob, getJob, updateJobProgress } from "../src/server/db/jobs.ts";
-import { getRelease, insertStubRelease, upsertRelease } from "../src/server/db/releases.ts";
+import {
+  addUserVideo,
+  getRelease,
+  insertStubRelease,
+  upsertRelease,
+} from "../src/server/db/releases.ts";
 import { dumpLoad, type DumpLoadJobOptions } from "../src/server/jobs/dump-load.ts";
 import { countRemaining, queryQueue } from "../src/server/queue/query.ts";
 import { computeStats } from "../src/server/stats.ts";
@@ -85,6 +91,26 @@ describe("recorded dump loads", () => {
     });
     expect(summary).toMatchObject({ added: 1, missing: 0 });
     expect(db.prepare("SELECT id FROM dump_loads").pluck().all()).toEqual([next]);
+    db.close();
+  });
+
+  it("forget an unfinished load, keeping the releases with the user's data as stubs", () => {
+    const db = openDb(":memory:");
+    const startedAt = new Date().toISOString();
+    const unfinished = startDumpLoadRecord(db, { file: "a.xml.gz", dumpDate: null, startedAt });
+    upsertRelease(db, { ...stubOf(1005), inUniverse: true }, unfinished);
+    upsertRelease(db, { ...stubOf(1006), inUniverse: true }, unfinished);
+    addUserVideo(db, 1005, {
+      videoId: "pastedvid01",
+      src: "https://www.youtube.com/watch?v=pastedvid01",
+      title: "",
+      matchedPosition: null,
+    });
+
+    expect(forgetUnfinishedLoads(db)).toBe(1);
+    expect(getRelease(db, 1006)).toBeNull();
+    expect(getRelease(db, 1005)?.inUniverse).toBe(false);
+    expect(db.prepare("SELECT video_id FROM user_videos").pluck().all()).toEqual(["pastedvid01"]);
     db.close();
   });
 

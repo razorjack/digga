@@ -184,7 +184,7 @@ describe("GET /api/setup", () => {
 });
 
 describe("changing the picks during the first load", () => {
-  it("deletes what the unfinished load added, but not a record with a verdict", async () => {
+  it("deletes what the unfinished load added, leaving a record with a verdict as stubs", async () => {
     const load = await dumpLoad(
       { db, logger: silentLogger },
       { file: FIXTURE_GZ, styles: ["Drum n Bass"], loadYears: null, coverage: false, limit: 3 },
@@ -198,7 +198,10 @@ describe("changing the picks during the first load", () => {
     // 1001 and 1002 are the two pressings of m:501, which has a verdict now.
     const forgotten = await send<{ deleted: number }>("DELETE", "/api/setup/load");
     expect(forgotten.body).toEqual({ deleted: 1 });
-    expect(db.prepare("SELECT id FROM releases ORDER BY id").pluck().all()).toEqual([1001, 1002]);
+    expect(db.prepare("SELECT id, in_universe FROM releases ORDER BY id").all()).toEqual([
+      { id: 1001, in_universe: 0 },
+      { id: 1002, in_universe: 0 },
+    ]);
   });
 
   it("refuses once a load has finished", async () => {

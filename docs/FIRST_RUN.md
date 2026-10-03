@@ -13,8 +13,9 @@ Where the build differs from the design below:
 - "No token? Use your username" is built: it saves `discogs.username` and reads the public
   profile.
 - The genres of the first picks come first in the style picker, and every genre starts closed.
-- "Change your picks" cancels the load and calls `DELETE /api/setup/load`, which deletes the
-  releases unfinished loads added that have no verdict.
+- "Change your picks" cancels the load and calls `DELETE /api/setup/load`: the releases
+  unfinished loads added leave the universe. Those with the user's data (a verdict, mark, note,
+  listen, attached video or import) stay as stubs; the others are deleted.
 - `tools/dev/fake-services.ts` serves a dump from disk at a set speed, as data.discogs.com
   does, with the end-to-end tests' fake Discogs API and oEmbed; `DIGGA_DUMPS_URL`,
   `DIGGA_DISCOGS_API_URL` and `DIGGA_YOUTUBE_OEMBED_URL` point Digga at it, to rehearse the
@@ -331,8 +332,9 @@ Shows the load, and lets the user start digging as soon as there is enough to di
   labels", with "Start without it".
 - The last sentence of the screen says that closing the page does not stop the load while the
   server runs (in Electron, see below).
-- "Change your picks" cancels the load, deletes the releases it added that have no verdict, and
-  returns to step 3 with the picks as they were confirmed. The download continues.
+- "Change your picks" cancels the load, takes the releases it added out of the universe (keeping
+  those with the user's data as stubs), and returns to step 3 with the picks as they were
+  confirmed. The download continues.
 
 ### Real or practice
 
