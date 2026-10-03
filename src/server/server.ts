@@ -9,6 +9,7 @@ import { failStaleJobs } from "./db/jobs.ts";
 import { createDiscogsClient, type DiscogsClient } from "./discogs/client.ts";
 import { createDataDumpClient } from "./discogs/data-dumps.ts";
 import { createJobRunner, type JobRunner } from "./jobs/runner.ts";
+import { type LibraryLock, lockLibrary } from "./library-lock.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
 import type { Secrets } from "./secrets.ts";
@@ -53,14 +54,11 @@ export interface DiggaServer {
 export function createServer(options: CreateServerOptions): DiggaServer {
   let config = options.config;
   const ownsDb = options.db === undefined;
-  const db = options.db ?? openDb(options.paths.dbFile);
+  const { db, lock } = openLibrary(options);
   const logger = options.logger;
   const stale = failStaleJobs(db);
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
-  const backups =
-    ownsDb && options.paths.dbFile !== ":memory:"
-      ? startDailyBackups(db, { ...options, getConfig: () => config })
-      : null;
+  const backups = lock ? startDailyBackups(db, { ...options, getConfig: () => config }) : null;
   const jobs = createJobRunner(db, logger.child("jobs"));
 
   const app = createApp({
@@ -96,8 +94,24 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     jobs,
     getConfig: () => config,
     start: (port, host) => listener.start(port ?? config.server.port, host ?? config.server.host),
-    stop: () => (stopping ??= stopServer({ listener, jobs, backups, db, ownsDb, logger })),
+    stop: () => (stopping ??= stopServer({ listener, jobs, backups, db, ownsDb, lock, logger })),
   };
+}
+
+/**
+ * The injected database, or the library's, opened once this process holds the library: a
+ * second server would otherwise fail the first one's running jobs and write the same backups.
+ */
+function openLibrary(options: CreateServerOptions): { db: Db; lock: LibraryLock | null } {
+  if (options.db) return { db: options.db, lock: null };
+  if (options.paths.dbFile === ":memory:") return { db: openDb(":memory:"), lock: null };
+  const lock = lockLibrary(options.paths.lockFile, "the Digga server");
+  try {
+    return { db: openDb(options.paths.dbFile), lock };
+  } catch (error) {
+    lock.release();
+    throw error;
+  }
 }
 
 function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
@@ -131,11 +145,13 @@ async function stopServer(context: {
   backups: DailyBackups | null;
   db: Db;
   ownsDb: boolean;
+  lock: LibraryLock | null;
   logger: Logger;
 }): Promise<void> {
   await context.listener.stop();
   await context.jobs.stop();
   await context.backups?.stop();
   if (context.ownsDb) context.db.close();
+  context.lock?.release();
   context.logger.info("stopped");
 }

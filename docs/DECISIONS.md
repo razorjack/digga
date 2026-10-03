@@ -758,3 +758,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      of a restore and not offered by `GET /api/sessions/latest`. Settings have no format version:
      a shape change parses the old shape with a `preprocess` shim, as the removed `popular` order
      does.
+129. **One process owns a library at a time.** The pre-release review (F07) found that a second
+     server over the same library marked the first one's running jobs as interrupted, even when it
+     then failed to bind its port, and that each server wrote and pruned the same backups. Nothing
+     said which process recovered jobs, migrated or wrote backups. A lock file in the library,
+     `digga.lock`, names the process holding it. The server takes it before opening the database,
+     and the CLI commands that change the library take it for their run; the others are refused
+     with the holder's name. `digga stats` and `digga backup` only read, so they run beside the
+     server, as the end-to-end tests do. A lock whose process has ended is taken over, since a
+     crash or `kill -9` leaves the file behind. Jobs stay recorded without a process id: only the
+     owner can have running ones.

@@ -23,7 +23,9 @@ that change without reloading data.
 - **Library:** the database, backups, `digga.config.json` and the saved token live in the per-user
   app folder (`~/Library/Application Support/Digga` on macOS), dumps in the OS cache folder
   (`~/Library/Caches/Digga/dumps`). Every `digga` command opens that real library unless
-  `DIGGA_DATA_DIR` points elsewhere, so experiments set it to a throwaway folder.
+  `DIGGA_DATA_DIR` points elsewhere, so experiments set it to a throwaway folder. One process
+  owns a library at a time (`digga.lock`): the server and the commands that change it; `stats`
+  and `backup` run beside the server.
 - **Later:** an Electron app. Its main process imports `createServer` from `src/server/server.ts`,
   starts it on a free localhost port, opens a `BrowserWindow` at it, and exposes the CLI jobs as
   menu items. That must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.

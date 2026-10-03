@@ -41,7 +41,7 @@ import {
   showStats,
   downloadReporter,
 } from "./report.ts";
-import { type Runtime, discogsFor, withDatabase } from "./runtime.ts";
+import { type Runtime, discogsFor, withDatabase, withOwnedDatabase } from "./runtime.ts";
 
 export type ImportResult =
   | SeedImportResult
@@ -55,7 +55,7 @@ export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
     logger: runtime.logger,
   };
   const report = downloadReporter();
-  const { result } = await withDatabase(runtime, (db) => {
+  const { result } = await withOwnedDatabase(runtime, "digga dump download", (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     return jobs.runAndWait("dump_download", ({ signal, onProgress }) =>
       downloadDump(deps, { dumpsDir: runtime.paths.dumpsDir, signal }, (progress) => {
@@ -74,7 +74,7 @@ export async function cmdDumpUpdate(runtime: Runtime): Promise<void> {
     logger: runtime.logger,
   };
   const report = downloadReporter();
-  const { result } = await withDatabase(runtime, (db) => {
+  const { result } = await withOwnedDatabase(runtime, "digga dump update", (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     return jobs.runAndWait("dump_update", async ({ signal, onProgress }) => {
       const dumpsDir = runtime.paths.dumpsDir;
@@ -94,7 +94,7 @@ export async function cmdDumpUpdate(runtime: Runtime): Promise<void> {
 
 export async function cmdDumpLoad(runtime: Runtime, args: string[]): Promise<void> {
   const options = parseDumpOptions(args, runtime.config);
-  const { result } = await withDatabase(runtime, (db) => {
+  const { result } = await withOwnedDatabase(runtime, "digga dump load", (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     return jobs.runAndWait("dump_load", ({ onProgress }) =>
       dumpLoad({ db, logger: runtime.logger }, options, onProgress),
@@ -119,7 +119,7 @@ export async function cmdImport(runtime: Runtime, args: string[]): Promise<void>
 }
 
 async function runImport(runtime: Runtime, command: ImportCommand): Promise<ImportResult> {
-  return withDatabase(runtime, async (db) => {
+  return withOwnedDatabase(runtime, `digga import ${command.kind}`, async (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     const { kind, options } = command;
     if (kind === "history") {
@@ -181,7 +181,7 @@ export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void
   const backup = readDecisionsBackup(file);
   const config = restoreConfig ? backedUpConfig(backup.config) : null;
 
-  const { copy, outcome } = await withDatabase(runtime, async (db) => {
+  const { copy, outcome } = await withOwnedDatabase(runtime, "digga restore", async (db) => {
     const copy = await writeBackup(db, {
       dir: runtime.paths.backupsDir,
       day: localDay(new Date()),

@@ -15,6 +15,8 @@ export interface Paths {
   distDir: string;
   /** The Discogs token Settings saves, in .env format; read by secrets.ts. */
   secretsFile: string;
+  /** Names the process that owns the library while it runs; see library-lock.ts. */
+  lockFile: string;
 }
 
 export interface PathOptions {
@@ -65,6 +67,7 @@ export function resolvePaths(options: PathOptions = {}): Paths {
     tempDir: path.join(dataDir, "tmp"),
     distDir: path.resolve(options.distDir ?? DEFAULT_DIST_DIR),
     secretsFile: path.join(dataDir, "secrets.env"),
+    lockFile: path.join(dataDir, "digga.lock"),
   };
 }
 

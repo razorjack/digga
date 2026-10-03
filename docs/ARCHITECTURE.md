@@ -222,3 +222,11 @@ inside it. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or
 the library; Settings saves the token there through `PUT /api/discogs/token`, unless the
 environment sets it. The route asks Discogs whose token it is first: it keeps the previous token
 when Discogs refuses the new one, and a library without a Discogs username takes the token's.
+
+One process at a time owns a library. `src/server/library-lock.ts` writes `digga.lock` in the
+library, naming the process; `createServer()` takes it before it opens the database, and so do
+the CLI commands that change the library (`dump download`, `dump update`, `dump load`, `import`,
+`restore`). Another process that wants it is refused with the holder's name, and a lock whose
+process has ended is taken over. So only the owner migrates the database, marks interrupted jobs
+failed and writes the scheduled backups. `digga stats` and `digga backup` only read and run beside
+the server.

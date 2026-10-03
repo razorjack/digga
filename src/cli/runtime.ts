@@ -3,6 +3,7 @@ import path from "node:path";
 import { loadConfig } from "../server/config-file.ts";
 import { type Db, openDb } from "../server/db/db.ts";
 import { createDiscogsClient } from "../server/discogs/client.ts";
+import { lockLibrary } from "../server/library-lock.ts";
 import { createLogger, type LogLevel } from "../server/logger.ts";
 import { resolvePaths } from "../server/paths.ts";
 import { createSecrets } from "../server/secrets.ts";
@@ -56,5 +57,22 @@ export async function withDatabase<Result>(
     return await run(db);
   } finally {
     db.close();
+  }
+}
+
+/**
+ * Runs a command that changes the library while this process holds it, so it refuses while the
+ * server or another such command runs. `holder` names the command for that refusal.
+ */
+export async function withOwnedDatabase<Result>(
+  runtime: Pick<Runtime, "paths">,
+  holder: string,
+  run: (db: Db) => Promise<Result> | Result,
+): Promise<Result> {
+  const lock = lockLibrary(runtime.paths.lockFile, holder);
+  try {
+    return await withDatabase(runtime, run);
+  } finally {
+    lock.release();
   }
 }
