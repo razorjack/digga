@@ -264,7 +264,9 @@ queue seed, replay round and underlying queue, and upload/second. The creation c
 configuration, dump date, and schema version; later checkpoints update only the cursor and timestamp.
 These rows are included in portable backups, and restore keeps a newer checkpoint already present.
 A session this version cannot parse (its settings from an older or newer Digga) is left out of a
-restore and not offered for resuming; it never blocks restoring the decisions.
+restore and not offered for resuming; it never blocks restoring the decisions. Sessions are
+cursors, not history: saving or restoring one deletes those beyond the newest 20 that nobody
+touched in 90 days.
 The client saves changed positions every five seconds and when leaving Triage or changing tab
 visibility. Sandbox sessions stay unsaved. This is best-effort persistence, with no durable client
 write queue; the undo stack does not survive a reload.

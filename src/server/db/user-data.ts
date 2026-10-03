@@ -34,7 +34,8 @@ export interface RestoreOutcome {
  * not change reads back identically.
  */
 export function readBackedUpData(db: Db): BackedUpData {
-  return {
+  // One read transaction, so a write from another connection cannot land between sections.
+  return db.transaction(() => ({
     ...readHistory(db),
     sessions: readSessions(db),
     verdicts: readVerdicts(db),
@@ -43,7 +44,7 @@ export function readBackedUpData(db: Db): BackedUpData {
     heardTunes: readHeardTunes(db),
     attachedVideos: readAttachedVideos(db),
     noAudioVideos: readNoAudioVideos(db),
-  };
+  }))();
 }
 
 /**

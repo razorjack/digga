@@ -91,3 +91,30 @@ it("starts fresh when this version cannot resume the latest session", async () =
   expect(latestSession(db)).toBeNull();
   db.close();
 });
+
+it("keeps the newest sessions and those touched in the last 90 days, as cursors", async () => {
+  const db = await fixtureDb();
+  const session = (index: number) => ({
+    ...checkpoint,
+    id: `bb8f7741-9dca-42c7-a252-${String(index).padStart(12, "0")}`,
+  });
+  for (let index = 0; index < 25; index += 1) saveSession(db, session(index), DEFAULT_CONFIG);
+  const age = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  // The five oldest are a year old, two more a month old; then one more save prunes.
+  db.prepare("UPDATE digging_sessions SET updated_at = ? WHERE id <= ?").run(
+    age(365),
+    session(4).id,
+  );
+  db.prepare("UPDATE digging_sessions SET updated_at = ? WHERE id IN (?, ?)").run(
+    age(30),
+    session(5).id,
+    session(6).id,
+  );
+  saveSession(db, session(25), DEFAULT_CONFIG);
+
+  const kept = db.prepare("SELECT id FROM digging_sessions").pluck().all() as string[];
+  expect(kept).toHaveLength(21);
+  expect(kept).not.toContain(session(0).id);
+  expect(kept).toContain(session(5).id);
+  db.close();
+});

@@ -8,6 +8,14 @@ import {
 } from "../../shared/digging-session.ts";
 import { type Db, getMeta, nowIso } from "./db.ts";
 
+/**
+ * Sessions are cursors to resume, not history: the newest are kept, and every one touched within
+ * the days kept, and the rest are deleted as sessions are saved or restored.
+ */
+const SESSIONS_KEPT = 20;
+const SESSION_DAYS_KEPT = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 const INSERT_SESSION = `INSERT INTO digging_sessions
     (id, started_at, updated_at, config_json, dump_date, schema_version, state_json)
   VALUES (@id, @started_at, @updated_at, @config_json, @dump_date, @schema_version, @state_json)
@@ -27,7 +35,10 @@ export function saveSession(db: Db, input: SessionInput, config: Config): void {
     schema_version: Number(getMeta(db, "schema_version")),
     state_json: JSON.stringify(input.state),
   };
-  db.prepare(INSERT_SESSION).run(row);
+  db.transaction(() => {
+    db.prepare(INSERT_SESSION).run(row);
+    pruneSessions(db, row.updated_at);
+  })();
 }
 
 /** The newest saved session; null when there is none or this version cannot resume it. */
@@ -61,5 +72,14 @@ export function restoreSessions(db: Db, rows: SessionRow[]): { restored: number;
     if (sessionFromRow(row) === null) outcome.leftOut += 1;
     else outcome.restored += insert.run(row).changes;
   }
+  pruneSessions(db, nowIso());
   return outcome;
+}
+
+function pruneSessions(db: Db, now: string): void {
+  const cutoff = new Date(Date.parse(now) - SESSION_DAYS_KEPT * DAY_MS).toISOString();
+  db.prepare(
+    `DELETE FROM digging_sessions WHERE updated_at < ? AND id NOT IN (
+       SELECT id FROM digging_sessions ORDER BY updated_at DESC, id DESC LIMIT ?)`,
+  ).run(cutoff, SESSIONS_KEPT);
 }
