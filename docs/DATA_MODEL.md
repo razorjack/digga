@@ -1,6 +1,8 @@
 # Data model
 
-SQLite, WAL mode, one file: `digga.sqlite` in the library folder (`paths.dbFile`). Migrations are numbered `.sql` files in
+SQLite, WAL mode, one file: `digga.sqlite` in the library folder (`paths.dbFile`). With
+`synchronous = NORMAL`, an OS crash or power cut can roll back the last writes but never corrupts
+the database. Migrations are numbered `.sql` files in
 `src/server/db/migrations/` applied at startup; `meta.schema_version` records the last one applied.
 A library whose schema version is newer than the newest migration this Digga has is refused before
 anything is written, since a newer Digga migrated it.
