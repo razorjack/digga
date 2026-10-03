@@ -163,3 +163,8 @@ radio button or slider has focus; text fields and menus take the keys for themse
   shows "Space: start listening".
 - The embed never takes focus or clicks (`inert` hosts, `controls: 0`, `disablekb: 1`), so keys
   always reach Digga.
+
+Settings has independent controls for skipping records imported from browser history and skipping
+previously heard tunes during playback. Both are on by default. Turning off the history exclusion
+returns `seen` records to the queue; undo restores that original history verdict. The heard label
+remains visible when automatic skipping is off.

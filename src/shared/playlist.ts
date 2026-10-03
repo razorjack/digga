@@ -10,6 +10,7 @@ export interface PlaylistEntry {
 }
 
 export interface PlaylistState {
+  skipHeard?: boolean;
   /** Video ids that failed to embed or play. */
   failed: ReadonlySet<string>;
   /** Video ids played while this release is open. */
@@ -63,7 +64,8 @@ export function nextEntry(
   );
   for (let index = start; index < entries.length; index += 1) {
     const entry = entries[index]!;
-    if (state.failed.has(entry.video.videoId) || entry.heardBefore) continue;
+    if (state.failed.has(entry.video.videoId) || (entry.heardBefore && state.skipHeard !== false))
+      continue;
     if (
       entry.track &&
       playedPositions.has(entry.track.position) &&

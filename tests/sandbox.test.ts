@@ -71,6 +71,19 @@ afterEach(async () => {
 });
 
 describe("sandbox api", () => {
+  it("revisits browser history and restores its exclusion state on undo", async () => {
+    applySeedVerdict(db, { key: "m:501", status: "seen", source: "seed:history", releaseId: 1001 });
+    const config = await sandbox.getSettings();
+    await sandbox.putSettings({ ...config, filters: { ...config.filters, skipHistory: false } });
+    const detail = await sandbox.getRelease(1001);
+    expect((await sandbox.getQueue()).remaining).toBe(2);
+    await sandbox.postVerdict({ key: "m:501", status: "rejected", releaseId: 1001 });
+    expect((await sandbox.getQueue()).remaining).toBe(1);
+    await sandbox.postVerdict(detail.verdict!);
+    expect((await sandbox.getQueue()).items.map((release) => release.id)).toContain(1001);
+    expect((await sandbox.getStats()).remaining).toBe(2);
+  });
+
   it("fakes verdicts and undo on top of the real queue", async () => {
     const before = tableCounts();
     expect(sandbox.mode).toBe("sandbox");

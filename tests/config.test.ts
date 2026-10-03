@@ -21,6 +21,7 @@ describe("config schema", () => {
       includeUnknownYearOnCoverage: true,
       formats: ["Vinyl"],
       countries: [],
+      skipHistory: true,
       skipWithoutVideos: false,
       excludeLabels: [],
       includeDescriptions: [],

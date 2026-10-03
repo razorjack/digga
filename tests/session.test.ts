@@ -252,6 +252,27 @@ describe("triage session", () => {
     expect(pushes).toHaveBeenCalledTimes(1);
   });
 
+  it("restores a browser-history verdict when undoing a fresh judgment", async () => {
+    const server = fakeServer([1, 2]);
+    const session = new TriageSession(server.app);
+    await session.start(50);
+    await until(() => session.currentDetail !== null);
+    const previous = await server.http.postVerdict({
+      key: "r:1",
+      releaseId: 1,
+      status: "seen",
+      source: "seed:history",
+    });
+    const detail = session.details.get(1)!;
+    session.details = new Map(session.details).set(1, { ...detail, verdict: previous });
+    session.judge("rejected");
+    await until(() => server.verdicts.get("r:1")?.status === "rejected");
+    session.undo();
+    await until(() => server.verdicts.get("r:1")?.status === "seen");
+    expect(server.verdicts.get("r:1")).toEqual(previous);
+    session.destroy();
+  });
+
   it("stops trying when the want is undone while it waits to try again", async () => {
     const server = fakeServer([1, 2]);
     const session = new TriageSession(server.app, { pushRetryDelaysMs: [30] });

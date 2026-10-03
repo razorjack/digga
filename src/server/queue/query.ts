@@ -47,7 +47,7 @@ export function buildFilterWhere(
     descriptionClause(filters.excludeDescriptions, "NOT EXISTS"),
     countryClause(filters),
     labelClause(filters),
-    opts.includeDecided ? null : { sql: UNDECIDED, params: [] },
+    opts.includeDecided ? null : { sql: undecidedClause(filters), params: [] },
     // Last: SQLite tests the cheaper conditions first.
     filters.skipWithoutVideos ? { sql: HAS_VIDEO, params: [] } : null,
   ].filter((fragment) => fragment !== null);
@@ -74,7 +74,10 @@ const HAS_VIDEO = `(EXISTS (SELECT 1 FROM videos vf WHERE vf.release_id = r.id A
          CROSS JOIN tracks tp ON tp.release_id = rp.id AND tp.position = up.matched_position
          WHERE rp.master_id = r.master_id AND rp.id <> r.id AND ${SHARES_TUNE}))`;
 
-const UNDECIDED = "NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key)";
+function undecidedClause(filters: Filters): string {
+  const exclusion = filters.skipHistory ? "" : " AND v.status <> 'seen'";
+  return `NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key${exclusion})`;
+}
 
 const ON_LABEL = `EXISTS (SELECT 1 FROM json_each(r.labels_json) sl
        WHERE json_extract(sl.value, '$.id') = ?)`;

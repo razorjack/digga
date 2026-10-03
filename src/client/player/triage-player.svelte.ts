@@ -90,9 +90,16 @@ export class TriagePlayer {
   /** The Triage page is hidden: load and cue, but never start sound. */
   #suspended = false;
 
-  constructor(api: AppApi, startAtFraction: () => number) {
+  #skipHeard: () => boolean;
+
+  constructor(
+    api: AppApi,
+    startAtFraction: () => number,
+    options: { skipHeard?: () => boolean } = {},
+  ) {
     this.#api = api;
     this.#fraction = startAtFraction;
+    this.#skipHeard = options.skipHeard ?? (() => true);
   }
 
   /** Forgets the tunes heard this session, e.g. those heard in a sandbox that was left. */
@@ -270,7 +277,7 @@ export class TriagePlayer {
   }
 
   #playlistState() {
-    return { failed: this.failed, played: this.played };
+    return { failed: this.failed, played: this.played, skipHeard: this.#skipHeard() };
   }
 
   #sync(): void {
@@ -371,7 +378,11 @@ export class TriagePlayer {
     const hidden = this.#releaseDeckNow();
     if (!hidden) return;
     const entries = next ? buildPlaylist(next, this.heardKeys) : [];
-    const first = firstEntry(entries, { failed: this.failed, played: new Set() });
+    const first = firstEntry(entries, {
+      failed: this.failed,
+      played: new Set(),
+      skipHeard: this.#skipHeard(),
+    });
     const entry = first === null ? undefined : entries[first];
     if (next && entry && hidden.tag?.releaseId === next.release.id) {
       if (hidden.videoId === entry.video.videoId) return;

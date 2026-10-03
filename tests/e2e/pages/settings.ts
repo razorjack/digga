@@ -82,6 +82,14 @@ export class SettingsPage {
     return this.root.getByRole("region", { name: "Jobs" });
   }
 
+  get skipHistory(): Locator {
+    return this.root.getByRole("checkbox", { name: "skip records opened before", exact: true });
+  }
+
+  get skipHeard(): Locator {
+    return this.root.getByRole("checkbox", { name: "skip tunes heard before", exact: true });
+  }
+
   get fromYear(): Locator {
     return this.root.getByRole("spinbutton", { name: "From year", exact: true });
   }

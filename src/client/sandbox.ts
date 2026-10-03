@@ -110,6 +110,8 @@ class SandboxApi implements Api {
     }
   >();
 
+  #skipHistory = true;
+
   #markTunes = new Map<string, TuneSnapshot>();
 
   #notes = new Map<number, string | null>();
@@ -165,7 +167,17 @@ class SandboxApi implements Api {
 
   /** Local verdicts on previously undecided keys reduce the remaining count. */
   #newlyDecided = () =>
-    [...this.#verdicts.values()].filter((localVerdict) => localVerdict.base === null).length;
+    [...this.#verdicts.values()].filter((local) => this.#changesQueue(local)).length;
+
+  #isQueued(verdict: Verdict | null | undefined): boolean {
+    return verdict === null || (!this.#skipHistory && verdict?.status === "seen");
+  }
+
+  #changesQueue(
+    local: { base: Verdict | null | undefined; verdict: Verdict } | undefined,
+  ): boolean {
+    return local !== undefined && this.#isQueued(local.base) && !this.#isQueued(local.verdict);
+  }
 
   #keysInScope = (scope: ScopeRef): Set<string> => {
     const keys = this.#scopeKeys.get(scopeKey(scope)) ?? new Set<string>();
@@ -180,7 +192,7 @@ class SandboxApi implements Api {
   #remainingAfterLocal = (remaining: number, scope?: ScopeRef): number => {
     if (!scope) return Math.max(0, remaining - this.#newlyDecided());
     const keys = [...this.#keysInScope(scope)];
-    const decided = keys.filter((key) => this.#verdicts.get(key)?.base === null).length;
+    const decided = keys.filter((key) => this.#changesQueue(this.#verdicts.get(key))).length;
     return Math.max(0, remaining - decided);
   };
 
@@ -284,12 +296,14 @@ class SandboxApi implements Api {
     let offset = query.offset ?? 0;
     for (;;) {
       const response = await this.#inner.getQueue({ ...query, limit, offset });
+      this.#skipHistory = response.filters.skipHistory;
       for (const item of response.items) {
         this.#rememberRelease(item);
         inScope?.add(item.triageKey);
         if (!this.#serverVerdicts.has(item.triageKey))
           this.#serverVerdicts.set(item.triageKey, null);
-        if (!this.#verdicts.has(item.triageKey) && items.length < want) items.push(item);
+        const local = this.#verdicts.get(item.triageKey);
+        if ((!local || this.#isQueued(local.verdict)) && items.length < want) items.push(item);
       }
       offset += response.items.length;
       if (items.length >= want || response.items.length < limit)
@@ -484,7 +498,11 @@ class SandboxApi implements Api {
   };
 
   getStats: Api["getStats"] = async (query = {}) => {
-    const stats = await this.#inner.getStats(query);
+    const [stats, config] = await Promise.all([
+      this.#inner.getStats(query),
+      this.#inner.getSettings(),
+    ]);
+    this.#skipHistory = config.filters.skipHistory;
     const counts = { ...stats.verdicts };
     for (const { verdict, base } of this.#verdicts.values()) {
       counts[verdict.status] += 1;

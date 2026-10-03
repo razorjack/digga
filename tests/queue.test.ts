@@ -32,6 +32,21 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("can revisit browser-history records without including other verdicts", async () => {
+    const db = await fixtureDb();
+    upsertVerdict(db, { key: "m:501", releaseId: 1001, status: "seen", source: "seed:history" });
+    upsertVerdict(db, { key: "m:506", releaseId: 1006, status: "rejected", source: "triage" });
+    expect(countRemaining(db, filters({}))).toBe(0);
+    const selection = filters({ skipHistory: false });
+    expect(
+      queryQueue(db, { filters: selection, strategy: "label_sweep", limit: 200 }).map(
+        (release) => release.id,
+      ),
+    ).toEqual([1001]);
+    expect(countRemaining(db, selection)).toBe(1);
+    db.close();
+  });
+
   it.each(["White Label", "Test Pressing"])(
     "prefers standard vinyl over a %s main release without excluding it",
     async (description) => {

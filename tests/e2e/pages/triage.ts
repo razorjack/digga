@@ -454,6 +454,12 @@ export class TriagePage {
     await this.#settled(await forgotten);
   }
 
+  async undoToPreviousVerdict(): Promise<void> {
+    const restored = this.#response("POST", "/api/verdicts");
+    await this.app.page.keyboard.press("z");
+    await this.#settled(await restored);
+  }
+
   /** Z on a pass, which writes nothing: the record comes back. */
   async undoPass(key: string): Promise<void> {
     await this.app.page.keyboard.press("z");

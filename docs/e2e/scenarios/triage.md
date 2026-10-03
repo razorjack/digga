@@ -403,3 +403,9 @@ Priority: **P1**.
 
 `E`, a note and Enter save it without a verdict. After the saved status and a reload, the note
 is visible on the same record and the release API still has no verdict.
+
+### TRI-47: Playback and history controls (P1)
+
+Seed a history verdict and a heard tune. Disable both skip controls in Settings and save. Triage
+includes the record and starts on the heard first track. Judge and undo it; the saved verdict is
+`seen` again.

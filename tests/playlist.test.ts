@@ -70,6 +70,15 @@ describe("playlist", () => {
     expect(nextEntry(entries, 4, none, { fallback: true })).toBeNull();
   });
 
+  it("includes heard tunes when skipping is disabled while still skipping failed videos", () => {
+    const state = { ...none, skipHeard: false };
+    expect(nextEntry(entries, 0, state, { fallback: false })).toBe(1);
+    expect(nextEntry(entries, 0, { ...state, failed: new Set(["a2"]) }, { fallback: false })).toBe(
+      2,
+    );
+    expect(entries[1]?.heardBefore).toBe(true);
+  });
+
   it("treats tunes heard since the detail was fetched as heard", () => {
     const later = buildPlaylist({ tracks, videos }, new Set(["artist - tune A1"]));
     expect(later.map((e) => e.heardBefore)).toEqual([true, true, false, false, false]);

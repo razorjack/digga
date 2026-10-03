@@ -44,7 +44,7 @@
     await settings.save({ ...config, filters: withLabelExcluded(config.filters, label, hidden) });
   }
   onDestroy(() => session.destroy());
-  const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5);
+  const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5, { skipHeard: () => settings.value?.player.skipHeard ?? true });
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
   const startAt = $derived(settings.value?.player.startAtFraction ?? 0.5);
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);

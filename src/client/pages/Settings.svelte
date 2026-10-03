@@ -578,6 +578,11 @@
               back those that got one since.
             </span>
           </fieldset>
+          <fieldset class="field">
+            <legend class="name">Browser history</legend>
+            <label class="check"><input type="checkbox" bind:checked={draft.filters.skipHistory} /> skip records opened before</label>
+            <span class="hint">Turn off to dig records imported from browser history. Opening a Discogs page does not prove you listened.</span>
+          </fieldset>
           {#if draft.universe.styles.length > 1}
             <fieldset class="field">
               <legend class="name">Styles</legend>
@@ -665,6 +670,11 @@
               <span>{startAtPercent}% into each track</span>
             </div>
           </div>
+          <fieldset class="field">
+            <legend class="name">Heard tunes</legend>
+            <label class="check"><input type="checkbox" bind:checked={draft.player.skipHeard} /> skip tunes heard before</label>
+            <span class="hint">Applies when starting a record and moving forward. You can always select a track directly.</span>
+          </fieldset>
           <div class="field narrow">
             <label class="name" for="{id}-seek">Seek step</label>
             <input

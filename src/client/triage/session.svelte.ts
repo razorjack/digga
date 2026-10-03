@@ -225,7 +225,7 @@ export class TriageSession {
     const item = this.current;
     if (!item) return;
     const client = this.#api.pinned();
-    const previous = this.#roundVerdicts.get(item.triageKey) ?? null;
+    const previous = this.#roundVerdicts.get(item.triageKey) ?? this.currentDetail?.verdict ?? null;
     const notes = this.noteFor(item);
     const entry: VerdictEntry = { kind: "verdict", item, status, notes, previous };
     this.upcoming = this.upcoming.slice(1);
@@ -816,18 +816,15 @@ export class TriageSession {
     const current = stats.value;
     if (!current) return;
     const verdicts = { ...current.verdicts, [status]: current.verdicts[status] + delta };
-    if (previous) {
-      // A record heard again was already dug; only its status moves.
-      verdicts[previous.status] -= delta;
-      stats.value = { ...current, verdicts };
-      return;
-    }
+    if (previous) verdicts[previous.status] -= delta;
+    const wasQueued = previous === null || previous.status === "seen";
     const { scopeRemaining } = current;
     stats.value = {
       ...current,
-      dug: Math.max(0, current.dug + delta),
-      remaining: Math.max(0, current.remaining - delta),
-      scopeRemaining: scopeRemaining === null ? null : Math.max(0, scopeRemaining - delta),
+      dug: Math.max(0, current.dug + (previous?.dugAt ? 0 : delta)),
+      remaining: Math.max(0, current.remaining - (wasQueued ? delta : 0)),
+      scopeRemaining:
+        scopeRemaining === null ? null : Math.max(0, scopeRemaining - (wasQueued ? delta : 0)),
       verdicts,
     };
   }
