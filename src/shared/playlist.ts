@@ -10,11 +10,12 @@ export interface PlaylistEntry {
 }
 
 export interface PlaylistState {
-  skipHeard?: boolean;
   /** Video ids that failed to embed or play. */
   failed: ReadonlySet<string>;
   /** Video ids played while this release is open. */
   played: ReadonlySet<string>;
+  /** Pass over tunes heard before this release was opened; true when omitted. */
+  skipHeard?: boolean;
 }
 
 /**
@@ -47,8 +48,8 @@ export function buildPlaylist(
 
 /**
  * The entry J and auto-advance move to: the next one that has not failed, whose tune was not
- * heard before and whose track was not already played from another upload. With `fallback`,
- * when only such entries remain, the next one that has not failed.
+ * heard before (unless `skipHeard` is off) and whose track was not already played from another
+ * upload. With `fallback`, when only such entries remain, the next one that has not failed.
  */
 export function nextEntry(
   entries: PlaylistEntry[],
@@ -62,22 +63,26 @@ export function nextEntry(
       .filter((entry) => entry.track !== null && state.played.has(entry.video.videoId))
       .map((entry) => entry.track!.position),
   );
-  for (let index = start; index < entries.length; index += 1) {
-    const entry = entries[index]!;
-    if (state.failed.has(entry.video.videoId) || (entry.heardBefore && state.skipHeard !== false))
-      continue;
-    if (
-      entry.track &&
-      playedPositions.has(entry.track.position) &&
-      !state.played.has(entry.video.videoId)
-    )
-      continue;
-    return index;
-  }
+  for (let index = start; index < entries.length; index += 1)
+    if (isWorthPlaying(entries[index]!, state, playedPositions)) return index;
   if (!options.fallback) return null;
   for (let index = start; index < entries.length; index += 1)
     if (!state.failed.has(entries[index]!.video.videoId)) return index;
   return null;
+}
+
+function isWorthPlaying(
+  entry: PlaylistEntry,
+  state: PlaylistState,
+  playedPositions: ReadonlySet<string>,
+): boolean {
+  if (state.failed.has(entry.video.videoId)) return false;
+  if (entry.heardBefore && state.skipHeard !== false) return false;
+  const playedFromAnotherUpload =
+    entry.track !== null &&
+    playedPositions.has(entry.track.position) &&
+    !state.played.has(entry.video.videoId);
+  return !playedFromAnotherUpload;
 }
 
 /** The entry a release starts on: the first unheard one, else the first playable one. */
