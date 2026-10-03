@@ -118,7 +118,12 @@ function olderCopy(version: number): string {
   const file = path.join(tmp, `old-${version}.sqlite`);
   const old = openDb(file, { foreign: true });
   applyMigrations(old, migrations);
-  upsertVerdict(old, { key: "r:1", status: "snoozed", source: "triage" });
+  // Written as that schema stores a verdict, which this version's writers no longer match.
+  old
+    .prepare(
+      "INSERT INTO verdicts (key, status, source, decided_at) VALUES ('r:1', 'snoozed', 'triage', ?)",
+    )
+    .run("2026-09-01T10:00:00.000Z");
   old.close();
   return file;
 }

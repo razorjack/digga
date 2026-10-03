@@ -65,6 +65,8 @@ export interface VerdictWrite {
   releaseId?: number | null;
   /** Omitted, the verdict is dated now; undo and restore pass the original date. */
   decidedAt?: string;
+  /** When the row last changed; omitted, now. Restore passes the backup's. */
+  updatedAt?: string;
 }
 
 export function getVerdict(db: Db, key: string): Verdict | null {
@@ -84,20 +86,26 @@ export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
 
 /**
  * Unconditional write (triage and manual decisions). The time is stored in UTC, whatever offset
- * an undo or a restored backup brings.
+ * an undo or a restored backup brings. A write that changes nothing leaves the row, and when it
+ * last changed, alone.
  */
 export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
   db.prepare(
-    `INSERT INTO verdicts (key, status, source, release_id, decided_at)
-     VALUES (@key, @status, @source, @release_id, @decided_at)
+    `INSERT INTO verdicts (key, status, source, release_id, decided_at, updated_at)
+     VALUES (@key, @status, @source, @release_id, @decided_at, @updated_at)
      ON CONFLICT(key) DO UPDATE SET status = excluded.status, source = excluded.source,
-       release_id = excluded.release_id, decided_at = excluded.decided_at`,
+       release_id = excluded.release_id, decided_at = excluded.decided_at,
+       updated_at = excluded.updated_at
+     WHERE verdicts.status IS NOT excluded.status OR verdicts.source IS NOT excluded.source
+       OR verdicts.release_id IS NOT excluded.release_id
+       OR verdicts.decided_at IS NOT excluded.decided_at`,
   ).run({
     key: verdict.key,
     status: verdict.status,
     source: verdict.source,
     release_id: verdict.releaseId ?? null,
     decided_at: toUtcTimestamp(verdict.decidedAt ?? nowIso()),
+    updated_at: toUtcTimestamp(verdict.updatedAt ?? nowIso()),
   });
   return getVerdict(db, verdict.key)!;
 }
@@ -226,11 +234,12 @@ function getTrackVerdict(db: Db, releaseId: number, heardKey: string): TrackVerd
 function writeTrackMark(db: Db, input: TrackMarkWrite): void {
   db.prepare(
     `INSERT INTO track_verdicts (release_id, heard_key, position, mark, notes, decided_at,
-       artist_display, title, video_id, at_seconds)
-     VALUES (@release_id, @heard_key, @position, @mark, @notes, @decided_at,
-       @artist_display, @title, @video_id, @at_seconds)
+       artist_display, title, video_id, at_seconds, updated_at)
+     VALUES (@release_id, @heard_key, @position, @mark, @notes, @now,
+       @artist_display, @title, @video_id, @at_seconds, @now)
      ON CONFLICT(release_id, heard_key) DO UPDATE SET
        position = excluded.position,
+       updated_at = excluded.updated_at,
        notes = CASE WHEN @keep_notes THEN track_verdicts.notes ELSE excluded.notes END,
        decided_at = CASE WHEN track_verdicts.mark = excluded.mark
          THEN track_verdicts.decided_at ELSE excluded.decided_at END,
@@ -246,7 +255,7 @@ function writeTrackMark(db: Db, input: TrackMarkWrite): void {
     mark: input.mark,
     notes: input.notes ?? null,
     keep_notes: input.notes === undefined ? 1 : 0,
-    decided_at: nowIso(),
+    now: nowIso(),
     artist_display: input.tune.artistDisplay,
     title: input.tune.title,
     video_id: input.videoId ?? null,

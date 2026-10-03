@@ -903,3 +903,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      playing track's tune, which shows on every track of the release with it. The identity
      conflict and its `409` are gone. A backup mark without a tune is restored on the track at its
      position.
+142. **Restore merges: whichever side changed an item last keeps it.** The pre-release review
+     (F04) showed a restore overwriting a mark's note edited after the backup, since a note edit
+     keeps the mark's `decided_at`; bringing back a verdict deleted after the backup; and leaving
+     a merged master `rejected` instead of its grail. The owner chose a merge. Migration 19 adds
+     `updated_at` to `verdicts` and `track_verdicts`, set by every write that changes the row and
+     carried in the backup, and to both logs, which now hold every column. Restore compares the
+     backup item's `updated_at` (its `decidedAt` in older backups) with the library's last change
+     to that verdict or mark, its row's `updated_at` or the latest delete in the log, and keeps
+     the later side. A history hit and a decision made in Digga never replace each other, as on
+     import, and backed-up verdicts that meet on one record keep the one `preferredVerdict()`
+     picks. A write that changes nothing leaves `updated_at` alone. Going back in time is a
+     database copy's job (decision 135).

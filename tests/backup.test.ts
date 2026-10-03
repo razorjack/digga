@@ -34,12 +34,12 @@ describe("database backups", () => {
     const file = path.join(tmp, "old.sqlite");
     const old = openDb(file, { foreign: true });
     applyMigrations(old, migrations);
-    upsertVerdict(old, {
-      key: "r:1",
-      status: "accepted",
-      source: "triage",
-      decidedAt: "2026-09-01T10:00:00.000Z",
-    });
+    // Written as that schema stores a verdict, which this version's writers no longer match.
+    old
+      .prepare(
+        "INSERT INTO verdicts (key, status, source, decided_at) VALUES ('r:1', 'accepted', 'triage', ?)",
+      )
+      .run("2026-09-01T10:00:00.000Z");
     old.close();
     const upgraded = openDb(file);
     expect(Number(getMeta(upgraded, "schema_version"))).toBeGreaterThan(10);

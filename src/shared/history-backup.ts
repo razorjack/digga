@@ -41,6 +41,7 @@ export const HISTORY_SCHEMAS = {
     release_id: number,
     // Seed decisions logged before Digga stored UTC throughout kept Discogs' offset.
     decided_at: z.string().transform(toUtcTimestamp),
+    updated_at: text.default(null),
   }),
   trackMarkLog: z.object({
     ...event,
@@ -54,5 +55,6 @@ export const HISTORY_SCHEMAS = {
     title: text,
     video_id: text,
     at_seconds: number,
+    updated_at: text.default(null),
   }),
 };

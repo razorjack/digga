@@ -33,6 +33,8 @@ const BackupVerdictSchema = z.object({
   notes: z.string().nullable().optional(),
   releaseId: id.nullable(),
   decidedAt: timestamp,
+  /** When the verdict last changed; a backup before it was kept dates it by the decision. */
+  updatedAt: timestamp.optional(),
   dugAt: timestamp.nullable().optional(),
 });
 
@@ -61,6 +63,8 @@ const BackupTrackMarkSchema = z.object({
   title: z.string().nullable().default(null),
   videoId: z.string().nullable().default(null),
   atSeconds: z.number().nonnegative().nullable().default(null),
+  /** When the mark last changed; a backup before it was kept dates it by the decision. */
+  updatedAt: timestamp.optional(),
 });
 
 const BackupHeardTuneSchema = z.object({
@@ -128,7 +132,7 @@ export type BackedUpData = Pick<
 
 /** Each section's fields in file order, so a backup reads the same whatever built its objects. */
 export const BACKUP_FIELDS: { [Section in keyof BackedUpData]: string[] } = {
-  verdicts: ["key", "status", "source", "releaseId", "decidedAt"],
+  verdicts: ["key", "status", "source", "releaseId", "decidedAt", "updatedAt"],
   memberships: Object.keys(BackupMembershipSchema.shape),
   trackMarks: Object.keys(BackupTrackMarkSchema.shape),
   heardTunes: Object.keys(BackupHeardTuneSchema.shape),

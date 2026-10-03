@@ -107,6 +107,7 @@ account holds is not a verdict (see `memberships`).
 | `source`     | `seed:history`, `triage`, `manual`                                          |
 | `release_id` | the release that was on screen, nullable for master-only history hits       |
 | `decided_at` | ISO in UTC; a history hit uses the last browser visit                       |
+| `updated_at` | when the row last changed, which an undo or a restore can make later        |
 
 Precedence (`verdictRank()` in `src/shared/verdict-rank.ts`) decides only which verdict a record
 keeps when two meet on one key: `candidate` (grail) > `accepted` (want) > any other decision >
@@ -134,7 +135,8 @@ its key, and stops applying if Discogs retires that master.
 `(release_id, heard_key)` PK: a mark belongs to a tune of a release. `position` only says where
 the tune was when it was last marked, and may be empty or shared by several tracks. `mark` in
 `keep | meh | candidate`, `notes`, `decided_at`. A write without `notes` keeps the saved note, and
-`decided_at` changes only when the mark does. `GET /api/track-marks` lists them for the Twelves
+`decided_at` changes only when the mark does, while `updated_at` records every change, a note
+included. `GET /api/track-marks` lists them for the Twelves
 Tracks shelf, each with the track that has its tune, at its position when the tune is listed twice.
 
 `artist_display` and `title` are the tune as it was first marked, kept when a later dump no longer
@@ -148,9 +150,13 @@ decision an import, a re-judgement, an undo or a dump load replaced or deleted s
 row has `id`, `at` (when the change happened), `change` and the columns of the row after the
 change, or of the deleted row for a delete. `change` is `existing` for the rows the log started
 from, then `insert`, `update` or `delete`; an update that writes the values the row has is not
-logged. `verdict_log` also has `previous_key`, the key an update moved the verdict from. The decisions backup includes both logs and the listen log. Each event has a stable `event_id`,
+logged. Since migration 19 both logs hold every column of their rows, `updated_at` included. `verdict_log` also has `previous_key`, the key an update moved the verdict from. The decisions backup includes both logs and the listen log. Each event has a stable `event_id`,
 so restoring overlapping backups merges their histories without duplicating events. Restore writes
-do not generate new decision events. The backup also contains configuration; `digga restore --config`
+do not generate new decision events. Restore merges: a verdict or track mark keeps whichever side
+changed it last, by `updated_at`, and a delete the log records after the backup's change keeps it
+deleted. A history hit never replaces a decision made in Digga, nor the other way round, and
+backed-up verdicts that meet on one record take the precedence above. Going back to an earlier
+state is a database copy's job (`digga restore` with a `.sqlite` file). The backup also contains configuration; `digga restore --config`
 restores it explicitly and keeps the previous configuration beside it. Saved tokens are not exported.
 
 ## heard_tracks

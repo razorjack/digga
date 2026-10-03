@@ -9,6 +9,8 @@ import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
 import { addUserVideo } from "../src/server/db/releases.ts";
 import { readBackedUpData, restoreBackedUpData } from "../src/server/db/user-data.ts";
 import {
+  deleteVerdict,
+  getTrackVerdicts,
   getVerdict,
   logListen,
   setTrackVerdict,
@@ -44,6 +46,7 @@ async function libraryWithDecisions(): Promise<Db> {
     source: "triage",
     releaseId: 1001,
     decidedAt: "2026-09-01T10:00:00.000Z",
+    updatedAt: "2026-09-01T10:00:00.000Z",
   });
   saveReleaseNote(db, 1001, "the Kool FM tune");
   upsertVerdict(db, {
@@ -224,7 +227,7 @@ describe("the decisions backup", () => {
       '  "verdicts": [',
     ]);
     expect(lines).toContain(
-      '    {"key":"m:501","status":"candidate","source":"triage","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z"},',
+      '    {"key":"m:501","status":"candidate","source":"triage","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z","updatedAt":"2026-09-01T10:00:00.000Z"},',
     );
     db.close();
   });
@@ -312,6 +315,66 @@ describe("the decisions backup", () => {
     const file = path.join(dir, "decisions.json");
     fs.writeFileSync(file, JSON.stringify({ app: "digga", exportedAt: "now", verdicts: [] }));
     expect(() => readDecisionsBackup(file)).toThrow("is not a Digga decisions backup");
+  });
+});
+
+describe("restoring into a library that changed since the backup", () => {
+  const LONG_AGO = "2020-01-01T00:00:00.000Z";
+
+  it("keeps a mark's note edited, and a verdict deleted, after the backup", async () => {
+    const db = await fixtureDb();
+    upsertVerdict(db, {
+      key: "m:501",
+      status: "candidate",
+      source: "triage",
+      releaseId: 1001,
+      decidedAt: LONG_AGO,
+      updatedAt: LONG_AGO,
+    });
+    const tune = tuneAt(db, 1001, "A1");
+    setTrackVerdict(db, { releaseId: 1001, position: "A1", tune, mark: "keep", notes: "old note" });
+    db.prepare("UPDATE track_verdicts SET decided_at = ?, updated_at = ?").run(LONG_AGO, LONG_AGO);
+    const backup = readDecisionsBackup((await writeDecisionsBackup(db, on("2026-09-10"))).file);
+
+    setTrackVerdict(db, { releaseId: 1001, position: "A1", tune, mark: "keep", notes: "new note" });
+    deleteVerdict(db, "m:501");
+    const outcome = restoreBackedUpData(db, backup, backup.backedUpAt);
+
+    expect(getTrackVerdicts(db, 1001).map((mark) => mark.notes)).toEqual(["new note"]);
+    expect(getVerdict(db, "m:501")).toBeNull();
+    expect(outcome.verdicts).toEqual({ restored: 0, keptNewer: 1, moved: 0 });
+    expect(outcome.trackMarks).toEqual({ restored: 0, keptNewer: 1 });
+    db.close();
+  });
+
+  it("keeps the grail when backed-up verdicts meet on one record", async () => {
+    const source = await fixtureDb();
+    const backup = readDecisionsBackup((await writeDecisionsBackup(source, on("2026-09-10"))).file);
+    // Two pressings of master 501, decided apart under release keys before the master was known.
+    backup.verdicts = [
+      {
+        key: "r:1001",
+        status: "candidate",
+        source: "triage",
+        releaseId: 1001,
+        decidedAt: LONG_AGO,
+      },
+      {
+        key: "r:1002",
+        status: "rejected",
+        source: "triage",
+        releaseId: 1002,
+        decidedAt: "2021-01-01T00:00:00.000Z",
+      },
+    ];
+    const target = await fixtureDb();
+
+    const outcome = restoreBackedUpData(target, backup, backup.backedUpAt);
+
+    expect(getVerdict(target, "m:501")).toMatchObject({ status: "candidate", releaseId: 1001 });
+    expect(outcome.verdicts).toEqual({ restored: 1, keptNewer: 0, moved: 1 });
+    source.close();
+    target.close();
   });
 });
 

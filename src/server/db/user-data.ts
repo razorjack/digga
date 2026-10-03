@@ -7,7 +7,7 @@ import {
   type VerdictSource,
   type VerdictStatus,
 } from "../../shared/types.ts";
-import { isTriageSource } from "../../shared/verdict-rank.ts";
+import { isTriageSource, preferredVerdict } from "../../shared/verdict-rank.ts";
 import { withoutChangeLogs } from "./change-logs.ts";
 import type { Db } from "./db.ts";
 import { readSessions, restoreSessions } from "./digging-sessions.ts";
@@ -47,8 +47,9 @@ export function readBackedUpData(db: Db): BackedUpData {
 }
 
 /**
- * Writes a backup into the library in one transaction. The backup wins, except over a verdict or
- * track mark made in Digga after the backup was written. Listens and marks take the tune keys of
+ * Writes a backup into the library in one transaction. A verdict or track mark keeps whichever
+ * side changed it last; deleting one counts as a change. Backed-up verdicts that meet on one
+ * record take the precedence a dump load uses. Listens and marks take the tune keys of
  * the tracks the library has; heard tunes are rebuilt from the listens, and those of the backup
  * no listen accounts for are added. Attached videos are added to what the library has; a video
  * whose release the library has not loaded waits for it.
@@ -65,7 +66,7 @@ export function restoreBackedUpData(
       const outcome = {
         verdicts: restoreVerdicts(db, data, backupTime),
         memberships: { restored: restoreMemberships(db, data) },
-        trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
+        trackMarks: restoreTrackMarks(db, data.trackMarks),
         attachedVideos: { added: addAttachedVideos(db, data.attachedVideos) },
       };
       restoreHistory(db, data);
@@ -85,6 +86,7 @@ function readVerdicts(db: Db): BackedUpData["verdicts"] {
     source: VerdictSource;
     release_id: number | null;
     decided_at: string;
+    updated_at: string;
   }[];
   return rows.map((row) => ({
     key: row.key,
@@ -92,6 +94,7 @@ function readVerdicts(db: Db): BackedUpData["verdicts"] {
     source: row.source,
     releaseId: row.release_id,
     decidedAt: row.decided_at,
+    updatedAt: row.updated_at,
   }));
 }
 
@@ -136,6 +139,7 @@ function readTrackMarks(db: Db): BackedUpData["trackMarks"] {
     title: string | null;
     video_id: string | null;
     at_seconds: number | null;
+    updated_at: string;
   }[];
   return rows.map((row) => ({
     releaseId: row.release_id,
@@ -148,6 +152,7 @@ function readTrackMarks(db: Db): BackedUpData["trackMarks"] {
     title: row.title,
     videoId: row.video_id,
     atSeconds: row.at_seconds,
+    updatedAt: row.updated_at,
   }));
 }
 
@@ -219,25 +224,76 @@ function restoreVerdicts(
      ON CONFLICT(key) DO UPDATE SET video_ids_json = excluded.video_ids_json`,
   );
   const forgetVideos = db.prepare("DELETE FROM no_audio_videos WHERE key = ?");
+  for (const backedUp of data.verdicts) restoreVerdictNote(db, backedUp, backupTime);
+
   const outcome = { restored: 0, keptNewer: 0, moved: 0 };
-  for (const backedUp of data.verdicts) {
-    restoreVerdictNote(db, backedUp, backupTime);
-    const verdict = verdictWriteOf(backedUp);
-    if (verdict === null) continue;
-    verdict.key = recordKeyOf(db, backedUp);
-    if (decidedHereAfter(db, verdict.key, backupTime)) {
+  for (const arrivals of Map.groupBy(arrivingVerdicts(db, data.verdicts), (a) => a.write.key)) {
+    const { write, backedUp } = strongestArrival(arrivals[1]);
+    if (keepsLibraryVerdict(db, write)) {
       outcome.keptNewer += 1;
       continue;
     }
-    upsertVerdict(db, verdict);
+    upsertVerdict(db, write);
     const videoIds = recorded.get(backedUp.key);
-    if (verdict.status === "no_audio" && videoIds)
-      saveVideos.run(verdict.key, JSON.stringify(videoIds));
-    else forgetVideos.run(verdict.key);
+    if (write.status === "no_audio" && videoIds)
+      saveVideos.run(write.key, JSON.stringify(videoIds));
+    else forgetVideos.run(write.key);
     outcome.restored += 1;
-    if (verdict.key !== backedUp.key) outcome.moved += 1;
+    if (write.key !== backedUp.key) outcome.moved += 1;
   }
   return outcome;
+}
+
+/** A backed-up verdict and the write that restores it under the key its release has now. */
+interface ArrivingVerdict {
+  backedUp: BackedUpData["verdicts"][number];
+  write: VerdictWrite & { decidedAt: string; updatedAt: string };
+}
+
+/** The backup's verdicts as the library stores them; the seed verdicts of old backups are not. */
+function arrivingVerdicts(db: Db, verdicts: BackedUpData["verdicts"]): ArrivingVerdict[] {
+  const arriving: ArrivingVerdict[] = [];
+  for (const backedUp of verdicts) {
+    const write = verdictWriteOf(backedUp);
+    if (write === null) continue;
+    const updatedAt = backedUp.updatedAt ?? backedUp.decidedAt;
+    const key = recordKeyOf(db, backedUp);
+    arriving.push({ backedUp, write: { ...write, key, decidedAt: backedUp.decidedAt, updatedAt } });
+  }
+  return arriving;
+}
+
+/** Of backed-up verdicts that meet on one record, the one a dump load would keep. */
+function strongestArrival(arrivals: ArrivingVerdict[]): ArrivingVerdict {
+  return arrivals.reduce((kept, next) =>
+    preferredVerdict(kept.write, next.write) === kept.write ? kept : next,
+  );
+}
+
+/**
+ * Whether the record keeps the library's verdict: the side that changed it last wins, except that
+ * a history hit never overrides a decision made in Digga, either way.
+ */
+function keepsLibraryVerdict(db: Db, write: ArrivingVerdict["write"]): boolean {
+  const current = getVerdict(db, write.key);
+  if (current !== null && isTriageSource(current.source) !== isTriageSource(write.source))
+    return isTriageSource(current.source);
+  return laterThan(verdictChangedAt(db, write.key), write.updatedAt);
+}
+
+/** When the library last wrote or deleted the record's verdict; null when it never had one. */
+function verdictChangedAt(db: Db, key: string): string | null {
+  const updatedAt = db.prepare("SELECT updated_at FROM verdicts WHERE key = ?").pluck().get(key);
+  if (typeof updatedAt === "string") return updatedAt;
+  return db
+    .prepare("SELECT MAX(at) FROM verdict_log WHERE key = ? AND change = 'delete'")
+    .pluck()
+    .get(key) as string | null;
+}
+
+/** Whether the library's change came after the backup's. */
+function laterThan(changedHere: string | null, changedInBackup: string): boolean {
+  return changedHere !== null && Date.parse(changedHere) > Date.parse(changedInBackup);
 }
 
 /** A verdict as the library stores it; null for the seed verdict of a backup before version 3. */
@@ -252,11 +308,6 @@ function verdictWriteOf(backedUp: BackedUpData["verdicts"][number]): VerdictWrit
     releaseId: backedUp.releaseId,
     decidedAt: backedUp.decidedAt,
   };
-}
-
-function decidedHereAfter(db: Db, key: string, backupTime: number): boolean {
-  const saved = getVerdict(db, key);
-  return saved !== null && isTriageSource(saved.source) && Date.parse(saved.decidedAt) > backupTime;
 }
 
 /** A backup before version 3 kept notes on verdicts; a note saved after the backup wins. */
@@ -324,26 +375,26 @@ function legacySeedMemberships(verdicts: BackedUpData["verdicts"]): BackedUpData
 function restoreTrackMarks(
   db: Db,
   marks: BackedUpData["trackMarks"],
-  backupTime: number,
 ): RestoreOutcome["trackMarks"] {
-  const current = db.prepare(
-    "SELECT decided_at FROM track_verdicts WHERE release_id = ? AND heard_key = ?",
-  );
   const save = db.prepare(
     `INSERT INTO track_verdicts (release_id, heard_key, position, mark, notes, decided_at,
-       artist_display, title, video_id, at_seconds)
+       artist_display, title, video_id, at_seconds, updated_at)
      VALUES (@releaseId, @heardKey, @position, @mark, @notes, @decidedAt,
-       @artistDisplay, @title, @videoId, @atSeconds)
+       @artistDisplay, @title, @videoId, @atSeconds, @updatedAt)
      ON CONFLICT(release_id, heard_key) DO UPDATE SET position = excluded.position,
        mark = excluded.mark, notes = excluded.notes, decided_at = excluded.decided_at,
        artist_display = excluded.artist_display, title = excluded.title,
-       video_id = excluded.video_id, at_seconds = excluded.at_seconds`,
+       video_id = excluded.video_id, at_seconds = excluded.at_seconds,
+       updated_at = excluded.updated_at`,
   );
   const outcome = { restored: 0, keptNewer: 0 };
   for (const backedUp of marks) {
-    const mark = { ...backedUp, heardKey: backedUp.heardKey ?? positionTune(db, backedUp) };
-    const row = current.get(mark.releaseId, mark.heardKey) as { decided_at: string } | undefined;
-    if (row && Date.parse(row.decided_at) > backupTime) {
+    const mark = {
+      ...backedUp,
+      heardKey: backedUp.heardKey ?? positionTune(db, backedUp),
+      updatedAt: backedUp.updatedAt ?? backedUp.decidedAt,
+    };
+    if (laterThan(markChangedAt(db, mark), mark.updatedAt)) {
       outcome.keptNewer += 1;
       continue;
     }
@@ -351,6 +402,22 @@ function restoreTrackMarks(
     outcome.restored += 1;
   }
   return outcome;
+}
+
+/** When the library last wrote or deleted the mark on the tune; null when it never had one. */
+function markChangedAt(db: Db, mark: { releaseId: number; heardKey: string }): string | null {
+  const updatedAt = db
+    .prepare("SELECT updated_at FROM track_verdicts WHERE release_id = ? AND heard_key = ?")
+    .pluck()
+    .get(mark.releaseId, mark.heardKey);
+  if (typeof updatedAt === "string") return updatedAt;
+  return db
+    .prepare(
+      `SELECT MAX(at) FROM track_mark_log
+       WHERE release_id = ? AND heard_key = ? AND change = 'delete'`,
+    )
+    .pluck()
+    .get(mark.releaseId, mark.heardKey) as string | null;
 }
 
 /**

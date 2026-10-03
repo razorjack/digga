@@ -193,7 +193,11 @@ describe("the decision log", () => {
     const logged = verdictLog(db).length;
     applyMigrations(db);
 
-    expect(db.prepare("SELECT * FROM verdicts ORDER BY key").all()).toEqual([
+    expect(
+      db
+        .prepare("SELECT key, status, source, release_id, decided_at FROM verdicts ORDER BY key")
+        .all(),
+    ).toEqual([
       { key: "m:501", status: "accepted", source: "triage", release_id: 1001, decided_at: at },
       { key: "m:503", status: "rejected", source: "triage", release_id: 1003, decided_at: at },
     ]);

@@ -198,10 +198,10 @@ validates. No release data: the Discogs ids in the keys find it again after a du
 gets no file when one exists, when the library holds nothing made in Digga, or when nothing
 changed since the newest file, so idle days and a new library never push older backups out.
 `digga backup` writes both backups on demand. `digga restore` with a decisions backup copies the
-database, then writes the file into the library in one transaction (`restoreBackedUpData`): the
-backup wins, except over a verdict or track mark made in Digga after it was written; heard tunes
-and attached videos are added, the latter also for releases the library has not loaded, which
-they wait for.
+database, then merges the file into the library in one transaction (`restoreBackedUpData`): a
+verdict or track mark keeps whichever side changed it last, a deletion included; heard tunes and
+attached videos are added, the latter also for releases the library has not loaded, which they
+wait for.
 
 `GET /api/export/decisions.json`, `verdicts.csv` and `track-marks.csv` download every saved
 verdict and track mark with the release they belong to (`src/server/export.ts`). They read the
