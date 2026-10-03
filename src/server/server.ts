@@ -58,7 +58,9 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   const stale = failStaleJobs(db);
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
   const backups =
-    ownsDb && options.paths.dbFile !== ":memory:" ? startDailyBackups(db, options) : null;
+    ownsDb && options.paths.dbFile !== ":memory:"
+      ? startDailyBackups(db, { ...options, getConfig: () => config })
+      : null;
   const jobs = createJobRunner(db, logger.child("jobs"));
 
   const app = createApp({

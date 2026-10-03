@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { saveConfig } from "../server/config-file.ts";
 import {
   downloadDump,
   dumpLoad,
@@ -160,7 +161,12 @@ export async function cmdStats(runtime: Runtime): Promise<void> {
 
 export async function cmdBackup(runtime: Runtime): Promise<void> {
   const now = new Date();
-  const options = { dir: runtime.paths.backupsDir, day: localDay(now), now };
+  const options = {
+    dir: runtime.paths.backupsDir,
+    day: localDay(now),
+    now,
+    config: runtime.config,
+  };
   const backups = await withDatabase(runtime, async (db) => [
     await writeBackup(db, options),
     await writeDecisionsBackup(db, options),
@@ -170,8 +176,13 @@ export async function cmdBackup(runtime: Runtime): Promise<void> {
 
 /** Restores a decisions backup into the library, after copying the database as it is. */
 export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void> {
-  const file = parseRestoreFile(args, runtime.paths.backupsDir);
+  const restoreConfig = args.includes("--config");
+  const file = parseRestoreFile(
+    args.filter((arg) => arg !== "--config"),
+    runtime.paths.backupsDir,
+  );
   const backup = readDecisionsBackup(file);
+  if (restoreConfig && !backup.config) throw new Error("This backup has no configuration.");
   const { copy, outcome } = await withDatabase(runtime, async (db) => {
     const copy = await writeBackup(db, {
       dir: runtime.paths.backupsDir,
@@ -179,6 +190,10 @@ export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void
     });
     return { copy, outcome: restoreBackedUpData(db, backup, backup.backedUpAt) };
   });
+  if (restoreConfig && backup.config) {
+    fs.copyFileSync(runtime.paths.configFile, `${runtime.paths.configFile}.before-restore`);
+    saveConfig(runtime.paths.configFile, backup.config);
+  }
   showRestore({ file, backup, copy, outcome });
 }
 

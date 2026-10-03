@@ -1,8 +1,15 @@
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
 import type { TrackMark, VerdictSource, VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "./db.ts";
+import { readHistory, restoreHistory } from "./history-backup.ts";
 import { currentReleaseKey } from "./verdict-keys.ts";
 import { getVerdict, upsertVerdict } from "./verdicts.ts";
+
+type RestorableData = Pick<
+  BackedUpData,
+  "verdicts" | "trackMarks" | "heardTunes" | "attachedVideos" | "noAudioVideos"
+> &
+  Partial<Pick<BackedUpData, "listenLog" | "verdictLog" | "trackMarkLog">>;
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
@@ -19,6 +26,7 @@ export interface RestoreOutcome {
  */
 export function readBackedUpData(db: Db): BackedUpData {
   return {
+    ...readHistory(db),
     verdicts: readVerdicts(db),
     trackMarks: readTrackMarks(db),
     heardTunes: readHeardTunes(db),
@@ -35,16 +43,22 @@ export function readBackedUpData(db: Db): BackedUpData {
  */
 export function restoreBackedUpData(
   db: Db,
-  data: BackedUpData,
+  data: RestorableData,
   backedUpAt: string,
 ): RestoreOutcome {
   const backupTime = Date.parse(backedUpAt);
-  return db.transaction(() => ({
-    verdicts: restoreVerdicts(db, data, backupTime),
-    trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
-    heardTunes: { added: addHeardTunes(db, data.heardTunes) },
-    attachedVideos: addAttachedVideos(db, data.attachedVideos),
-  }))();
+  return db.transaction(() => {
+    db.prepare("INSERT INTO meta (key, value) VALUES ('restoring_decisions', '1')").run();
+    const outcome = {
+      verdicts: restoreVerdicts(db, data, backupTime),
+      trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
+      heardTunes: { added: addHeardTunes(db, data.heardTunes) },
+      attachedVideos: addAttachedVideos(db, data.attachedVideos),
+    };
+    restoreHistory(db, data);
+    db.prepare("DELETE FROM meta WHERE key = 'restoring_decisions'").run();
+    return outcome;
+  })();
 }
 
 function readVerdicts(db: Db): BackedUpData["verdicts"] {

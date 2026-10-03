@@ -1,3 +1,4 @@
+import type { Config } from "../shared/config.ts";
 import { backupDaily, localDay } from "./db/backup.ts";
 import type { Db } from "./db/db.ts";
 import { backupDecisionsDaily } from "./decisions-backup.ts";
@@ -17,7 +18,7 @@ export interface DailyBackups {
  */
 export function startDailyBackups(
   db: Db,
-  deps: { paths: Paths; logger: Logger },
+  deps: { paths: Paths; logger: Logger; getConfig?: () => Config },
   schedule: { everyMs?: number; now?: () => Date } = {},
 ): DailyBackups {
   const now = schedule.now ?? (() => new Date());
@@ -40,12 +41,17 @@ export function startDailyBackups(
  */
 async function writeDailyBackups(
   db: Db,
-  deps: { paths: Paths; logger: Logger },
+  deps: { paths: Paths; logger: Logger; getConfig?: () => Config },
   now: Date,
 ): Promise<void> {
   const { paths, logger } = deps;
   const day = localDay(now);
-  const decisions = backupDecisionsDaily(db, { dir: paths.backupsDir, day, now })
+  const decisions = backupDecisionsDaily(db, {
+    dir: paths.backupsDir,
+    day,
+    now,
+    config: deps.getConfig?.(),
+  })
     .then((backup) => {
       if (backup) logger.info(`backed up your decisions to ${backup.file}`);
     })

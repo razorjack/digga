@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ConfigSchema } from "./config.ts";
+import { HISTORY_SCHEMAS } from "./history-backup.ts";
 import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
 
 /**
@@ -7,7 +9,7 @@ import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
  * out: the Discogs ids in the keys find it again after a dump load, so a library rebuilt from a
  * dump gets everything back with `digga restore`.
  */
-export const DECISIONS_BACKUP_VERSION = 1;
+export const DECISIONS_BACKUP_VERSION = 2;
 
 const id = z.number().int().positive();
 const timestamp = z.string().min(1);
@@ -65,13 +67,17 @@ const BackupNoAudioVideosSchema = z.object({
 export const DecisionsBackupSchema = z.object({
   app: z.literal("digga"),
   kind: z.literal("decisions"),
-  version: z.literal(DECISIONS_BACKUP_VERSION),
+  version: z.union([z.literal(1), z.literal(DECISIONS_BACKUP_VERSION)]),
   backedUpAt: timestamp,
   verdicts: z.array(BackupVerdictSchema),
   trackMarks: z.array(BackupTrackMarkSchema),
   heardTunes: z.array(BackupHeardTuneSchema),
   attachedVideos: z.array(BackupAttachedVideoSchema),
   noAudioVideos: z.array(BackupNoAudioVideosSchema),
+  listenLog: z.array(HISTORY_SCHEMAS.listenLog).default([]),
+  verdictLog: z.array(HISTORY_SCHEMAS.verdictLog).default([]),
+  trackMarkLog: z.array(HISTORY_SCHEMAS.trackMarkLog).default([]),
+  config: ConfigSchema.nullable().default(null),
 });
 
 export type DecisionsBackup = z.infer<typeof DecisionsBackupSchema>;
@@ -79,7 +85,14 @@ export type DecisionsBackup = z.infer<typeof DecisionsBackupSchema>;
 /** What a backup holds besides its header. */
 export type BackedUpData = Pick<
   DecisionsBackup,
-  "verdicts" | "trackMarks" | "heardTunes" | "attachedVideos" | "noAudioVideos"
+  | "verdicts"
+  | "trackMarks"
+  | "heardTunes"
+  | "attachedVideos"
+  | "noAudioVideos"
+  | "listenLog"
+  | "verdictLog"
+  | "trackMarkLog"
 >;
 
 /** Each section's fields in file order, so a backup reads the same whatever built its objects. */
@@ -89,4 +102,7 @@ export const BACKUP_FIELDS: { [Section in keyof BackedUpData]: string[] } = {
   heardTunes: Object.keys(BackupHeardTuneSchema.shape),
   attachedVideos: Object.keys(BackupAttachedVideoSchema.shape),
   noAudioVideos: Object.keys(BackupNoAudioVideosSchema.shape),
+  listenLog: Object.keys(HISTORY_SCHEMAS.listenLog.shape),
+  verdictLog: Object.keys(HISTORY_SCHEMAS.verdictLog.shape),
+  trackMarkLog: Object.keys(HISTORY_SCHEMAS.trackMarkLog.shape),
 };

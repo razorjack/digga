@@ -53,6 +53,10 @@ export function decisionsBackup(verdicts: BackedUpData["verdicts"]): DecisionsBa
     heardTunes: [],
     attachedVideos: [],
     noAudioVideos: [],
+    listenLog: [],
+    verdictLog: [],
+    trackMarkLog: [],
+    config: null,
   };
 }
 

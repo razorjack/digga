@@ -19,6 +19,7 @@ import {
   writeDecisionsBackup,
 } from "../src/server/decisions-backup.ts";
 import { recordNoAudioVideos } from "../src/server/queue/no-audio.ts";
+import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { fixtureDb } from "./helpers.ts";
 
 let dir: string;
@@ -97,6 +98,29 @@ describe("the decisions backup", () => {
     target.close();
   });
 
+  it("merges overlapping history backups without duplicating events", async () => {
+    const source = await libraryWithDecisions();
+    const first = readBackedUpData(source);
+    const target = await fixtureDb();
+    restoreBackedUpData(target, first, "2026-09-10T12:00:00Z");
+    logListen(source, { releaseId: 1001, position: "A1", videoId: "a", seconds: 2, heard: false });
+    const second = readBackedUpData(source);
+    restoreBackedUpData(target, second, "2099-01-01T00:00:00Z");
+    restoreBackedUpData(target, second, "2099-01-01T00:00:00Z");
+    expect(readBackedUpData(target)).toEqual(second);
+    source.close();
+    target.close();
+  });
+
+  it("includes settings without the saved token", async () => {
+    const db = await fixtureDb();
+    const config = structuredClone(DEFAULT_CONFIG);
+    config.filters.excludeLabels = ["Hidden label"];
+    const written = await writeDecisionsBackup(db, { ...on("2026-09-10"), config });
+    expect(readDecisionsBackup(written.file).config).toEqual(config);
+    db.close();
+  });
+
   it("keeps what was decided here after the backup, and replaces seeds and older decisions", async () => {
     const source = await libraryWithDecisions();
     const backup = readDecisionsBackup((await writeDecisionsBackup(source, on("2026-09-10"))).file);
@@ -158,12 +182,13 @@ describe("the decisions backup", () => {
     const lines = zlib.gunzipSync(fs.readFileSync(written.file)).toString("utf8").split("\n");
 
     expect(path.basename(written.file)).toBe("decisions-2026-09-10.json.gz");
-    expect(lines.slice(0, 6)).toEqual([
+    expect(lines.slice(0, 7)).toEqual([
       "{",
       '  "app": "digga",',
       '  "kind": "decisions",',
-      '  "version": 1,',
+      '  "version": 2,',
       '  "backedUpAt": "2026-09-10T12:00:00.000Z",',
+      '  "config": null,',
       '  "verdicts": [',
     ]);
     expect(lines).toContain(

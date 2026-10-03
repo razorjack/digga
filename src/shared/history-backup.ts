@@ -1,0 +1,44 @@
+import { z } from "zod";
+import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
+
+const text = z.string().nullable();
+const number = z.number().nullable();
+const event = {
+  event_id: z.string().min(1),
+  at: z.string(),
+  change: z.enum(["existing", "insert", "update", "delete"]),
+};
+
+export const HISTORY_SCHEMAS = {
+  listenLog: z.object({
+    event_id: event.event_id,
+    release_id: z.number(),
+    position: text,
+    video_id: z.string(),
+    seconds: z.number(),
+    at: z.string(),
+  }),
+  verdictLog: z.object({
+    ...event,
+    key: z.string(),
+    previous_key: text,
+    status: z.enum(VERDICT_STATUSES),
+    source: z.enum(VERDICT_SOURCES),
+    notes: text,
+    release_id: number,
+    decided_at: z.string(),
+  }),
+  trackMarkLog: z.object({
+    ...event,
+    release_id: z.number(),
+    position: z.string(),
+    mark: z.enum(TRACK_MARKS),
+    notes: text,
+    decided_at: z.string(),
+    heard_key: text,
+    artist_display: text,
+    title: text,
+    video_id: text,
+    at_seconds: number,
+  }),
+};

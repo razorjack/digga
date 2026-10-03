@@ -1,3 +1,4 @@
+import type { Config } from "../shared/config.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -26,6 +27,7 @@ export interface DecisionsBackupOptions {
   day: string;
   now: Date;
   keep?: number;
+  config?: Config;
 }
 
 /**
@@ -80,6 +82,7 @@ export function formatDecisionsBackup(backup: DecisionsBackup): string {
     `  "kind": "decisions"`,
     `  "version": ${backup.version}`,
     `  "backedUpAt": ${JSON.stringify(backup.backedUpAt)}`,
+    `  "config": ${JSON.stringify(backup.config ?? null)}`,
   ];
   return `{\n${[...header, formatSections(backup)].join(",\n")}\n}\n`;
 }
@@ -93,6 +96,7 @@ async function saveDecisionsBackup(
     kind: "decisions",
     version: DECISIONS_BACKUP_VERSION,
     backedUpAt: options.now.toISOString(),
+    config: options.config ?? null,
     ...data,
   };
   const compressed = await gzip(formatDecisionsBackup(backup), { level: 9 });
@@ -121,7 +125,10 @@ function hasDiggaData(data: BackedUpData): boolean {
     data.verdicts.some((verdict) => typeof verdict.dugAt === "string") ||
     data.trackMarks.length > 0 ||
     data.heardTunes.length > 0 ||
-    data.attachedVideos.length > 0
+    data.attachedVideos.length > 0 ||
+    data.listenLog.length > 0 ||
+    data.verdictLog.some((entry) => entry.source === "triage" || entry.source === "manual") ||
+    data.trackMarkLog.length > 0
   );
 }
 

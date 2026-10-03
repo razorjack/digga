@@ -126,9 +126,10 @@ decision an import, a re-judgement, an undo or a dump load replaced or deleted s
 row has `id`, `at` (when the change happened), `change` and the columns of the row after the
 change, or of the deleted row for a delete. `change` is `existing` for the rows the log started
 from, then `insert`, `update` or `delete`; an update that writes the values the row has is not
-logged. `verdict_log` also has `previous_key`, the key an update moved the verdict from. Nothing in
-the app reads the logs yet; they are in the database and its daily copies, not in the decisions
-backup.
+logged. `verdict_log` also has `previous_key`, the key an update moved the verdict from. The decisions backup includes both logs and the listen log. Each event has a stable `event_id`,
+so restoring overlapping backups merges their histories without duplicating events. Restore writes
+do not generate new decision events. The backup also contains configuration; `digga restore --config`
+restores it explicitly and keeps the previous configuration beside it. Saved tokens are not exported.
 
 ## heard_tracks
 
