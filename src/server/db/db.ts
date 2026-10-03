@@ -1,8 +1,8 @@
-import { migrationBackupFile } from "../paths.ts";
 import BetterSqlite3 from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { migrationBackupFile } from "../paths.ts";
 
 /**
  * The only module that imports better-sqlite3. Everything else receives a Db.
@@ -32,14 +32,14 @@ export function openDb(file: string, options: OpenOptions = {}): Db {
   if (file !== ":memory:" && !options.readonly) db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("synchronous = NORMAL");
-  if (!options.readonly) {
-    try {
-      backupBeforeMigration(db, file);
-      applyMigrations(db);
-    } catch (error) {
-      db.close();
-      throw error;
-    }
+  if (options.readonly) return db;
+
+  try {
+    backupBeforeMigration(db, file);
+    applyMigrations(db);
+  } catch (error) {
+    db.close();
+    throw error;
   }
   return db;
 }
@@ -94,17 +94,30 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Copies a database with pending migrations to `before-migration-<version>.sqlite`, apart from the
+ * rotating daily copies. A new database has nothing to keep.
+ */
 function backupBeforeMigration(db: Db, file: string): void {
   if (file === ":memory:") return;
-  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'").get())
-    return;
-  const version = Number(getMeta(db, "schema_version") ?? 0);
-  if (version === 0 || !listMigrations().some((migration) => migration.version > version)) return;
+  const version = savedSchemaVersion(db);
+  const pending = listMigrations().some((migration) => migration.version > version);
+  if (version === 0 || !pending) return;
+
   const backup = migrationBackupFile(file, version);
-  fs.mkdirSync(path.dirname(backup), { recursive: true });
-  // VACUUM INTO takes a consistent snapshot including WAL contents before any migration runs.
   const partial = `${backup}.partial`;
+  fs.mkdirSync(path.dirname(backup), { recursive: true });
   fs.rmSync(partial, { force: true });
+  // VACUUM INTO writes a consistent snapshot that includes the WAL contents.
   db.prepare("VACUUM INTO ?").run(partial);
   fs.renameSync(partial, backup);
+}
+
+/** The applied schema version; 0 for a database without the meta table. */
+function savedSchemaVersion(db: Db): number {
+  const hasMeta = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meta'")
+    .get();
+  if (!hasMeta) return 0;
+  return Number(getMeta(db, "schema_version") ?? 0);
 }

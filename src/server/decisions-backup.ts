@@ -1,9 +1,9 @@
-import type { Config } from "../shared/config.ts";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
+import type { Config } from "../shared/config.ts";
 import {
   BACKUP_FIELDS,
   type BackedUpData,
@@ -17,8 +17,11 @@ import { readBackedUpData } from "./db/user-data.ts";
 
 /** Daily decisions backups kept; older ones are deleted. */
 export const DECISIONS_BACKUPS_KEPT = 30;
+/** Checkpoints kept besides the daily backups: half a day of fifteen-minute checks. */
+export const CHECKPOINTS_KEPT = 48;
 
 const DECISIONS_FILE = /^decisions-(\d{4}-\d{2}-\d{2})\.json\.gz$/;
+const CHECKPOINT_FILE = /^checkpoint-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json\.gz$/;
 const SECTIONS = Object.keys(BACKUP_FIELDS) as (keyof BackedUpData)[];
 const gzip = promisify(zlib.gzip);
 
@@ -56,9 +59,33 @@ export async function writeDecisionsBackup(
   return saveDecisionsBackup(readBackedUpData(db), options);
 }
 
+/**
+ * Writes a checkpoint when personal data or settings changed since the newest one. The server
+ * checks every fifteen minutes and once more at a clean shutdown.
+ */
+export async function checkpointDecisions(
+  db: Db,
+  options: DecisionsBackupOptions,
+): Promise<BackupFile | null> {
+  const data = readBackedUpData(db);
+  const newest = listCheckpoints(options.dir)[0];
+  if (newest && checkpointUnchanged(newest.file, data, options.config)) return null;
+
+  const stamp = options.now.toISOString().replace(/[:.]/g, "-");
+  const file = path.join(options.dir, `checkpoint-${stamp}.json.gz`);
+  const bytes = await writeDecisionsFile(data, options, file);
+  for (const old of listCheckpoints(options.dir).slice(CHECKPOINTS_KEPT)) fs.rmSync(old.file);
+  return { file, day: stamp, bytes };
+}
+
 /** Decisions backups in the directory, newest first. */
 export function listDecisionsBackups(dir: string): BackupFile[] {
   return listDatedFiles(dir, DECISIONS_FILE);
+}
+
+/** Checkpoints in the directory, newest first. */
+export function listCheckpoints(dir: string): BackupFile[] {
+  return listDatedFiles(dir, CHECKPOINT_FILE);
 }
 
 /** Reads a decisions backup, gzipped or not; throws when the file is not one. */
@@ -135,32 +162,10 @@ function decisionsPath(dir: string, day: string): string {
   return path.join(dir, `decisions-${day}.json.gz`);
 }
 
-const CHECKPOINT_FILE = /^checkpoint-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json\.gz$/;
-export const CHECKPOINTS_KEPT = 48;
-
-export function listCheckpoints(dir: string): BackupFile[] {
-  return listDatedFiles(dir, CHECKPOINT_FILE);
-}
-
-/** Changed personal data every fifteen minutes, and at a clean server shutdown. */
-export async function checkpointDecisions(
-  db: Db,
-  options: DecisionsBackupOptions,
-): Promise<BackupFile | null> {
-  const data = readBackedUpData(db);
-  const newest = listCheckpoints(options.dir)[0];
-  if (
-    newest &&
-    unchangedSince(newest.file, data) &&
-    JSON.stringify(readDecisionsBackup(newest.file).config) ===
-      JSON.stringify(options.config ?? null)
-  )
-    return null;
-  const stamp = options.now.toISOString().replace(/[:.]/g, "-");
-  const file = path.join(options.dir, `checkpoint-${stamp}.json.gz`);
-  const bytes = await writeDecisionsFile(data, options, file);
-  for (const old of listCheckpoints(options.dir).slice(CHECKPOINTS_KEPT)) fs.rmSync(old.file);
-  return { file, day: stamp, bytes };
+function checkpointUnchanged(file: string, data: BackedUpData, config?: Config): boolean {
+  if (!unchangedSince(file, data)) return false;
+  const savedConfig = readDecisionsBackup(file).config;
+  return JSON.stringify(savedConfig) === JSON.stringify(config ?? null);
 }
 
 async function writeDecisionsFile(
@@ -177,6 +182,8 @@ async function writeDecisionsFile(
     ...data,
   };
   const compressed = await gzip(formatDecisionsBackup(backup), { level: 9 });
+
+  // A write interrupted halfway must not count as a backup; concurrent writers use their own file.
   const partial = `${file}.${randomUUID()}.partial`;
   fs.mkdirSync(options.dir, { recursive: true });
   fs.writeFileSync(partial, compressed);

@@ -1,7 +1,11 @@
 import type { Config } from "../shared/config.ts";
 import { backupDaily, localDay } from "./db/backup.ts";
 import type { Db } from "./db/db.ts";
-import { backupDecisionsDaily, checkpointDecisions } from "./decisions-backup.ts";
+import {
+  backupDecisionsDaily,
+  checkpointDecisions,
+  type DecisionsBackupOptions,
+} from "./decisions-backup.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
 
@@ -12,13 +16,20 @@ export interface DailyBackups {
   stop(): Promise<void>;
 }
 
+interface BackupDeps {
+  paths: Paths;
+  logger: Logger;
+  /** The settings saved with each decisions backup; read on every write so edits are included. */
+  getConfig?: () => Config;
+}
+
 /**
- * Writes the day's backups now and checks again every fifteen minutes, so a server left running for days
- * backs up every day. Changed personal data gets an additional checkpoint on each check.
+ * Writes the day's backups now and checks again every fifteen minutes, so a server left running
+ * for days backs up every day. Each check also writes a checkpoint when personal data changed.
  */
 export function startDailyBackups(
   db: Db,
-  deps: { paths: Paths; logger: Logger; getConfig?: () => Config },
+  deps: BackupDeps,
   schedule: { everyMs?: number; now?: () => Date } = {},
 ): DailyBackups {
   const now = schedule.now ?? (() => new Date());
@@ -37,48 +48,36 @@ export function startDailyBackups(
 }
 
 /**
- * The day's decisions backup and database copy, which reads a consistent snapshot. Each skips a
- * day that has one, and one failing does not stop the other.
+ * The day's decisions backup and database copy, which reads a consistent snapshot, then a
+ * checkpoint. Each daily backup skips a day that has one, and one failing does not stop the other.
  */
-async function writeDailyBackups(
-  db: Db,
-  deps: { paths: Paths; logger: Logger; getConfig?: () => Config },
-  now: Date,
-): Promise<void> {
-  const { paths, logger } = deps;
-  const day = localDay(now);
-  const decisions = backupDecisionsDaily(db, {
-    dir: paths.backupsDir,
-    day,
-    now,
-    config: deps.getConfig?.(),
-  })
+async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<void> {
+  const { logger } = deps;
+  const options = backupOptions(deps, now);
+
+  const decisions = backupDecisionsDaily(db, options)
     .then((backup) => {
       if (backup) logger.info(`backed up your decisions to ${backup.file}`);
     })
     .catch((error: unknown) => logger.warn("the daily decisions backup failed", error));
-  const database = backupDaily(db, { dir: paths.backupsDir, day })
+  const database = backupDaily(db, options)
     .then((backup) => {
       if (backup) logger.info(`backed up the database to ${backup.file}`);
     })
     .catch((error: unknown) => logger.warn("the daily database backup failed", error));
   await Promise.all([decisions, database]);
+
   await writeCheckpoint(db, deps, now);
 }
 
-async function writeCheckpoint(
-  db: Db,
-  deps: { paths: Paths; logger: Logger; getConfig?: () => Config },
-  now: Date,
-): Promise<void> {
+async function writeCheckpoint(db: Db, deps: BackupDeps, now: Date): Promise<void> {
   try {
-    await checkpointDecisions(db, {
-      dir: deps.paths.backupsDir,
-      day: localDay(now),
-      now,
-      config: deps.getConfig?.(),
-    });
+    await checkpointDecisions(db, backupOptions(deps, now));
   } catch (error) {
     deps.logger.warn("the decisions checkpoint failed", error);
   }
+}
+
+function backupOptions(deps: BackupDeps, now: Date): DecisionsBackupOptions {
+  return { dir: deps.paths.backupsDir, day: localDay(now), now, config: deps.getConfig?.() };
 }
