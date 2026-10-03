@@ -125,8 +125,9 @@ once; the player rebuilds the open release's playlist when its videos change.
 history import. `import collection|wantlist|list` record what the Discogs account holds in
 `memberships` and never change a verdict; the queue leaves out records with either, and Twelves
 shows both (`docs/DATA_MODEL.md`). `listen_log` records
-every listen (proof of coverage) and feeds `heard_tracks`, keyed by the normalized
-`artist - title`, so a tune already heard on another release is greyed out instead of replayed.
+every listen (proof of coverage) and feeds `heard_tracks`, keyed by the tune key (the normalized
+canonical `artist - title`, or the record and position of an untitled tune), so a tune already
+heard on another release is greyed out instead of replayed.
 
 ## Jobs
 

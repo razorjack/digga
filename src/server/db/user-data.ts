@@ -8,11 +8,13 @@ import {
   type VerdictStatus,
 } from "../../shared/types.ts";
 import { isTriageSource } from "../../shared/verdict-rank.ts";
+import { withoutChangeLogs } from "./change-logs.ts";
 import type { Db } from "./db.ts";
 import { readSessions, restoreSessions } from "./digging-sessions.ts";
 import { readHistory, restoreHistory } from "./history-backup.ts";
+import { remapTuneKeys } from "./tune-keys.ts";
 import { recordKeyOf } from "./verdict-keys.ts";
-import { getVerdict, upsertVerdict, type VerdictWrite } from "./verdicts.ts";
+import { countHeardTracks, getVerdict, upsertVerdict, type VerdictWrite } from "./verdicts.ts";
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
@@ -46,8 +48,10 @@ export function readBackedUpData(db: Db): BackedUpData {
 
 /**
  * Writes a backup into the library in one transaction. The backup wins, except over a verdict or
- * track mark made in Digga after the backup was written. Heard tunes and attached videos are
- * added to what the library has; a video whose release the library has not loaded waits for it.
+ * track mark made in Digga after the backup was written. Listens and marks take the tune keys of
+ * the tracks the library has; heard tunes are rebuilt from the listens, and those of the backup
+ * no listen accounts for are added. Attached videos are added to what the library has; a video
+ * whose release the library has not loaded waits for it.
  */
 export function restoreBackedUpData(
   db: Db,
@@ -55,31 +59,23 @@ export function restoreBackedUpData(
   backedUpAt: string,
 ): RestoreOutcome {
   const backupTime = Date.parse(backedUpAt);
+  const heardBefore = countHeardTracks(db);
   return db.transaction(() =>
     withoutChangeLogs(db, () => {
       const outcome = {
         verdicts: restoreVerdicts(db, data, backupTime),
         memberships: { restored: restoreMemberships(db, data) },
         trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
-        heardTunes: { added: addHeardTunes(db, data.heardTunes) },
         attachedVideos: { added: addAttachedVideos(db, data.attachedVideos) },
       };
       restoreHistory(db, data);
-      return { ...outcome, sessions: restoreSessions(db, data.sessions) };
+      // The backup's keys may follow older rules or an older catalogue.
+      remapTuneKeys(db);
+      addHeardTunes(db, data.heardTunes);
+      const heardTunes = { added: countHeardTracks(db) - heardBefore };
+      return { ...outcome, heardTunes, sessions: restoreSessions(db, data.sessions) };
     }),
   )();
-}
-
-/**
- * The verdict and track mark log triggers skip changes while `restoring_decisions` is set, since
- * the restored history has its own events. Called inside a transaction, so a failed write also
- * rolls back the flag.
- */
-function withoutChangeLogs<T>(db: Db, write: () => T): T {
-  db.prepare("INSERT INTO meta (key, value) VALUES ('restoring_decisions', '1')").run();
-  const result = write();
-  db.prepare("DELETE FROM meta WHERE key = 'restoring_decisions'").run();
-  return result;
 }
 
 function readVerdicts(db: Db): BackedUpData["verdicts"] {
@@ -356,15 +352,13 @@ function restoreTrackMarks(
   return outcome;
 }
 
-function addHeardTunes(db: Db, tunes: BackedUpData["heardTunes"]): number {
+function addHeardTunes(db: Db, tunes: BackedUpData["heardTunes"]): void {
   const insert = db.prepare(
     `INSERT INTO heard_tracks (heard_key, first_release_id, seconds_listened, first_heard_at, last_heard_at)
      VALUES (@heardKey, @firstReleaseId, @secondsListened, @firstHeardAt, @lastHeardAt)
      ON CONFLICT(heard_key) DO NOTHING`,
   );
-  let added = 0;
-  for (const tune of tunes) added += insert.run(tune).changes;
-  return added;
+  for (const tune of tunes) insert.run(tune);
 }
 
 function addAttachedVideos(db: Db, videos: BackedUpData["attachedVideos"]): number {

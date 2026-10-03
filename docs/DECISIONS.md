@@ -879,3 +879,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      `409` when they differ. Triage sends no expectation with a new verdict, since judging a record
      is a fresh decision. A refused undo is dropped, as it can never apply, and Twelves reloads.
      Notes stay last-write-wins.
+140. **A tune key uses canonical artist names and every script, and an untitled tune its record.**
+     The pre-release review (F02) found heard keys colliding: normalization kept only ASCII, so any
+     two titles in Cyrillic or Japanese were the same tune; dropping Discogs' `(n)` suffix merged
+     different artists; and every "Unknown Artist - Untitled" was one tune, which with `skipHeard`
+     on skipped every other white label once one was heard. The owner chose canonical names, which
+     keep the suffix and also make a credit under another name (ANV) the same tune, and Unicode
+     letters and digits. A tune by placeholder artists only (Various, Unknown Artist, No Artist,
+     ids 194, 355 and 118760) or with a generic title is keyed `m:501 A1` by its record and
+     position, so pressings of one master still share it; in the owner's catalogue 35,896 of
+     499,596 tracks are keyed so. `meta.tune_key_version` (2) records the rules, and a library at
+     an older version is rekeyed as it opens: 4 s for those tracks, migrations included. Listens
+     and marks then take the key of the track at their position when its title is the one they
+     saved, also after every dump load and restore, and `heard_tracks` is rebuilt from
+     `listen_log`. A position that holds another tune now keeps the saved key.

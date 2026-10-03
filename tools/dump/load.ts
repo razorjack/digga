@@ -6,6 +6,7 @@ import { clearTimeout, setTimeout } from "node:timers";
 import zlib from "node:zlib";
 import type { Db } from "../../src/server/db/db.ts";
 import { writeReleases } from "../../src/server/db/releases.ts";
+import { remapTuneKeys } from "../../src/server/db/tune-keys.ts";
 import type { Logger } from "../../src/server/logger.ts";
 import { artistDisplay, yearFromReleased } from "../../src/shared/normalize.ts";
 import { type DumpLoadProgress, type KeptRelease, UNDATED_YEAR } from "../../src/shared/types.ts";
@@ -180,6 +181,8 @@ export async function loadDump(
   if (!stoppedAtLimit)
     scan.counts.coverage = keepCoverage(scan.coverage, scan.writer, hooks.logger);
   scan.writer.flush();
+  // Listens and marks follow the keys of the tracks just written, as a record may have moved.
+  if (scan.writer.upserted > 0) remapTuneKeys(db);
   report("done", true);
   if (scan.writer.verdictsMoved > 0)
     hooks.logger?.info(

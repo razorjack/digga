@@ -176,7 +176,7 @@ describe("sandbox api", () => {
       videoId: "aaaaaaaaaa1",
       seconds: 5,
     });
-    expect(log.heardKey).toBe("ed rush and optical - wormhole");
+    expect(log.heardKey).toBe("ed rush 2 and optical - wormhole");
     expect((await sandbox.getRelease(1002)).tracks[0]!.heard).toBe(true);
     expect((await sandbox.getStats()).heardTracks).toBe(1);
 
@@ -199,7 +199,7 @@ describe("sandbox api", () => {
           position: "B1",
           mark: "candidate",
           notes: "drop",
-          heardKey: "ed rush and optical - watermelon",
+          heardKey: "ed rush 2 and optical - watermelon",
           videoId: "aaaaaaaaaa1",
           atSeconds: 190.5,
         }),

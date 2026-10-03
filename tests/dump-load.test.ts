@@ -171,7 +171,7 @@ describe("dumpReleaseToWrite", () => {
     expect(w.triageKey).toBe("m:501");
     expect(w.labelName).toBe("Renegade Hardware");
     expect(w.catno).toBe("RH 20");
-    expect(w.tracks[0]!.heardKey).toBe("ed rush and optical - wormhole");
+    expect(w.tracks[0]!.heardKey).toBe("ed rush 2 and optical - wormhole");
     expect(w.tracks[0]!.durationSeconds).toBe(372);
     expect(w.videos.map((v) => [v.videoId, v.matchedPosition])).toEqual([
       ["aaaaaaaaaa1", "A1"],

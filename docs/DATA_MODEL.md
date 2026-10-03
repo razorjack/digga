@@ -49,14 +49,22 @@ release move to the new key in the same transaction (see `verdicts`).
 
 ## tracks
 
-| column                           | notes                                                       |
-| -------------------------------- | ----------------------------------------------------------- |
-| `release_id`, `seq`              | PK; `seq` is the tracklist index (sub-tracks flattened)     |
-| `position`                       | `A1`, `B`, `1`, or empty for headings                       |
-| `title`                          |                                                             |
-| `artists_json`, `artist_display` | track credits, falling back to the release artist           |
-| `duration_seconds`               | nullable                                                    |
-| `heard_key`                      | normalized `artist - title` (see `src/shared/normalize.ts`) |
+| column                           | notes                                                   |
+| -------------------------------- | ------------------------------------------------------- |
+| `release_id`, `seq`              | PK; `seq` is the tracklist index (sub-tracks flattened) |
+| `position`                       | `A1`, `B`, `1`, or empty for headings                   |
+| `title`                          |                                                         |
+| `artists_json`, `artist_display` | track credits, falling back to the release artist       |
+| `duration_seconds`               | nullable                                                |
+| `heard_key`                      | the tune key, see below                                 |
+
+The tune key (`heardKeyFor()` in `src/shared/normalize.ts`) is the normalized `artist - title`
+built from the canonical Discogs artist names, `(n)` suffix included, so a credit under another
+name (ANV) is the same tune and two same-named artists are not. Normalization keeps the letters
+and digits of every script. A tune whose artists are all Discogs placeholders (Various, Unknown
+Artist, No Artist) or whose title names no tune ("Untitled", "Track 3", "Side B", "Dub") is keyed
+by its record and position instead, as `m:501 A1`. `meta.tune_key_version` records the rules the
+tracks follow; a library keyed by older rules is rekeyed as it opens.
 
 ## videos
 
@@ -147,7 +155,10 @@ restores it explicitly and keeps the previous configuration beside it. Saved tok
 ## heard_tracks
 
 `heard_key` PK, `first_release_id`, `seconds_listened` (accumulated), `first_heard_at`,
-`last_heard_at`. Updated by `POST /api/listen-log` when the position maps to a track.
+`last_heard_at`. Updated by `POST /api/listen-log` when the position maps to a track. It can be
+derived from `listen_log`: after a rekey, a dump load or a restore, each listen and mark takes the
+key of the track now at its position when that track has the title it saved
+(`remapTuneKeys()`), and `heard_tracks` is rebuilt from the listens.
 
 ## listen_log
 

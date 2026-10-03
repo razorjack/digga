@@ -16,6 +16,12 @@ describe("normalizeText", () => {
     expect(normalizeText("Björk")).toBe("bjork");
     expect(normalizeText("")).toBe("");
   });
+
+  it("keeps the letters of every script", () => {
+    expect(normalizeText("Кино – Группа крови")).toBe("кино группа крови");
+    expect(normalizeText("坂本龍一")).toBe("坂本龍一");
+    expect(normalizeText("ばか")).not.toBe(normalizeText("はか"));
+  });
 });
 
 describe("stripDisambiguation", () => {
@@ -49,10 +55,33 @@ describe("artistDisplay", () => {
 });
 
 describe("heardKeyFor", () => {
-  it("is stable across releases of the same tune", () => {
-    expect(heardKeyFor("Konflict", "Messiah")).toBe("konflict - messiah");
-    expect(heardKeyFor("Konflict (2)", "MESSIAH ")).toBe("konflict - messiah");
-    expect(heardKeyFor("Konflict", "Messiah (Remix)")).not.toBe(heardKeyFor("Konflict", "Messiah"));
+  const artist = (name: string, id: number | null = 1, anv = "") => ({ id, name, anv, join: "" });
+  const tune = (artists: ReturnType<typeof artist>[], title: string, position = "A1") =>
+    heardKeyFor({ artists, title, recordKey: "m:501", position });
+
+  it("is stable across releases of the same tune, also under another credited name", () => {
+    expect(tune([artist("Konflict")], "Messiah")).toBe("konflict - messiah");
+    expect(tune([artist("Konflict", 1, "Konflikt")], "MESSIAH ", "B2")).toBe("konflict - messiah");
+    expect(tune([artist("Konflict")], "Messiah (Remix)")).not.toBe(
+      tune([artist("Konflict")], "Messiah"),
+    );
+  });
+
+  it("tells apart same-named artists and tunes in other scripts", () => {
+    expect(tune([artist("Signal (2)", 2)], "Smile")).toBe("signal 2 - smile");
+    expect(tune([artist("Signal (3)", 3)], "Smile")).toBe("signal 3 - smile");
+    expect(tune([artist("東京")], "青空")).toBe("東京 - 青空");
+    expect(tune([artist("大阪")], "夜")).toBe("大阪 - 夜");
+  });
+
+  it("is the record's tune at its position when nobody known made it or its title is generic", () => {
+    expect(tune([artist("Unknown Artist", 355)], "Messiah")).toBe("m:501 A1");
+    expect(tune([artist("Various", null)], "Messiah", "B")).toBe("m:501 B");
+    expect(tune([], "Messiah")).toBe("m:501 A1");
+    for (const title of ["Untitled", "Untitled 2", "Track 01", "Side B", "B2", "Dub", ""])
+      expect(tune([artist("Ed Rush")], title)).toBe("m:501 A1");
+    expect(tune([artist("Ed Rush")], "Untitled Dream")).toBe("ed rush - untitled dream");
+    expect(tune([artist("Moby")], "Go")).toBe("moby - go");
   });
 });
 

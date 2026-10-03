@@ -288,7 +288,7 @@ describe("HTTP API", () => {
       atSeconds: 190.5,
     });
     expect(marked.body).toMatchObject({
-      heardKey: "ed rush and optical - watermelon",
+      heardKey: "ed rush 2 and optical - watermelon",
       videoId: "aaaaaaaaaa1",
       atSeconds: 190.5,
     });
@@ -316,27 +316,28 @@ describe("HTTP API", () => {
     ).run();
     const marks = await get<TrackMarksResponse>("/api/track-marks");
     expect(marks.body.items[0]).toMatchObject({
-      mark: { position: "B1", heardKey: "ed rush and optical - watermelon", atSeconds: 190.5 },
+      mark: { position: "B1", heardKey: "ed rush 2 and optical - watermelon", atSeconds: 190.5 },
       track: { artistDisplay: "Ed Rush & Optical", title: "Watermelon", durationSeconds: null },
     });
   });
 
-  it("logs listens and marks tracks heard everywhere the tune appears", async () => {
+  it("logs listens and marks tracks heard everywhere the tune appears, under any credited name", async () => {
     const log = await send<{ id: number; heardKey: string | null }>("POST", "/api/listen-log", {
       releaseId: 1006,
       position: "A",
       videoId: "dddddddddd1",
       seconds: 12,
     });
-    expect(log.body.heardKey).toBe("konflikt - messiah");
+    expect(log.body.heardKey).toBe("konflict - messiah");
+    // 1006 credits Konflict as Konflikt; the sampler credits him under his own name.
+    const sampler = await get<ReleaseDetail>("/api/releases/1003");
+    expect(sampler.body.tracks.slice(0, 2).map((track) => track.heard)).toEqual([true, false]);
     await send("POST", "/api/listen-log", {
       releaseId: 1003,
-      position: "A",
+      position: "AA",
       videoId: "bbbbbbbbbb1",
       seconds: 4,
     });
-    const sampler = await get<ReleaseDetail>("/api/releases/1003");
-    expect(sampler.body.tracks[0]!.heard).toBe(true);
     const stats = await get<Stats>("/api/stats");
     expect(stats.body.heardTracks).toBe(2);
     expect(stats.body.universe).toEqual({ releases: 5, keys: 4, filteredKeys: 2 });

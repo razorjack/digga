@@ -101,7 +101,7 @@ describe("exports", () => {
         mark: "candidate",
         notes: "at 3:10",
         trackTitle: "Watermelon",
-        heardKey: "ed rush and optical - watermelon",
+        heardKey: "ed rush 2 and optical - watermelon",
         videoId: "aaaaaaaaaa1",
         atSeconds: 190.5,
         artist: "Ed Rush & Optical",

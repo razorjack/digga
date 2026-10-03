@@ -8,13 +8,14 @@ import {
 } from "../../src/shared/normalize.ts";
 import { triageKeyFor } from "../../src/shared/triage-key.ts";
 import type { ReleaseWrite, TrackWrite } from "../../src/server/db/releases.ts";
-import type { DumpRelease, DumpTrack } from "./types.ts";
+import type { DumpRelease } from "./types.ts";
 
 /** Pure conversion of a parsed dump release into the row set the database layer writes. */
 export function dumpReleaseToWrite(release: DumpRelease): ReleaseWrite {
   const display = artistDisplay(release.artists);
   const firstLabel = release.labels[0];
-  const tracks = prepareTracks(release.tracklist, display);
+  const triageKey = triageKeyFor({ id: release.id, masterId: release.masterId });
+  const tracks = prepareTracks(release, { display, recordKey: triageKey });
   const videos = prepareVideos(
     tracks.map((track) => ({
       position: track.position,
@@ -46,23 +47,33 @@ export function dumpReleaseToWrite(release: DumpRelease): ReleaseWrite {
     genres: release.genres,
     styles: release.styles,
     inUniverse: true,
-    triageKey: triageKeyFor({ id: release.id, masterId: release.masterId }),
+    triageKey,
     tracks,
     videos,
   };
 }
 
-function prepareTracks(tracklist: DumpTrack[], display: string): TrackWrite[] {
-  return tracklist.map((track, seq) => {
-    const trackArtist = track.artists.length > 0 ? artistDisplay(track.artists) : display;
+/** A track without artists of its own is the release's artists'. */
+function prepareTracks(
+  release: DumpRelease,
+  credit: { display: string; recordKey: string },
+): TrackWrite[] {
+  return release.tracklist.map((track, seq) => {
+    const ownArtists = track.artists.length > 0;
+    const tune = {
+      artists: ownArtists ? track.artists : release.artists,
+      title: track.title,
+      recordKey: credit.recordKey,
+      position: track.position,
+    };
     return {
       seq,
       position: track.position,
       title: track.title,
       artists: track.artists,
-      artistDisplay: trackArtist,
+      artistDisplay: ownArtists ? artistDisplay(track.artists) : credit.display,
       durationSeconds: durationToSeconds(track.duration),
-      heardKey: heardKeyFor(trackArtist, track.title),
+      heardKey: heardKeyFor(tune),
     };
   });
 }
