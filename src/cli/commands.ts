@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import { saveConfig } from "../server/config-file.ts";
 import {
   downloadDump,
   dumpLoad,
@@ -9,6 +8,7 @@ import {
   importSeller,
   importWantlist,
 } from "../server/jobs/index.ts";
+import { saveConfig } from "../server/config-file.ts";
 import { localDay, writeBackup } from "../server/db/backup.ts";
 import { restoreBackedUpData } from "../server/db/user-data.ts";
 import { readDecisionsBackup, writeDecisionsBackup } from "../server/decisions-backup.ts";
@@ -16,6 +16,7 @@ import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
 import { createServer } from "../server/server.ts";
 import { SHIPPED_CENSUS_FILE } from "../server/style-census.ts";
+import type { Config } from "../shared/config.ts";
 import { formatStyleCensus } from "../shared/style-census.ts";
 import { countStyleCensus } from "../../tools/dump/census.ts";
 import { computeStats } from "../server/stats.ts";
@@ -26,7 +27,7 @@ import {
   parseCensusOptions,
   parseDumpOptions,
   parseImportOptions,
-  parseRestoreFile,
+  parseRestoreOptions,
   parseServeOptions,
   type ImportCommand,
 } from "./options.ts";
@@ -176,13 +177,10 @@ export async function cmdBackup(runtime: Runtime): Promise<void> {
 
 /** Restores a decisions backup into the library, after copying the database as it is. */
 export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void> {
-  const restoreConfig = args.includes("--config");
-  const file = parseRestoreFile(
-    args.filter((arg) => arg !== "--config"),
-    runtime.paths.backupsDir,
-  );
+  const { file, restoreConfig } = parseRestoreOptions(args, runtime.paths.backupsDir);
   const backup = readDecisionsBackup(file);
   if (restoreConfig && !backup.config) throw new Error("This backup has no configuration.");
+
   const { copy, outcome } = await withDatabase(runtime, async (db) => {
     const copy = await writeBackup(db, {
       dir: runtime.paths.backupsDir,
@@ -190,11 +188,15 @@ export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void
     });
     return { copy, outcome: restoreBackedUpData(db, backup, backup.backedUpAt) };
   });
-  if (restoreConfig && backup.config) {
-    fs.copyFileSync(runtime.paths.configFile, `${runtime.paths.configFile}.before-restore`);
-    saveConfig(runtime.paths.configFile, backup.config);
-  }
+  if (restoreConfig && backup.config) replaceConfigFile(runtime.paths.configFile, backup.config);
+
   showRestore({ file, backup, copy, outcome });
+}
+
+/** Keeps the settings being replaced next to the file, as `digga.config.json.before-restore`. */
+function replaceConfigFile(configFile: string, config: Config): void {
+  fs.copyFileSync(configFile, `${configFile}.before-restore`);
+  saveConfig(configFile, config);
 }
 
 export async function cmdServe(runtime: Runtime, args: string[]): Promise<void> {

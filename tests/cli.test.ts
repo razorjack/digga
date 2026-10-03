@@ -7,7 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   parseDumpOptions,
   parseImportOptions,
-  parseRestoreFile,
+  parseRestoreOptions,
   parseServeOptions,
 } from "../src/cli/options.ts";
 import { withDatabase } from "../src/cli/runtime.ts";
@@ -37,10 +37,18 @@ describe("CLI workflows", () => {
 
   it("finds a backup to restore by path, or by name in the backups folder", () => {
     const name = "decisions-2026-09-10.json.gz";
-    expect(parseRestoreFile([name], "/library/backups")).toBe(path.join("/library/backups", name));
-    expect(parseRestoreFile([`./${name}`], "/library/backups")).toBe(`./${name}`);
-    expect(parseRestoreFile([FIXTURE_GZ], "/library/backups")).toBe(FIXTURE_GZ);
-    expect(() => parseRestoreFile([], "/library/backups")).toThrow("usage: digga restore");
+    const file = (args: string[]) => parseRestoreOptions(args, "/library/backups").file;
+    expect(file([name])).toBe(path.join("/library/backups", name));
+    expect(file([`./${name}`])).toBe(`./${name}`);
+    expect(file([FIXTURE_GZ])).toBe(FIXTURE_GZ);
+    expect(() => file([])).toThrow("usage: digga restore");
+  });
+
+  it("restores settings only with --config", () => {
+    const name = "decisions-2026-09-10.json.gz";
+    expect(parseRestoreOptions([name], "/b").restoreConfig).toBe(false);
+    expect(parseRestoreOptions([name, "--config"], "/b").restoreConfig).toBe(true);
+    expect(parseRestoreOptions(["--config", name], "/b").restoreConfig).toBe(true);
   });
 
   it("closes its database when a job rejects", async () => {

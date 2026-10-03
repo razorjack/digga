@@ -96,11 +96,21 @@ export function parseCensusOptions(
   return { file, out: values.out ?? shippedFile };
 }
 
-/** The backup to restore: a path, or the name of one in the backups folder. */
-export function parseRestoreFile(args: string[], backupsDir: string): string {
-  const [file, ...rest] = args;
+/** The backup to restore: a path, or the name of one in the backups folder; `--config` adds settings. */
+export function parseRestoreOptions(
+  args: string[],
+  backupsDir: string,
+): { file: string; restoreConfig: boolean } {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: { config: { type: "boolean" } },
+  });
+  const [file, ...rest] = positionals;
   if (!file || rest.length > 0)
-    throw new Error("usage: digga restore <decisions-YYYY-MM-DD.json.gz>");
-  if (fs.existsSync(file) || path.basename(file) !== file) return file;
-  return path.join(backupsDir, file);
+    throw new Error("usage: digga restore <decisions-YYYY-MM-DD.json.gz> [--config]");
+
+  const restoreConfig = values.config ?? false;
+  if (fs.existsSync(file) || path.basename(file) !== file) return { file, restoreConfig };
+  return { file: path.join(backupsDir, file), restoreConfig };
 }
