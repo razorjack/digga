@@ -181,7 +181,8 @@ logged at 4 s and again with the rest when the listener leaves it, so one play c
 ## memberships
 
 What the Discogs account holds: `(kind, release_id)` PK with `kind` in `collection | wantlist |
-list` (the Maybe list), `master_id`, `date_added`, `rating` and `notes` as Discogs sent them (the
+list` (the Maybe list), `master_id` (null without a master, where Discogs sends 0), `date_added`,
+`rating` and `notes` as Discogs sent them (the
 list item's comment for `list`), `added_at` (first seen by Digga), `imported_at` (the last import
 or push that found it) and `removed_at` (null while Discogs holds it). The imports write it; a
 want Digga pushes to the Discogs wantlist is recorded here too, and deleted when Digga takes it

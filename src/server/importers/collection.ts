@@ -2,6 +2,7 @@ import type { ImportProgress } from "../../shared/types.ts";
 import type { DiscogsCollectionItem } from "../discogs/types.ts";
 import {
   importSeedPages,
+  masterIdOf,
   type SeedImportDeps,
   type SeedImportOptions,
   type SeedImportResult,
@@ -31,7 +32,7 @@ function collectionItem(item: DiscogsCollectionItem): SeedItemInput {
   return {
     kind: "collection",
     releaseId: item.id,
-    masterId: item.basic_information.master_id ?? null,
+    masterId: masterIdOf(item.basic_information),
     dateAdded: item.date_added ?? null,
     rating: item.rating ?? null,
     notes: notes === "" ? null : notes,

@@ -50,12 +50,17 @@ export function apiFormats(list: DiscogsFormat[] | undefined): FormatRef[] {
   }));
 }
 
+/** The item's master; Discogs sends 0 for a release without one. */
+export function masterIdOf(info: DiscogsBasicInformation): number | null {
+  return info.master_id && info.master_id > 0 ? info.master_id : null;
+}
+
 /** Stub release row from a collection/wantlist item; no tracks or videos until the dump or enrich fills them. */
 export function basicInformationToWrite(info: DiscogsBasicInformation): ReleaseWrite {
   const artists = apiArtists(info.artists);
   const labels = apiLabels(info.labels);
   const formats = apiFormats(info.formats);
-  const masterId = info.master_id && info.master_id > 0 ? info.master_id : null;
+  const masterId = masterIdOf(info);
   const first = labels[0];
   return {
     id: info.id,

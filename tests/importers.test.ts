@@ -224,6 +224,30 @@ describe("collection and wantlist importers", () => {
     db.close();
   });
 
+  it("stores a release without a master, which Discogs sends as master 0, with none", async () => {
+    const db = await fixtureDb();
+    const wants: DiscogsWantlistPage[] = [
+      {
+        pagination: { page: 1, pages: 1, per_page: 100, items: 1 },
+        wants: [
+          {
+            id: 9001,
+            date_added: "2026-09-01T00:00:00-07:00",
+            basic_information: basic(9001, 0, "Unknown EP"),
+          },
+        ],
+      },
+    ];
+    await importWantlist(
+      { db, discogs: fakeDiscogs([], wants), logger: silentLogger },
+      { username: "dj" },
+    );
+
+    expect(db.prepare("SELECT master_id FROM memberships").pluck().all()).toEqual([null]);
+    expect(recordMembershipOf(db, "r:9001").onWantlist).toBe(true);
+    db.close();
+  });
+
   it("requires a username", async () => {
     const db = await fixtureDb();
     await expect(
