@@ -1,6 +1,8 @@
 import { type Context, Hono } from "hono";
 import {
+  type ApiError,
   type DeleteVerdictResponse,
+  ExpectedVerdictSchema,
   ListenLogInputSchema,
   type ListenLogResponse,
   ReleaseNoteInputSchema,
@@ -10,11 +12,17 @@ import {
 import { TrackIdentityConflict } from "../../shared/track-identity.ts";
 import { saveReleaseNote } from "../db/notes.ts";
 import { getRelease } from "../db/releases.ts";
-import { deleteVerdict, logListen, setTrackVerdict, upsertVerdict } from "../db/verdicts.ts";
+import {
+  deleteVerdict,
+  isVerdictStill,
+  logListen,
+  setTrackVerdict,
+  upsertVerdict,
+} from "../db/verdicts.ts";
 import { recordKeyOf } from "../db/verdict-keys.ts";
 import { recordNoAudioVideos } from "../queue/no-audio.ts";
 import type { AppContext } from "../context.ts";
-import { badRequest, parseId, parseJson, refuseInSandbox } from "./request.ts";
+import { badRequest, parseId, parseJson, parseQuery, refuseInSandbox } from "./request.ts";
 
 export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
   api.put("/releases/:id/note", (request) => saveNote(request, context));
@@ -24,14 +32,23 @@ export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
   api.post("/listen-log", (request) => listen(request, context));
 }
 
+const VERDICT_CHANGED: ApiError = {
+  error:
+    "The record's verdict changed since this page read it, in another tab or by a load; reload to see it",
+};
+
 async function saveVerdict(request: Context, context: AppContext) {
   const { db } = context;
   const refused = refuseInSandbox(request, context);
   if (refused) return refused;
   const body = await parseJson(request, VerdictInputSchema);
   if (!body.ok) return body.response;
+  const { expected, ...input } = body.data;
   // A page that read the queue before a dump load may send the key the release had then.
-  const verdict = upsertVerdict(db, { ...body.data, key: recordKeyOf(db, body.data) });
+  const key = recordKeyOf(db, input);
+  if (expected && !isVerdictStill(db, key, expected)) return request.json(VERDICT_CHANGED, 409);
+
+  const verdict = upsertVerdict(db, { ...input, key });
   // A later video that was not there now sends the record back to the queue.
   if (verdict.status === "no_audio") recordNoAudioVideos(db, verdict);
   return request.json(verdict);
@@ -41,7 +58,12 @@ function removeVerdict(request: Context, context: AppContext) {
   const { db } = context;
   const refused = refuseInSandbox(request, context);
   if (refused) return refused;
-  const previous = deleteVerdict(db, request.req.param("key") ?? "");
+  const expected = parseQuery(request, ExpectedVerdictSchema);
+  if (!expected.ok) return expected.response;
+  const key = request.req.param("key") ?? "";
+  if (!isVerdictStill(db, key, expected.data)) return request.json(VERDICT_CHANGED, 409);
+
+  const previous = deleteVerdict(db, key);
   const body: DeleteVerdictResponse = { deleted: previous !== null, previous };
   return request.json(body);
 }

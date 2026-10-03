@@ -870,3 +870,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      Settings names the account and offers to forget its collection, wantlist and Maybe list
      (`DELETE /api/discogs/data`); verdicts, notes and marks stay, and records only the account
      held return to the queue until the next imports.
+139. **An undo or a Twelves change names the verdict it expects.** Writes from one tab run in
+     order, but the server took any write, so an undo in one tab could delete a decision another
+     tab had just made (F07). The owner allowed several writing tabs and asked for refusal with a
+     message over silent overwriting. `POST /api/verdicts` takes an optional `expected` (status and
+     `decidedAt`), and `DELETE /api/verdicts/:key` requires it as query parameters; the server
+     compares it with the record's verdict in the same synchronous step as the write and answers
+     `409` when they differ. Triage sends no expectation with a new verdict, since judging a record
+     is a fresh decision. A refused undo is dropped, as it can never apply, and Twelves reloads.
+     Notes stay last-write-wins.

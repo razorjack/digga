@@ -76,7 +76,8 @@ Digga, and Twelves marks it for `A` or "add all".
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is
-undone locally. Undoing a want or grail that already reached the Discogs wantlist takes it off again. The
+undone locally. The undo names the verdict it saved, and the server refuses it when the record was
+decided again since, in another tab or by a load; the slip says so and the step is gone. Undoing a want or grail that already reached the Discogs wantlist takes it off again. The
 counter reads "4,312 dug", where dug counts every record judged in Digga (source `triage` or
 `manual`), whatever the Discogs account holds of it, and never a record only an import brought.
 

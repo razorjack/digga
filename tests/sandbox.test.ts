@@ -101,9 +101,9 @@ describe("sandbox api", () => {
     expect(stats.remaining).toBe(1);
     expect(stats.verdicts.rejected).toBe(1);
 
-    expect(await sandbox.deleteVerdict("m:506")).toMatchObject({ deleted: true });
+    expect(await sandbox.deleteVerdict("m:506", v)).toMatchObject({ deleted: true });
     expect((await sandbox.getQueue()).items.map((i) => i.id)).toEqual([1006, 1001]);
-    expect(await sandbox.deleteVerdict("m:506")).toEqual({ deleted: false, previous: null });
+    expect(await sandbox.deleteVerdict("m:506", v)).toEqual({ deleted: false, previous: null });
     await expect(sandbox.postVerdict({ key: "nope", status: "accepted" })).rejects.toThrow();
     expect(tableCounts()).toEqual(before);
   });
@@ -114,9 +114,9 @@ describe("sandbox api", () => {
 
     await sandbox.getRelease(1001);
     await sandbox.postVerdict({ key: "m:501", status: "maybe", source: "manual", releaseId: 1001 });
-    await sandbox.postVerdict({ key: "m:506", status: "rejected", releaseId: 1006 });
+    const skip = await sandbox.postVerdict({ key: "m:506", status: "rejected", releaseId: 1006 });
     expect((await sandbox.getStats()).dug).toBe(2);
-    await sandbox.deleteVerdict("m:506");
+    await sandbox.deleteVerdict("m:506", skip);
     expect((await sandbox.getStats()).dug).toBe(1);
   });
 

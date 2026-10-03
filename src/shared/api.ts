@@ -140,6 +140,21 @@ export interface PressingNote {
 
 export const ReleaseNoteInputSchema = z.object({ notes: z.string().max(4000).nullable() });
 
+/**
+ * The verdict a page saved or read on a record. An undo or a change in Twelves sends it, and the
+ * server refuses the write with 409 when the record's verdict is no longer this one, as when
+ * another tab decided it again.
+ */
+export const ExpectedVerdictSchema = z.object({
+  status: z.enum(VERDICT_STATUSES),
+  decidedAt: z.iso.datetime({ offset: true }),
+});
+export type ExpectedVerdict = z.infer<typeof ExpectedVerdictSchema>;
+
+export function expectedVerdict(verdict: Verdict): ExpectedVerdict {
+  return { status: verdict.status, decidedAt: verdict.decidedAt };
+}
+
 // POST /api/verdicts
 export const VerdictInputSchema = z.object({
   key: z.string().regex(TRIAGE_KEY_PATTERN),
@@ -148,11 +163,13 @@ export const VerdictInputSchema = z.object({
   releaseId: z.number().int().positive().nullable().optional(),
   /** Restores a verdict's original date (undo); omitted, the verdict is dated now. */
   decidedAt: z.iso.datetime({ offset: true }).optional(),
+  /** Omitted, the verdict replaces whatever the record has. */
+  expected: ExpectedVerdictSchema.optional(),
 });
 export type VerdictInput = z.input<typeof VerdictInputSchema>;
 export type VerdictResponse = Verdict;
 
-// DELETE /api/verdicts/:key
+// DELETE /api/verdicts/:key?status=&decidedAt=, the expected verdict
 export interface DeleteVerdictResponse {
   deleted: boolean;
   previous: Verdict | null;

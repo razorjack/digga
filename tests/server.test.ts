@@ -6,13 +6,14 @@ import { type Db, listMigrations, openDb } from "../src/server/db/db.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type {
-  QueueResponse,
-  ReleaseDetail,
-  ScopeSearchResponse,
-  Stats,
-  TrackMarksResponse,
-  TwelvesResponse,
+import {
+  expectedVerdict,
+  type QueueResponse,
+  type ReleaseDetail,
+  type ScopeSearchResponse,
+  type Stats,
+  type TrackMarksResponse,
+  type TwelvesResponse,
 } from "../src/shared/api.ts";
 import type { Job, TrackVerdict, Verdict } from "../src/shared/types.ts";
 import { FIXTURE_GZ, fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
@@ -58,6 +59,10 @@ const send = async <T>(
   return { status: res.status, body: (await res.json()) as T };
 };
 
+/** The undo of a verdict: deletes it while it is still the one saved. */
+const undoUrl = (verdict: Verdict) =>
+  `/api/verdicts/${verdict.key}?${new URLSearchParams(expectedVerdict(verdict)).toString()}`;
+
 async function waitForJob(id: string): Promise<Job> {
   for (let i = 0; i < 100; i += 1) {
     const { body } = await get<Job>(`/api/jobs/${id}`);
@@ -89,8 +94,12 @@ describe("HTTP API", () => {
     expect((await get<ReleaseDetail>("/api/releases/1002")).body.pressingNotes).toEqual([
       { releaseId: 1001, catno: "RH 20", notes: "hear the B side again" },
     ]);
-    await send("POST", "/api/verdicts", { key: "m:501", releaseId: 1001, status: "snoozed" });
-    await send("DELETE", "/api/verdicts/m:501");
+    const snooze = await send<Verdict>("POST", "/api/verdicts", {
+      key: "m:501",
+      releaseId: 1001,
+      status: "snoozed",
+    });
+    await send("DELETE", undoUrl(snooze.body));
     detail = (await get<ReleaseDetail>("/api/releases/1001")).body;
     expect(detail.verdict).toBeNull();
     expect(detail.note).toBe("hear the B side again");
@@ -231,9 +240,43 @@ describe("HTTP API", () => {
     const twelves = await get<TwelvesResponse>("/api/twelves?status=accepted");
     expect(twelves.body.items).toHaveLength(1);
     expect(twelves.body.items[0]!.release!.id).toBe(1001);
-    const undo = await send<{ deleted: boolean }>("DELETE", "/api/verdicts/m:501");
+    const undo = await send<{ deleted: boolean }>("DELETE", undoUrl(detail.body.verdict!));
     expect(undo.body.deleted).toBe(true);
     expect((await get<QueueResponse>("/api/queue")).body.remaining).toBe(2);
+  });
+
+  it("refuses an undo or a change from Twelves once another tab decided the record again", async () => {
+    const want = await send<Verdict>("POST", "/api/verdicts", {
+      key: "m:501",
+      releaseId: 1001,
+      status: "accepted",
+    });
+    const grail = await send<Verdict>("POST", "/api/verdicts", {
+      key: "m:501",
+      releaseId: 1001,
+      status: "candidate",
+    });
+    const changed = {
+      status: 409,
+      body: {
+        error:
+          "The record's verdict changed since this page read it, in another tab or by a load; reload to see it",
+      },
+    };
+
+    expect(await send("DELETE", undoUrl(want.body))).toEqual(changed);
+    const rejudged = { key: "m:501", releaseId: 1001, status: "maybe" };
+    expect(
+      await send("POST", "/api/verdicts", { ...rejudged, expected: expectedVerdict(want.body) }),
+    ).toEqual(changed);
+    expect((await get<ReleaseDetail>("/api/releases/1001")).body.verdict).toEqual(grail.body);
+
+    const maybe = await send("POST", "/api/verdicts", {
+      ...rejudged,
+      expected: expectedVerdict(grail.body),
+    });
+    expect(maybe.body).toMatchObject({ key: "m:501", status: "maybe" });
+    expect((await send("DELETE", "/api/verdicts/m:501")).status).toBe(400);
   });
 
   it("keeps a mark's tune and moment when a later dump renames its position", async () => {
@@ -460,7 +503,7 @@ describe("requests from outside the app", () => {
       headers: { "content-type": "application/json", origin: "http://localhost:3456" },
       body: verdict,
     });
-    const tool = await send("DELETE", "/api/verdicts/m:501");
+    const tool = await send("DELETE", undoUrl((await own.json()) as Verdict));
 
     expect(own.status).toBe(200);
     expect(tool.status).toBe(200);

@@ -251,3 +251,9 @@ the CLI commands that change the library (`dump download`, `dump update`, `dump 
 process has ended is taken over. So only the owner migrates the database, marks interrupted jobs
 failed and writes the scheduled backups. `digga stats` and `digga backup` only read and run beside
 the server.
+
+Several tabs may dig in one library. A new verdict replaces whatever the record has, but a write
+that changes a verdict the page already knows names it (`expected`: its status and
+`decidedAt`): an undo in Triage or Twelves and a change in Twelves. The server refuses such a write
+with `409` when the record's verdict is another one by then, and the page drops the undo step or
+reloads the shelf.

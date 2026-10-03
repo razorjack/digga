@@ -1,6 +1,6 @@
-import type { MarkedTrack, TwelvesItem } from "../../shared/api.ts";
+import { expectedVerdict, type MarkedTrack, type TwelvesItem } from "../../shared/api.ts";
 import type { Verdict, VerdictStatus } from "../../shared/types.ts";
-import { api as appApi, type Api, type AppApi } from "../api.ts";
+import { api as appApi, type Api, type AppApi, isConflict } from "../api.ts";
 import { waitForJob } from "../jobs.ts";
 import { formatCount } from "../../shared/display.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
@@ -28,6 +28,8 @@ type UndoEntry =
   | {
       kind: "verdict";
       previous: Verdict;
+      /** What the change saved; undo expects the record to still have it. */
+      saved: Verdict;
       wantlist: { releaseId: number; change: "added" | "removed" } | null;
     }
   | { kind: "note"; key: string; releaseId: number; previous: string | null };
@@ -178,20 +180,24 @@ export class TwelvesShelf {
     // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
     const index = this.visible.findIndex((visible) => visible.key === item.key);
     const neighbour = (this.visible[index + 1] ?? this.visible[index - 1])?.key ?? null;
+    let saved: Verdict;
     try {
-      const saved = await this.#client.postVerdict({
+      saved = await this.#client.postVerdict({
         key: previous.key,
         status,
         source: "triage",
         releaseId: previous.releaseId,
+        expected: expectedVerdict(previous),
       });
       this.#replaceVerdict(item.key, saved);
     } catch (error) {
       this.showFlash(`Not saved: ${errorMessage(error)}`);
+      if (isConflict(error)) await this.load();
       return;
     }
     const wantlist = await this.syncWantlist(item, status);
-    this.undoStack = [...this.undoStack, { kind: "verdict", previous, wantlist: wantlist.entry }];
+    const entry: UndoEntry = { kind: "verdict", previous, saved, wantlist: wantlist.entry };
+    this.undoStack = [...this.undoStack, entry];
     this.showFlash(`${rejudgedSentence(nameOf(item), status)}${wantlist.note} Z undoes it.`);
     await this.load();
     if (!this.visible.some((visible) => visible.key === this.selectedKey))
@@ -234,9 +240,18 @@ export class TwelvesShelf {
     }
     try {
       if (entry.kind === "note") await this.#client.putReleaseNote(entry.releaseId, entry.previous);
-      else await this.#client.postVerdict(entry.previous);
+      else
+        await this.#client.postVerdict({
+          ...entry.previous,
+          expected: expectedVerdict(entry.saved),
+        });
     } catch (error) {
       this.showFlash(`Undo failed: ${errorMessage(error)}`);
+      // A verdict changed elsewhere since leaves nothing this page can undo.
+      if (isConflict(error)) {
+        this.undoStack = this.undoStack.slice(0, -1);
+        await this.load();
+      }
       return;
     }
     this.undoStack = this.undoStack.slice(0, -1);

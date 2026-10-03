@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { createAppApi, type Api } from "../src/client/api.ts";
+import { ApiRequestError, createAppApi, type Api } from "../src/client/api.ts";
 import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
 import {
   compareNullable,
@@ -153,6 +153,25 @@ describe("Twelves changes", () => {
     await shelf.undo();
     expect(shelf.undoStack).toHaveLength(0);
     expect(shelf.items[0]?.verdict?.status).toBe("maybe");
+  });
+
+  it("expects the verdict it read, and drops an undo once another tab decided the record again", async () => {
+    const { shelf, http } = await setup();
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.changes;
+    expect(http.postVerdict).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "accepted", expected: { status: "maybe", decidedAt } }),
+    );
+
+    http.postVerdict.mockRejectedValueOnce(
+      new ApiRequestError(409, "The record's verdict changed since this page read it"),
+    );
+    await shelf.undo();
+    expect(http.postVerdict).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "maybe", expected: { status: "accepted", decidedAt } }),
+    );
+    expect(shelf.flash).toBe("Undo failed: The record's verdict changed since this page read it");
+    expect(shelf.undoStack).toHaveLength(0);
   });
 
   it("keeps a successful write locally when its reload fails", async () => {

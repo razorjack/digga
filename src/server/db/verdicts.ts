@@ -125,6 +125,20 @@ export function applySeedVerdict(
   return { written: true, previous };
 }
 
+/** Whether the record's verdict is still the one a page saw: the same decision at the same time. */
+export function isVerdictStill(
+  db: Db,
+  key: string,
+  expected: Pick<Verdict, "status" | "decidedAt">,
+): boolean {
+  const current = getVerdict(db, key);
+  return (
+    current !== null &&
+    current.status === expected.status &&
+    current.decidedAt === toUtcTimestamp(expected.decidedAt)
+  );
+}
+
 export function deleteVerdict(db: Db, key: string): Verdict | null {
   const previous = getVerdict(db, key);
   if (!previous) return null;

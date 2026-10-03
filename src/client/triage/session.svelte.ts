@@ -1,4 +1,9 @@
-import type { QueueItem, ReleaseDetail, TrackVerdictInput } from "../../shared/api.ts";
+import {
+  expectedVerdict,
+  type QueueItem,
+  type ReleaseDetail,
+  type TrackVerdictInput,
+} from "../../shared/api.ts";
 import type { HiddenLabel } from "../../shared/config.ts";
 import type { SessionResolution, SessionState } from "../../shared/digging-session.ts";
 import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
@@ -7,7 +12,7 @@ import { markForTrack, tuneSnapshot } from "../../shared/track-identity.ts";
 import type { ReleaseSnapshot, TrackMark, TrackVerdict, Verdict } from "../../shared/types.ts";
 import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
-import { type Api, ApiRequestError, type AppApi, api as appApi } from "../api.ts";
+import { type Api, ApiRequestError, type AppApi, api as appApi, isConflict } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
@@ -18,10 +23,10 @@ type VerdictEntry = {
   /** The verdict this one replaced (a record heard again from Twelves); undo restores it. */
   previous: Verdict | null;
   /**
-   * The key the server saved the verdict under: the record its release is on now, which a dump
-   * load may have changed since the queue was read. Null until the server answers.
+   * The verdict as the server saved it, under the key of the record its release is on now, which a
+   * dump load may have changed since the queue was read. Null until the server answers.
    */
-  savedKey: string | null;
+  saved: Verdict | null;
 };
 
 /** X hid the label of the record on screen; undo lets it back into the queue. */
@@ -301,7 +306,7 @@ export class TriageSession {
     const client = this.#api.pinned();
     const previous = this.#roundVerdicts.get(item.triageKey) ?? this.currentDetail?.verdict ?? null;
 
-    const entry: VerdictEntry = { kind: "verdict", item, status, previous, savedKey: null };
+    const entry: VerdictEntry = { kind: "verdict", item, status, previous, saved: null };
     this.upcoming = this.upcoming.slice(1);
     this.history = [...this.history, entry];
     const id = ++this.#slipSeq;
@@ -330,8 +335,7 @@ export class TriageSession {
     const { item, status } = entry;
     const { client, generation, slipId } = operation;
     try {
-      const saved = await client.postVerdict({ key: item.triageKey, status, releaseId: item.id });
-      entry.savedKey = saved.key;
+      entry.saved = await client.postVerdict({ key: item.triageKey, status, releaseId: item.id });
     } catch (error) {
       this.#settleSlip(slipId);
       if (generation !== this.#apiGeneration) return;
@@ -570,8 +574,7 @@ export class TriageSession {
   ): Promise<void> {
     const { client, generation, slipId } = operation;
     try {
-      if (entry.previous) await client.postVerdict(entry.previous);
-      else await client.deleteVerdict(entry.savedKey ?? entry.item.triageKey);
+      await undoVerdict(client, entry);
     } catch (error) {
       this.#settleSlip(slipId);
       if (generation !== this.#apiGeneration) return;
@@ -592,9 +595,12 @@ export class TriageSession {
     const key = entry.item.triageKey;
     // A later action on this record owns its optimistic state.
     if (!this.history.some((later) => later.item.triageKey === key)) {
-      this.history = [...this.history, entry];
+      // A verdict changed elsewhere since leaves nothing this tab can undo.
+      if (!isConflict(error)) {
+        this.history = [...this.history, entry];
+        stats.session += 1;
+      }
       this.upcoming = this.upcoming.filter((item) => item.triageKey !== key);
-      stats.session += 1;
       this.slip = null;
     }
     stats.refreshSoon(0);
@@ -1124,6 +1130,18 @@ function withMarketData(item: QueueItem, snapshot: ReleaseSnapshot): QueueItem {
     communityWant: snapshot.communityWant,
     enrichedAt: snapshot.enrichedAt,
   };
+}
+
+/**
+ * Puts back the verdict a triage verdict replaced, or deletes it, while the record still has the
+ * verdict this tab saved. A verdict the server never saved leaves nothing to undo there.
+ */
+async function undoVerdict(client: Api, entry: VerdictEntry): Promise<void> {
+  const { saved, previous } = entry;
+  if (saved === null) return;
+  const expected = expectedVerdict(saved);
+  if (previous) await client.postVerdict({ ...previous, expected });
+  else await client.deleteVerdict(saved.key, expected);
 }
 
 /** A push that failed on the way or in Discogs may pass later; one the server refused (4xx) will not. */

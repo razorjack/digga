@@ -497,6 +497,23 @@ describe("session recovery", () => {
     expect(session.current?.id).toBe(1);
   });
 
+  it("drops an undo the server refuses because another tab decided the record again", async () => {
+    const { session, http, calls } = await started([1, 2]);
+    session.judge("accepted");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "done");
+    const forget = vi
+      .spyOn(http, "deleteVerdict")
+      .mockRejectedValueOnce(
+        new ApiRequestError(409, "The record's verdict changed since this page read it"),
+      );
+    session.undo();
+    await until(() => session.flash?.startsWith("Undo failed") ?? false);
+    expect(forget).toHaveBeenCalledWith("r:1", expect.objectContaining({ status: "accepted" }));
+    expect(session.current?.id).toBe(2);
+    expect(session.history).toEqual([]);
+    expect(calls).not.toContain("remove 1");
+  });
+
   it("does not let a failed old-mode write alter a restarted session", async () => {
     const { session, app, http } = await started([1, 2]);
     const pending = deferred<Verdict>();

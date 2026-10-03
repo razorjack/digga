@@ -8,6 +8,7 @@ import {
   type DiscogsProfileResponse,
   type DumpLoadJobInput,
   type DumpsResponse,
+  type ExpectedVerdict,
   type ExportFile,
   type ForgetDiscogsDataResponse,
   type ImportJobInput,
@@ -62,7 +63,8 @@ export interface Api {
   /** Saves the release's note apart from any verdict; null removes it. */
   putReleaseNote(releaseId: number, notes: string | null): Promise<{ notes: string | null }>;
   postVerdict(input: VerdictInput): Promise<Verdict>;
-  deleteVerdict(key: string): Promise<DeleteVerdictResponse>;
+  /** Deletes the record's verdict while it is still the expected one; 409 otherwise. */
+  deleteVerdict(key: string, expected: ExpectedVerdict): Promise<DeleteVerdictResponse>;
   postTrackVerdict(input: TrackVerdictInput): Promise<TrackVerdictResponse>;
   postListenLog(input: ListenLogInput): Promise<ListenLogResponse>;
   getTwelves(query?: {
@@ -125,6 +127,11 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** The server refused a write because what it changes changed since the page read it. */
+export function isConflict(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 409;
+}
+
 /** How long a request may wait for its answer before it fails. */
 export interface Timeouts {
   /** Requests the server answers from its own database. */
@@ -174,7 +181,11 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     attachVideo: (releaseId, url) => call("POST", `/releases/${releaseId}/videos`, { url }),
     putReleaseNote: (id, notes) => call("PUT", `/releases/${id}/note`, { notes }),
     postVerdict: (input) => call("POST", "/verdicts", input),
-    deleteVerdict: (key) => call("DELETE", `/verdicts/${encodeURIComponent(key)}`),
+    deleteVerdict: (key, expected) =>
+      call(
+        "DELETE",
+        `/verdicts/${encodeURIComponent(key)}?${new URLSearchParams(expected).toString()}`,
+      ),
     postTrackVerdict: (input) => call("POST", "/track-verdicts", input),
     postListenLog: (input) => call("POST", "/listen-log", input),
     getTwelves: (query = {}) =>
@@ -257,7 +268,7 @@ export function createAppApi(
     attachVideo: (releaseId, url) => current.attachVideo(releaseId, url),
     putReleaseNote: (id, notes) => current.putReleaseNote(id, notes),
     postVerdict: (input) => current.postVerdict(input),
-    deleteVerdict: (key) => current.deleteVerdict(key),
+    deleteVerdict: (key, expected) => current.deleteVerdict(key, expected),
     postTrackVerdict: (input) => current.postTrackVerdict(input),
     postListenLog: (input) => current.postListenLog(input),
     getTwelves: (query) => current.getTwelves(query),
