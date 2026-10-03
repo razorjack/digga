@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Db } from "./db.ts";
 
 /** Daily copies kept in the backups directory; older ones are deleted. */
-export const BACKUPS_KEPT = 7;
+export const BACKUPS_KEPT = 2;
 
 const BACKUP_FILE = /^digga-(\d{4}-\d{2}-\d{2})\.sqlite$/;
 

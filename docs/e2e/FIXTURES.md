@@ -67,13 +67,9 @@ Per-test state goes on top, through documented paths only:
   decisions backup, the documented restore path. `diggaOptions.decisionsBackup` takes the backup
   (`fixtures/decisions.ts` builds one in the format of `src/shared/decisions-backup.ts` and writes
   it with the server's own `formatDecisionsBackup()`), and the fixture runs `digga restore` on the
-  test's library before the server starts. Restoring while the server runs would work at the
-  SQLite level (WAL, a 5 s busy timeout, and an online backup for the copy `cmdRestore` takes
-  first), but the README tells users to stop the server before a restore, and the server's start
-  writes the day's database copy to the same `digga-YYYY-MM-DD.sqlite.partial` path the restore's
-  copy uses, so a restore straight after the start could interleave the two writes. Restoring
-  first follows the documented path and has no such window; `app.cli()` stays for commands that
-  run beside the server.
+  test's library before the server starts. A restore needs the library lock (`digga.lock`), which
+  a running server holds, so it cannot run beside the server; `app.cli()` stays for the commands
+  that do, such as `digga stats` and `digga backup`.
 
 - **A second library.** `newLibrary(template)` copies a template beside the app's library with
   the default test config; a test prepares it with `app.cli(args, { library })` and moves the app

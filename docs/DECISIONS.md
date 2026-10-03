@@ -931,3 +931,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      in 90 days are kept. A failed scheduled check is shown in Settings until one succeeds. The
      CLI ignores `EPIPE` on its output, since a parent that stops reading must not end the
      server.
+144. **Two database copies again, an MIT license, and docs that match the code.** The second
+     review found the code keeping seven daily database copies while decision 103 and
+     `ARCHITECTURE.md` said two and `ROADMAP.md` five, and `ARCHITECTURE.md` saying the backup check
+     runs hourly where it runs every fifteen minutes (decision 104 predates the checkpoints). The
+     owner went back to two copies, as decision 103 reasoned: the decisions backups cover a month.
+     The repository is MIT-licensed (`LICENSE`, `package.json`).

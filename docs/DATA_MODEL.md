@@ -235,7 +235,7 @@ refused until Settings forgets them).
 
 ## Backup schedule
 
-The server writes daily database copies (seven retained) and daily portable decisions backups
+The server writes daily database copies (two retained) and daily portable decisions backups
 (thirty retained). Every fifteen minutes and at clean shutdown it also writes a checkpoint of
 changed personal data and settings (forty-eight retained). Settings offers **Back up now**.
 Opening an existing database with pending migrations first writes a consistent

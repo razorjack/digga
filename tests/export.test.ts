@@ -121,7 +121,7 @@ describe("exports", () => {
     const body = (await response.json()) as BackupsResponse;
     expect(body).toEqual({
       directory: path.join(tmp, "backups"),
-      kept: 7,
+      kept: 2,
       backups: [],
       decisions: { kept: 30, backups: [] },
       checkpoints: { kept: 48, backups: [] },

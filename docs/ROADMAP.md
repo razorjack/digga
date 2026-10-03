@@ -35,7 +35,7 @@ query, Hono API, CLI, placeholder Svelte UI, docs, tests, portability check.
 
 Decisions 64 to 78 in `docs/DECISIONS.md`.
 
-- A daily database backup on server start (five kept), `digga backup`, and JSON/CSV exports of
+- A daily database backup on server start (two kept), `digga backup`, and JSON/CSV exports of
   verdicts and track marks.
 - Enrich for every record still to dig or for the Twelves records, want-count coverage for the
   "most wanted" order, and enrichment of the next records while digging.
