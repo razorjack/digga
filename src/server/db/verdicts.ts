@@ -1,7 +1,5 @@
+import type { ListenContext, TuneSnapshot } from "../../shared/api.ts";
 import { assertTrackIdentity } from "../../shared/track-identity.ts";
-import type { TuneSnapshot } from "../../shared/api.ts";
-import type { ListenContext } from "../../shared/api.ts";
-import { releaseNote } from "./notes.ts";
 import type {
   HeardTrack,
   TrackMark,
@@ -13,6 +11,7 @@ import type {
 import { VERDICT_STATUSES } from "../../shared/types.ts";
 import { dugAtAfter, seedRank } from "../../shared/verdict-rank.ts";
 import { type Db, nowIso } from "./db.ts";
+import { releaseNote } from "./notes.ts";
 
 interface VerdictRow {
   key: string;
@@ -103,15 +102,18 @@ export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
     key: verdict.key,
     status: verdict.status,
     source: verdict.source,
-    notes:
-      verdict.notes === undefined
-        ? (releaseNote(db, verdict.releaseId ?? 0) ?? null)
-        : verdict.notes,
+    notes: verdict.notes === undefined ? savedNoteOf(db, verdict.releaseId) : verdict.notes,
     release_id: verdict.releaseId ?? null,
     decided_at: decidedAt,
     dug_at: dugAt,
   });
   return getVerdict(db, verdict.key)!;
+}
+
+/** A verdict written without notes takes the note saved for its release. */
+function savedNoteOf(db: Db, releaseId: number | null | undefined): string | null {
+  if (releaseId === null || releaseId === undefined) return null;
+  return releaseNote(db, releaseId) ?? null;
 }
 
 export function applySeedVerdict(
@@ -195,9 +197,9 @@ export interface TrackMarkWrite {
  * its first tune snapshot and keeps it through later catalogue edits.
  */
 export function setTrackVerdict(db: Db, input: TrackMarkWrite): TrackVerdict | null {
-  const previous =
-    getTrackVerdicts(db, input.releaseId).find((mark) => mark.position === input.position) ?? null;
-  assertTrackIdentity(previous, input.tune?.heardKey);
+  const saved = getTrackVerdict(db, input.releaseId, input.position);
+  assertTrackIdentity(saved, input.tune?.heardKey);
+
   if (input.mark === null) {
     db.prepare("DELETE FROM track_verdicts WHERE release_id = ? AND position = ?").run(
       input.releaseId,
@@ -206,11 +208,14 @@ export function setTrackVerdict(db: Db, input: TrackMarkWrite): TrackVerdict | n
     return null;
   }
   writeTrackMark(db, input);
+  return getTrackVerdict(db, input.releaseId, input.position);
+}
 
+function getTrackVerdict(db: Db, releaseId: number, position: string): TrackVerdict | null {
   const row = db
     .prepare("SELECT * FROM track_verdicts WHERE release_id = ? AND position = ?")
-    .get(input.releaseId, input.position) as TrackVerdictRow;
-  return rowToTrackVerdict(row);
+    .get(releaseId, position) as TrackVerdictRow | undefined;
+  return row ? rowToTrackVerdict(row) : null;
 }
 
 function writeTrackMark(db: Db, input: TrackMarkWrite): void {
@@ -309,47 +314,56 @@ export function logListen(
   return { id, heardKey, heard: heardKey === null ? null : getHeardTrack(db, heardKey) };
 }
 
+const NO_TUNE = { heardKey: null, artistDisplay: null, title: null };
+const NO_CONTEXT = {
+  playbackId: null,
+  sessionId: null,
+  startedAt: null,
+  startSeconds: null,
+  endSeconds: null,
+  videoTitle: null,
+};
+
+/** One listen_log row; the playback context columns stay null for a listen posted without one. */
 function insertListen(
   db: Db,
   input: ListenWrite,
-  snapshot: { at: string; tune: ListenContext["tune"] },
+  snapshot: { at: string; tune: TuneSnapshot | null },
 ): number {
-  const context = input.context ?? {
-    playbackId: null,
-    sessionId: null,
-    startedAt: null,
-    startSeconds: null,
-    endSeconds: null,
-    videoTitle: null,
-  };
-  const tune = snapshot.tune ?? { heardKey: null, artistDisplay: null, title: null };
   const { at } = snapshot;
+  const tune = snapshot.tune ?? NO_TUNE;
+  const context = input.context ?? NO_CONTEXT;
   const info = db
-    .prepare(`INSERT INTO listen_log
-    (release_id, position, video_id, seconds, at, heard_key, artist_display, title, playback_id,
-      session_id, started_at, start_seconds, end_seconds, heard, video_title)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(
-      input.releaseId,
-      input.position,
-      input.videoId,
-      input.seconds,
+    .prepare(
+      `INSERT INTO listen_log (release_id, position, video_id, seconds, at, heard,
+         heard_key, artist_display, title,
+         playback_id, session_id, started_at, start_seconds, end_seconds, video_title)
+       VALUES (@release_id, @position, @video_id, @seconds, @at, @heard,
+         @heard_key, @artist_display, @title,
+         @playback_id, @session_id, @started_at, @start_seconds, @end_seconds, @video_title)`,
+    )
+    .run({
+      release_id: input.releaseId,
+      position: input.position,
+      video_id: input.videoId,
+      seconds: input.seconds,
       at,
-      tune.heardKey,
-      tune.artistDisplay,
-      tune.title,
-      context.playbackId,
-      context.sessionId,
-      context.startedAt,
-      context.startSeconds,
-      context.endSeconds,
-      input.heard === false ? 0 : 1,
-      context.videoTitle,
-    );
+      heard: input.heard === false ? 0 : 1,
+      heard_key: tune.heardKey,
+      artist_display: tune.artistDisplay,
+      title: tune.title,
+      playback_id: context.playbackId,
+      session_id: context.sessionId,
+      started_at: context.startedAt,
+      start_seconds: context.startSeconds,
+      end_seconds: context.endSeconds,
+      video_title: context.videoTitle,
+    });
   return Number(info.lastInsertRowid);
 }
 
-function listenedTune(db: Db, input: ListenWrite): ListenContext["tune"] {
+/** The tune the player saw, else the one the tracklist has at the position now. */
+function listenedTune(db: Db, input: ListenWrite): TuneSnapshot | null {
   if (input.context) return input.context.tune;
   if (!input.position) return null;
   return trackTune(db, input.releaseId, input.position) ?? null;

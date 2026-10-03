@@ -1,19 +1,19 @@
-import { TrackIdentityConflict } from "../../shared/track-identity.ts";
 import { type Context, Hono } from "hono";
 import {
   type DeleteVerdictResponse,
   ListenLogInputSchema,
-  ReleaseNoteInputSchema,
   type ListenLogResponse,
+  ReleaseNoteInputSchema,
   TrackVerdictInputSchema,
   VerdictInputSchema,
 } from "../../shared/api.ts";
+import { TrackIdentityConflict } from "../../shared/track-identity.ts";
+import { saveReleaseNote } from "../db/notes.ts";
+import { getRelease } from "../db/releases.ts";
 import { deleteVerdict, logListen, setTrackVerdict, upsertVerdict } from "../db/verdicts.ts";
 import { recordNoAudioVideos } from "../queue/no-audio.ts";
 import type { AppContext } from "../context.ts";
-import { getRelease } from "../db/releases.ts";
-import { saveReleaseNote } from "../db/notes.ts";
-import { parseJson, refuseInSandbox, parseId, badRequest } from "./request.ts";
+import { badRequest, parseId, parseJson, refuseInSandbox } from "./request.ts";
 
 export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
   api.put("/releases/:id/note", (request) => saveNote(request, context));
@@ -53,10 +53,8 @@ async function saveTrackMark(request: Context, context: AppContext) {
   try {
     return request.json(setTrackVerdict(db, body.data));
   } catch (error) {
-    if (error instanceof TrackIdentityConflict) {
-      return request.json({ error: error.message }, 409);
-    }
-    throw error;
+    if (!(error instanceof TrackIdentityConflict)) throw error;
+    return request.json({ error: error.message }, 409);
   }
 }
 

@@ -1,8 +1,8 @@
-import { wantlistKeys } from "../importers/seeds.ts";
 import type { MarkedTrack } from "../../shared/api.ts";
 import type { TrackMark } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import { getVerdict } from "../db/verdicts.ts";
+import { wantlistKeys } from "../importers/seeds.ts";
 import { queueItemForRelease } from "./query.ts";
 
 interface MarkedTrackRow {
