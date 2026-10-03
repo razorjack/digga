@@ -64,15 +64,24 @@ export async function withDatabase<Result>(
  * Runs a command that changes the library while this process holds it, so it refuses while the
  * server or another such command runs. `holder` names the command for that refusal.
  */
+export async function withOwnedLibrary<Result>(
+  runtime: Pick<Runtime, "paths">,
+  holder: string,
+  run: () => Promise<Result> | Result,
+): Promise<Result> {
+  const lock = lockLibrary(runtime.paths.lockFile, holder);
+  try {
+    return await run();
+  } finally {
+    lock.release();
+  }
+}
+
+/** Runs a command that changes the library on its database, which it opens and migrates. */
 export async function withOwnedDatabase<Result>(
   runtime: Pick<Runtime, "paths">,
   holder: string,
   run: (db: Db) => Promise<Result> | Result,
 ): Promise<Result> {
-  const lock = lockLibrary(runtime.paths.lockFile, holder);
-  try {
-    return await withDatabase(runtime, run);
-  } finally {
-    lock.release();
-  }
+  return withOwnedLibrary(runtime, holder, () => withDatabase(runtime, run));
 }

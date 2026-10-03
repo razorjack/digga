@@ -17,6 +17,10 @@ export type ImportCommand =
   | { kind: "seller"; options: SellerImportOptions }
   | { kind: "collection" | "wantlist"; options: SeedImportOptions };
 
+export type RestoreCommand =
+  | { kind: "decisions"; file: string; restoreConfig: boolean }
+  | { kind: "database"; file: string };
+
 export function parseDumpOptions(args: string[], config: Config): DumpLoadJobOptions {
   const { values, positionals } = parseArgs({
     args,
@@ -96,21 +100,31 @@ export function parseCensusOptions(
   return { file, out: values.out ?? shippedFile };
 }
 
-/** The backup to restore: a path, or the name of one in the backups folder; `--config` adds settings. */
-export function parseRestoreOptions(
-  args: string[],
-  backupsDir: string,
-): { file: string; restoreConfig: boolean } {
+/**
+ * The backup to restore: a path, or the name of one in the backups folder. A `.sqlite` file is a
+ * database copy; another is a decisions backup, whose settings `--config` restores too.
+ */
+export function parseRestoreOptions(args: string[], backupsDir: string): RestoreCommand {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
     options: { config: { type: "boolean" } },
   });
-  const [file, ...rest] = positionals;
-  if (!file || rest.length > 0)
-    throw new Error("usage: digga restore <decisions-YYYY-MM-DD.json.gz> [--config]");
+  const [name, ...rest] = positionals;
+  if (!name || rest.length > 0)
+    throw new Error(
+      "usage: digga restore <decisions-YYYY-MM-DD.json.gz> [--config] | <digga-YYYY-MM-DD.sqlite>",
+    );
 
+  const file = findBackup(name, backupsDir);
   const restoreConfig = values.config ?? false;
-  if (fs.existsSync(file) || path.basename(file) !== file) return { file, restoreConfig };
-  return { file: path.join(backupsDir, file), restoreConfig };
+  if (path.extname(file) !== ".sqlite") return { kind: "decisions", file, restoreConfig };
+  if (restoreConfig)
+    throw new Error("--config restores settings from a decisions backup; a database copy has none");
+  return { kind: "database", file };
+}
+
+function findBackup(name: string, backupsDir: string): string {
+  if (fs.existsSync(name) || path.basename(name) !== name) return name;
+  return path.join(backupsDir, name);
 }

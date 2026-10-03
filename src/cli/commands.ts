@@ -10,6 +10,7 @@ import {
 } from "../server/jobs/index.ts";
 import { saveConfig } from "../server/config-file.ts";
 import { localDay, writeBackup } from "../server/db/backup.ts";
+import { restoreDatabaseCopy } from "../server/db/restore-copy.ts";
 import { restoreBackedUpData } from "../server/db/user-data.ts";
 import { readDecisionsBackup, writeDecisionsBackup } from "../server/decisions-backup.ts";
 import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
@@ -30,18 +31,26 @@ import {
   parseRestoreOptions,
   parseServeOptions,
   type ImportCommand,
+  type RestoreCommand,
 } from "./options.ts";
 import {
   showBackup,
   showCensus,
+  showDatabaseRestore,
+  showDecisionsRestore,
   showDownload,
   showDump,
   showImport,
-  showRestore,
   showStats,
   downloadReporter,
 } from "./report.ts";
-import { type Runtime, discogsFor, withDatabase, withOwnedDatabase } from "./runtime.ts";
+import {
+  type Runtime,
+  discogsFor,
+  withDatabase,
+  withOwnedDatabase,
+  withOwnedLibrary,
+} from "./runtime.ts";
 
 export type ImportResult =
   | SeedImportResult
@@ -175,9 +184,26 @@ export async function cmdBackup(runtime: Runtime): Promise<void> {
   for (const backup of backups) showBackup(backup);
 }
 
-/** Restores a decisions backup into the library, after copying the database as it is. */
+/** Restores a decisions backup or a database copy, after copying the database as it is. */
 export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void> {
-  const { file, restoreConfig } = parseRestoreOptions(args, runtime.paths.backupsDir);
+  const command = parseRestoreOptions(args, runtime.paths.backupsDir);
+  if (command.kind === "database") return restoreDatabase(runtime, command.file);
+  return restoreDecisions(runtime, command);
+}
+
+/** Replaces the library's database with a copy, keeping the database it replaces. */
+async function restoreDatabase(runtime: Runtime, file: string): Promise<void> {
+  const restored = await withOwnedLibrary(runtime, "digga restore", () =>
+    restoreDatabaseCopy(file, runtime.paths, new Date()),
+  );
+  showDatabaseRestore(restored);
+}
+
+/** Restores a decisions backup into the library, after copying the database as it is. */
+async function restoreDecisions(
+  runtime: Runtime,
+  { file, restoreConfig }: Extract<RestoreCommand, { kind: "decisions" }>,
+): Promise<void> {
   const backup = readDecisionsBackup(file);
   const config = restoreConfig ? backedUpConfig(backup.config) : null;
 
@@ -190,7 +216,7 @@ export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void
   });
   if (config) replaceConfigFile(runtime.paths.configFile, config);
 
-  showRestore({ file, backup, copy, outcome });
+  showDecisionsRestore({ file, backup, copy, outcome });
 }
 
 /** The settings a backup holds, for `--config`; throws when it has none this version can use. */

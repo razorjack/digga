@@ -3,6 +3,7 @@ import { formatBytes } from "../shared/display.ts";
 import type { DumpDownloadProgress } from "../shared/types.ts";
 import type { DumpDownloadResult } from "../server/jobs/dump-download.ts";
 import type { BackupFile } from "../server/db/backup.ts";
+import type { RestoredDatabase } from "../server/db/restore-copy.ts";
 import type { RestoreOutcome } from "../server/db/user-data.ts";
 import type { DecisionsBackup } from "../shared/decisions-backup.ts";
 import type { Filters } from "../shared/config.ts";
@@ -82,7 +83,14 @@ export function showBackup(backup: BackupFile): void {
   console.log(`backup: ${backup.file} (${formatBytes(backup.bytes)})`);
 }
 
-export function showRestore(restore: {
+export function showDatabaseRestore(restored: RestoredDatabase): void {
+  if (restored.previous) console.log(`copied the database first: ${restored.previous}`);
+  const upgraded =
+    restored.schemaVersion > restored.copyVersion ? `, upgraded to ${restored.schemaVersion}` : "";
+  console.log(`restored ${restored.file}, schema version ${restored.copyVersion}${upgraded}`);
+}
+
+export function showDecisionsRestore(restore: {
   file: string;
   backup: DecisionsBackup;
   copy: BackupFile;

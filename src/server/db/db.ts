@@ -67,7 +67,7 @@ export function applyMigrations(db: Db, dir: string = MIGRATIONS_DIR): number[] 
   const migrations = listMigrations(dir);
   const current = getMeta(db, "schema_version");
   let version = current ? Number.parseInt(current, 10) : 0;
-  const known = migrations.at(-1)?.version ?? 0;
+  const known = newestSchemaVersion(dir);
   if (version > known)
     throw new Error(
       `This library has schema version ${version}, newer than this Digga knows (${known}). Use the newer Digga that wrote it.`,
@@ -85,6 +85,38 @@ export function applyMigrations(db: Db, dir: string = MIGRATIONS_DIR): number[] 
     applied.push(migration.version);
   }
   return applied;
+}
+
+/** The schema version the newest migration brings a database to. */
+export function newestSchemaVersion(dir: string = MIGRATIONS_DIR): number {
+  return listMigrations(dir).at(-1)?.version ?? 0;
+}
+
+/**
+ * The schema version a database file records, read without migrating it; null for a file that is
+ * not a SQLite database or that no Digga wrote. The connection can write, because only a
+ * connection that can write removes the -wal and -shm files that opening a WAL database creates.
+ */
+export function readSchemaVersion(file: string): number | null {
+  const db = new BetterSqlite3(file, { fileMustExist: true });
+  try {
+    const version = savedSchemaVersion(db);
+    return version > 0 ? version : null;
+  } catch (error) {
+    if (error instanceof BetterSqlite3.SqliteError && error.code === "SQLITE_NOTADB") return null;
+    throw error;
+  } finally {
+    db.close();
+  }
+}
+
+/** Writes a consistent copy of the database, committed WAL content included, through a partial file. */
+export function copyDatabase(db: Db, file: string): void {
+  const partial = `${file}.partial`;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.rmSync(partial, { force: true });
+  db.prepare("VACUUM INTO ?").run(partial);
+  fs.renameSync(partial, file);
 }
 
 export function getMeta(db: Db, key: string): string | undefined {
@@ -113,14 +145,7 @@ function backupBeforeMigration(db: Db, file: string): void {
   const version = savedSchemaVersion(db);
   const pending = listMigrations().some((migration) => migration.version > version);
   if (version === 0 || !pending) return;
-
-  const backup = migrationBackupFile(file, version);
-  const partial = `${backup}.partial`;
-  fs.mkdirSync(path.dirname(backup), { recursive: true });
-  fs.rmSync(partial, { force: true });
-  // VACUUM INTO writes a consistent snapshot that includes the WAL contents.
-  db.prepare("VACUUM INTO ?").run(partial);
-  fs.renameSync(partial, backup);
+  copyDatabase(db, migrationBackupFile(file, version));
 }
 
 /** The applied schema version; 0 for a database without the meta table. */

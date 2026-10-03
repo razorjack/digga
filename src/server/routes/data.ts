@@ -39,7 +39,6 @@ function backups(request: Context, context: AppContext) {
   const directory = context.paths.backupsDir;
   const body: BackupsResponse = {
     directory,
-    databaseFile: context.paths.dbFile,
     kept: BACKUPS_KEPT,
     backups: listBackups(directory).map(summarize),
     checkpoints: { kept: CHECKPOINTS_KEPT, backups: listCheckpoints(directory).map(summarize) },

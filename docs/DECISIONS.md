@@ -827,3 +827,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      Twelves still re-judges only records decided in Digga. The decisions backup is version 3: it
      holds memberships, and versions 1 and 2 restore with their seed verdicts as memberships and
      their verdict notes as release notes.
+135. **`digga restore` restores a database copy too.** The pre-release review (F15) found that the
+     daily `digga-YYYY-MM-DD.sqlite` copies and the `before-migration-<version>.sqlite` copies had
+     only a manual procedure: copy the file over `digga.sqlite` with the server stopped. Tried on a
+     library whose `-wal` file held writes made after the copy, that procedure gave back the newer
+     verdicts, because SQLite applied the old log to the copied file. `digga restore` now also
+     takes a `.sqlite` file. It holds the library lock, so it refuses while the server or another
+     command that changes the library runs. It checks that the copy is a Digga database with a
+     schema version this Digga knows, on a duplicate staged beside the database, since opening a
+     WAL file read-only leaves `-wal` and `-shm` files beside it. It keeps the current database as
+     `backups/before-restore-YYYY-MM-DD-HHMMSS.sqlite`, which daily rotation leaves alone, removes
+     `digga.sqlite-wal` and `digga.sqlite-shm`, moves the copy into place and opens it once, so an
+     older copy is migrated. `--config` is refused with a database copy, which holds no settings.
+     Restoring stays a CLI command; Settings says how to run it.

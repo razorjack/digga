@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -11,7 +11,10 @@ import {
   parseServeOptions,
 } from "../src/cli/options.ts";
 import { withDatabase } from "../src/cli/runtime.ts";
-import type { Db } from "../src/server/db/db.ts";
+import { writeBackup } from "../src/server/db/backup.ts";
+import { type Db, openDb } from "../src/server/db/db.ts";
+import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
+import { lockLibrary } from "../src/server/library-lock.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { FIXTURE_GZ, silentLogger, testSecrets } from "./helpers.ts";
@@ -46,9 +49,23 @@ describe("CLI workflows", () => {
 
   it("restores settings only with --config", () => {
     const name = "decisions-2026-09-10.json.gz";
-    expect(parseRestoreOptions([name], "/b").restoreConfig).toBe(false);
-    expect(parseRestoreOptions([name, "--config"], "/b").restoreConfig).toBe(true);
-    expect(parseRestoreOptions(["--config", name], "/b").restoreConfig).toBe(true);
+    const file = path.join("/b", name);
+    expect(parseRestoreOptions([name], "/b")).toEqual({
+      kind: "decisions",
+      file,
+      restoreConfig: false,
+    });
+    expect(parseRestoreOptions([name, "--config"], "/b")).toMatchObject({ restoreConfig: true });
+    expect(parseRestoreOptions(["--config", name], "/b")).toMatchObject({ restoreConfig: true });
+  });
+
+  it("restores a .sqlite file as a database copy, which has no settings", () => {
+    const name = "digga-2026-10-01.sqlite";
+    expect(parseRestoreOptions([name], "/b")).toEqual({
+      kind: "database",
+      file: path.join("/b", name),
+    });
+    expect(() => parseRestoreOptions([name, "--config"], "/b")).toThrow("a database copy has none");
   });
 
   it("closes its database when a job rejects", async () => {
@@ -89,6 +106,49 @@ describe("CLI workflows", () => {
         encoding: "utf8",
       });
       expect(stats).toContain("0 releases");
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("restores a database copy through the Node entry point, unless the library is in use", async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "digga-restore-"));
+    const cli = fileURLToPath(new URL("../src/cli/digga.ts", import.meta.url));
+    const paths = resolvePaths({ dataDir: path.join(directory, "data") });
+    const env = {
+      ...process.env,
+      DIGGA_DATA_DIR: paths.dataDir,
+      DIGGA_CONFIG_FILE: path.join(directory, "config.json"),
+    };
+    const restore = () =>
+      spawnSync(process.execPath, [cli, "restore", "digga-2026-10-01.sqlite"], {
+        cwd: directory,
+        env,
+        encoding: "utf8",
+      });
+    try {
+      const db = openDb(paths.dbFile);
+      upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage" });
+      await writeBackup(db, { dir: paths.backupsDir, day: "2026-10-01" });
+      upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage" });
+      db.close();
+
+      const lock = lockLibrary(paths.lockFile, "the Digga server");
+      const refused = restore();
+      lock.release();
+      expect(refused.status).toBe(1);
+      expect(refused.stderr).toContain("in use by the Digga server");
+      expect(statusIn(paths.dbFile, "m:501")).toBe("rejected");
+
+      const restored = restore();
+      expect(restored.status, restored.stderr).toBe(0);
+      expect(restored.stdout).toMatch(
+        /^copied the database first: \S+before-restore-\S+\.sqlite$/m,
+      );
+      expect(restored.stdout).toContain(
+        `restored ${path.join(paths.backupsDir, "digga-2026-10-01.sqlite")}, schema version`,
+      );
+      expect(statusIn(paths.dbFile, "m:501")).toBe("accepted");
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -142,6 +202,15 @@ async function readServeLines(child: ChildProcess): Promise<{ serving: string; l
     if (serving && library) return { serving, library };
   }
   throw new Error(`digga serve ended before it was serving: ${output}`);
+}
+
+function statusIn(file: string, key: string): string | undefined {
+  const db = openDb(file, { readonly: true });
+  try {
+    return getVerdict(db, key)?.status;
+  } finally {
+    db.close();
+  }
 }
 
 function exitCode(child: ChildProcess): Promise<number | null> {

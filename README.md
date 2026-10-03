@@ -219,7 +219,7 @@ To rehearse the setup without downloading from Discogs, serve a dump you have wi
 | `npm run digga -- stats`             | Show catalogue size, verdicts, remaining records, and ETA |
 | `npm run digga -- import list`       | Import the Maybe list selected in Settings                |
 | `npm run digga -- backup`            | Write both backups now (see below)                        |
-| `npm run digga -- restore <file>`    | Restore your decisions from a backup                      |
+| `npm run digga -- restore <file>`    | Restore a backup (see below)                              |
 | `npm run digga -- serve --port 3457` | Use a different port                                      |
 | `npm run digga -- help`              | Show every CLI command and option                         |
 
@@ -247,7 +247,7 @@ With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the pa
   decided in it yet writes none. With every Drum n Bass record from 1998 to 2002 judged, about
   60,000 decisions and two tunes heard on each, the file is about 3.5 MB.
 - **`digga-YYYY-MM-DD.sqlite`: the whole database.** Digga keeps the last two. It restores
-  everything by copying one file back, but is 100 MB or more.
+  everything with one command, but is 100 MB or more.
 
 The server writes both when it starts, and again each day while it runs. `npm run digga -- backup`
 writes both at once.
@@ -320,8 +320,12 @@ grail, marked on its track, with a note:
   import found.
 - `releaseId` is the pressing you heard. Times are in UTC.
 
-**To restore**, stop the server first. With a database copy, copy `digga-YYYY-MM-DD.sqlite` over
-`digga.sqlite` in the library folder, and that is all. Without one:
+**To restore**, stop the server first. With a database copy, run
+`npm run digga -- restore digga-YYYY-MM-DD.sqlite`, with a path or the name of a file in the
+backups folder, and that is all. It keeps the database it replaces in the backups folder as
+`before-restore-YYYY-MM-DD-HHMMSS.sqlite`, and upgrades a copy from an older Digga. The
+`before-migration-<version>.sqlite` copy that Digga writes before a schema upgrade restores the
+same way. Without a database copy:
 
 1. Load the catalogue again: `npm run digga -- dump update`, or **Update from the newest dump** in
    Settings.

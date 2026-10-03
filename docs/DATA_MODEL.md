@@ -218,6 +218,9 @@ changed personal data and settings (forty-eight retained). Settings offers **Bac
 Opening an existing database with pending migrations first writes a consistent
 `backups/before-migration-<version>.sqlite` copy, including committed WAL data. These copies do
 not participate in daily retention. Checkpoints restore through the same CLI as daily backups.
+`digga restore` with a database copy replaces `digga.sqlite` and removes its `-wal` and `-shm`
+files; it first keeps the database it replaces as `backups/before-restore-YYYY-MM-DD-HHMMSS.sqlite`,
+also outside daily retention.
 
 ## release_notes
 

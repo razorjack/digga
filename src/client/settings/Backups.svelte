@@ -67,7 +67,7 @@
         no copy yet.
       {/if}
       Digga copies it once a day while the server runs and keeps the last {backups.kept}. To restore one, stop the
-      server and copy it over <code>{backups.databaseFile}</code>.
+      server and run <code>npm run digga -- restore</code> with the file; it keeps the database it replaces.
     </p>
     <p>
       Every fifteen minutes and when the server stops cleanly, changed personal data gets a checkpoint.
@@ -75,7 +75,7 @@
       {#if latestCheckpoint}
         Latest checkpoint: <code>{latestCheckpoint.day}</code>.
       {/if}
-      Schema upgrades first save a separate <code>before-migration</code> database copy.
+      Schema upgrades first save a separate <code>before-migration</code> database copy, which restores the same way.
       Use <code>restore &lt;file&gt; --config</code> to restore settings as well.
     </p>
     <p>All backups are in <code>{backups.directory}</code>.</p>

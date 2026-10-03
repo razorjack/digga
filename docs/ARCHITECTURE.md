@@ -178,8 +178,16 @@ server left open for days still copies the database into `paths.backupsDir` (`ba
 library) once a day, as `digga-YYYY-MM-DD.sqlite`, and keeps the newest two
 (`src/server/db/backup.ts`). The copy
 uses SQLite's online backup, so it runs in steps beside requests and reads a consistent snapshot;
-`stop()` waits for it before closing the database. Restoring is copying a backup over
-`digga.sqlite` while the server is stopped.
+`stop()` waits for it before closing the database.
+
+`digga restore` with a `.sqlite` file, a daily copy or a `before-migration-<version>.sqlite`,
+replaces the database with it (`src/server/db/restore-copy.ts`). It holds the library lock, so it
+refuses while the server runs. It stages a duplicate of the copy beside `digga.sqlite` and checks
+that it has a schema version this Digga knows. It then copies the current database with
+`VACUUM INTO`, which includes committed WAL content, to
+`backups/before-restore-YYYY-MM-DD-HHMMSS.sqlite`, a name daily rotation leaves alone. It removes
+`digga.sqlite-wal` and `digga.sqlite-shm`, since SQLite would apply that log to the copy, moves the
+staged file over `digga.sqlite`, and opens it once to apply the migrations it lacks.
 
 It also writes `decisions-YYYY-MM-DD.json.gz` there, gzipped at level 9, and keeps the newest 30
 (`src/server/decisions-backup.ts`). The file holds what only the user made, read by
@@ -188,10 +196,11 @@ no-audio records, oldest first, one entry per line, in the format `src/shared/de
 validates. No release data: the Discogs ids in the keys find it again after a dump load. A day
 gets no file when one exists, when the library holds nothing made in Digga, or when nothing
 changed since the newest file, so idle days and a new library never push older backups out.
-`digga backup` writes both backups on demand. `digga restore <file>` copies the database, then
-writes the file into the library in one transaction (`restoreBackedUpData`): the backup wins,
-except over a verdict or track mark made in Digga after it was written; heard tunes and attached
-videos are added, the latter also for releases the library has not loaded, which they wait for.
+`digga backup` writes both backups on demand. `digga restore` with a decisions backup copies the
+database, then writes the file into the library in one transaction (`restoreBackedUpData`): the
+backup wins, except over a verdict or track mark made in Digga after it was written; heard tunes
+and attached videos are added, the latter also for releases the library has not loaded, which
+they wait for.
 
 `GET /api/export/decisions.json`, `verdicts.csv` and `track-marks.csv` download every saved
 verdict and track mark with the release they belong to (`src/server/export.ts`). They read the

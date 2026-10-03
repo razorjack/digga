@@ -28,9 +28,13 @@ Commands:
   stats                     Print universe size, verdict counts, remaining and ETA
   backup                    Copy the database and write the decisions backup into the backups folder
                             now (serve does both once a day)
-  restore <file> [--config] Restore a decisions backup (decisions-YYYY-MM-DD.json.gz, a path or a
-                            name in the backups folder) into the library, after copying the database
-                            --config also restores settings, keeping digga.config.json.before-restore
+  restore <file> [--config] Restore a backup, a path or a name in the backups folder, after copying
+                            the database. A decisions backup (decisions-YYYY-MM-DD.json.gz) is
+                            merged into the library; a database copy (digga-YYYY-MM-DD.sqlite or
+                            before-migration-N.sqlite) replaces the database, which is kept as
+                            backups/before-restore-YYYY-MM-DD-HHMMSS.sqlite. Stop the server first
+      --config              Also restore the settings in a decisions backup, keeping
+                            digga.config.json.before-restore
   serve [--port N] [--host H]
                             Start the local server (default 127.0.0.1:3456; --port 0 picks a free port)
   help                      Show this help

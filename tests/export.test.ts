@@ -120,7 +120,6 @@ describe("exports", () => {
     const body = (await response.json()) as BackupsResponse;
     expect(body).toEqual({
       directory: path.join(tmp, "backups"),
-      databaseFile: ":memory:",
       kept: 7,
       backups: [],
       decisions: { kept: 30, backups: [] },
