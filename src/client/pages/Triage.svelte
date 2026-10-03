@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { SessionCheckpoint } from "../triage/checkpoint.svelte.ts";
+  import ResumeSession from "../triage/ResumeSession.svelte";
   import { onDestroy, untrack } from "svelte";
   import { withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
@@ -45,6 +47,22 @@
   }
   onDestroy(() => session.destroy());
   const player = new TriagePlayer(api, () => settings.value?.player.startAtFraction ?? 0.5, { skipHeard: () => settings.value?.player.skipHeard ?? true });
+  const checkpoint = new SessionCheckpoint(api, session, player, settings);
+  onDestroy(() => checkpoint.destroy());
+  let restartGeneration = 0;
+
+  $effect(() => {
+    if (!active) return;
+    const save = () => void checkpoint.save();
+    const timer = setInterval(save, 5000);
+    document.addEventListener("visibilitychange", save);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", save);
+      save();
+    };
+  });
+
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
   const startAt = $derived(settings.value?.player.startAtFraction ?? 0.5);
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
@@ -65,11 +83,15 @@
     untrack(() => {
       const config = settings.value;
       if (!config) return;
+      if (checkpoint.restoring && api.generation === apiGeneration) return;
+      const generation = ++restartGeneration;
       if (api.generation !== apiGeneration) {
         apiGeneration = api.generation;
         player.forgetHeard();
       }
-      void session.start(config.queue.limit);
+      void session.start(config.queue.limit).then(() => {
+        if (generation === restartGeneration) return checkpoint.open();
+      });
     });
   });
 
@@ -92,6 +114,7 @@
       ui.replay = null;
       if (request.playback) player.restorePlayback(request.playback);
       session.startRound(request.items);
+      player.show(session.currentDetail, session.nextDetail);
     });
   });
 
@@ -326,6 +349,7 @@
 <svelte:window {onkeydown} {onpaste} />
 
 <div class="triage">
+  <ResumeSession {checkpoint} />
   <!-- The live region stays in the DOM so a banner is announced when a round or a scope starts. -->
   <div aria-live="polite">
     {#if ui.practice}

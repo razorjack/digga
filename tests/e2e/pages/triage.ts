@@ -92,6 +92,27 @@ export class TriagePage {
     return this.record.getByRole("status");
   }
 
+  get resumeSession(): Locator {
+    return this.root.getByRole("region", { name: "Resume digging session" });
+  }
+
+  async checkpointSession(): Promise<void> {
+    const saved = this.#response("PUT", "/api/sessions/current");
+    await this.app.clock.runFor(5100);
+    await this.#completed(await saved);
+    await expect(this.root.getByRole("status", { name: "Session checkpoint" })).toHaveText(
+      "Session position saved.",
+    );
+  }
+
+  async resumeSessionFromCheckpoint(): Promise<void> {
+    await this.resumeSession.getByRole("button", { name: "Resume session", exact: true }).click();
+    await expect(this.resumeSession).toBeHidden();
+    await expect(this.root.getByRole("status", { name: "Session checkpoint" })).toContainText(
+      "Session resumed.",
+    );
+  }
+
   /** The strip above the desk while a practice round, a round of snoozed records or a scope runs. */
   get banner(): Locator {
     return this.root.getByText(

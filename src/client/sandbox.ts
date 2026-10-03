@@ -288,6 +288,12 @@ class SandboxApi implements Api {
   };
   readonly mode = "sandbox";
 
+  getLatestSession: Api["getLatestSession"] = async () => null;
+  putSession: Api["putSession"] = async () => ({ saved: false });
+  resolveSession: Api["resolveSession"] = async () => {
+    throw new Error("Sandbox sessions are not saved.");
+  };
+
   getQueue: Api["getQueue"] = async (query = {}) => {
     const want = query.limit ?? (await this.#inner.getSettings()).queue.limit;
     // Locally decided keys are still undecided on the server, so page past them.

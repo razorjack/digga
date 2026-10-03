@@ -1,3 +1,4 @@
+import type { SavedSession, SessionInput, SessionResolution } from "../shared/digging-session.ts";
 import {
   filtersParam,
   type BackupsResponse,
@@ -43,6 +44,9 @@ import { createSandboxApi } from "./sandbox.ts";
 export interface Api {
   /** "sandbox" when writes are faked in memory by createSandboxApi(), "live" when they reach the server. */
   readonly mode: "live" | "sandbox";
+  getLatestSession(): Promise<SavedSession | null>;
+  putSession(input: SessionInput): Promise<{ saved: boolean }>;
+  resolveSession(id: string): Promise<SessionResolution>;
   getQueue(query?: QueueQuery): Promise<QueueResponse>;
   /** Sellers, labels and artists whose name contains the text, to narrow the queue to. */
   searchScopes(text: string): Promise<ScopeSearchResponse>;
@@ -148,6 +152,9 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
   const callList = httpCaller(baseUrl, timeouts.listMs);
   return {
     mode: "live",
+    getLatestSession: () => call("GET", "/sessions/latest"),
+    putSession: (input) => call("PUT", "/sessions/current", input),
+    resolveSession: (id) => call("GET", `/sessions/${encodeURIComponent(id)}/resume`),
     getQueue: ({ filters, scope, ...rest } = {}) =>
       call(
         "GET",
@@ -231,6 +238,9 @@ export function createAppApi(
       generation += 1;
     },
     pinned: () => current,
+    getLatestSession: () => current.getLatestSession(),
+    putSession: (input) => current.putSession(input),
+    resolveSession: (id) => current.resolveSession(id),
     getQueue: (query) => current.getQueue(query),
     searchScopes: (text) => current.searchScopes(text),
     getRelease: (id) => current.getRelease(id),

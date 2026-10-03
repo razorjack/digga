@@ -1,3 +1,4 @@
+import { readSessions, restoreSessions } from "./digging-sessions.ts";
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
 import type { TrackMark, VerdictSource, VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "./db.ts";
@@ -9,7 +10,9 @@ type RestorableData = Pick<
   BackedUpData,
   "verdicts" | "trackMarks" | "heardTunes" | "attachedVideos" | "noAudioVideos"
 > &
-  Partial<Pick<BackedUpData, "listenLog" | "verdictLog" | "trackMarkLog" | "releaseNotes">>;
+  Partial<
+    Pick<BackedUpData, "listenLog" | "verdictLog" | "trackMarkLog" | "releaseNotes" | "sessions">
+  >;
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
@@ -27,6 +30,7 @@ export interface RestoreOutcome {
 export function readBackedUpData(db: Db): BackedUpData {
   return {
     ...readHistory(db),
+    sessions: readSessions(db),
     verdicts: readVerdicts(db),
     trackMarks: readTrackMarks(db),
     heardTunes: readHeardTunes(db),
@@ -56,6 +60,7 @@ export function restoreBackedUpData(
       attachedVideos: addAttachedVideos(db, data.attachedVideos),
     };
     restoreHistory(db, data);
+    restoreSessions(db, data.sessions ?? []);
     db.prepare("DELETE FROM meta WHERE key = 'restoring_decisions'").run();
     return outcome;
   })();

@@ -59,3 +59,11 @@ open page keeps its record, slip and session count without a reload, and the nex
   already asked the fake for `/oauth/identity` before the page opened, so its log is not empty
   from the start. The server calls Discogs only when the page asks, so the page's log decides,
   and the fake's log confirms.
+
+## PER-09
+
+Priority: **P1**.
+
+Pass a record, pause on the next, seek, and let the five-second checkpoint save. Reload and choose
+Resume session. The same upload is cued at the saved second with playback paused. Pass it and go
+round the saved passes; the first record is still there.

@@ -1,3 +1,4 @@
+import { SessionRowSchema } from "./digging-session.ts";
 import { z } from "zod";
 import { ConfigSchema } from "./config.ts";
 import { HISTORY_SCHEMAS } from "./history-backup.ts";
@@ -77,6 +78,7 @@ export const DecisionsBackupSchema = z.object({
   listenLog: z.array(HISTORY_SCHEMAS.listenLog).default([]),
   verdictLog: z.array(HISTORY_SCHEMAS.verdictLog).default([]),
   trackMarkLog: z.array(HISTORY_SCHEMAS.trackMarkLog).default([]),
+  sessions: z.array(SessionRowSchema).default([]),
   releaseNotes: z.array(HISTORY_SCHEMAS.releaseNotes).default([]),
   config: ConfigSchema.nullable().default(null),
 });
@@ -91,6 +93,7 @@ export type BackedUpData = Pick<
   | "heardTunes"
   | "attachedVideos"
   | "noAudioVideos"
+  | "sessions"
   | "releaseNotes"
   | "listenLog"
   | "verdictLog"
@@ -104,6 +107,7 @@ export const BACKUP_FIELDS: { [Section in keyof BackedUpData]: string[] } = {
   heardTunes: Object.keys(BackupHeardTuneSchema.shape),
   attachedVideos: Object.keys(BackupAttachedVideoSchema.shape),
   noAudioVideos: Object.keys(BackupNoAudioVideosSchema.shape),
+  sessions: Object.keys(SessionRowSchema.shape),
   releaseNotes: Object.keys(HISTORY_SCHEMAS.releaseNotes.shape),
   listenLog: Object.keys(HISTORY_SCHEMAS.listenLog.shape),
   verdictLog: Object.keys(HISTORY_SCHEMAS.verdictLog.shape),

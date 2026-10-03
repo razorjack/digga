@@ -252,6 +252,22 @@ describe("triage session", () => {
     expect(pushes).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a restored random seed in later queue reads and checkpoints", async () => {
+    const server = fakeServer([1, 2]);
+    const getQueue = server.http.getQueue.bind(server.http);
+    vi.spyOn(server.http, "getQueue").mockImplementation(async (query) => ({
+      ...(await getQueue(query)),
+      seed: query?.seed ?? 77,
+    }));
+    const session = new TriageSession(server.app);
+    await session.start(50, { seed: 123 });
+    expect(server.queries[0]?.seed).toBe(123);
+    expect(session.checkpoint(null).seed).toBe(123);
+    await session.readAgain();
+    expect(server.queries.at(-1)?.seed).toBe(123);
+    session.destroy();
+  });
+
   it("restores a browser-history verdict when undoing a fresh judgment", async () => {
     const server = fakeServer([1, 2]);
     const session = new TriageSession(server.app);

@@ -1,3 +1,5 @@
+import type { SessionState, SessionResolution } from "../../shared/digging-session.ts";
+import type { PlaybackPosition } from "../../shared/replay.ts";
 import type { ReplayItem } from "../../shared/replay.ts";
 import { markForTrack } from "../../shared/track-identity.ts";
 import type { QueueItem, ReleaseDetail, TrackVerdictInput } from "../../shared/api.ts";
@@ -102,6 +104,7 @@ export class TriageSession {
   #pushRetryDelaysMs: number[];
   #setLabelHidden: SessionOptions["setLabelHidden"];
   #batch = 200;
+  #seed: number | null = null;
   /** Market data fetched this session, by release id, for records that moved on before it came. */
   #marketData = new Map<number, ReleaseSnapshot>();
   #loading = new Set<number>();
@@ -151,7 +154,8 @@ export class TriageSession {
     this.#retryTimers.clear();
   }
 
-  async start(batch: number): Promise<void> {
+  async start(batch: number, options: { seed?: number | null } = {}): Promise<void> {
+    this.#seed = options.seed ?? null;
     // Undo and the details' overlays belong to the mode they were made in.
     if (this.#api.generation !== this.#apiGeneration) this.#forget();
     // Passes made before a round still belong to the queue.
@@ -174,6 +178,44 @@ export class TriageSession {
       this.status = "error";
       this.error = errorMessage(error);
     }
+  }
+
+  checkpoint(playback: PlaybackPosition | null): SessionState {
+    const before = this.#queueBeforeRound;
+    return {
+      seed: this.#seed,
+      currentId: this.current?.id ?? null,
+      passedIds: this.passed.map((item) => item.id),
+      scope: this.scope,
+      roundIds: this.round ? this.upcoming.map((item) => item.id) : null,
+      queueBeforeRound: before
+        ? {
+            currentId: before.upcoming[0]?.id ?? null,
+            passedIds: before.passed.map((item) => item.id),
+          }
+        : null,
+      playback: playback?.releaseId === this.current?.id ? playback : null,
+    };
+  }
+
+  async restoreSession(resolved: SessionResolution): Promise<void> {
+    await this.#writes;
+    this.history = [];
+    this.#roundVerdicts.clear();
+    this.#roundWants.clear();
+    this.scope = resolved.session.state.scope;
+    stats.setScope(this.scope);
+    this.passed = [];
+    await this.start(resolved.session.config.queue.limit, { seed: resolved.session.state.seed });
+    if (this.status === "error") throw new Error(this.error ?? "Could not reload the queue");
+    this.passed = resolved.passed;
+    const excluded = new Set(resolved.passed.map((item) => item.triageKey));
+    if (resolved.current) excluded.add(resolved.current.triageKey);
+    this.upcoming = this.upcoming.filter((item) => !excluded.has(item.triageKey));
+    if (resolved.current) this.upcoming = [resolved.current, ...this.upcoming];
+    if (resolved.round?.length) this.startRound(resolved.round);
+    this.#afterMove();
+    void stats.refresh();
   }
 
   /**
@@ -940,6 +982,7 @@ export class TriageSession {
 
   /** Asks for what is buffered and a batch more. */
   async #readQueue(): Promise<QueueRead> {
+    const generation = this.#generation;
     const unsettled = new Set(this.#unanswered.keys());
     const limit = Math.min(
       MAX_QUEUE_LIMIT,
@@ -947,7 +990,12 @@ export class TriageSession {
     );
     this.#openReads.add(unsettled);
     try {
-      const response = await this.#api.getQueue({ limit, scope: this.scope ?? undefined });
+      const response = await this.#api.getQueue({
+        limit,
+        scope: this.scope ?? undefined,
+        seed: this.#seed ?? undefined,
+      });
+      if (generation === this.#generation) this.#seed = response.seed;
       return { items: response.items, complete: response.items.length < limit, unsettled };
     } finally {
       this.#openReads.delete(unsettled);

@@ -1,3 +1,4 @@
+import { registerSessionRoutes } from "./routes/sessions.ts";
 import { JobInputError } from "./jobs/start.ts";
 import { Hono } from "hono";
 import { type ApiError } from "../shared/api.ts";
@@ -17,6 +18,7 @@ export function createApp(context: AppContext): Hono {
   const app = new Hono();
   const api = new Hono();
   const { logger } = context;
+  registerSessionRoutes(api, context);
   registerCatalogRoutes(api, context);
   registerVerdictsRoutes(api, context);
   registerSettingsRoutes(api, context);

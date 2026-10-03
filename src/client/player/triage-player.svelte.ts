@@ -69,7 +69,18 @@ export class TriagePlayer {
    */
   readonly heardKeys = new SvelteSet<string>();
 
-  sessionId: string | null = null;
+  #sessionId: string | null = null;
+
+  get sessionId(): string | null {
+    return this.#sessionId;
+  }
+
+  set sessionId(id: string | null) {
+    if (id === this.#sessionId) return;
+    this.#flushListen();
+    this.#sessionId = id;
+    if (this.release && this.entry) this.#beginListen(this.release.release.id, this.entry);
+  }
   #api: AppApi;
   #fraction: () => number;
   #decks: Deck[] = [];
@@ -92,6 +103,7 @@ export class TriagePlayer {
   #destroyed = false;
   /** The Triage page is hidden: load and cue, but never start sound. */
   #suspended = false;
+  #resumePaused = false;
 
   #skipHeard: () => boolean;
 
@@ -148,7 +160,29 @@ export class TriagePlayer {
     this.#sync();
   }
 
-  restorePlayback(playback: PlaybackPosition): void {
+  pauseForResume(): void {
+    this.#resumePaused = true;
+    this.#activeDeck()?.pause();
+  }
+
+  playbackPosition(): PlaybackPosition | null {
+    if (!this.release || !this.entry) return null;
+    const { track, video } = this.entry;
+    const playback: PlaybackPosition = {
+      releaseId: this.release.release.id,
+      videoId: video.videoId,
+      atSeconds: this.time,
+    };
+    if (track)
+      playback.tune = {
+        heardKey: track.heardKey,
+        artistDisplay: track.artistDisplay,
+        title: track.title,
+      };
+    return playback;
+  }
+
+  restorePlayback(playback: PlaybackPosition | null): void {
     this.#pendingPlayback = playback;
   }
 
@@ -166,6 +200,7 @@ export class TriagePlayer {
   }
 
   toggle(): void {
+    this.#resumePaused = false;
     const deck = this.#activeDeck();
     if (!deck?.videoId || !this.#holdsOpenRelease(deck) || this.status === "no_audio") return;
     if (this.status === "playing") {
@@ -282,7 +317,7 @@ export class TriagePlayer {
   }
 
   #canPlay(): boolean {
-    return hasUserActivation() && !this.#suspended;
+    return hasUserActivation() && !this.#suspended && !this.#resumePaused;
   }
 
   /** Status of a loaded video that is not allowed to start by itself. */

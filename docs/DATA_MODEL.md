@@ -214,3 +214,11 @@ Track marks retain their original tune snapshot even when a catalogue refresh re
 Triage follows a moved tune only when its heard key identifies one track unambiguously. Twelves
 flags changed tracklists and displays the saved name. A mark for a different tune at the saved
 position cannot overwrite it; this requires reviewing the old mark instead of automatic relabelling.
+
+`digging_sessions` stores lightweight session checkpoints: current release, passes, scope, random
+queue seed, replay round and underlying queue, and upload/second. The creation context includes
+configuration, dump date, and schema version; later checkpoints update only the cursor and timestamp.
+These rows are included in portable backups, and restore keeps a newer checkpoint already present.
+The client saves changed positions every five seconds and when leaving Triage or changing tab
+visibility. Sandbox sessions stay unsaved. This is best-effort persistence, with no durable client
+write queue; the undo stack does not survive a reload.

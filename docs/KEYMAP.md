@@ -173,3 +173,8 @@ Enter on any Twelves record shelf replays the visible records from the selection
 reopens the selected mark's saved upload and second, including uploads no longer in the catalogue.
 N and Esc preserve saved verdicts and return to the original queue. Explicit verdict keys rejudge
 local decisions; imported owned/wantlist records retain their existing protection.
+
+On reopening Digga, Resume session restores the saved digging filters, player settings, scope,
+passes, and position. Playback waits for Space. Start fresh keeps the current queue instead.
+Records decided or filtered out since the checkpoint stay out of the resumed normal queue. Replay
+rounds can still include decided records. Account settings and sandbox mode are not restored by Resume.
