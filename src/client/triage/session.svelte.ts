@@ -1,5 +1,6 @@
+import type { ReplayItem } from "../../shared/replay.ts";
 import { markForTrack } from "../../shared/track-identity.ts";
-import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
+import type { QueueItem, ReleaseDetail, TrackVerdictInput } from "../../shared/api.ts";
 import type { QueueScope } from "../../shared/scope.ts";
 import type { ReleaseSnapshot, TrackMark, Verdict } from "../../shared/types.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
@@ -36,12 +37,13 @@ export type Slip =
       /** While a failed push waits to be tried again: how long the wait is. */
       retryInMs?: number;
     }
-  | { kind: "pass"; item: QueueItem; id: number; stays: "queue" | "snoozed" }
+  | { kind: "pass"; item: QueueItem; id: number; stays: "queue" | "snoozed" | "saved" }
   | { kind: "label"; item: QueueItem; label: string; id: number }
   | { kind: "undo"; item: QueueItem; undone: TriageStatus | "pass" | "label"; id: number };
 
 /** Snoozed records heard again, ahead of the queue, which resumes where it was afterwards. */
 export interface Round {
+  kind: "snoozed" | "replay";
   total: number;
 }
 
@@ -123,7 +125,8 @@ export class TriageSession {
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
   /** Verdicts of the records taken into rounds, by triage key. */
-  #roundVerdicts = new Map<string, Verdict>();
+  #roundVerdicts = new Map<string, Verdict | null>();
+  #roundWants = new Map<string, boolean>();
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
@@ -226,6 +229,10 @@ export class TriageSession {
     if (!item) return;
     const client = this.#api.pinned();
     const previous = this.#roundVerdicts.get(item.triageKey) ?? this.currentDetail?.verdict ?? null;
+    if (previous?.status === "collection" || previous?.status === "wantlist") {
+      this.#flash("Wantlist and owned records come from Discogs; change them there.");
+      return;
+    }
     const notes = this.noteFor(item);
     const entry: VerdictEntry = { kind: "verdict", item, status, notes, previous };
     this.upcoming = this.upcoming.slice(1);
@@ -267,6 +274,8 @@ export class TriageSession {
       stats.refreshSoon();
       // Discogs writes have their own chain so they cannot delay verdicts.
       if (isWantlistVerdict(status)) void this.#pushWant(entry, slipId, client);
+      else if (entry.previous && isWantlistVerdict(entry.previous.status))
+        void this.#takeOffWantlist(item, client);
     }
     // Last, so a settled slip means its push has started.
     this.#settleSlip(slipId);
@@ -346,19 +355,20 @@ export class TriageSession {
       kind: "pass",
       item,
       id: ++this.#slipSeq,
-      stays: this.#roundVerdicts.has(item.triageKey) ? "snoozed" : "queue",
+      stays: this.#passDestination(item.triageKey),
     };
     this.#afterMove();
   }
 
-  /**
-   * Puts snoozed records ahead of the queue to hear them again. Judging one replaces its
-   * snoozed verdict, N leaves it snoozed, and the queue resumes after the last one.
-   */
-  startRound(items: TwelvesItem[]): void {
+  #passDestination(key: string): "queue" | "snoozed" | "saved" {
+    if (!this.#roundVerdicts.has(key)) return "queue";
+    return this.#roundVerdicts.get(key)?.status === "snoozed" ? "snoozed" : "saved";
+  }
+
+  /** Hear saved records ahead of the queue. Only an explicit verdict changes their decisions. */
+  startRound(items: ReplayItem[]): void {
     const records = items.filter(
-      (i): i is TwelvesItem & { release: QueueItem } =>
-        i.release !== null && i.verdict.status === "snoozed",
+      (item): item is ReplayItem & { release: QueueItem } => item.release !== null,
     );
     if (records.length === 0) return;
     this.#queueBeforeRound ??= {
@@ -366,11 +376,21 @@ export class TriageSession {
       passed: this.passed,
       exhausted: this.exhausted,
     };
-    for (const record of records) this.#roundVerdicts.set(record.verdict.key, record.verdict);
-    this.upcoming = records.map((r) => r.release);
+    for (const record of records) {
+      const key = record.release.triageKey;
+      this.#roundVerdicts.set(key, record.verdict);
+      if (record.onWantlist !== undefined) {
+        this.#roundWants.set(key, record.onWantlist);
+        if (record.onWantlist) this.#onWantlist.set(key, record.release.id);
+      }
+    }
+    this.upcoming = records.map((record) => record.release);
     this.passed = [];
     this.exhausted = true;
-    this.round = { total: records.length };
+    this.round = {
+      total: records.length,
+      kind: records.every((record) => record.verdict?.status === "snoozed") ? "snoozed" : "replay",
+    };
     this.status = "ready";
     this.slip = null;
     this.#afterMove();
@@ -490,7 +510,11 @@ export class TriageSession {
       return;
     }
     if (generation === this.#apiGeneration) {
-      if (isWantlistVerdict(entry.status)) void this.#takeOffWantlist(entry.item, client);
+      if (
+        isWantlistVerdict(entry.status) ||
+        (entry.previous && isWantlistVerdict(entry.previous.status))
+      )
+        void this.#takeOffWantlist(entry.item, client);
       stats.refreshSoon();
     }
     this.#settleSlip(slipId);
@@ -729,7 +753,7 @@ export class TriageSession {
       if (entry.kind === "verdict" && entry.item.triageKey === key)
         return isWantlistVerdict(entry.status);
     }
-    return false;
+    return this.#roundWants.get(key) ?? false;
   }
 
   /**
@@ -778,6 +802,7 @@ export class TriageSession {
     this.#trackWrites.clear();
     this.flash = null;
     this.#onWantlist.clear();
+    this.#roundWants.clear();
     this.#unanswered = new Map();
     this.#roundVerdicts.clear();
     this.notes = new Map();
@@ -831,8 +856,13 @@ export class TriageSession {
 
   #afterMove(): void {
     if (this.round && this.upcoming.length === 0) {
+      const kind = this.round.kind;
       this.endRound();
-      this.#flash("That was every snoozed record in the round; back to the queue.");
+      this.#flash(
+        kind === "snoozed"
+          ? "That was every snoozed record in the round; back to the queue."
+          : "Replay finished; back to the queue.",
+      );
       return;
     }
     this.#prefetch();

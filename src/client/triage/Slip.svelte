@@ -73,7 +73,9 @@
           {:else if slip.kind === "verdict" && slip.status === "snoozed"}
             On the Snoozed shelf, out of the queue.
           {:else if slip.kind === "pass"}
-            {slip.stays === "snoozed" ? "Stays snoozed." : "Stays in the queue for another go."}
+            {#if slip.stays === "snoozed"}Stays snoozed.
+            {:else if slip.stays === "saved"}Its saved verdict stays unchanged.
+            {:else}Stays in the queue for another go.{/if}
           {:else if slip.kind === "label"}
             Every record on {slip.label} is out of the queue; Settings lists the hidden labels.
           {:else if slip.kind === "undo"}

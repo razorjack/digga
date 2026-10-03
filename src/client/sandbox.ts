@@ -110,6 +110,7 @@ class SandboxApi implements Api {
     }
   >();
 
+  #serverWantlist = new Set<string>();
   #skipHistory = true;
 
   #markTunes = new Map<string, TuneSnapshot>();
@@ -419,8 +420,15 @@ class SandboxApi implements Api {
     const response = await this.#inner.getTrackMarks();
     const items: MarkedTrack[] = [];
     for (const item of response.items) {
+      if (item.release && item.onWantlist) this.#serverWantlist.add(item.release.triageKey);
       if (this.#marks.has(markKey(item.mark.releaseId, item.mark.position))) continue;
-      items.push({ ...item, verdict: this.#localVerdict(item.release) ?? item.verdict });
+      items.push({
+        ...item,
+        onWantlist: item.release
+          ? (this.#wantlist.get(item.release.triageKey) ?? item.onWantlist)
+          : false,
+        verdict: this.#localVerdict(item.release) ?? item.verdict,
+      });
     }
     for (const mark of this.#marks.values()) if (mark) items.push(this.#markedTrack(mark));
     items.sort((left, right) => right.mark.decidedAt.localeCompare(left.mark.decidedAt));
@@ -441,6 +449,9 @@ class SandboxApi implements Api {
     const serverVerdict = release ? (this.#serverVerdicts.get(release.triageKey) ?? null) : null;
     return {
       mark: { ...mark },
+      onWantlist:
+        release !== null &&
+        (this.#wantlist.get(release.triageKey) ?? this.#serverWantlist.has(release.triageKey)),
       tracklistChanged: !track,
       track: tune
         ? {
@@ -474,6 +485,8 @@ class SandboxApi implements Api {
     const response = await this.#inner.getTwelves(query);
     for (const item of response.items) {
       this.#serverVerdicts.set(item.verdict.key, item.verdict);
+      if (item.onWantlist) this.#serverWantlist.add(item.verdict.key);
+      else this.#serverWantlist.delete(item.verdict.key);
       if (item.release) this.#rememberRelease(item.release);
     }
     const serverWantlist = new Set(

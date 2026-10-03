@@ -192,7 +192,7 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
       { keys: ["Y"], label: "search YouTube for the record" },
       { keys: ["⌘V"], label: "attach a copied YouTube link to the record" },
       { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
-      { keys: ["Enter"], label: "hear snoozed records again in Triage, from the selected one" },
+      { keys: ["Enter"], label: "replay the selected shelf or marked track in Triage" },
       { keys: ["I"], label: "check your Discogs Maybe list again" },
       { keys: ["Z"], label: "undo the last change" },
     ],

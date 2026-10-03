@@ -246,6 +246,7 @@ export interface TwelvesResponse {
 
 // GET /api/track-marks
 export interface MarkedTrack {
+  onWantlist?: boolean;
   tracklistChanged?: boolean;
   mark: TrackVerdict;
   /**

@@ -86,11 +86,12 @@
 
   // Snoozed records handed over by Twelves.
   $effect(() => {
-    const items = ui.snoozedRound;
-    if (!items) return;
+    const request = ui.replay;
+    if (!request) return;
     untrack(() => {
-      ui.snoozedRound = null;
-      session.startRound(items);
+      ui.replay = null;
+      if (request.playback) player.restorePlayback(request.playback);
+      session.startRound(request.items);
     });
   });
 
@@ -340,8 +341,8 @@
     {:else if session.round}
       <p class="banner">
         <span>
-          Hearing snoozed records again: <b>{formatCount(session.upcoming.length)}</b> of
-          {formatCount(session.round.total)} left. A verdict replaces the snooze; <Key label="N" size="sm" /> leaves it.
+          {session.round.kind === "snoozed" ? "Hearing snoozed records again:" : "Replaying Twelves:"} <b>{formatCount(session.upcoming.length)}</b> of
+          {formatCount(session.round.total)} left. Only a verdict key changes the saved decision; <Key label="N" size="sm" /> leaves it.
         </span>
         <button type="button" aria-keyshortcuts="Escape" onclick={() => session.endRound()}>
           <Key label="Esc" size="sm" aria-hidden="true" /> back to the queue

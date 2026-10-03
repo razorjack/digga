@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { replayTrack } from "../../shared/replay.ts";
   import { onMount } from "svelte";
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
@@ -70,20 +71,22 @@
     table?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
   });
 
-  /** Enter on a snoozed record: hear it and the snoozed records after it in Triage. */
   function hearAgain(): void {
-    if (shelfState.selected?.verdict.status !== "snoozed") {
-      shelfState.showFlash("Enter hears snoozed records again; pick one on the Snoozed shelf (7).");
-      return;
+    if (shelfState.shelf === "tracks") {
+      const track = shelfState.selectedTrack;
+      if (!track?.release) {
+        shelfState.showFlash("This track's release is not in the loaded dump.");
+        return;
+      }
+      ui.replay = replayTrack(track);
+    } else {
+      const items = shelfState.visible.slice(shelfState.selectedIndex).filter((item) => item.release);
+      if (items.length === 0) {
+        shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+        return;
+      }
+      ui.replay = { items };
     }
-    const round = shelfState.visible
-      .slice(shelfState.selectedIndex)
-      .filter((index) => index.verdict.status === "snoozed" && index.release);
-    if (round.length === 0) {
-      shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
-      return;
-    }
-    ui.snoozedRound = round;
     navigate("triage");
   }
 
@@ -448,9 +451,7 @@
         <span><Key label="Y" /> youtube</span>
         <span><Key label="⌘V" /> attach a link</span>
       {/if}
-      {#if shelfState.shelf === "snoozed" || shelfState.selected?.verdict.status === "snoozed"}
-        <span><Key label="Enter" /> hear again</span>
-      {/if}
+      <span><Key label="Enter" /> hear again</span>
       <span><Key label="Z" /> undo</span>
     </p>
     <div class="status">

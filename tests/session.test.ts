@@ -316,6 +316,55 @@ describe("triage session", () => {
     expect(calls).toEqual(["verdict r:9 rejected", `verdict r:9 snoozed ${at}`]);
   });
 
+  it("replays saved wants without writes and protects pre-existing membership on undo", async () => {
+    const { session, calls, verdicts } = await started([1, 2]);
+    const item = snoozed(9, "2026-01-02T03:04:05.000Z");
+    item.verdict.status = "accepted";
+    item.onWantlist = true;
+    verdicts.set(item.verdict.key, item.verdict);
+    session.startRound([item]);
+    session.pass();
+    expect(session.current?.id).toBe(1);
+    expect(calls).toEqual([]);
+    session.startRound([item]);
+    session.judge("candidate");
+    await until(() => verdicts.get(item.verdict.key)?.status === "candidate");
+    session.undo();
+    await until(() => verdicts.get(item.verdict.key)?.status === "accepted");
+    expect(calls.filter((call) => call.startsWith("put") || call.startsWith("remove"))).toEqual([]);
+    session.destroy();
+  });
+
+  it("restores a pre-existing want after undoing an explicit replay rejection", async () => {
+    const { session, calls, verdicts } = await started([1, 2]);
+    const item = snoozed(9, "2026-01-02T03:04:05.000Z");
+    item.verdict.status = "accepted";
+    item.onWantlist = true;
+    verdicts.set(item.verdict.key, item.verdict);
+    session.startRound([item]);
+    session.judge("rejected");
+    await until(() => calls.includes("remove 9"));
+    session.undo();
+    await until(() => calls.includes("put 9"));
+    expect(verdicts.get(item.verdict.key)?.status).toBe("accepted");
+    session.destroy();
+  });
+
+  it("replays an unjudged marked track and refuses to rejudge imported records", async () => {
+    const { session, calls } = await started([1, 2]);
+    session.startRound([{ release: queueItem(9), verdict: null }]);
+    session.endRound();
+    expect(session.current?.id).toBe(1);
+    const item = snoozed(10, "2026-01-02T03:04:05.000Z");
+    item.verdict.status = "collection";
+    session.startRound([item]);
+    session.judge("accepted");
+    expect(session.current?.id).toBe(10);
+    expect(calls).toEqual([]);
+    expect(session.flash).toContain("change them there");
+    session.destroy();
+  });
+
   it("keeps passes and undone queue releases when a round ends", async () => {
     const { session } = await started([1, 2, 3]);
     session.pass();

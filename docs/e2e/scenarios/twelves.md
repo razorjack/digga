@@ -182,3 +182,10 @@ the tab
   without a wait run one after the other (TWL-17), so the last one's requests and the flash after
   it end them all: for a want re-judged a skip, the wantlist removal and the `GET /api/twelves`
   after it.
+
+## TWL-22
+
+Priority: **P1**.
+
+A keep mark on an accepted record stores an upload and second. Enter from Tracks opens that exact
+upload at that second. Esc restores the previous digging queue, with the accepted verdict unchanged.

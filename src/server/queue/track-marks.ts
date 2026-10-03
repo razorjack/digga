@@ -1,3 +1,4 @@
+import { wantlistKeys } from "../importers/seeds.ts";
 import type { MarkedTrack } from "../../shared/api.ts";
 import type { TrackMark } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
@@ -24,6 +25,7 @@ interface MarkedTrackRow {
  * the release no longer lists shows the tune saved with the mark.
  */
 export function listMarkedTracks(db: Db): MarkedTrack[] {
+  const onWantlist = wantlistKeys(db);
   const rows = db
     .prepare(
       `SELECT tv.release_id, tv.position, tv.mark, tv.notes, tv.decided_at,
@@ -40,6 +42,7 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
   return rows.map((row) => {
     const release = queueItemForRelease(db, row.release_id);
     return {
+      onWantlist: release !== null && onWantlist.has(release.triageKey),
       tracklistChanged: Boolean(row.tracklist_changed),
       mark: {
         releaseId: row.release_id,

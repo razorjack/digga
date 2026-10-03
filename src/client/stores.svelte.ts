@@ -1,4 +1,5 @@
-import type { Stats, TwelvesItem } from "../shared/api.ts";
+import type { ReplayRequest } from "../shared/replay.ts";
+import type { Stats } from "../shared/api.ts";
 import type { ColorScheme, Config } from "../shared/config.ts";
 import type { ScopeRef } from "../shared/scope.ts";
 import { api } from "./api.ts";
@@ -131,8 +132,8 @@ class UiStore {
   helpOpen = $state(false);
   /** A practice round in the sandbox: the verdicts given so far; null outside one. */
   practice = $state<{ judged: number } | null>(null);
-  /** Snoozed records Twelves hands to Triage to hear again; Triage takes them and clears this. */
-  snoozedRound = $state.raw<TwelvesItem[] | null>(null);
+  /** Records or a bookmarked track Twelves hands to Triage; Triage takes them and clears this. */
+  replay = $state.raw<ReplayRequest | null>(null);
 }
 
 export const ui = new UiStore();

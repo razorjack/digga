@@ -340,6 +340,13 @@ export class TwelvesPage {
     await expect(this.messages).toHaveText(/^Undone/);
   }
 
+  async replaySelected(releaseId: number): Promise<void> {
+    await this.app.page.keyboard.press("Enter");
+    const triage = new TriagePage(this.app);
+    await expect(triage.banner).toContainText("Replaying Twelves");
+    await expect(triage.record).toHaveAttribute("data-release-id", String(releaseId));
+  }
+
   /** Enter on a snoozed record: returns once Triage hears it in a round of snoozed records. */
   async hearAgain(): Promise<void> {
     const key = await this.selectedKey();

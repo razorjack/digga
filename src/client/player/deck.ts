@@ -68,8 +68,10 @@ export class Deck {
     videoId: string,
     durationSeconds: number | null,
     fraction: number,
-    mode: DeckMode,
+    playback: DeckMode | { mode: DeckMode; atSeconds: number },
   ): Promise<void> {
+    let mode = typeof playback === "string" ? playback : playback.mode;
+    const atSeconds = typeof playback === "string" ? null : playback.atSeconds;
     this.videoId = videoId;
     this.primed = false;
     await this.#readiness.promise;
@@ -79,7 +81,7 @@ export class Deck {
     this.#mode = mode;
     this.#fraction = fraction;
     this.#started = false;
-    const start = startSeconds(durationSeconds, fraction);
+    const start = atSeconds ?? startSeconds(durationSeconds, fraction);
     this.#seekWhenPlaying = start === null;
     if (mode === "play") this.#player.unMute();
     else this.#player.mute();

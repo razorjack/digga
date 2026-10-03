@@ -168,3 +168,8 @@ Settings has independent controls for skipping records imported from browser his
 previously heard tunes during playback. Both are on by default. Turning off the history exclusion
 returns `seen` records to the queue; undo restores that original history verdict. The heard label
 remains visible when automatic skipping is off.
+
+Enter on any Twelves record shelf replays the visible records from the selection. Enter on Tracks
+reopens the selected mark's saved upload and second, including uploads no longer in the catalogue.
+N and Esc preserve saved verdicts and return to the original queue. Explicit verdict keys rejudge
+local decisions; imported owned/wantlist records retain their existing protection.

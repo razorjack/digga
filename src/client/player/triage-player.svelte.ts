@@ -1,3 +1,5 @@
+import type { PlaybackPosition } from "../../shared/replay.ts";
+import { bookmarkedEntry } from "./bookmark.ts";
 import { SvelteSet } from "svelte/reactivity";
 import type { ListenContext, ReleaseDetail } from "../../shared/api.ts";
 import {
@@ -82,6 +84,7 @@ export class TriagePlayer {
   /** Release the decks were last pointed at; undefined before the first one. */
   #openedId: number | null | undefined = undefined;
   #listen: Listen | null = null;
+  #pendingPlayback: PlaybackPosition | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
   #noticeTimer: ReturnType<typeof setTimeout> | null = null;
   #lastTick = 0;
@@ -145,6 +148,23 @@ export class TriagePlayer {
     this.#sync();
   }
 
+  restorePlayback(playback: PlaybackPosition): void {
+    this.#pendingPlayback = playback;
+  }
+
+  #restorePlayback(): void {
+    const playback = this.#pendingPlayback;
+    const detail = this.release;
+    if (!playback || !detail || playback.releaseId !== detail.release.id) return;
+    this.#pendingPlayback = null;
+    const entry = bookmarkedEntry(detail, playback);
+    let index = this.entries.findIndex((entry) => entry.video.videoId === playback.videoId);
+    if (index === -1) index = this.entries.length;
+    this.entries = [...this.entries];
+    this.entries[index] = entry;
+    this.playEntry(index, playback.atSeconds);
+  }
+
   toggle(): void {
     const deck = this.#activeDeck();
     if (!deck?.videoId || !this.#holdsOpenRelease(deck) || this.status === "no_audio") return;
@@ -204,28 +224,30 @@ export class TriagePlayer {
     this.#beginListen(this.release.release.id, this.entry);
   }
 
-  playEntry(index: number): void {
+  playEntry(index: number, atSeconds?: number): void {
     const entry = this.entries[index];
     const release = this.release;
     if (!entry || !this.#activeDeck() || !release) return;
     this.#flushListen();
     this.current = index;
     this.played.add(entry.video.videoId);
-    this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+    this.time = atSeconds ?? startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
     this.duration = entry.video.durationSeconds ?? 0;
-    if (!this.#promoteTrackDeck(entry, index)) this.#loadOnActiveDeck(entry, index);
+    if (atSeconds !== undefined || !this.#promoteTrackDeck(entry, index))
+      this.#loadOnActiveDeck(entry, index, atSeconds);
     this.#beginListen(release.release.id, entry);
     this.#preloadTrack();
   }
 
-  #loadOnActiveDeck(entry: PlaylistEntry, index: number): void {
+  #loadOnActiveDeck(entry: PlaylistEntry, index: number, atSeconds?: number): void {
     const deck = this.#activeDeck();
     if (!deck || !this.release) return;
     deck.tag = { releaseId: this.release.release.id, entry: index };
     const mode = this.#canPlay() ? "play" : "cue";
     this.status = mode === "play" ? "loading" : this.#waitingStatus();
     this.#loadingSince = performance.now();
-    void deck.load(entry.video.videoId, entry.video.durationSeconds, this.#fraction(), mode);
+    const playback = atSeconds === undefined ? mode : ({ mode, atSeconds } as const);
+    void deck.load(entry.video.videoId, entry.video.durationSeconds, this.#fraction(), playback);
   }
 
   /** Swaps in the deck that buffered this track, when it did; the old deck buffers the next one. */
@@ -287,6 +309,7 @@ export class TriagePlayer {
     else if (detail && this.release && videosChanged(this.release, detail))
       this.#refreshRelease(detail);
     this.#preload(next);
+    this.#restorePlayback();
   }
 
   /** The open release gained a video (a pasted link): play it, keeping what was heard. */
@@ -330,6 +353,7 @@ export class TriagePlayer {
     }
     const entries = buildPlaylist(detail, this.heardKeys);
     this.entries = entries;
+    if (this.#pendingPlayback?.releaseId === detail.release.id) return;
     const first = firstEntry(entries, this.#playlistState());
     if (this.#adoptPreload(detail, first)) return;
     if (first === null) {
