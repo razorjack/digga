@@ -9,6 +9,7 @@ const ImportProgressSchema = z.object({
   stubs: count,
   // Progress saved before memberships counted verdicts instead, which no longer apply.
   added: count.default(0),
+  removed: count.default(0),
 });
 const base = {
   id: z.string(),

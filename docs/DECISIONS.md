@@ -851,3 +851,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      that still names an entry. The bracket rule remains only for Not On Label: Discogs gives each
      "Not On Label (Artist Self-released)" an id of its own (705 in the owner's catalogue), so
      hiding Not On Label also hides every first label whose name starts with "Not On Label (".
+137. **An import that misses an item ends it.** Imports only added what Discogs listed, so a want
+     removed on Discogs stayed a want in Digga, and Twelves offered to push it again (F10). An
+     import that reads every page now sets `removed_at` on the items of its kind it did not find;
+     the Maybe-list import does so only when every entry resolved to a release, since an entry
+     whose lookup failed would look removed. A push Digga makes while the import runs is newer
+     than its start and stays. The owner decided what a removal means: the record stays out of the
+     queue, since the user has been through it, and a want or grail decided in Digga leaves the
+     Want and Grail shelves, as an owned record does, and is no longer offered for the wantlist.
+     The decision itself stays, so the record is still dug and a later `A` brings the want back.

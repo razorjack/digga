@@ -21,7 +21,7 @@ import { type Config, validateConfig } from "../shared/config.ts";
 import { formatStyleCensus } from "../shared/style-census.ts";
 import { countStyleCensus } from "../../tools/dump/census.ts";
 import { computeStats } from "../server/stats.ts";
-import type { SeedImportResult } from "../server/importers/collection.ts";
+import type { SeedImportResult } from "../server/importers/seeds.ts";
 import type { ListImportResult } from "../server/importers/list.ts";
 import type { SellerImportResult } from "../server/importers/seller.ts";
 import {

@@ -150,6 +150,8 @@ export interface RecordMembership {
   owned: boolean;
   onWantlist: boolean;
   onList: boolean;
+  /** The wantlist held a release of it until an import found it gone: the want ended. */
+  wantRemoved: boolean;
 }
 
 export interface TrackVerdict {
@@ -241,6 +243,8 @@ export interface ImportProgress {
   stubs: number;
   /** Items new to Digga: not held before, or found again after an import missed them. */
   added: number;
+  /** Items a complete import no longer found on the account. */
+  removed: number;
 }
 
 export interface HistoryImportProgress {

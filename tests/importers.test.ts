@@ -14,7 +14,8 @@ import {
   triageDecisionTimes,
   upsertVerdict,
 } from "../src/server/db/verdicts.ts";
-import { fixtureDb, silentLogger } from "./helpers.ts";
+import { queryQueue } from "../src/server/queue/query.ts";
+import { filters, fixtureDb, silentLogger } from "./helpers.ts";
 
 const basic = (id: number, master: number | null, title: string) => ({
   id,
@@ -95,7 +96,8 @@ describe("collection and wantlist importers", () => {
       stubs: 2,
       added: 3,
     });
-    expect(progress).toEqual([2, 3]);
+    // The last report follows the reconciliation, with what the account no longer lists.
+    expect(progress).toEqual([2, 3, 3]);
     expect(getRelease(db, 1001)!.inUniverse).toBe(true);
     const stub = getRelease(db, 9001)!;
     expect(stub.inUniverse).toBe(false);
@@ -108,6 +110,7 @@ describe("collection and wantlist importers", () => {
         owned: true,
         onWantlist: false,
         onList: false,
+        wantRemoved: false,
       });
     const held = db
       .prepare("SELECT kind, date_added, rating FROM memberships WHERE release_id = 1001")
@@ -162,12 +165,57 @@ describe("collection and wantlist importers", () => {
       owned: true,
       onWantlist: true,
       onList: false,
+      wantRemoved: false,
     });
     expect(
       db
         .prepare("SELECT notes FROM memberships WHERE kind = 'wantlist' AND release_id = 1002")
         .get(),
     ).toEqual({ notes: "repress" });
+    db.close();
+  });
+
+  it("marks what a complete import no longer finds, which stays out of the queue", async () => {
+    const db = await fixtureDb();
+    const wantlistOf = (...ids: number[]): DiscogsWantlistPage[] => [
+      {
+        pagination: { page: 1, pages: 1, per_page: 100, items: ids.length },
+        wants: ids.map((id) => ({
+          id,
+          date_added: "2026-09-01T00:00:00-07:00",
+          basic_information: basic(id, null, `Want ${id}`),
+        })),
+      },
+    ];
+    const deps = (ids: number[]) => ({
+      db,
+      discogs: fakeDiscogs([], wantlistOf(...ids)),
+      logger: silentLogger,
+    });
+    upsertVerdict(db, { key: "r:1004", status: "accepted", source: "triage", releaseId: 1004 });
+    await importWantlist(deps([1004, 1006]), { username: "dj" });
+
+    const result = await importWantlist(deps([1006]), { username: "dj" });
+
+    expect(result.removed).toBe(1);
+    expect(recordMembershipOf(db, "r:1004")).toEqual({
+      owned: false,
+      onWantlist: false,
+      onList: false,
+      wantRemoved: true,
+    });
+    expect(
+      queryQueue(db, {
+        filters: filters({ yearFrom: null, yearTo: null }),
+        strategy: "label_sweep",
+        limit: 10,
+      }).map((item) => item.id),
+    ).not.toContain(1004);
+    const cancelled = new AbortController();
+    cancelled.abort();
+    const stopped = await importWantlist(deps([]), { username: "dj", signal: cancelled.signal });
+    expect(stopped.removed).toBe(0);
+    expect(recordMembershipOf(db, "m:506").onWantlist).toBe(true);
     db.close();
   });
 
@@ -209,6 +257,7 @@ describe("the Discogs account beside decisions made in Digga", () => {
       owned: true,
       onWantlist: true,
       onList: false,
+      wantRemoved: false,
     });
     expect(countDug(db)).toBe(1);
     expect(triageDecisionTimes(db)).toEqual([decidedAt]);

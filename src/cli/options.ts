@@ -5,7 +5,7 @@ import { readIdList } from "../../tools/dump/load.ts";
 import type { DumpLoadJobOptions } from "../server/jobs/dump-load.ts";
 import type { Config } from "../shared/config.ts";
 import { BROWSERS } from "../shared/api.ts";
-import type { SeedImportOptions } from "../server/importers/collection.ts";
+import type { SeedImportOptions } from "../server/importers/seeds.ts";
 import type { HistoryImportOptions } from "../server/importers/history.ts";
 import type { ListImportOptions } from "../server/importers/list.ts";
 import type { SellerImportOptions } from "../server/importers/seller.ts";

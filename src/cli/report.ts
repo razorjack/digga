@@ -70,12 +70,12 @@ export function showImport(result: ImportResult): void {
   }
   if (result.kind === "list") {
     console.log(
-      `import list "${result.listName}": ${result.processed} items, ${result.stubs} stub releases, ${result.added} new`,
+      `import list "${result.listName}": ${result.processed} items, ${result.stubs} stub releases, ${result.added} new, ${result.removed} gone from Discogs`,
     );
     return;
   }
   console.log(
-    `import ${result.kind}: ${result.processed} items over ${result.pages ?? 0} page(s), ${result.stubs} stub releases, ${result.added} new`,
+    `import ${result.kind}: ${result.processed} items over ${result.pages ?? 0} page(s), ${result.stubs} stub releases, ${result.added} new, ${result.removed} gone from Discogs`,
   );
 }
 

@@ -2,12 +2,20 @@ import { isVinyl } from "../../shared/formats.ts";
 import { artistDisplay } from "../../shared/normalize.ts";
 import { triageKeyFor } from "../../shared/triage-key.ts";
 import { wantlistNote } from "../../shared/wantlist.ts";
-import type { ArtistRef, FormatRef, LabelRef, ReleaseRecord } from "../../shared/types.ts";
+import type {
+  ArtistRef,
+  FormatRef,
+  ImportProgress,
+  LabelRef,
+  ReleaseRecord,
+} from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
-import { forgetMembership, recordMembership } from "../db/memberships.ts";
+import { forgetMembership, markMissingMemberships, recordMembership } from "../db/memberships.ts";
 import { releaseNote } from "../db/notes.ts";
 import { getRelease, getTracks, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
 import { getTrackVerdicts } from "../db/verdicts.ts";
+import type { DiscogsClient } from "../discogs/client.ts";
+import type { Logger } from "../logger.ts";
 import type {
   DiscogsArtist,
   DiscogsBasicInformation,
@@ -66,6 +74,90 @@ export function basicInformationToWrite(info: DiscogsBasicInformation): ReleaseW
     tracks: [],
     videos: [],
   };
+}
+
+export interface SeedImportDeps {
+  db: Db;
+  discogs: DiscogsClient;
+  logger: Logger;
+}
+
+export interface SeedImportOptions {
+  username: string;
+  perPage?: number;
+  signal?: AbortSignal;
+}
+
+export interface SeedImportResult extends ImportProgress {
+  kind: "collection" | "wantlist";
+}
+
+/** A page of the collection or the wantlist, with how many pages there are. */
+interface SeedPage {
+  pages: number;
+  items: SeedItemInput[];
+}
+
+/**
+ * Reads every page of the account's collection or wantlist, each page in one transaction. Once
+ * every page is read, the items the account no longer lists left it outside Digga and are marked;
+ * a cancelled read marks nothing.
+ */
+export async function importSeedPages(
+  deps: SeedImportDeps,
+  read: {
+    kind: SeedImportResult["kind"];
+    readPage: (page: number) => Promise<SeedPage>;
+    signal?: AbortSignal;
+  },
+  onProgress?: (progress: ImportProgress) => void,
+): Promise<SeedImportResult> {
+  const { kind } = read;
+  const progress: ImportProgress = {
+    page: 0,
+    pages: null,
+    processed: 0,
+    stubs: 0,
+    added: 0,
+    removed: 0,
+  };
+  const found: { releaseIds: number[]; since: string } = { releaseIds: [], since: nowIso() };
+  let pages = 1;
+  for (let page = 1; page <= pages; page += 1) {
+    if (read.signal?.aborted) return { kind, ...progress };
+    const result = await read.readPage(page);
+    const counts = applySeedPage(deps.db, result.items);
+    pages = result.pages;
+    progress.page = page;
+    progress.pages = pages;
+    progress.processed += counts.processed;
+    progress.stubs += counts.stubs;
+    progress.added += counts.added;
+    found.releaseIds.push(...result.items.map((item) => item.releaseId));
+    onProgress?.({ ...progress });
+    deps.logger.info(`${kind} page ${page}/${pages}: ${progress.processed} items`);
+    if (result.items.length === 0) break;
+  }
+  progress.removed = markMissingMemberships(deps.db, kind, found);
+  onProgress?.({ ...progress });
+  return { kind, ...progress };
+}
+
+/** Applies a page's items in one transaction; returns what they changed. */
+function applySeedPage(
+  db: Db,
+  items: SeedItemInput[],
+): Pick<ImportProgress, "processed" | "stubs" | "added"> {
+  const counts = { processed: 0, stubs: 0, added: 0 };
+  db.transaction(() => {
+    for (const item of items) {
+      const result = applySeedItem(db, item);
+      counts.processed += 1;
+      if (result.stubCreated) counts.stubs += 1;
+      if (result.added) counts.added += 1;
+    }
+  })();
+  return counts;
 }
 
 export interface SeedItemInput {

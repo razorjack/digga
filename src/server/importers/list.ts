@@ -2,8 +2,8 @@ import type { DiscogsListEntry, QueueItem } from "../../shared/api.ts";
 import { formatSummary } from "../../shared/formats.ts";
 import { masterKey, releaseKey } from "../../shared/triage-key.ts";
 import type { ImportProgress } from "../../shared/types.ts";
-import type { Db } from "../db/db.ts";
-import { recordMembership, recordMembershipOf } from "../db/memberships.ts";
+import { type Db, nowIso } from "../db/db.ts";
+import { markMissingMemberships, recordMembership, recordMembershipOf } from "../db/memberships.ts";
 import { getRelease, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
 import { getVerdict } from "../db/verdicts.ts";
 import type { DiscogsClient } from "../discogs/client.ts";
@@ -180,8 +180,20 @@ export async function importList(
   return { kind: "list", listName: list.name, ...progress };
 }
 
+/**
+ * Holds every entry's record on the Maybe list, in one transaction. When every entry resolved to
+ * a release, the list is complete, and the items it no longer has left it outside Digga.
+ */
 function applyListEntries(db: Db, entries: ResolvedListEntry[]): ImportProgress {
-  const progress: ImportProgress = { page: 1, pages: 1, processed: 0, stubs: 0, added: 0 };
+  const progress: ImportProgress = {
+    page: 1,
+    pages: 1,
+    processed: 0,
+    stubs: 0,
+    added: 0,
+    removed: 0,
+  };
+  const since = nowIso();
   db.transaction(() => {
     for (const entry of entries) {
       progress.processed += 1;
@@ -198,6 +210,9 @@ function applyListEntries(db: Db, entries: ResolvedListEntry[]): ImportProgress 
       });
       if (added) progress.added += 1;
     }
+    const releaseIds = entries.map((entry) => entry.releaseId).filter((id) => id !== null);
+    if (releaseIds.length === entries.length)
+      progress.removed = markMissingMemberships(db, "list", { releaseIds, since });
   })();
   return progress;
 }

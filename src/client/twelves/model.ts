@@ -142,13 +142,16 @@ export const notOnList = (i: TwelvesItem) => i.verdict?.status === "maybe" && !i
 
 /**
  * A want or grail that is not on the Discogs wantlist: a failed or undone push, or an old grail.
- * An owned record has ended its hunt.
+ * An owned record has ended its hunt, and so has one taken off the wantlist on Discogs.
  */
 export const notOnWantlist = (i: TwelvesItem) =>
+  isHunted(i) &&
   i.verdict !== null &&
   isWantlistVerdict(i.verdict.status) &&
-  !i.membership.onWantlist &&
-  !i.membership.owned;
+  !i.membership.onWantlist;
+
+/** Owning a record, or taking it off the wantlist on Discogs, ends the hunt for it. */
+const isHunted = (i: TwelvesItem) => !i.membership.owned && !i.membership.wantRemoved;
 
 /** The wants and grails on a shelf that are not on the Discogs wantlist. */
 export function missingFromWantlist(items: TwelvesItem[], shelf: ShelfId): TwelvesItem[] {
@@ -284,8 +287,8 @@ type RecordShelf = Exclude<ShelfId, "tracks">;
  * and Owned what the account holds, so one record can be on several; owning ends the hunt.
  */
 const SHELF_TESTS: Record<Exclude<RecordShelf, "all">, (item: TwelvesItem) => boolean> = {
-  accepted: (item) => item.verdict?.status === "accepted" && !item.membership.owned,
-  candidate: (item) => item.verdict?.status === "candidate" && !item.membership.owned,
+  accepted: (item) => item.verdict?.status === "accepted" && isHunted(item),
+  candidate: (item) => item.verdict?.status === "candidate" && isHunted(item),
   wantlist: (item) => item.membership.onWantlist,
   collection: (item) => item.membership.owned,
   maybe: (item) => item.verdict?.status === "maybe" || item.membership.onList,

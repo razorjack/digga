@@ -22,7 +22,7 @@ describe("job contracts", () => {
     try {
       const runner = createJobRunner(db, silentLogger);
       const { job, result } = await runner.runAndWait("import_wantlist", async ({ onProgress }) => {
-        onProgress({ page: 2, pages: 3, processed: 150, stubs: 0, added: 150 });
+        onProgress({ page: 2, pages: 3, processed: 150, stubs: 0, added: 150, removed: 0 });
         return { completed: 2 };
       });
       expect(result.completed).toBe(2);
@@ -166,7 +166,7 @@ it("waits for cancelled async work before releasing its database", async () => {
   const job = runner.run("import_wantlist", async ({ signal, onProgress }) => {
     await pending;
     expect(signal.aborted).toBe(true);
-    onProgress({ page: 1, pages: null, processed: 0, stubs: 0, added: 0 });
+    onProgress({ page: 1, pages: null, processed: 0, stubs: 0, added: 0, removed: 0 });
   });
   let stopped = false;
   const stopping = runner.stop().then(() => {

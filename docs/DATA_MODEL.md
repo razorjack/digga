@@ -167,8 +167,11 @@ list` (the Maybe list), `master_id`, `date_added`, `rating` and `notes` as Disco
 list item's comment for `list`), `added_at` (first seen by Digga), `imported_at` (the last import
 or push that found it) and `removed_at` (null while Discogs holds it). The imports write it; a
 want Digga pushes to the Discogs wantlist is recorded here too, and deleted when Digga takes it
-off, so Twelves can say which wants reached Discogs before the next wantlist import. A record the
-account holds any release of, also one that left the account outside Digga, is out of the queue
+off, so Twelves can say which wants reached Discogs before the next wantlist import. An import
+that reads every page (a cancelled one does not; for the Maybe list, one where every entry
+resolved to a release) sets `removed_at` on the items of its kind it did not find, unless Digga
+pushed them after the import started; finding an item again clears it. A record the account holds
+any release of, also one that left the account outside Digga, is out of the queue
 (`undecidedClause()`); Twelves shows it on the Discogs wantlist, Owned and Maybe shelves beside
 the decisions made in Digga, which the imports never change.
 

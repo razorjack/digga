@@ -4,6 +4,7 @@ import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
 import {
   compareNullable,
   countShelves,
+  notOnWantlist,
   pageAround,
   PAGE_SIZE,
   rejudgedSentence,
@@ -23,7 +24,7 @@ function record(id: number): TwelvesItem & { verdict: Verdict } {
     key: `r:${id}`,
     release: queueItem(id),
     verdict: { key: `r:${id}`, status: "maybe", source: "triage", releaseId: id, decidedAt },
-    membership: { owned: false, onWantlist: false, onList: false },
+    membership: { owned: false, onWantlist: false, onList: false, wantRemoved: false },
     since: decidedAt,
     note: null,
     pressingNotes: [],
@@ -263,6 +264,41 @@ describe("the No audio shelf", () => {
     const options = { sort: "newest" as const, query: "" };
     expect(visibleItems([record(1), silent], { ...options, shelf: "all" })).toHaveLength(1);
     expect(visibleItems([record(1), silent], { ...options, shelf: "no_audio" })).toEqual([silent]);
+  });
+});
+
+describe("shelves as filters", () => {
+  const options = { sort: "newest" as const, query: "" };
+  const shelvesOf = (item: TwelvesItem) =>
+    (["all", "accepted", "candidate", "wantlist", "collection", "maybe"] as const).filter(
+      (shelf) => visibleItems([item], { ...options, shelf }).length > 0,
+    );
+  const want = (membership: Partial<TwelvesItem["membership"]>): TwelvesItem => ({
+    ...record(1),
+    verdict: { ...record(1).verdict, status: "accepted" },
+    membership: { ...record(1).membership, ...membership },
+  });
+
+  it("puts a pushed want on Want and on the Discogs wantlist, and an owned one on Owned only", () => {
+    expect(shelvesOf(want({ onWantlist: true }))).toEqual(["all", "accepted", "wantlist"]);
+    expect(shelvesOf(want({ owned: true }))).toEqual(["all", "collection"]);
+    expect(notOnWantlist(want({ owned: true }))).toBe(false);
+  });
+
+  it("ends a want taken off the wantlist on Discogs, without offering to push it again", () => {
+    const removed = want({ wantRemoved: true });
+    expect(shelvesOf(removed)).toEqual([]);
+    expect(notOnWantlist(removed)).toBe(false);
+    expect(notOnWantlist(want({}))).toBe(true);
+  });
+
+  it("shows a record only the Discogs account holds on its shelves, without a verdict", () => {
+    const listed: TwelvesItem = {
+      ...record(1),
+      verdict: null,
+      membership: { ...record(1).membership, onList: true },
+    };
+    expect(shelvesOf(listed)).toEqual(["all", "maybe"]);
   });
 });
 

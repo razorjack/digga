@@ -55,38 +55,57 @@ export function forgetMembership(db: Db, kind: MembershipKind, releaseId: number
   db.prepare("DELETE FROM memberships WHERE kind = ? AND release_id = ?").run(kind, releaseId);
 }
 
-/** Triage keys of the records the account holds items of, with what it holds. */
+/**
+ * The records the account holds items of, by triage key, with what it holds; also those it held a
+ * want of until an import found it gone, which Twelves no longer shows as wants.
+ */
 export function heldRecords(db: Db): Map<string, HeldRecord> {
   const rows = db
     .prepare(
       `SELECT r.triage_key AS key, m.kind, m.release_id AS releaseId,
-         COALESCE(m.date_added, m.added_at) AS since
-       FROM memberships m JOIN releases r ON r.id = m.release_id
-       WHERE m.removed_at IS NULL`,
+         COALESCE(m.date_added, m.added_at) AS since, m.removed_at IS NOT NULL AS removed
+       FROM memberships m JOIN releases r ON r.id = m.release_id`,
     )
     .all() as HeldItem[];
   const held = new Map<string, HeldRecord>();
-  for (const row of rows) {
-    const record = held.get(row.key) ?? { ...NOT_HELD, since: "", releaseId: row.releaseId };
-    held.set(row.key, withItem(record, row));
-  }
+  for (const [key, items] of Map.groupBy(rows, (row) => row.key))
+    held.set(key, { ...membershipOf(items), ...newestItem(items) });
   return held;
 }
 
 /** What the account holds of one record. */
 export function recordMembershipOf(db: Db, key: string): RecordMembership {
-  const kinds = db
+  const items = db
     .prepare(
-      `SELECT DISTINCT m.kind FROM memberships m JOIN releases r ON r.id = m.release_id
-       WHERE r.triage_key = ? AND m.removed_at IS NULL`,
+      `SELECT m.kind, m.removed_at IS NOT NULL AS removed
+       FROM memberships m JOIN releases r ON r.id = m.release_id WHERE r.triage_key = ?`,
     )
-    .pluck()
-    .all(key) as MembershipKind[];
-  return {
-    owned: kinds.includes("collection"),
-    onWantlist: kinds.includes("wantlist"),
-    onList: kinds.includes("list"),
-  };
+    .all(key) as Pick<HeldItem, "kind" | "removed">[];
+  return membershipOf(items);
+}
+
+/**
+ * Marks the items of a kind that a complete import did not find, because they left the account
+ * outside Digga. A push Digga made while the import ran is newer than its start and stays.
+ * Returns how many.
+ */
+export function markMissingMemberships(
+  db: Db,
+  kind: MembershipKind,
+  found: { releaseIds: number[]; since: string },
+): number {
+  return db
+    .prepare(
+      `UPDATE memberships SET removed_at = @now
+       WHERE kind = @kind AND removed_at IS NULL AND imported_at <= @since
+         AND release_id NOT IN (SELECT value FROM json_each(@found))`,
+    )
+    .run({
+      now: nowIso(),
+      kind,
+      since: found.since,
+      found: JSON.stringify(found.releaseIds),
+    }).changes;
 }
 
 /** Releases the account holds, per kind. */
@@ -99,23 +118,38 @@ export function countMemberships(db: Db): Record<MembershipKind, number> {
   return counts;
 }
 
-export const NOT_HELD: RecordMembership = { owned: false, onWantlist: false, onList: false };
+export const NOT_HELD: RecordMembership = {
+  owned: false,
+  onWantlist: false,
+  onList: false,
+  wantRemoved: false,
+};
 
 interface HeldItem {
   key: string;
   kind: MembershipKind;
   releaseId: number;
   since: string;
+  /** SQLite's boolean: 1 when an import found the item gone. */
+  removed: number;
 }
 
-function withItem(record: HeldRecord, item: HeldItem): HeldRecord {
-  const since = toUtcTimestamp(item.since);
-  const newer = since > record.since;
+function membershipOf(items: Pick<HeldItem, "kind" | "removed">[]): RecordMembership {
+  const holds = (kind: MembershipKind) => items.some((item) => item.kind === kind && !item.removed);
+  const onWantlist = holds("wantlist");
+  const lostWant = items.some((item) => item.kind === "wantlist" && item.removed);
   return {
-    owned: record.owned || item.kind === "collection",
-    onWantlist: record.onWantlist || item.kind === "wantlist",
-    onList: record.onList || item.kind === "list",
-    since: newer ? since : record.since,
-    releaseId: newer ? item.releaseId : record.releaseId,
+    owned: holds("collection"),
+    onWantlist,
+    onList: holds("list"),
+    wantRemoved: lostWant && !onWantlist,
   };
+}
+
+/** The newest item the account still holds; Twelves dates and shows the record by it. */
+function newestItem(items: HeldItem[]): { since: string; releaseId: number } {
+  const held = items.filter((item) => !item.removed);
+  return (held.length > 0 ? held : items)
+    .map((item) => ({ since: toUtcTimestamp(item.since), releaseId: item.releaseId }))
+    .reduce((left, right) => (right.since > left.since ? right : left));
 }

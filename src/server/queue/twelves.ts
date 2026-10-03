@@ -1,6 +1,6 @@
 import { TWELVES_STATUSES, type TwelvesItem } from "../../shared/api.ts";
 import type { Filters } from "../../shared/config.ts";
-import type { Verdict, VerdictStatus } from "../../shared/types.ts";
+import type { RecordMembership, Verdict, VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import { type HeldRecord, heldRecords, NOT_HELD } from "../db/memberships.ts";
 import { pressingNotes, releaseNote } from "../db/notes.ts";
@@ -25,7 +25,8 @@ export function queryTwelves(
   }
   if (statuses === null)
     for (const [key, record] of held)
-      items.push(twelvesItem(db, key, { verdict: null, held: record }));
+      if (record.owned || record.onWantlist || record.onList)
+        items.push(twelvesItem(db, key, { verdict: null, held: record }));
 
   const passes = filterTest(db, filters);
   return items
@@ -47,13 +48,16 @@ function twelvesItem(
     key,
     verdict,
     release,
-    membership: held
-      ? { owned: held.owned, onWantlist: held.onWantlist, onList: held.onList }
-      : NOT_HELD,
+    membership: held ? membershipOf(held) : NOT_HELD,
     since: verdict?.decidedAt ?? held?.since ?? "",
     note: release ? (releaseNote(db, release.id) ?? null) : null,
     pressingNotes: release ? pressingNotes(db, release) : [],
   };
+}
+
+function membershipOf(held: HeldRecord): RecordMembership {
+  const { owned, onWantlist, onList, wantRemoved } = held;
+  return { owned, onWantlist, onList, wantRemoved };
 }
 
 /** Whether a release passes the filters; every record passes without filters. */

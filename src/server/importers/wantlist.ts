@@ -1,7 +1,14 @@
 import type { ImportProgress } from "../../shared/types.ts";
-import { applySeedItem } from "./seeds.ts";
-import type { SeedImportDeps, SeedImportOptions, SeedImportResult } from "./collection.ts";
+import type { DiscogsWantItem } from "../discogs/types.ts";
+import {
+  importSeedPages,
+  type SeedImportDeps,
+  type SeedImportOptions,
+  type SeedImportResult,
+  type SeedItemInput,
+} from "./seeds.ts";
 
+/** Reads the account's wantlist into memberships. */
 export async function importWantlist(
   deps: SeedImportDeps,
   options: SeedImportOptions,
@@ -9,39 +16,21 @@ export async function importWantlist(
 ): Promise<SeedImportResult> {
   if (options.username === "") throw new Error("discogs.username is not set in digga.config.json");
   const perPage = options.perPage ?? 100;
-  const progress: ImportProgress = {
-    page: 0,
-    pages: null,
-    processed: 0,
-    stubs: 0,
-    added: 0,
-  };
-  let page = 1;
-  for (;;) {
-    if (options.signal?.aborted) break;
+  const readPage = async (page: number) => {
     const data = await deps.discogs.getWantlistPage(options.username, page, perPage);
-    progress.page = page;
-    progress.pages = data.pagination.pages;
-    deps.db.transaction(() => {
-      for (const item of data.wants) {
-        const result = applySeedItem(deps.db, {
-          kind: "wantlist",
-          releaseId: item.id,
-          masterId: item.basic_information.master_id ?? null,
-          dateAdded: item.date_added ?? null,
-          rating: item.rating ?? null,
-          notes: item.notes && item.notes !== "" ? item.notes : null,
-          basicInformation: item.basic_information,
-        });
-        progress.processed += 1;
-        if (result.stubCreated) progress.stubs += 1;
-        if (result.added) progress.added += 1;
-      }
-    })();
-    onProgress?.({ ...progress });
-    deps.logger.info(`wantlist page ${page}/${data.pagination.pages}: ${progress.processed} items`);
-    if (page >= data.pagination.pages || data.wants.length === 0) break;
-    page += 1;
-  }
-  return { kind: "wantlist", ...progress };
+    return { pages: data.pagination.pages, items: data.wants.map(wantlistItem) };
+  };
+  return importSeedPages(deps, { kind: "wantlist", readPage, signal: options.signal }, onProgress);
+}
+
+function wantlistItem(item: DiscogsWantItem): SeedItemInput {
+  return {
+    kind: "wantlist",
+    releaseId: item.id,
+    masterId: item.basic_information.master_id ?? null,
+    dateAdded: item.date_added ?? null,
+    rating: item.rating ?? null,
+    notes: item.notes && item.notes !== "" ? item.notes : null,
+    basicInformation: item.basic_information,
+  };
 }

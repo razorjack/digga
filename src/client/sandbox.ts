@@ -273,6 +273,7 @@ class SandboxApi implements Api {
         processed: list.entries.length,
         stubs: 0,
         added: written,
+        removed: 0,
       },
       finishedAt: this.#now().toISOString(),
     };
@@ -301,7 +302,7 @@ class SandboxApi implements Api {
         id: `sandbox-${this.#jobSeq}`,
         type: "import_list",
         status: "running",
-        progress: { page: 1, pages: 1, processed: 0, stubs: 0, added: 0 },
+        progress: { page: 1, pages: 1, processed: 0, stubs: 0, added: 0, removed: 0 },
         error: null,
         createdAt: stamp,
         startedAt: stamp,
@@ -571,10 +572,12 @@ class SandboxApi implements Api {
   }
 
   #membership(key: string, onServer: RecordMembership | null): RecordMembership {
+    const onWantlist = this.#wantlist.get(key) ?? onServer?.onWantlist ?? false;
     return {
       owned: onServer?.owned ?? false,
-      onWantlist: this.#wantlist.get(key) ?? onServer?.onWantlist ?? false,
+      onWantlist,
       onList: this.#listed.has(key) || (onServer?.onList ?? false),
+      wantRemoved: (onServer?.wantRemoved ?? false) && !onWantlist,
     };
   }
 
