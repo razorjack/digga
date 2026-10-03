@@ -25,7 +25,7 @@ or Alt. Holding a key down never repeats a verdict.
 | `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s); repeats while held |
 | `1` … `9` | jump to 10% … 90% of the video                                       |
 | `O`       | open the release on discogs.com                                      |
-| `P`       | ask Discogs for the lowest price, copies for sale and have/want      |
+| `P`       | ask Discogs for the price, copies for sale, have/want and videos     |
 | `S`       | open a YouTube search for artist + title                             |
 | `E`       | write a note on the record; Enter saves it without a verdict         |
 | `⌘V`      | attach a copied YouTube link to the release and play it              |

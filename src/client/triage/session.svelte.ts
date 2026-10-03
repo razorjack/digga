@@ -1044,15 +1044,21 @@ export class TriageSession {
     this.detailErrors = detailErrors;
   }
 
-  /** Shows a record's fresh market data; its fresh videos too, unless it is playing already. */
-  #applyEnrichment(detail: ReleaseDetail): void {
-    const id = detail.release.id;
-    const snapshot = detail.release.snapshot;
+  /**
+   * Shows a record's fresh market data and videos; the player picks up a new video. The rest of
+   * the loaded detail stays, since a track mark may still be on its way to the server.
+   */
+  #applyEnrichment(enriched: ReleaseDetail): void {
+    const id = enriched.release.id;
+    const snapshot = enriched.release.snapshot;
     this.#marketData.set(id, snapshot);
     const refresh = (item: QueueItem) => (item.id === id ? withMarketData(item, snapshot) : item);
     this.upcoming = this.upcoming.map(refresh);
     this.passed = this.passed.map(refresh);
-    if (this.current?.id === id || !this.details.has(id)) return;
+
+    const loaded = this.details.get(id);
+    if (!loaded) return;
+    const detail = { ...loaded, release: enriched.release, videos: enriched.videos };
     this.details = new Map(this.details).set(id, detail);
   }
 

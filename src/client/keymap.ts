@@ -165,7 +165,10 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
         { keys: ["←", "→"], label: `seek ${seekStepSeconds} s` },
         { keys: ["1", "…", "9"], label: "jump to 10% … 90%" },
         { keys: ["O"], label: "open the release on discogs.com" },
-        { keys: ["P"], label: "ask Discogs for the release's lowest price and have/want" },
+        {
+          keys: ["P"],
+          label: "ask Discogs for the release's lowest price, have/want and current videos",
+        },
         { keys: ["S"], label: "search YouTube for the release" },
         { keys: ["⌘V"], label: "attach a copied YouTube link to the release, and play it" },
       ],

@@ -191,7 +191,8 @@ digs just those. Settings also lists the dumps in the folder, says which one the
 from, and deletes the ones you no longer want, about 10 GB each.
 
 The dump has no prices or have/want counts. When a record might be worth buying, press `P` in
-Triage and Digga asks Discogs for them.
+Triage and Digga asks Discogs for them. The same request brings the release's current videos, so a
+track whose video was added to Discogs after the dump becomes playable.
 
 ### From the command line
 

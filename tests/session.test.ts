@@ -18,6 +18,7 @@ import {
   type Verdict,
   VERDICT_STATUSES,
   type VerdictStatus,
+  type VideoRecord,
 } from "../src/shared/types.ts";
 
 const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -128,7 +129,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
       return {
         release: { id, triageKey: `r:${id}`, snapshot } as ReleaseRecord,
         tracks: [],
-        videos: [],
+        videos: [{ videoId: `fresh-${id}` } as VideoRecord],
         verdict: null,
         pressingNotes: [],
         trackVerdicts: [],
@@ -845,6 +846,15 @@ describe("pricing with P", () => {
     expect(calls.filter((call) => call.startsWith("enrich"))).toEqual(["enrich 2"]);
     expect(session.current).toMatchObject({ id: 2, lowestPrice: 9, communityWant: 40 });
     expect(session.pricing.size).toBe(0);
+    session.destroy();
+  });
+
+  it("shows the fresh videos of the record on screen and keeps its track marks", async () => {
+    const { session } = await withTracks();
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
+    await session.price();
+    expect(session.currentDetail?.videos.map((video) => video.videoId)).toEqual(["fresh-1"]);
+    expect(session.currentDetail?.tracks[0]?.mark).not.toBeNull();
     session.destroy();
   });
 
