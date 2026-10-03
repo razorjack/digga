@@ -135,6 +135,11 @@ describe("verdicts when a dump load changes a release's key", () => {
         heardTunes: [],
         attachedVideos: [],
         noAudioVideos: [],
+        releaseNotes: [],
+        listenLog: [],
+        verdictLog: [],
+        trackMarkLog: [],
+        sessions: [],
       },
       "2026-09-02T00:00:00.000Z",
     );

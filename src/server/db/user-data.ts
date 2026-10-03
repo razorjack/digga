@@ -1,18 +1,11 @@
-import { readSessions, restoreSessions } from "./digging-sessions.ts";
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
 import type { TrackMark, VerdictSource, VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "./db.ts";
+import { readSessions, restoreSessions } from "./digging-sessions.ts";
 import { readHistory, restoreHistory } from "./history-backup.ts";
+import { releaseNoteSavedAfter } from "./notes.ts";
 import { currentReleaseKey } from "./verdict-keys.ts";
 import { getVerdict, upsertVerdict } from "./verdicts.ts";
-
-type RestorableData = Pick<
-  BackedUpData,
-  "verdicts" | "trackMarks" | "heardTunes" | "attachedVideos" | "noAudioVideos"
-> &
-  Partial<
-    Pick<BackedUpData, "listenLog" | "verdictLog" | "trackMarkLog" | "releaseNotes" | "sessions">
-  >;
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
@@ -47,23 +40,35 @@ export function readBackedUpData(db: Db): BackedUpData {
  */
 export function restoreBackedUpData(
   db: Db,
-  data: RestorableData,
+  data: BackedUpData,
   backedUpAt: string,
 ): RestoreOutcome {
   const backupTime = Date.parse(backedUpAt);
-  return db.transaction(() => {
-    db.prepare("INSERT INTO meta (key, value) VALUES ('restoring_decisions', '1')").run();
-    const outcome = {
-      verdicts: restoreVerdicts(db, data, backupTime),
-      trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
-      heardTunes: { added: addHeardTunes(db, data.heardTunes) },
-      attachedVideos: addAttachedVideos(db, data.attachedVideos),
-    };
-    restoreHistory(db, data);
-    restoreSessions(db, data.sessions ?? []);
-    db.prepare("DELETE FROM meta WHERE key = 'restoring_decisions'").run();
-    return outcome;
-  })();
+  return db.transaction(() =>
+    withoutChangeLogs(db, () => {
+      const outcome = {
+        verdicts: restoreVerdicts(db, data, backupTime),
+        trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
+        heardTunes: { added: addHeardTunes(db, data.heardTunes) },
+        attachedVideos: addAttachedVideos(db, data.attachedVideos),
+      };
+      restoreHistory(db, data);
+      restoreSessions(db, data.sessions);
+      return outcome;
+    }),
+  )();
+}
+
+/**
+ * The verdict and track mark log triggers skip changes while `restoring_decisions` is set, since
+ * the restored history has its own events. Called inside a transaction, so a failed write also
+ * rolls back the flag.
+ */
+function withoutChangeLogs<T>(db: Db, write: () => T): T {
+  db.prepare("INSERT INTO meta (key, value) VALUES ('restoring_decisions', '1')").run();
+  const result = write();
+  db.prepare("DELETE FROM meta WHERE key = 'restoring_decisions'").run();
+  return result;
 }
 
 function readVerdicts(db: Db): BackedUpData["verdicts"] {
@@ -191,15 +196,7 @@ function restoreVerdicts(
       outcome.keptNewer += 1;
       continue;
     }
-    const newerNote =
-      verdict.releaseId === null
-        ? undefined
-        : (db
-            .prepare("SELECT notes FROM release_notes WHERE release_id = ? AND updated_at > ?")
-            .get(verdict.releaseId, new Date(backupTime).toISOString()) as
-            | { notes: string | null }
-            | undefined);
-    if (newerNote) verdict.notes = newerNote.notes;
+    verdict.notes = restoredNote(db, verdict, backupTime);
     upsertVerdict(db, verdict);
     const videoIds = recorded.get(backedUp.key);
     if (verdict.status === "no_audio" && videoIds)
@@ -209,6 +206,17 @@ function restoreVerdicts(
     if (verdict.key !== backedUp.key) outcome.moved += 1;
   }
   return outcome;
+}
+
+/** A release note saved in Digga after the backup wins over the note the backup has. */
+function restoredNote(
+  db: Db,
+  verdict: { releaseId: number | null; notes: string | null },
+  backupTime: number,
+): string | null {
+  if (verdict.releaseId === null) return verdict.notes;
+  const newer = releaseNoteSavedAfter(db, verdict.releaseId, new Date(backupTime).toISOString());
+  return newer ? newer.notes : verdict.notes;
 }
 
 /** The key of the record the verdict's release is on now; its own key without a release. */
