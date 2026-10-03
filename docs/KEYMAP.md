@@ -63,7 +63,9 @@ any label or artist that has loaded records, and for any seller whose shop was r
 arrows choose, Enter digs and Esc cancels, also while the field holds text. The queue then holds
 only the records on that label (on any of their labels), by that artist (on the release or on one of
 its tracks) or in that seller's shop, still under the filters and in the chosen order, and a banner
-counts what is left. In a shop the record shown is the pressing the seller has, so `A` puts that
+counts what is left. Among matching pressings, Digga prefers vinyl without the White Label or Test Pressing format
+descriptions, then the Discogs main release, then the pressing with most videos. Promos remain
+eligible. This preference never excludes a record by itself. In a shop the record shown is the pressing the seller has, so `A` puts that
 pressing on the wantlist, and Discogs' "Shop my wants" finds it there. Esc goes back to the whole
 queue. Records passed with `N` return to whichever queue comes next.
 

@@ -203,15 +203,23 @@ export function orderClause(strategy: QueueStrategy, seed: number): SqlFragment 
   }
 }
 
+// Prefer standard vinyl within the already-filtered candidates. A white label or test pressing
+// still represents a master when it is the only matching release (including in a seller scope).
+const SPECIAL_PRESSING = `EXISTS (SELECT 1 FROM json_each(r.formats_json) pf,
+  json_each(pf.value, '$.descriptions') pd
+  WHERE json_extract(pf.value, '$.name') = 'Vinyl' AND pd.value IN ('White Label', 'Test Pressing'))`;
+const REPRESENTATIVE_ORDER = "special_pressing ASC, is_main_release DESC, video_count DESC, id ASC";
+
 const BASE_SELECT = `
-  SELECT r.*, (SELECT COUNT(*) FROM videos vd WHERE vd.release_id = r.id) AS video_count
+  SELECT r.*, (SELECT COUNT(*) FROM videos vd WHERE vd.release_id = r.id) AS video_count,
+    ${SPECIAL_PRESSING} AS special_pressing
   FROM releases r
   WHERE `;
 
 const RANKED = `
 ranked AS (
   SELECT base.*, ROW_NUMBER() OVER (
-    PARTITION BY triage_key ORDER BY is_main_release DESC, video_count DESC, id ASC
+    PARTITION BY triage_key ORDER BY ${REPRESENTATIVE_ORDER}
   ) AS rn
   FROM base
 )`;
@@ -299,12 +307,10 @@ export function queueItemForRelease(db: Db, releaseId: number): QueueItem | null
   return row ? rowToQueueItem(row) : null;
 }
 
-/** The release shown for a triage key: main release first, then the one with most videos. */
+/** Standard vinyl first, then the main release and the one with most videos. */
 export function representativeForKey(db: Db, key: string): QueueItem | null {
   const row = db
-    .prepare(
-      `${BASE_SELECT} r.triage_key = ? ORDER BY r.is_main_release DESC, video_count DESC, r.id ASC LIMIT 1`,
-    )
+    .prepare(`${BASE_SELECT} r.triage_key = ? ORDER BY ${REPRESENTATIVE_ORDER} LIMIT 1`)
     .get(key) as QueueRow | undefined;
   return row ? rowToQueueItem(row) : null;
 }

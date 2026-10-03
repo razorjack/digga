@@ -32,6 +32,28 @@ describe("queue query", () => {
     db.close();
   });
 
+  it.each(["White Label", "Test Pressing"])(
+    "prefers standard vinyl over a %s main release without excluding it",
+    async (description) => {
+      const db = await fixtureDb();
+      db.prepare("UPDATE releases SET formats_json = ? WHERE id = 1001").run(
+        JSON.stringify([{ name: "Vinyl", qty: 1, text: "", descriptions: ['12"', description] }]),
+      );
+      const queue = (selection: Filters) =>
+        queryQueue(db, { filters: selection, strategy: "label_sweep", limit: 200 });
+      expect(queue(filters({})).find((release) => release.triageKey === "m:501")?.id).toBe(1002);
+      expect(representativeForKey(db, "m:501")?.id).toBe(1002);
+      expect(
+        queue(filters({ includeDescriptions: [description] })).map((release) => release.id),
+      ).toEqual([1001]);
+      expect(
+        queue(filters({ countries: ["UK"] })).find((release) => release.triageKey === "m:501")?.id,
+      ).toBe(1001);
+      expect(countRemaining(db, filters({}))).toBe(2);
+      db.close();
+    },
+  );
+
   it("lets in undated releases on the labels and artists of records the user wants", async () => {
     const db = await fixtureDb();
     const onCoverage = filters({ includeUnknownYearOnCoverage: true });
