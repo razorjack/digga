@@ -937,3 +937,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      runs hourly where it runs every fifteen minutes (decision 104 predates the checkpoints). The
      owner went back to two copies, as decision 103 reasoned: the decisions backups cover a month.
      The repository is MIT-licensed (`LICENSE`, `package.json`).
+145. **Wantlist pushes stay with the tab, and listens are not retried.** The pre-release review (F11)
+     noted that a want's push and its retries live in the Triage tab, so closing the tab can leave
+     a want unsent, and that a listen has no submission id, so a retried listen could count twice.
+     The owner kept both as they are: Twelves marks wants missing from the Discogs wantlist and
+     pushes them with `A`, `C` or "add all", and the player posts each listen once and drops a
+     failed one, so no listen needs an id to be recognized.
