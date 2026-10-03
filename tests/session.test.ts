@@ -771,8 +771,8 @@ describe("track mark recovery", () => {
       .spyOn(http, "postTrackVerdict")
       .mockRejectedValueOnce(new Error("first failed"))
       .mockRejectedValueOnce(new Error("second failed"));
-    session.markTrack(1, "A1", "keep", MOMENT);
-    session.markTrack(1, "A1", "candidate", MOMENT);
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "candidate", MOMENT);
     await until(() => session.flash?.includes("second failed") ?? false);
     expect(writes).toHaveBeenCalledTimes(2);
     expect(session.details.get(1)?.tracks[0]?.mark).toBeNull();
@@ -781,18 +781,18 @@ describe("track mark recovery", () => {
   it("recovers one track without reverting a newer mark on another", async () => {
     const { session, http, calls } = await withTracks();
     vi.spyOn(http, "postTrackVerdict").mockRejectedValueOnce(new Error("first failed"));
-    session.markTrack(1, "A1", "keep", MOMENT);
-    session.markTrack(1, "B1", "candidate", MOMENT);
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
+    session.markTrack(1, { position: "B1", heardKey: "B1" }, "candidate", MOMENT);
     await until(() => calls.includes("mark B1 candidate"));
     expect(session.details.get(1)?.tracks.map((track) => track.mark)).toEqual([null, "candidate"]);
   });
 
   it("restores the last successful mark after the next change fails", async () => {
     const { session, http, calls } = await withTracks();
-    session.markTrack(1, "A1", "keep", MOMENT);
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
     await until(() => calls.includes("mark A1 keep"));
     vi.spyOn(http, "postTrackVerdict").mockRejectedValueOnce(new Error("second failed"));
-    session.markTrack(1, "A1", "candidate", MOMENT);
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "candidate", MOMENT);
     await until(() => session.flash?.includes("second failed") ?? false);
     expect(session.details.get(1)?.tracks[0]?.mark).toBe("keep");
   });
@@ -800,7 +800,7 @@ describe("track mark recovery", () => {
   it("saves the video and second playing with the mark", async () => {
     const { session, http, calls } = await withTracks();
     const writes = vi.spyOn(http, "postTrackVerdict");
-    session.markTrack(1, "B1", "candidate", MOMENT);
+    session.markTrack(1, { position: "B1", heardKey: "B1" }, "candidate", MOMENT);
     await until(() => calls.includes("mark B1 candidate"));
     expect(writes).toHaveBeenCalledWith(
       expect.objectContaining({

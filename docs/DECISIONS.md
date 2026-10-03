@@ -893,3 +893,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      and marks then take the key of the track at their position when its title is the one they
      saved, also after every dump load and restore, and `heard_tracks` is rebuilt from
      `listen_log`. A position that holds another tune now keeps the saved key.
+141. **A track mark belongs to a release's tune; its position only locates it.** `track_verdicts`
+     was keyed by `(release_id, position)`, so when a catalogue edit put another tune at a marked
+     position the new tune could not be marked: the server refused it until the old mark was
+     reviewed (F03). Positions also repeat (1,279 times in the owner's catalogue) or are empty
+     (10,470 tracks). The owner made the position a locator. Migration 18 keys the table by
+     `(release_id, heard_key)`, a mark saved without a tune taking `r:{release} {position}`;
+     `POST /api/track-verdicts` requires the tune and allows an empty position; Triage marks the
+     playing track's tune, which shows on every track of the release with it. The identity
+     conflict and its `409` are gone. A backup mark without a tune is restored on the track at its
+     position.

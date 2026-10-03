@@ -342,9 +342,14 @@ export class TwelvesShelf {
   /** Saves the note on a marked track, keeping its mark. */
   saveTrackNote(track: MarkedTrack, notes: string | null): void {
     this.enqueueTask(async () => {
-      const { releaseId, position, mark } = track.mark;
+      const { releaseId, position, mark, heardKey } = track.mark;
+      const tune = {
+        heardKey,
+        artistDisplay: track.track?.artistDisplay ?? "",
+        title: track.track?.title ?? "",
+      };
       try {
-        await this.#client.postTrackVerdict({ releaseId, position, mark, notes });
+        await this.#client.postTrackVerdict({ releaseId, position, tune, mark, notes });
       } catch (error) {
         this.showFlash(`Not saved: ${errorMessage(error)}`);
         return;

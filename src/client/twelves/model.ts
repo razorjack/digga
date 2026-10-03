@@ -113,7 +113,7 @@ export function turnedPageStart(
   return target * size;
 }
 
-export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${track.mark.position}`;
+export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${track.mark.heardKey}`;
 
 /** The verdicts a re-judgement in Twelves can write. */
 export type JudgedStatus = "accepted" | "maybe" | "candidate" | "rejected" | "snoozed" | "no_audio";

@@ -33,7 +33,7 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
     ...track,
     heard: heard.has(track.heardKey),
     hasVideo: videoPositions.has(track.position),
-    mark: markForTrack(track, marks, tracks)?.mark ?? null,
+    mark: markForTrack(track, marks)?.mark ?? null,
   }));
   return {
     release,

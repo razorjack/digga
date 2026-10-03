@@ -39,7 +39,7 @@ function marked(id: number, position: string, mark: TrackMark, decidedAt: string
       mark,
       notes: null,
       decidedAt,
-      heardKey: null,
+      heardKey: `artist ${id} - tune ${position}`,
       videoId: null,
       atSeconds: null,
     },

@@ -8,7 +8,7 @@ import type { HiddenLabel } from "../../shared/config.ts";
 import type { SessionResolution, SessionState } from "../../shared/digging-session.ts";
 import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
 import type { QueueScope } from "../../shared/scope.ts";
-import { markForTrack, tuneSnapshot } from "../../shared/track-identity.ts";
+import { tuneSnapshot } from "../../shared/track-identity.ts";
 import type { ReleaseSnapshot, TrackMark, TrackVerdict, Verdict } from "../../shared/types.ts";
 import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
@@ -607,48 +607,45 @@ export class TriageSession {
   }
 
   /**
-   * Toggles a mark on a track; the same mark again clears it. The moment is the video playing and
-   * the second it had reached, saved with the mark.
+   * Toggles a mark on the playing track's tune; the same mark again clears it. The moment is the
+   * video playing and the second it had reached, saved with the mark.
    */
   markTrack(
     releaseId: number,
-    position: string,
+    playing: { position: string; heardKey: string },
     mark: TrackMark,
     moment: { videoId: string; atSeconds: number },
   ): void {
     const detail = this.details.get(releaseId);
-    const track = detail?.tracks.find((candidate) => candidate.position === position);
+    const track = detail?.tracks.find((candidate) => candidate.heardKey === playing.heardKey);
     if (!detail || !track) return;
 
-    // A saved mark keeps the position it was saved at, also when its tune has moved since.
-    const savedMark = markForTrack(track, detail.trackVerdicts, detail.tracks);
     const next = track.mark === mark ? null : mark;
     const input: TrackVerdictInput = {
       releaseId,
-      position: savedMark?.position ?? position,
-      mark: next,
+      position: playing.position,
       tune: tuneSnapshot(track),
+      mark: next,
       ...moment,
     };
 
-    const key = `${releaseId}:${position}`;
+    const key = `${releaseId}\n${track.heardKey}`;
     const state = this.#trackWrites.get(key) ?? { saved: track.mark, version: 0 };
     const version = ++state.version;
     this.#trackWrites.set(key, state);
-    this.#setTrackMark(releaseId, position, next);
+    this.#setTrackMark(releaseId, track.heardKey, next);
 
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
-    void this.#write(() =>
-      this.#saveTrackMark(input, client, { key, shownPosition: position, version, generation }),
-    );
+    void this.#write(() => this.#saveTrackMark(input, client, { key, version, generation }));
   }
 
-  #setTrackMark(releaseId: number, position: string, mark: TrackMark | null): void {
+  /** Shows the mark on every track of the release with the tune. */
+  #setTrackMark(releaseId: number, heardKey: string, mark: TrackMark | null): void {
     const detail = this.details.get(releaseId);
     if (!detail) return;
     const tracks = detail.tracks.map((track) =>
-      track.position === position ? { ...track, mark } : track,
+      track.heardKey === heardKey ? { ...track, mark } : track,
     );
     this.details = new Map(this.details).set(releaseId, { ...detail, tracks });
   }
@@ -656,30 +653,30 @@ export class TriageSession {
   async #saveTrackMark(
     input: TrackVerdictInput,
     client: Api,
-    operation: { key: string; shownPosition: string; version: number; generation: number },
+    operation: { key: string; version: number; generation: number },
   ): Promise<void> {
+    const { releaseId, tune } = input;
     try {
       const saved = await client.postTrackVerdict(input);
       if (operation.generation !== this.#apiGeneration) return;
       const state = this.#trackWrites.get(operation.key);
       if (state) state.saved = input.mark;
-      this.#replaceTrackVerdict(input.releaseId, input.position, saved);
+      this.#replaceTrackVerdict(releaseId, tune.heardKey, saved);
     } catch (error) {
       if (operation.generation !== this.#apiGeneration) return;
       const state = this.#trackWrites.get(operation.key);
       // Later queued marks own their optimistic value until their own write settles.
-      if (state?.version === operation.version) {
-        this.#setTrackMark(input.releaseId, operation.shownPosition, state.saved);
-      }
+      if (state?.version === operation.version)
+        this.#setTrackMark(releaseId, tune.heardKey, state.saved);
       this.#flash(`The track mark was not saved: ${errorMessage(error)}`);
     }
   }
 
-  /** Keeps the detail's saved marks in step with the server, which matches marks to tracks. */
-  #replaceTrackVerdict(releaseId: number, position: string, saved: TrackVerdict | null): void {
+  /** Keeps the detail's saved marks in step with the server. */
+  #replaceTrackVerdict(releaseId: number, heardKey: string, saved: TrackVerdict | null): void {
     const detail = this.details.get(releaseId);
     if (!detail) return;
-    const trackVerdicts = detail.trackVerdicts.filter((mark) => mark.position !== position);
+    const trackVerdicts = detail.trackVerdicts.filter((mark) => mark.heardKey !== heardKey);
     if (saved) trackVerdicts.push(saved);
     this.details = new Map(this.details).set(releaseId, { ...detail, trackVerdicts });
   }

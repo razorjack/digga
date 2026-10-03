@@ -1,5 +1,11 @@
 import { expect, type Page } from "@playwright/test";
-import type { ListenLogInput, TrackVerdictInput, VerdictInput } from "../../../src/shared/api.ts";
+import type {
+  ListenLogInput,
+  ReleaseDetail,
+  TrackVerdictInput,
+  VerdictInput,
+} from "../../../src/shared/api.ts";
+import { tuneSnapshot } from "../../../src/shared/track-identity.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import type { ExpectedProblems } from "./browser-log.ts";
 import type { AbortedRequests, RequestMatch } from "./fault-routes.ts";
@@ -128,9 +134,13 @@ export class Given {
     for (const input of inputs) await this.verdict(input);
   }
 
-  /** A track mark as Triage saves one. */
-  async trackMark(input: TrackVerdictInput): Promise<void> {
-    await this.#api().send("POST", "/api/track-verdicts", input);
+  /** A track mark as Triage saves one, on the tune the release lists at the position. */
+  async trackMark(input: Omit<TrackVerdictInput, "tune">): Promise<void> {
+    const release = await this.#api().get<ReleaseDetail>(`/api/releases/${input.releaseId}`);
+    const track = release.tracks.find((candidate) => candidate.position === input.position);
+    if (!track) throw new Error(`release ${input.releaseId} lists no track at ${input.position}`);
+    const tune = tuneSnapshot(track);
+    await this.#api().send("POST", "/api/track-verdicts", { ...input, tune });
   }
 
   /** Reads a seller's shop through the job Settings' "Read shop" starts; returns once it is done. */

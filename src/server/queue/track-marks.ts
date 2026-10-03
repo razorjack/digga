@@ -11,7 +11,7 @@ interface MarkedTrackRow {
   mark: TrackMark;
   notes: string | null;
   decided_at: string;
-  heard_key: string | null;
+  heard_key: string;
   video_id: string | null;
   at_seconds: number | null;
   track_artist: string | null;
@@ -21,8 +21,8 @@ interface MarkedTrackRow {
 }
 
 /**
- * Every marked track, newest mark first, with its release and the record's verdict. A position
- * the release no longer lists shows the tune saved with the mark.
+ * Every marked track, newest mark first, with its release and the record's verdict. A tune the
+ * release no longer lists shows as saved with the mark.
  */
 export function listMarkedTracks(db: Db): MarkedTrack[] {
   const held = heldRecords(db);
@@ -34,9 +34,9 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
          COALESCE(tv.title, t.title) AS track_title, t.duration_seconds, t.seq IS NULL AS tracklist_changed
        FROM track_verdicts tv
        LEFT JOIN tracks t ON t.release_id = tv.release_id AND t.seq = (
-         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position
-           AND (tv.heard_key IS NULL OR s.heard_key = tv.heard_key))
-       ORDER BY tv.decided_at DESC, tv.release_id, tv.position`,
+         SELECT s.seq FROM tracks s WHERE s.release_id = tv.release_id AND s.heard_key = tv.heard_key
+         ORDER BY s.position = tv.position DESC, s.seq LIMIT 1)
+       ORDER BY tv.decided_at DESC, tv.release_id, tv.heard_key`,
     )
     .all() as MarkedTrackRow[];
   return rows.map((row) => {

@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { applyMigrations, type Db, listMigrations, openDb } from "../src/server/db/db.ts";
 import { deleteVerdict, setTrackVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
-import { fixtureDb } from "./helpers.ts";
+import { fixtureDb, tuneAt } from "./helpers.ts";
 
 const opened: Db[] = [];
 afterEach(() => {
@@ -98,7 +98,7 @@ describe("the decision log", () => {
 
   it("logs every change to a track mark, its note and its clearing", async () => {
     const db = await library();
-    const track = { releaseId: 1001, position: "B1" };
+    const track = { releaseId: 1001, position: "B1", tune: tuneAt(db, 1001, "B1") };
     setTrackVerdict(db, { ...track, mark: "keep", videoId: "aaaaaaaaaa1", atSeconds: 61.5 });
     setTrackVerdict(db, { ...track, mark: "candidate", videoId: "aaaaaaaaaa1", atSeconds: 90 });
     setTrackVerdict(db, { ...track, mark: "candidate", notes: "the vocal" });

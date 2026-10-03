@@ -8,14 +8,13 @@ import {
   type MarkedTrack,
   type QueueItem,
   type ReleaseDetail,
-  type TrackVerdictInput,
   type TuneSnapshot,
   type TwelvesItem,
 } from "../shared/api.ts";
 import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type ScopeRef, scopeKey } from "../shared/scope.ts";
-import { assertTrackIdentity, markForTrack } from "../shared/track-identity.ts";
+import { markForTrack, trackForMark } from "../shared/track-identity.ts";
 import type {
   Job,
   RecordMembership,
@@ -42,14 +41,9 @@ interface LocalVerdict {
 
 const MAX_QUEUE_LIMIT = 5000;
 
-const markKey = (releaseId: number, position: string) => `${releaseId}\n${position}`;
+const markKey = (releaseId: number, heardKey: string) => `${releaseId}\n${heardKey}`;
 
 /** The track still at the mark's position with the mark's tune, as the server's list matches it. */
-function isMarkedTrack(track: TuneSnapshot & { position: string }, mark: TrackVerdict): boolean {
-  if (track.position !== mark.position) return false;
-  return !mark.heardKey || track.heardKey === mark.heardKey;
-}
-
 function queueItemFromDetail(detail: ReleaseDetail, videoCount: number): QueueItem {
   const release = detail.release;
   return {
@@ -153,13 +147,13 @@ class SandboxApi implements Api {
 
   #overlayDetail = (detail: ReleaseDetail): ReleaseDetail => {
     const trackVerdicts = new Map(
-      detail.trackVerdicts.map((trackVerdict) => [trackVerdict.position, trackVerdict]),
+      detail.trackVerdicts.map((trackVerdict) => [trackVerdict.heardKey, trackVerdict]),
     );
     for (const [key, trackVerdict] of this.#marks) {
-      const [releaseId, position] = key.split("\n") as [string, string];
+      const [releaseId, heardKey] = key.split("\n") as [string, string];
       if (Number(releaseId) !== detail.release.id) continue;
-      if (trackVerdict) trackVerdicts.set(position, trackVerdict);
-      else trackVerdicts.delete(position);
+      if (trackVerdict) trackVerdicts.set(heardKey, trackVerdict);
+      else trackVerdicts.delete(heardKey);
     }
     const marks = [...trackVerdicts.values()];
     const releaseId = detail.release.id;
@@ -169,7 +163,7 @@ class SandboxApi implements Api {
       tracks: detail.tracks.map((track) => ({
         ...track,
         heard: track.heard || this.#heard.has(track.heardKey),
-        mark: markForTrack(track, marks, detail.tracks)?.mark ?? null,
+        mark: markForTrack(track, marks)?.mark ?? null,
       })),
       trackVerdicts: marks,
       verdict: this.#verdicts.get(detail.release.triageKey)?.verdict ?? detail.verdict,
@@ -413,45 +407,36 @@ class SandboxApi implements Api {
 
   postTrackVerdict: Api["postTrackVerdict"] = async (input) => {
     const trackVerdict = TrackVerdictInputSchema.parse(input);
-    const key = markKey(trackVerdict.releaseId, trackVerdict.position);
-    const previous = this.#savedMark(trackVerdict.releaseId, trackVerdict.position);
-    assertTrackIdentity(previous, trackVerdict.tune?.heardKey);
+    const { releaseId, tune } = trackVerdict;
+    const key = markKey(releaseId, tune.heardKey);
+    const previous = this.#savedMark(releaseId, tune.heardKey);
     if (trackVerdict.mark === null) {
       this.#marks.set(key, null);
       return null;
     }
 
-    // As on the server, a mark keeps the tune it was first saved with.
-    const tune = this.#trackTune(trackVerdict);
-    if (tune && !previous) this.#markTunes.set(key, tune);
+    // As on the server, a mark keeps the artist and title it was first saved with.
+    if (!previous) this.#markTunes.set(key, tune);
     // Omitted notes and moment stay; an unchanged mark keeps its date.
     const mark: TrackVerdict = {
-      releaseId: trackVerdict.releaseId,
+      releaseId,
       position: trackVerdict.position,
       mark: trackVerdict.mark,
       notes: trackVerdict.notes === undefined ? (previous?.notes ?? null) : trackVerdict.notes,
       decidedAt:
         previous?.mark === trackVerdict.mark ? previous.decidedAt : this.#now().toISOString(),
-      heardKey: previous?.heardKey ?? tune?.heardKey ?? null,
+      heardKey: tune.heardKey,
       ...markMoment(trackVerdict, previous),
     };
     this.#marks.set(key, mark);
     return { ...mark };
   };
 
-  /** The tune the input names, else the one the tracklist has at the position. */
-  #trackTune(input: TrackVerdictInput): TuneSnapshot | undefined {
-    return (
-      input.tune ??
-      this.#details.get(input.releaseId)?.tracks.find((track) => track.position === input.position)
-    );
-  }
-
-  #savedMark(releaseId: number, position: string): TrackVerdict | null {
-    const local = this.#marks.get(markKey(releaseId, position));
+  #savedMark(releaseId: number, heardKey: string): TrackVerdict | null {
+    const local = this.#marks.get(markKey(releaseId, heardKey));
     if (local !== undefined) return local;
     const saved = this.#details.get(releaseId)?.trackVerdicts;
-    return saved?.find((trackVerdict) => trackVerdict.position === position) ?? null;
+    return saved?.find((trackVerdict) => trackVerdict.heardKey === heardKey) ?? null;
   }
 
   getTrackMarks: Api["getTrackMarks"] = async () => {
@@ -459,7 +444,7 @@ class SandboxApi implements Api {
     const items: MarkedTrack[] = [];
     for (const item of response.items) {
       if (item.release && item.onWantlist) this.#serverWantlist.add(item.release.triageKey);
-      if (this.#marks.has(markKey(item.mark.releaseId, item.mark.position))) continue;
+      if (this.#marks.has(markKey(item.mark.releaseId, item.mark.heardKey))) continue;
       items.push({
         ...item,
         onWantlist: this.#isOnWantlist(item.release, item.onWantlist ?? false),
@@ -473,8 +458,8 @@ class SandboxApi implements Api {
 
   #markedTrack(mark: TrackVerdict): MarkedTrack {
     const detail = this.#details.get(mark.releaseId);
-    const track = detail?.tracks.find((candidate) => isMarkedTrack(candidate, mark));
-    const tune = this.#markTunes.get(markKey(mark.releaseId, mark.position)) ?? track;
+    const track = detail ? trackForMark(mark, detail.tracks) : null;
+    const tune = this.#markTunes.get(markKey(mark.releaseId, mark.heardKey)) ?? track;
     const release = detail
       ? queueItemFromDetail(detail, detail.videos.length)
       : (this.#releases.get(mark.releaseId) ?? null);

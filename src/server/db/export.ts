@@ -28,7 +28,7 @@ interface TrackMarkExportRow extends ReleaseColumns {
   decided_at: string;
   track_artist: string | null;
   track_title: string | null;
-  heard_key: string | null;
+  heard_key: string;
   video_id: string | null;
   at_seconds: number | null;
 }
@@ -64,7 +64,7 @@ export function listVerdictExports(db: Db): VerdictExport[] {
 
 /**
  * Every track mark, oldest first, with its track and release; the tune saved with the mark when
- * the release no longer lists the position.
+ * the release no longer lists it.
  */
 export function listTrackMarkExports(db: Db): TrackMarkExport[] {
   const rows = db
@@ -76,9 +76,9 @@ export function listTrackMarkExports(db: Db): TrackMarkExport[] {
        FROM track_verdicts tv
        LEFT JOIN releases r ON r.id = tv.release_id
        LEFT JOIN tracks t ON t.release_id = tv.release_id AND t.seq = (
-         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position
-           AND (tv.heard_key IS NULL OR s.heard_key = tv.heard_key))
-       ORDER BY tv.decided_at, tv.release_id, tv.position`,
+         SELECT s.seq FROM tracks s WHERE s.release_id = tv.release_id AND s.heard_key = tv.heard_key
+         ORDER BY s.position = tv.position DESC, s.seq LIMIT 1)
+       ORDER BY tv.decided_at, tv.release_id, tv.heard_key`,
     )
     .all() as TrackMarkExportRow[];
   return rows.map((row) => ({

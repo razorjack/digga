@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { getMeta } from "../src/server/db/db.ts";
 import { remapTuneKeys, rekeyTunes } from "../src/server/db/tune-keys.ts";
 import { logListen, setTrackVerdict } from "../src/server/db/verdicts.ts";
-import { fixtureDb } from "./helpers.ts";
+import { fixtureDb, tuneAt } from "./helpers.ts";
 
 const heardKeys = (db: Awaited<ReturnType<typeof fixtureDb>>) =>
   db.prepare("SELECT heard_key FROM heard_tracks ORDER BY heard_key").pluck().all();
@@ -16,13 +16,23 @@ describe("tune keys", () => {
   it("rekeys a library keyed by older rules once, and listens and marks follow their tracks", async () => {
     const db = await fixtureDb();
     logListen(db, { releaseId: 1006, position: "A", videoId: "dddddddddd1", seconds: 12 });
-    setTrackVerdict(db, { releaseId: 1001, position: "B1", mark: "keep" });
-    setTrackVerdict(db, { releaseId: 1001, position: "A1", mark: "meh" });
+    setTrackVerdict(db, {
+      releaseId: 1001,
+      position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
+      mark: "keep",
+    });
+    setTrackVerdict(db, {
+      releaseId: 1001,
+      position: "A1",
+      tune: tuneAt(db, 1001, "A1"),
+      mark: "meh",
+    });
     // As the older rules keyed them: by the credited name, without the (n) suffix.
     db.exec(`UPDATE tracks SET heard_key = 'old ' || heard_key;
       UPDATE listen_log SET heard_key = 'konflikt - messiah';
       UPDATE heard_tracks SET heard_key = 'konflikt - messiah';
-      UPDATE track_verdicts SET heard_key = 'old key';
+      UPDATE track_verdicts SET heard_key = 'old ' || heard_key;
       UPDATE track_verdicts SET title = 'Another tune' WHERE position = 'A1';
       DELETE FROM meta WHERE key = 'tune_key_version'`);
     const markLog = () => db.prepare("SELECT COUNT(*) FROM track_mark_log").pluck().get();
@@ -38,7 +48,7 @@ describe("tune keys", () => {
     expect(
       db.prepare("SELECT position, heard_key FROM track_verdicts ORDER BY position").all(),
     ).toEqual([
-      { position: "A1", heard_key: "old key" },
+      { position: "A1", heard_key: "old ed rush 2 and optical - wormhole" },
       { position: "B1", heard_key: "ed rush 2 and optical - watermelon" },
     ]);
     expect(markLog()).toBe(logged);

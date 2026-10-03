@@ -9,7 +9,6 @@ import {
   TrackVerdictInputSchema,
   VerdictInputSchema,
 } from "../../shared/api.ts";
-import { TrackIdentityConflict } from "../../shared/track-identity.ts";
 import { saveReleaseNote } from "../db/notes.ts";
 import { getRelease } from "../db/releases.ts";
 import {
@@ -74,12 +73,7 @@ async function saveTrackMark(request: Context, context: AppContext) {
   if (refused) return refused;
   const body = await parseJson(request, TrackVerdictInputSchema);
   if (!body.ok) return body.response;
-  try {
-    return request.json(setTrackVerdict(db, body.data));
-  } catch (error) {
-    if (!(error instanceof TrackIdentityConflict)) throw error;
-    return request.json({ error: error.message }, 409);
-  }
+  return request.json(setTrackVerdict(db, body.data));
 }
 
 async function listen(request: Context, context: AppContext) {

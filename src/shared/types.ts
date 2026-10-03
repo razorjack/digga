@@ -154,14 +154,15 @@ export interface RecordMembership {
   wantRemoved: boolean;
 }
 
+/** A mark on a tune of a release; the release and the tune identify it. */
 export interface TrackVerdict {
   releaseId: number;
+  /** Where the tune was when it was last marked; empty when the tracklist gives no position. */
   position: string;
   mark: TrackMark;
   notes: string | null;
   decidedAt: string;
-  /** The tune, kept with the mark when a later dump renames the position. */
-  heardKey: string | null;
+  heardKey: string;
   /** The video playing when the mark was set, and the second it had reached. */
   videoId: string | null;
   atSeconds: number | null;

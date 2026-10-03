@@ -9,7 +9,7 @@ import { applySeedVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets, tuneAt } from "./helpers.ts";
 
 /** The digging writes: the sandbox must never send these to the server. */
 const WRITES = [
@@ -183,6 +183,7 @@ describe("sandbox api", () => {
     await sandbox.postTrackVerdict({
       releaseId: 1001,
       position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
       mark: "keep",
       notes: "drop",
       videoId: "aaaaaaaaaa1",
@@ -191,7 +192,12 @@ describe("sandbox api", () => {
     const marked = await sandbox.getRelease(1001);
     expect(marked.tracks[2]!.mark).toBe("keep");
     expect(marked.trackVerdicts.map((t) => t.position)).toEqual(["B1"]);
-    await sandbox.postTrackVerdict({ releaseId: 1001, position: "B1", mark: "candidate" });
+    await sandbox.postTrackVerdict({
+      releaseId: 1001,
+      position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
+      mark: "candidate",
+    });
     const listed = await sandbox.getTrackMarks();
     expect(listed.items).toEqual([
       expect.objectContaining({
@@ -207,7 +213,12 @@ describe("sandbox api", () => {
         release: expect.objectContaining({ id: 1001 }),
       }),
     ]);
-    await sandbox.postTrackVerdict({ releaseId: 1001, position: "B1", mark: null });
+    await sandbox.postTrackVerdict({
+      releaseId: 1001,
+      position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
+      mark: null,
+    });
     expect((await sandbox.getRelease(1001)).tracks[2]!.mark).toBeNull();
     expect((await sandbox.getTrackMarks()).items).toEqual([]);
     expect(tableCounts()).toMatchObject({ listen_log: 0, heard_tracks: 0, track_verdicts: 0 });

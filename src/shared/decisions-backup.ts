@@ -49,9 +49,10 @@ const BackupMembershipSchema = z.object({
 });
 
 /** Backups written before Digga saved a mark's tune and moment read those as null. */
+/** A mark from before marks kept their tune has no `heardKey`; restore finds it by position. */
 const BackupTrackMarkSchema = z.object({
   releaseId: id,
-  position: z.string().min(1),
+  position: z.string(),
   mark: z.enum(TRACK_MARKS),
   notes: z.string().nullable(),
   decidedAt: timestamp,

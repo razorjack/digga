@@ -124,14 +124,14 @@ function readMemberships(db: Db): BackedUpData["memberships"] {
 
 function readTrackMarks(db: Db): BackedUpData["trackMarks"] {
   const rows = db
-    .prepare("SELECT * FROM track_verdicts ORDER BY decided_at, release_id, position")
+    .prepare("SELECT * FROM track_verdicts ORDER BY decided_at, release_id, heard_key")
     .all() as {
     release_id: number;
     position: string;
     mark: TrackMark;
     notes: string | null;
     decided_at: string;
-    heard_key: string | null;
+    heard_key: string;
     artist_display: string | null;
     title: string | null;
     video_id: string | null;
@@ -327,21 +327,22 @@ function restoreTrackMarks(
   backupTime: number,
 ): RestoreOutcome["trackMarks"] {
   const current = db.prepare(
-    "SELECT decided_at FROM track_verdicts WHERE release_id = ? AND position = ?",
+    "SELECT decided_at FROM track_verdicts WHERE release_id = ? AND heard_key = ?",
   );
   const save = db.prepare(
-    `INSERT INTO track_verdicts (release_id, position, mark, notes, decided_at,
-       heard_key, artist_display, title, video_id, at_seconds)
-     VALUES (@releaseId, @position, @mark, @notes, @decidedAt,
-       @heardKey, @artistDisplay, @title, @videoId, @atSeconds)
-     ON CONFLICT(release_id, position) DO UPDATE SET mark = excluded.mark, notes = excluded.notes,
-       decided_at = excluded.decided_at, heard_key = excluded.heard_key,
+    `INSERT INTO track_verdicts (release_id, heard_key, position, mark, notes, decided_at,
+       artist_display, title, video_id, at_seconds)
+     VALUES (@releaseId, @heardKey, @position, @mark, @notes, @decidedAt,
+       @artistDisplay, @title, @videoId, @atSeconds)
+     ON CONFLICT(release_id, heard_key) DO UPDATE SET position = excluded.position,
+       mark = excluded.mark, notes = excluded.notes, decided_at = excluded.decided_at,
        artist_display = excluded.artist_display, title = excluded.title,
        video_id = excluded.video_id, at_seconds = excluded.at_seconds`,
   );
   const outcome = { restored: 0, keptNewer: 0 };
-  for (const mark of marks) {
-    const row = current.get(mark.releaseId, mark.position) as { decided_at: string } | undefined;
+  for (const backedUp of marks) {
+    const mark = { ...backedUp, heardKey: backedUp.heardKey ?? positionTune(db, backedUp) };
+    const row = current.get(mark.releaseId, mark.heardKey) as { decided_at: string } | undefined;
     if (row && Date.parse(row.decided_at) > backupTime) {
       outcome.keptNewer += 1;
       continue;
@@ -350,6 +351,18 @@ function restoreTrackMarks(
     outcome.restored += 1;
   }
   return outcome;
+}
+
+/**
+ * The tune of a mark saved before marks kept theirs: the track at its position, else the release
+ * and position, as migration 18 keyed such marks.
+ */
+function positionTune(db: Db, mark: { releaseId: number; position: string }): string {
+  const heardKey = db
+    .prepare("SELECT heard_key FROM tracks WHERE release_id = ? AND position = ? ORDER BY seq")
+    .pluck()
+    .get(mark.releaseId, mark.position) as string | undefined;
+  return heardKey ?? `r:${mark.releaseId} ${mark.position}`;
 }
 
 function addHeardTunes(db: Db, tunes: BackedUpData["heardTunes"]): void {

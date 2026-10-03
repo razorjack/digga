@@ -16,7 +16,7 @@ import {
   type TwelvesResponse,
 } from "../src/shared/api.ts";
 import type { Job, TrackVerdict, Verdict } from "../src/shared/types.ts";
-import { FIXTURE_GZ, fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
+import { FIXTURE_GZ, fixtureDb, silentLogger, testSecrets, tuneAt } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -208,23 +208,31 @@ describe("HTTP API", () => {
     const tv = await send<{ mark: string }>("POST", "/api/track-verdicts", {
       releaseId: 1001,
       position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
       mark: "keep",
     });
     expect(tv.body.mark).toBe("keep");
     const noted = await send<TrackVerdict>("POST", "/api/track-verdicts", {
       releaseId: 1001,
       position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
       mark: "keep",
       notes: "the drop at 3:10",
     });
     const remarked = await send<TrackVerdict>("POST", "/api/track-verdicts", {
       releaseId: 1001,
       position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
       mark: "candidate",
     });
     expect(remarked.body.notes).toBe("the drop at 3:10");
     expect(noted.body.decidedAt <= remarked.body.decidedAt).toBe(true);
-    await send("POST", "/api/track-verdicts", { releaseId: 1001, position: "B1", mark: "keep" });
+    await send("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
+      mark: "keep",
+    });
     const marks = await get<TrackMarksResponse>("/api/track-marks");
     expect(marks.body.items).toEqual([
       expect.objectContaining({
@@ -283,6 +291,7 @@ describe("HTTP API", () => {
     const marked = await send<TrackVerdict>("POST", "/api/track-verdicts", {
       releaseId: 1001,
       position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
       mark: "candidate",
       videoId: "aaaaaaaaaa1",
       atSeconds: 190.5,
@@ -296,6 +305,7 @@ describe("HTTP API", () => {
     const noted = await send<TrackVerdict>("POST", "/api/track-verdicts", {
       releaseId: 1001,
       position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
       mark: "candidate",
       notes: "the vocal",
     });
@@ -305,6 +315,7 @@ describe("HTTP API", () => {
         await send("POST", "/api/track-verdicts", {
           releaseId: 1001,
           position: "B1",
+          tune: tuneAt(db, 1001, "B1"),
           mark: "keep",
           videoId: "aaaaaaaaaa1",
         })
@@ -317,7 +328,8 @@ describe("HTTP API", () => {
     const marks = await get<TrackMarksResponse>("/api/track-marks");
     expect(marks.body.items[0]).toMatchObject({
       mark: { position: "B1", heardKey: "ed rush 2 and optical - watermelon", atSeconds: 190.5 },
-      track: { artistDisplay: "Ed Rush & Optical", title: "Watermelon", durationSeconds: null },
+      track: { artistDisplay: "Ed Rush & Optical", title: "Watermelon", durationSeconds: 421 },
+      tracklistChanged: false,
     });
   });
 

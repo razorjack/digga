@@ -245,7 +245,7 @@
       return;
     }
     const moment = { videoId: entry.video.videoId, atSeconds: Math.round(player.time * 10) / 10 };
-    session.markTrack(release.release.id, entry.track.position, mark, moment);
+    session.markTrack(release.release.id, entry.track, mark, moment);
   }
 
   /** Returns false when there is nothing to retry, so Enter keeps its usual meaning. */

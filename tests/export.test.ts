@@ -10,7 +10,7 @@ import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { BackupsResponse, DecisionsExport } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { toCsv } from "../src/shared/csv.ts";
-import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets, tuneAt } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -46,6 +46,7 @@ beforeEach(async () => {
   setTrackVerdict(db, {
     releaseId: 1001,
     position: "B1",
+    tune: tuneAt(db, 1001, "B1"),
     mark: "candidate",
     notes: "at 3:10",
     videoId: "aaaaaaaaaa1",

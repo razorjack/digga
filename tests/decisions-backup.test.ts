@@ -23,7 +23,7 @@ import {
 } from "../src/server/decisions-backup.ts";
 import { recordNoAudioVideos } from "../src/server/queue/no-audio.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { fixtureDb } from "./helpers.ts";
+import { fixtureDb, tuneAt } from "./helpers.ts";
 
 let dir: string;
 
@@ -58,6 +58,7 @@ async function libraryWithDecisions(): Promise<Db> {
   setTrackVerdict(db, {
     releaseId: 1001,
     position: "A1",
+    tune: tuneAt(db, 1001, "A1"),
     mark: "candidate",
     notes: "at 3:10",
     videoId: "aaaaaaaaaa1",
@@ -161,7 +162,12 @@ describe("the decisions backup", () => {
       source: "seed:history",
       releaseId: 1006,
     });
-    setTrackVerdict(target, { releaseId: 1001, position: "A1", mark: "keep" });
+    setTrackVerdict(target, {
+      releaseId: 1001,
+      position: "A1",
+      tune: tuneAt(target, 1001, "A1"),
+      mark: "keep",
+    });
 
     const outcome = restoreBackedUpData(target, backup, backup.backedUpAt);
 

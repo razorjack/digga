@@ -131,14 +131,15 @@ its key, and stops applying if Discogs retires that master.
 
 ## track_verdicts
 
-`(release_id, position)` PK, `mark` in `keep | meh | candidate`, `notes`, `decided_at`. A write
-without `notes` keeps the saved note, and `decided_at` changes only when the mark does.
-`GET /api/track-marks` lists them for the Twelves Tracks shelf.
+`(release_id, heard_key)` PK: a mark belongs to a tune of a release. `position` only says where
+the tune was when it was last marked, and may be empty or shared by several tracks. `mark` in
+`keep | meh | candidate`, `notes`, `decided_at`. A write without `notes` keeps the saved note, and
+`decided_at` changes only when the mark does. `GET /api/track-marks` lists them for the Twelves
+Tracks shelf, each with the track that has its tune, at its position when the tune is listed twice.
 
-Each mark also keeps its tune: `heard_key`, `artist_display` and `title`, copied from the track
-when the mark is written and kept when a later dump no longer lists the position. `video_id` and
-`at_seconds` are the video playing in Triage when the mark was set and the second it had reached;
-a write without them (a note from Twelves) keeps the saved ones.
+`artist_display` and `title` are the tune as it was first marked, kept when a later dump no longer
+lists it. `video_id` and `at_seconds` are the video playing in Triage when the mark was set and the
+second it had reached; a write without them (a note from Twelves) keeps the saved ones.
 
 ## verdict_log and track_mark_log
 
@@ -248,10 +249,9 @@ written on the record's other pressings, which the page labels with their catalo
 want Digga pushes to Discogs carries the pushed release's note. Portable backups include these
 rows.
 
-Track marks retain their original tune snapshot even when a catalogue refresh reuses the position.
-Triage follows a moved tune only when its heard key identifies one track unambiguously. Twelves
-flags changed tracklists and displays the saved name. A mark for a different tune at the saved
-position cannot overwrite it; this requires reviewing the old mark instead of automatic relabelling.
+A track mark follows its tune when a catalogue refresh renames the position. When the refresh puts
+another tune at the position, the old mark stays with its own tune, which Twelves flags as no
+longer on the tracklist with the saved name, and the new tune takes a mark of its own.
 
 `digging_sessions` stores lightweight session checkpoints: current release, passes, scope, random
 queue seed, replay round and underlying queue, and upload/second. The creation context includes

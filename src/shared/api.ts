@@ -176,7 +176,7 @@ export interface DeleteVerdictResponse {
 }
 
 export const TuneSnapshotSchema = z.object({
-  heardKey: z.string().max(4000),
+  heardKey: z.string().min(1).max(4000),
   artistDisplay: z.string().max(4000),
   title: z.string().max(4000),
 });
@@ -186,8 +186,9 @@ export type TuneSnapshot = z.infer<typeof TuneSnapshotSchema>;
 export const TrackVerdictInputSchema = z
   .object({
     releaseId: z.number().int().positive(),
-    position: z.string().min(1),
-    tune: TuneSnapshotSchema.optional(),
+    /** Where the tune is on the tracklist; it locates the tune, the tune identifies the mark. */
+    position: z.string().max(4000),
+    tune: TuneSnapshotSchema,
     mark: z.enum(TRACK_MARKS).nullable(),
     notes: z.string().max(4000).nullable().optional(),
     /** The video playing and the second it had reached; omitted, the saved ones stay. */
@@ -585,7 +586,7 @@ export interface TrackMarkExport extends ExportedRelease {
   decidedAt: string;
   trackArtist: string | null;
   trackTitle: string | null;
-  heardKey: string | null;
+  heardKey: string;
   videoId: string | null;
   atSeconds: number | null;
 }

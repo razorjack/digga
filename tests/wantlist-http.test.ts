@@ -10,7 +10,7 @@ import { createSecrets, type Secrets } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { ApiError, DiscogsAccountResponse, TwelvesResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
+import { fixtureDb, silentLogger, testSecrets, tuneAt } from "./helpers.ts";
 
 interface Call {
   method: string;
@@ -110,10 +110,16 @@ describe("Discogs wantlist over HTTP", () => {
   it("sends the grail and keep tracks and the release's note with a want", async () => {
     await send("POST", "/api/verdicts", { key: "m:501", status: "accepted", releaseId: 1001 });
     await send("PUT", "/api/releases/1001/note", { notes: "from the Kool FM tape" });
-    await send("POST", "/api/track-verdicts", { releaseId: 1001, position: "B1", mark: "keep" });
+    await send("POST", "/api/track-verdicts", {
+      releaseId: 1001,
+      position: "B1",
+      tune: tuneAt(db, 1001, "B1"),
+      mark: "keep",
+    });
     await send("POST", "/api/track-verdicts", {
       releaseId: 1001,
       position: "A2",
+      tune: tuneAt(db, 1001, "A2"),
       mark: "candidate",
     });
     await send("POST", "/api/discogs/wantlist/1001", {});
