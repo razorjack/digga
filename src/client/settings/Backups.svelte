@@ -8,25 +8,13 @@
   const id = $props.id();
   let backups = $state<BackupsResponse | null>(null);
   let error = $state<string | null>(null);
-
   let saving = $state(false);
+  /** How the last "Back up now" went. */
   let message = $state<string | null>(null);
-
-  async function backupNow(): Promise<void> {
-    saving = true;
-    message = null;
-    try {
-      backups = await api.backupNow();
-      message = "Backup saved.";
-    } catch (error) {
-      message = `Backup failed: ${errorMessage(error)}`;
-    } finally {
-      saving = false;
-    }
-  }
 
   const latest = $derived(backups?.backups[0] ?? null);
   const latestDecisions = $derived(backups?.decisions.backups[0] ?? null);
+  const latestCheckpoint = $derived(backups?.checkpoints.backups[0] ?? null);
 
   onMount(() => {
     api.getBackups().then(
@@ -34,11 +22,26 @@
       (failure: unknown) => (error = errorMessage(failure)),
     );
   });
+
+  async function backUpNow(): Promise<void> {
+    saving = true;
+    message = null;
+    try {
+      backups = await api.backupNow();
+      message = "Backup saved.";
+    } catch (failure) {
+      message = `Backup failed: ${errorMessage(failure)}`;
+    } finally {
+      saving = false;
+    }
+  }
 </script>
 
 <section class="data" aria-labelledby="{id}-title">
   <h2 id="{id}-title">Backups and exports</h2>
-  <div><button type="button" disabled={saving} aria-busy={saving} onclick={() => void backupNow()}>Back up now</button></div>
+  <div>
+    <button type="button" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>Back up now</button>
+  </div>
   <p role="status">{message ?? ""}</p>
   {#if error}
     <p>Backups did not load: {error}</p>
@@ -69,8 +72,8 @@
     <p>
       Every fifteen minutes and when the server stops cleanly, changed personal data gets a checkpoint.
       Digga keeps the last {backups.checkpoints.kept} in addition to the daily backups.
-      {#if backups.checkpoints.backups[0]}
-        Latest checkpoint: <code>{backups.checkpoints.backups[0].day}</code>.
+      {#if latestCheckpoint}
+        Latest checkpoint: <code>{latestCheckpoint.day}</code>.
       {/if}
       Schema upgrades first save a separate <code>before-migration</code> database copy.
       Use <code>restore &lt;file&gt; --config</code> to restore settings as well.
@@ -95,7 +98,10 @@
     color: var(--fg);
     font-weight: 600;
   }
-  button:disabled { opacity: 0.4; cursor: default; }
+  button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 
   .data {
     display: grid;
