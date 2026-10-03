@@ -330,3 +330,7 @@ Digga currently runs as a local server and browser app. Electron packaging is pl
 - [Design brief](docs/DESIGN_BRIEF.md) and [decisions](docs/DECISIONS.md)
 - [Roadmap](docs/ROADMAP.md) and [Electron plan](docs/ELECTRON_PLAN.md)
 - [Contributor guide](CLAUDE.md)
+
+## License
+
+MIT; see [LICENSE](LICENSE).
