@@ -352,10 +352,15 @@ test.describe("digging a run of tracks, with the clock", () => {
       const keptVideo = TRACK_RUN.videos[0]!;
       const mark = { releaseId: TRACK_RUN.id, position: kept!.position, videoId: keptVideo.id };
       const saved = await triage.markTrack("keep");
-      expect(saved).toEqual({ ...mark, mark: "keep", atSeconds: expect.any(Number) });
+      expect(saved).toMatchObject({
+        ...mark,
+        mark: "keep",
+        atSeconds: expect.any(Number),
+        tune: { title: kept!.title },
+      });
       expect(saved.atSeconds).toBeGreaterThanOrEqual(keptVideo.seconds / 2);
       await expect(triage.trackMark(kept!.position, "keep")).toBeVisible();
-      expect(await triage.markTrack("keep")).toEqual({
+      expect(await triage.markTrack("keep")).toMatchObject({
         ...mark,
         mark: null,
         atSeconds: expect.any(Number),

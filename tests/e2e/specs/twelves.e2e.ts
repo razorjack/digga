@@ -27,6 +27,7 @@ import {
   YOUTUBE_ONLY,
 } from "../fixtures/catalogue.ts";
 import { bulkVerdicts, datedVerdicts, decisionsBackup } from "../fixtures/decisions.ts";
+import { TriagePage } from "../pages/triage.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { judgeKey, TwelvesPage } from "../pages/twelves.ts";
@@ -316,11 +317,9 @@ test(
     await twelves.open();
     expect(await twelves.selectedKey()).toBe(triageKeyOf(EVENT_HORIZON));
 
-    await app.page.keyboard.press("Enter");
-    await expect(twelves.messages).toHaveText(
-      "Enter hears snoozed records again; pick one on the Snoozed shelf (7).",
-    );
-    expect(app.page.url()).toMatch(/#\/twelves$/);
+    await twelves.replaySelected(EVENT_HORIZON.id);
+    await new TriagePage(app).leaveRound();
+    await new HeaderPage(app).goTo("twelves");
 
     await twelves.showShelf("snoozed");
     await twelves.select(triageKeyOf(SECOND_RECORD));

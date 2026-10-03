@@ -105,7 +105,7 @@ fake gets `DELETE` after the `PUT`
 Priority: **P1**.
 
 Enter on a snoozed record starts a round in Triage from it, with the snoozed records after it on the
-shelf; on another record a flash explains
+shelf. Enter on a different record starts an ordinary replay round; Esc returns to the queue.
 
 ## TWL-13
 
@@ -189,3 +189,10 @@ Priority: **P1**.
 
 A keep mark on an accepted record stores an upload and second. Enter from Tracks opens that exact
 upload at that second. Esc restores the previous digging queue, with the accepted verdict unchanged.
+
+## TWL-23
+
+Priority: **P1**.
+
+A marked track belongs to the undecided release already on the triage desk. Open Tracks and replay
+it: the player switches from the first track to the saved upload and second, without a verdict.

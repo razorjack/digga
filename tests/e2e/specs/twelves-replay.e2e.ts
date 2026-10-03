@@ -40,3 +40,37 @@ test(
     ).toBe("accepted");
   },
 );
+
+test(
+  "TWL-23 replay seeks the saved track even when its release is already on the triage desk",
+  { tag: ["@TWL-23", "@P1"] },
+  async ({ app }) => {
+    const track = FIRST_RECORD.tracks[1]!;
+    const video = FIRST_RECORD.videos[1]!;
+    await app.given.trackMark({
+      releaseId: FIRST_RECORD.id,
+      position: track.position,
+      mark: "keep",
+      videoId: video.id,
+      atSeconds: 37,
+    });
+    const triage = new TriagePage(app);
+    const twelves = new TwelvesPage(app);
+    await app.open();
+    await expect(triage.record).toHaveAttribute("data-release-id", String(FIRST_RECORD.id));
+    await expect(triage.currentTrack).toHaveAttribute(
+      "data-position",
+      FIRST_RECORD.tracks[0]!.position,
+    );
+    await new HeaderPage(app).goTo("twelves");
+    await twelves.showShelf("tracks");
+    await twelves.replaySelected(FIRST_RECORD.id);
+    await expect(triage.currentTrack).toHaveAttribute("data-position", track.position);
+    await expect
+      .poll(() => app.youtube.loads())
+      .toContainEqual(expect.objectContaining({ videoId: video.id, startSeconds: 37 }));
+    expect(
+      (await app.api.get<ReleaseDetail>(`/api/releases/${FIRST_RECORD.id}`)).verdict,
+    ).toBeNull();
+  },
+);
