@@ -9,6 +9,7 @@ import type {
   VerdictStatus,
 } from "../../shared/types.ts";
 import { VERDICT_STATUSES } from "../../shared/types.ts";
+import { toUtcTimestamp } from "../../shared/timestamp.ts";
 import { dugAtAfter, seedRank } from "../../shared/verdict-rank.ts";
 import { type Db, nowIso } from "./db.ts";
 import { releaseNote } from "./notes.ts";
@@ -89,9 +90,12 @@ export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
   return out;
 }
 
-/** Unconditional write (triage and manual decisions). */
+/**
+ * Unconditional write (triage and manual decisions). Times are stored in UTC, whatever offset a
+ * seed's Discogs date or an undo brings.
+ */
 export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
-  const decidedAt = verdict.decidedAt ?? nowIso();
+  const decidedAt = toUtcTimestamp(verdict.decidedAt ?? nowIso());
   const dugAt = dugAtAfter({ ...verdict, decidedAt }, getVerdict(db, verdict.key));
   db.prepare(
     `INSERT INTO verdicts (key, status, source, notes, release_id, decided_at, dug_at)
@@ -105,7 +109,7 @@ export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
     notes: verdict.notes === undefined ? savedNoteOf(db, verdict.releaseId) : verdict.notes,
     release_id: verdict.releaseId ?? null,
     decided_at: decidedAt,
-    dug_at: dugAt,
+    dug_at: dugAt === null ? null : toUtcTimestamp(dugAt),
   });
   return getVerdict(db, verdict.key)!;
 }
@@ -126,7 +130,7 @@ export function applySeedVerdict(
     previous &&
     previous.status === verdict.status &&
     previous.source === verdict.source &&
-    previous.decidedAt === (verdict.decidedAt ?? previous.decidedAt)
+    previous.decidedAt === toUtcTimestamp(verdict.decidedAt ?? previous.decidedAt)
   ) {
     return { written: false, previous };
   }

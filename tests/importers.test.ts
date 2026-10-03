@@ -47,7 +47,7 @@ function fakeDiscogs(
 }
 
 describe("collection and wantlist importers", () => {
-  it("creates stubs for unknown releases, keeps dump rows, writes verdicts with date_added", async () => {
+  it("creates stubs for unknown releases, keeps dump rows, writes verdicts with date_added in UTC", async () => {
     const db = await fixtureDb();
     const pages: DiscogsCollectionPage[] = [
       {
@@ -104,7 +104,7 @@ describe("collection and wantlist importers", () => {
       status: "collection",
       source: "seed:collection",
       releaseId: 1001,
-      decidedAt: "2020-01-02T00:00:00-08:00",
+      decidedAt: "2020-01-02T08:00:00.000Z",
     });
     expect(getVerdict(db, "m:9500")!.status).toBe("collection");
     expect(getVerdict(db, "r:9002")!.status).toBe("collection");
@@ -116,6 +116,11 @@ describe("collection and wantlist importers", () => {
       date_added: "2020-01-02T00:00:00-08:00",
       rating: 4,
     });
+    const again = await importCollection(
+      { db, discogs: fakeDiscogs(pages, []), logger: silentLogger },
+      { username: "dj" },
+    );
+    expect(again.verdictsWritten).toBe(0);
     db.close();
   });
 

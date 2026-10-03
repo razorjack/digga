@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SessionRowSchema } from "./digging-session.ts";
 import { HISTORY_SCHEMAS } from "./history-backup.ts";
+import { toUtcTimestamp } from "./timestamp.ts";
 import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
 
 /**
@@ -12,7 +13,8 @@ import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
 export const DECISIONS_BACKUP_VERSION = 2;
 
 const id = z.number().int().positive();
-const timestamp = z.string().min(1);
+/** Backups written before Digga stored UTC throughout hold seed dates with Discogs' offset. */
+const timestamp = z.string().min(1).transform(toUtcTimestamp);
 
 /**
  * `dugAt` is absent from backups written before Digga kept it; restoring such a verdict dates it

@@ -153,4 +153,35 @@ describe("the decision log", () => {
       fs.rmSync(early, { recursive: true, force: true });
     }
   });
+
+  it("moves seed dates to UTC without logging the change as a decision", () => {
+    const early = fs.mkdtempSync(path.join(os.tmpdir(), "digga-migrations-"));
+    const db = openDb(":memory:", { foreign: true });
+    opened.push(db);
+    try {
+      for (const migration of listMigrations().filter((m) => m.version <= 14))
+        fs.copyFileSync(migration.file, path.join(early, migration.name));
+      applyMigrations(db, early);
+      db.prepare(
+        `INSERT INTO verdicts (key, status, source, release_id, decided_at, dug_at) VALUES
+           ('m:501', 'wantlist', 'seed:wantlist', 1001, '2026-09-22T14:48:52-07:00', NULL),
+           ('m:502', 'collection', 'seed:collection', 1002, '2020-01-02', NULL),
+           ('m:503', 'accepted', 'triage', 1003, '2026-09-28T10:00:00.000Z', '2026-09-28T10:00:00.000Z')`,
+      ).run();
+      const logged = verdictLog(db).length;
+      applyMigrations(db);
+
+      expect(db.prepare("SELECT key, decided_at FROM verdicts ORDER BY key").all()).toEqual([
+        { key: "m:501", decided_at: "2026-09-22T21:48:52.000Z" },
+        { key: "m:502", decided_at: "2020-01-02T00:00:00.000Z" },
+        { key: "m:503", decided_at: "2026-09-28T10:00:00.000Z" },
+      ]);
+      expect(
+        db.prepare("SELECT decided_at FROM verdict_log WHERE key = 'm:501'").pluck().all(),
+      ).toEqual(["2026-09-22T21:48:52.000Z"]);
+      expect(verdictLog(db)).toHaveLength(logged);
+    } finally {
+      fs.rmSync(early, { recursive: true, force: true });
+    }
+  });
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toUtcTimestamp } from "./timestamp.ts";
 import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
 
 const text = z.string().nullable();
@@ -37,7 +38,8 @@ export const HISTORY_SCHEMAS = {
     source: z.enum(VERDICT_SOURCES),
     notes: text,
     release_id: number,
-    decided_at: z.string(),
+    // Seed decisions logged before Digga stored UTC throughout kept Discogs' offset.
+    decided_at: z.string().transform(toUtcTimestamp),
   }),
   trackMarkLog: z.object({
     ...event,

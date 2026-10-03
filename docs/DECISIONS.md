@@ -779,3 +779,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      `127.0.0.1`), bodies must be JSON, and a body is at most 4 MB. There is no per-launch
      token: a process on the same computer can read the database file anyway, and requiring one
      would break curl and the CLI-style tools the owner uses.
+131. **Every stored timestamp is UTC.** The pre-release review (F13) found seed verdicts dated with
+     Discogs' `date_added` as sent, with the account's offset (`2026-09-22T14:48:52-07:00` in the
+     owner's library) or as a bare date in fixtures, beside Digga's own UTC times, while
+     `listVerdicts()`, the backup and the `decided_at` index order the column as text.
+     `upsertVerdict()` stores `decided_at` and `dug_at` in UTC whatever the caller passes, a
+     backup's times are converted as it is read, and migration 15 converts the stored verdicts and
+     their log without logging the change as a decision. `seed_items.date_added` keeps Discogs'
+     text, since that table is the raw import.

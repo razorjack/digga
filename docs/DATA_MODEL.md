@@ -1,5 +1,8 @@
 # Data model
 
+Every timestamp Digga stores is ISO 8601 in UTC with `Z` (`2026-09-22T21:48:52.000Z`), so SQL
+orders them as text; only `seed_items.date_added` keeps the text Discogs sent.
+
 SQLite, WAL mode, one file: `digga.sqlite` in the library folder (`paths.dbFile`). With
 `synchronous = NORMAL`, an OS crash or power cut can roll back the last writes but never corrupts
 the database. Migrations are numbered `.sql` files in
@@ -91,7 +94,7 @@ in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
 | `source`     | `seed:collection`, `seed:wantlist`, `seed:history`, `seed:list`, `triage`, `manual`                   |
 | `notes`      | nullable                                                                                              |
 | `release_id` | the release that was on screen or imported, nullable for master-only history hits                     |
-| `decided_at` | ISO; seeds use Discogs `date_added` or the last browser visit                                         |
+| `decided_at` | ISO in UTC; seeds use Discogs `date_added` (converted from its offset) or the last browser visit      |
 | `dug_at`     | when the record was last judged in Digga; a seed that replaces the verdict keeps it, null if never    |
 
 Seed precedence (`applySeedVerdict`, ranks in `src/shared/verdict-rank.ts`): collection (3) >
