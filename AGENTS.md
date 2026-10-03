@@ -272,6 +272,25 @@ function compareNullable(left: number | null, right: number | null, direction: 1
 }
 ```
 
+### Changing existing code
+
+Unreadable code here usually comes from edits, not new files: each change is the smallest one
+that works, and the structure around it is left as it was. When a change touches a file:
+
+- Put additions where they belong. Merge imports into the import block in its order. Put fields,
+  interface members and object keys next to related ones, with a doc comment when the name does
+  not say what they hold; never between another member and its doc comment.
+- Change a function's shape when its job changes. Change the signature and update the callers
+  instead of widening a parameter to a union or adding an optional positional one. Give a new
+  phase or rule a named step or table entry instead of another `||` clause or a `let` overridden
+  by an `if`.
+- Name what you are about to write a second time: an object literal, a condition, a pair of
+  statements.
+- Follow the idiom the neighbouring code uses: named route handlers, named SQL parameters
+  (`@release_id`) for more than a few values, options objects, helpers next to their callers.
+- Update the comments, docs and types the change makes untrue. Complete a test's input instead
+  of loosening a production type for it.
+
 ### Before finishing a change
 
 Read every changed function from top to bottom. Its names and control flow must explain the
