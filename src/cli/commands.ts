@@ -16,7 +16,7 @@ import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
 import { createServer } from "../server/server.ts";
 import { SHIPPED_CENSUS_FILE } from "../server/style-census.ts";
-import type { Config } from "../shared/config.ts";
+import { type Config, validateConfig } from "../shared/config.ts";
 import { formatStyleCensus } from "../shared/style-census.ts";
 import { countStyleCensus } from "../../tools/dump/census.ts";
 import { computeStats } from "../server/stats.ts";
@@ -179,7 +179,7 @@ export async function cmdBackup(runtime: Runtime): Promise<void> {
 export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void> {
   const { file, restoreConfig } = parseRestoreOptions(args, runtime.paths.backupsDir);
   const backup = readDecisionsBackup(file);
-  if (restoreConfig && !backup.config) throw new Error("This backup has no configuration.");
+  const config = restoreConfig ? backedUpConfig(backup.config) : null;
 
   const { copy, outcome } = await withDatabase(runtime, async (db) => {
     const copy = await writeBackup(db, {
@@ -188,9 +188,19 @@ export async function cmdRestore(runtime: Runtime, args: string[]): Promise<void
     });
     return { copy, outcome: restoreBackedUpData(db, backup, backup.backedUpAt) };
   });
-  if (restoreConfig && backup.config) replaceConfigFile(runtime.paths.configFile, backup.config);
+  if (config) replaceConfigFile(runtime.paths.configFile, config);
 
   showRestore({ file, backup, copy, outcome });
+}
+
+/** The settings a backup holds, for `--config`; throws when it has none this version can use. */
+function backedUpConfig(saved: unknown): Config {
+  if (saved === null) throw new Error("This backup has no configuration.");
+  const result = validateConfig(saved);
+  if (result.ok) return result.config;
+  throw new Error(
+    `This backup's configuration does not fit this version of Digga: ${result.errors.join("; ")}`,
+  );
 }
 
 /** Keeps the settings being replaced next to the file, as `digga.config.json.before-restore`. */

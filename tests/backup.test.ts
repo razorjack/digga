@@ -52,6 +52,18 @@ describe("database backups", () => {
     snapshot.close();
   });
 
+  it("refuses a library a newer Digga migrated, and leaves it as it is", () => {
+    const file = path.join(tmp, "newer.sqlite");
+    const newer = openDb(file);
+    newer.prepare("UPDATE meta SET value = '999' WHERE key = 'schema_version'").run();
+    newer.close();
+
+    expect(() => openDb(file)).toThrow("schema version 999, newer than this Digga knows");
+    const check = openDb(file, { readonly: true });
+    expect(getMeta(check, "schema_version")).toBe("999");
+    check.close();
+  });
+
   it("copies the database once per day, as a database that opens", async () => {
     const dir = path.join(tmp, "backups");
     const first = await backupDaily(db, { dir, day: "2026-09-28" });

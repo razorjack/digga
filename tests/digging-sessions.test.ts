@@ -80,3 +80,14 @@ it("resolves replay records separately from the undecided queue underneath them"
   expect(resolved.unavailable).toBe(0);
   db.close();
 });
+
+it("starts fresh when this version cannot resume the latest session", async () => {
+  const db = await fixtureDb();
+  saveSession(db, checkpoint, DEFAULT_CONFIG);
+  db.prepare("UPDATE digging_sessions SET config_json = ?").run(
+    JSON.stringify({ queue: { strategy: "removed-strategy" } }),
+  );
+
+  expect(latestSession(db)).toBeNull();
+  db.close();
+});

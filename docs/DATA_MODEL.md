@@ -2,6 +2,8 @@
 
 SQLite, WAL mode, one file: `digga.sqlite` in the library folder (`paths.dbFile`). Migrations are numbered `.sql` files in
 `src/server/db/migrations/` applied at startup; `meta.schema_version` records the last one applied.
+A library whose schema version is newer than the newest migration this Digga has is refused before
+anything is written, since a newer Digga migrated it.
 JSON columns hold arrays of small objects and are filtered with `json_each`; the universe is tens
 of thousands of rows, so no junction tables are needed.
 
@@ -219,6 +221,8 @@ position cannot overwrite it; this requires reviewing the old mark instead of au
 queue seed, replay round and underlying queue, and upload/second. The creation context includes
 configuration, dump date, and schema version; later checkpoints update only the cursor and timestamp.
 These rows are included in portable backups, and restore keeps a newer checkpoint already present.
+A session this version cannot parse (its settings from an older or newer Digga) is left out of a
+restore and not offered for resuming; it never blocks restoring the decisions.
 The client saves changed positions every five seconds and when leaving Triage or changing tab
 visibility. Sandbox sessions stay unsaved. This is best-effort persistence, with no durable client
 write queue; the undo stack does not survive a reload.

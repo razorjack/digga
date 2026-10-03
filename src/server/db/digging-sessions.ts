@@ -30,6 +30,7 @@ export function saveSession(db: Db, input: SessionInput, config: Config): void {
   db.prepare(INSERT_SESSION).run(row);
 }
 
+/** The newest saved session; null when there is none or this version cannot resume it. */
 export function latestSession(db: Db): SavedSession | null {
   const row = db
     .prepare("SELECT * FROM digging_sessions ORDER BY updated_at DESC, id DESC LIMIT 1")
@@ -48,13 +49,17 @@ export function readSessions(db: Db): SessionRow[] {
   );
 }
 
-/** Adds backed-up sessions; a session the library saved later keeps its own state. */
-export function restoreSessions(db: Db, rows: SessionRow[]): void {
+/**
+ * Adds backed-up sessions; a session the library saved later keeps its own state. Sessions this
+ * version cannot resume are left out, so they never block restoring the decisions.
+ */
+export function restoreSessions(db: Db, rows: SessionRow[]): { restored: number; leftOut: number } {
   const insert = db.prepare(`${INSERT_SESSION}
     WHERE excluded.updated_at > digging_sessions.updated_at`);
+  const outcome = { restored: 0, leftOut: 0 };
   for (const row of rows) {
-    // Parsing the JSON columns refuses a backup whose sessions this version cannot resume.
-    sessionFromRow(row);
-    insert.run(row);
+    if (sessionFromRow(row) === null) outcome.leftOut += 1;
+    else outcome.restored += insert.run(row).changes;
   }
+  return outcome;
 }

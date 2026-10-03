@@ -15,6 +15,7 @@ import {
 } from "../src/server/db/verdicts.ts";
 import {
   backupDecisionsDaily,
+  formatDecisionsBackup,
   listDecisionsBackups,
   readDecisionsBackup,
   writeDecisionsBackup,
@@ -93,6 +94,7 @@ describe("the decisions backup", () => {
       trackMarks: { restored: 1, keptNewer: 0 },
       heardTunes: { added: 1 },
       attachedVideos: { added: 1, withoutRelease: 0 },
+      sessions: { restored: 0, leftOut: 0 },
     });
     expect(readBackedUpData(target)).toEqual(readBackedUpData(source));
     source.close();
@@ -212,6 +214,44 @@ describe("the decisions backup", () => {
       '    {"key":"m:501","status":"candidate","source":"triage","notes":"the Kool FM tune","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z","dugAt":"2026-09-01T10:00:00.000Z"},',
     );
     db.close();
+  });
+
+  it("restores the decisions when this version cannot read the settings or a session", async () => {
+    const source = await libraryWithDecisions();
+    const backup = readDecisionsBackup((await writeDecisionsBackup(source, on("2026-09-10"))).file);
+    const file = path.join(dir, "older.json");
+    fs.writeFileSync(
+      file,
+      formatDecisionsBackup({
+        ...backup,
+        config: { queue: { strategy: "removed-strategy" } },
+        sessions: [
+          {
+            id: "bb8f7741-9dca-42c7-a252-100000000009",
+            started_at: "2026-09-09T10:00:00.000Z",
+            updated_at: "2026-09-09T11:00:00.000Z",
+            config_json: JSON.stringify({ queue: { strategy: "removed-strategy" } }),
+            dump_date: null,
+            schema_version: 14,
+            state_json: "{}",
+          },
+        ],
+      }),
+    );
+    const target = await fixtureDb();
+
+    const outcome = restoreBackedUpData(target, readDecisionsBackup(file), backup.backedUpAt);
+
+    expect(outcome.verdicts.restored).toBe(3);
+    expect(outcome.sessions).toEqual({ restored: 0, leftOut: 1 });
+    source.close();
+    target.close();
+  });
+
+  it("says when a newer Digga wrote the backup", () => {
+    const file = path.join(dir, "decisions-2030-01-01.json");
+    fs.writeFileSync(file, JSON.stringify({ app: "digga", kind: "decisions", version: 99 }));
+    expect(() => readDecisionsBackup(file)).toThrow("written by a newer Digga (backup format 99)");
   });
 
   it("refuses a file that is not a decisions backup", () => {

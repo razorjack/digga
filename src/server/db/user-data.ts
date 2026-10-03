@@ -14,6 +14,8 @@ export interface RestoreOutcome {
   trackMarks: { restored: number; keptNewer: number };
   heardTunes: { added: number };
   attachedVideos: { added: number; withoutRelease: number };
+  /** `leftOut`: saved sessions this version cannot resume. */
+  sessions: { restored: number; leftOut: number };
 }
 
 /**
@@ -53,8 +55,7 @@ export function restoreBackedUpData(
         attachedVideos: addAttachedVideos(db, data.attachedVideos),
       };
       restoreHistory(db, data);
-      restoreSessions(db, data.sessions);
-      return outcome;
+      return { ...outcome, sessions: restoreSessions(db, data.sessions) };
     }),
   )();
 }

@@ -748,3 +748,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      of the session stops the tries. After the last one the slip says the want is not on the
      wantlist, and the message now names the record, since by then the listener has moved on. The
      tries live in the tab: a reload during the waits leaves the want for Twelves to mark.
+128. **Every persistent format says what it cannot read.** The pre-release review (F06) found that
+     an older Digga opened a library a newer one had migrated and wrote to it, and that a backup
+     whose settings or sessions no longer passed the current schemas failed as a whole, before any
+     decision was read. The migration runner now refuses a schema version above its newest
+     migration, before anything is written. A backup from a newer Digga is refused with a message
+     that says so. A backup's settings are kept as written and validated only when
+     `digga restore --config` asks for them, and a session this version cannot resume is left out
+     of a restore and not offered by `GET /api/sessions/latest`. Settings have no format version:
+     a shape change parses the old shape with a `preprocess` shim, as the removed `popular` order
+     does.

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { ConfigSchema } from "./config.ts";
 import { SessionRowSchema } from "./digging-session.ts";
 import { HISTORY_SCHEMAS } from "./history-backup.ts";
 import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
@@ -80,7 +79,11 @@ export const DecisionsBackupSchema = z.object({
   trackMarkLog: z.array(HISTORY_SCHEMAS.trackMarkLog).default([]),
   sessions: z.array(SessionRowSchema).default([]),
   releaseNotes: z.array(HISTORY_SCHEMAS.releaseNotes).default([]),
-  config: ConfigSchema.nullable().default(null),
+  /**
+   * The settings as saved, validated only when `digga restore --config` asks for them, so a
+   * backup whose settings an older or newer Digga wrote still restores its decisions.
+   */
+  config: z.unknown().default(null),
 });
 
 export type DecisionsBackup = z.infer<typeof DecisionsBackupSchema>;

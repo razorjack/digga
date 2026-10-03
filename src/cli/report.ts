@@ -88,7 +88,7 @@ export function showRestore(restore: {
   copy: BackupFile;
   outcome: RestoreOutcome;
 }): void {
-  const { verdicts, trackMarks, heardTunes, attachedVideos } = restore.outcome;
+  const { verdicts, trackMarks, heardTunes, attachedVideos, sessions } = restore.outcome;
   const kept = (count: number) =>
     count > 0 ? `, ${count} kept: decided here after the backup` : "";
   const moved =
@@ -104,6 +104,9 @@ export function showRestore(restore: {
   console.log(
     `  attached videos: ${attachedVideos.added} added${leftOut > 0 ? `, ${leftOut} left out: load the dump with their releases, then restore again` : ""}`,
   );
+  const unresumable =
+    sessions.leftOut > 0 ? `, ${sessions.leftOut} left out: this version cannot resume them` : "";
+  console.log(`  sessions:        ${sessions.restored} restored${unresumable}`);
 }
 
 export function showStats(stats: Stats, filters: Filters): void {

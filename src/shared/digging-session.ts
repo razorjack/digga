@@ -72,15 +72,23 @@ export const SessionRowSchema = z.object({
 });
 export type SessionRow = z.infer<typeof SessionRowSchema>;
 
-/** Parses a row's JSON columns; throws when they do not hold a session. */
-export function sessionFromRow(row: SessionRow): SavedSession {
-  return SavedSessionSchema.parse({
-    id: row.id,
-    startedAt: row.started_at,
-    updatedAt: row.updated_at,
-    config: JSON.parse(row.config_json),
-    dumpDate: row.dump_date,
-    schemaVersion: row.schema_version,
-    state: JSON.parse(row.state_json),
-  });
+/**
+ * Parses a row's JSON columns; null when they do not hold a session this version can resume, as
+ * when an older Digga saved settings that the current schema no longer accepts.
+ */
+export function sessionFromRow(row: SessionRow): SavedSession | null {
+  try {
+    const session = SavedSessionSchema.safeParse({
+      id: row.id,
+      startedAt: row.started_at,
+      updatedAt: row.updated_at,
+      config: JSON.parse(row.config_json),
+      dumpDate: row.dump_date,
+      schemaVersion: row.schema_version,
+      state: JSON.parse(row.state_json),
+    });
+    return session.success ? session.data : null;
+  } catch {
+    return null;
+  }
 }

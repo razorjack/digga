@@ -92,7 +92,14 @@ export function listCheckpoints(dir: string): BackupFile[] {
 export function readDecisionsBackup(file: string): DecisionsBackup {
   const bytes = fs.readFileSync(file);
   const text = file.endsWith(".gz") ? zlib.gunzipSync(bytes).toString("utf8") : bytes.toString();
-  const result = DecisionsBackupSchema.safeParse(JSON.parse(text));
+  const parsed: unknown = JSON.parse(text);
+  const version = (parsed as { version?: unknown } | null)?.version;
+  if (typeof version === "number" && version > DECISIONS_BACKUP_VERSION)
+    throw new Error(
+      `${file} was written by a newer Digga (backup format ${version}); this version reads formats up to ${DECISIONS_BACKUP_VERSION}.`,
+    );
+
+  const result = DecisionsBackupSchema.safeParse(parsed);
   if (result.success) return result.data;
   const issue = result.error.issues[0];
   throw new Error(

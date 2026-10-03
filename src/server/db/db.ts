@@ -58,13 +58,23 @@ export function listMigrations(
     }));
 }
 
-/** Applies numbered .sql migrations that are newer than meta.schema_version. */
+/**
+ * Applies numbered .sql migrations that are newer than meta.schema_version. Refuses a library
+ * that a newer Digga migrated, since this version would write rows that one does not expect.
+ */
 export function applyMigrations(db: Db, dir: string = MIGRATIONS_DIR): number[] {
   db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
+  const migrations = listMigrations(dir);
   const current = getMeta(db, "schema_version");
   let version = current ? Number.parseInt(current, 10) : 0;
+  const known = migrations.at(-1)?.version ?? 0;
+  if (version > known)
+    throw new Error(
+      `This library has schema version ${version}, newer than this Digga knows (${known}). Use the newer Digga that wrote it.`,
+    );
+
   const applied: number[] = [];
-  for (const migration of listMigrations(dir)) {
+  for (const migration of migrations) {
     if (migration.version <= version) continue;
     const sql = fs.readFileSync(migration.file, "utf8");
     db.transaction(() => {
