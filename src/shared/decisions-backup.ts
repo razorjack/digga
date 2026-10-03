@@ -1,6 +1,6 @@
-import { SessionRowSchema } from "./digging-session.ts";
 import { z } from "zod";
 import { ConfigSchema } from "./config.ts";
+import { SessionRowSchema } from "./digging-session.ts";
 import { HISTORY_SCHEMAS } from "./history-backup.ts";
 import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
 

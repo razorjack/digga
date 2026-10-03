@@ -1,3 +1,4 @@
+import type { Config } from "../../shared/config.ts";
 import {
   sessionFromRow,
   SessionRowSchema,
@@ -5,22 +6,28 @@ import {
   type SessionInput,
   type SessionRow,
 } from "../../shared/digging-session.ts";
-import type { Config } from "../../shared/config.ts";
 import { type Db, getMeta, nowIso } from "./db.ts";
 
-export function saveSession(db: Db, input: SessionInput, config: Config): void {
-  db.prepare(`INSERT INTO digging_sessions
+const INSERT_SESSION = `INSERT INTO digging_sessions
     (id, started_at, updated_at, config_json, dump_date, schema_version, state_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, state_json = excluded.state_json`).run(
-    input.id,
-    input.startedAt,
-    nowIso(),
-    JSON.stringify(config),
-    getMeta(db, "dump_date") ?? null,
-    Number(getMeta(db, "schema_version")),
-    JSON.stringify(input.state),
-  );
+  VALUES (@id, @started_at, @updated_at, @config_json, @dump_date, @schema_version, @state_json)
+  ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, state_json = excluded.state_json`;
+
+/**
+ * Saves where the session is now. The settings, catalogue date and schema version are those the
+ * session started with; later saves only move its state.
+ */
+export function saveSession(db: Db, input: SessionInput, config: Config): void {
+  const row: SessionRow = {
+    id: input.id,
+    started_at: input.startedAt,
+    updated_at: nowIso(),
+    config_json: JSON.stringify(config),
+    dump_date: getMeta(db, "dump_date") ?? null,
+    schema_version: Number(getMeta(db, "schema_version")),
+    state_json: JSON.stringify(input.state),
+  };
+  db.prepare(INSERT_SESSION).run(row);
 }
 
 export function latestSession(db: Db): SavedSession | null {
@@ -41,13 +48,12 @@ export function readSessions(db: Db): SessionRow[] {
   );
 }
 
+/** Adds backed-up sessions; a session the library saved later keeps its own state. */
 export function restoreSessions(db: Db, rows: SessionRow[]): void {
-  const insert = db.prepare(`INSERT INTO digging_sessions
-    (id, started_at, updated_at, config_json, dump_date, schema_version, state_json)
-    VALUES (@id, @started_at, @updated_at, @config_json, @dump_date, @schema_version, @state_json)
-    ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, state_json = excluded.state_json
+  const insert = db.prepare(`${INSERT_SESSION}
     WHERE excluded.updated_at > digging_sessions.updated_at`);
   for (const row of rows) {
+    // Parsing the JSON columns refuses a backup whose sessions this version cannot resume.
     sessionFromRow(row);
     insert.run(row);
   }

@@ -1,4 +1,3 @@
-import { registerSessionRoutes } from "./routes/sessions.ts";
 import { JobInputError } from "./jobs/start.ts";
 import { Hono } from "hono";
 import { type ApiError } from "../shared/api.ts";
@@ -11,6 +10,7 @@ import { registerJobsRoutes } from "./routes/jobs.ts";
 import { registerDiscogsRoutes } from "./routes/discogs.ts";
 import { registerDataRoutes } from "./routes/data.ts";
 import { registerSetupRoutes } from "./routes/setup.ts";
+import { registerSessionRoutes } from "./routes/sessions.ts";
 import type { AppContext } from "./context.ts";
 import { discogsErrorMessage } from "./routes/request.ts";
 
