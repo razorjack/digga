@@ -2,9 +2,10 @@ import type { DiscogsListEntry, QueueItem } from "../../shared/api.ts";
 import { formatSummary } from "../../shared/formats.ts";
 import { masterKey, releaseKey } from "../../shared/triage-key.ts";
 import type { ImportProgress } from "../../shared/types.ts";
-import { type Db, nowIso } from "../db/db.ts";
+import type { Db } from "../db/db.ts";
+import { recordMembership, recordMembershipOf } from "../db/memberships.ts";
 import { getRelease, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
-import { applySeedVerdict, getVerdict } from "../db/verdicts.ts";
+import { getVerdict } from "../db/verdicts.ts";
 import type { DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsListItem, DiscogsRelease } from "../discogs/types.ts";
 import type { Logger } from "../logger.ts";
@@ -144,7 +145,10 @@ function listEntryRelease(db: Db, entry: ResolvedListEntry): QueueItem | null {
   return null;
 }
 
-/** The read-only view of a list: entries with the release to show and the current verdict. */
+/**
+ * The read-only view of a list: entries with the release to show, and what the library knows
+ * about each record, so the sandbox can tell which would leave the queue.
+ */
 export function listEntriesForApi(db: Db, entries: ResolvedListEntry[]): DiscogsListEntry[] {
   return entries.map((entry) => ({
     type: entry.type,
@@ -154,13 +158,13 @@ export function listEntriesForApi(db: Db, entries: ResolvedListEntry[]): Discogs
     comment: entry.comment,
     release: listEntryRelease(db, entry),
     verdict: getVerdict(db, entry.key),
+    membership: recordMembershipOf(db, entry.key),
   }));
 }
 
 /**
- * Marks every release and master on the list as `maybe` (source `seed:list`). A want or grail
- * from triage, the wantlist and the collection outrank the list; a `maybe` from triage becomes a
- * list seed, which is how Digga learns that a maybe was added on Discogs.
+ * Records every release and master on the list as held on the Maybe list, which is how Digga
+ * learns that a maybe was added on Discogs. A master is held through the release it resolved to.
  */
 export async function importList(
   deps: ListImportDeps,
@@ -171,35 +175,27 @@ export async function importList(
   const entries = await resolveListEntries(deps, list.items, options);
   const progress = applyListEntries(deps.db, entries);
   onProgress?.({ ...progress });
-  deps.logger.info(
-    `list "${list.name}": ${progress.processed} items, ${progress.verdictsWritten} verdicts written`,
-  );
+  deps.logger.info(`list "${list.name}": ${progress.processed} items, ${progress.added} new`);
   return { kind: "list", listName: list.name, ...progress };
 }
 
 function applyListEntries(db: Db, entries: ResolvedListEntry[]): ImportProgress {
-  const progress: ImportProgress = {
-    page: 1,
-    pages: 1,
-    processed: 0,
-    stubs: 0,
-    verdictsWritten: 0,
-  };
+  const progress: ImportProgress = { page: 1, pages: 1, processed: 0, stubs: 0, added: 0 };
   db.transaction(() => {
     for (const entry of entries) {
       progress.processed += 1;
       if (entry.stub && insertStubRelease(db, entry.stub)) progress.stubs += 1;
-      const previous = getVerdict(db, entry.key);
-      if (previous?.status === "maybe" && previous.source === "seed:list") continue;
-      const { written } = applySeedVerdict(db, {
-        key: entry.key,
-        status: "maybe",
-        source: "seed:list",
-        notes: entry.comment ?? previous?.notes ?? null,
+      // A master the lookup could not resolve has no release to hold; the next import tries again.
+      if (entry.releaseId === null) continue;
+      const added = recordMembership(db, {
+        kind: "list",
         releaseId: entry.releaseId,
-        decidedAt: nowIso(),
+        masterId: entry.type === "master" ? entry.discogsId : null,
+        dateAdded: null,
+        rating: null,
+        notes: entry.comment,
       });
-      if (written) progress.verdictsWritten += 1;
+      if (added) progress.added += 1;
     }
   })();
   return progress;

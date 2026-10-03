@@ -1,16 +1,25 @@
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
-import type { TrackMark, VerdictSource, VerdictStatus } from "../../shared/types.ts";
+import {
+  type MembershipKind,
+  type TrackMark,
+  VERDICT_SOURCES,
+  VERDICT_STATUSES,
+  type VerdictSource,
+  type VerdictStatus,
+} from "../../shared/types.ts";
+import { isTriageSource } from "../../shared/verdict-rank.ts";
 import type { Db } from "./db.ts";
 import { readSessions, restoreSessions } from "./digging-sessions.ts";
 import { readHistory, restoreHistory } from "./history-backup.ts";
-import { releaseNoteSavedAfter } from "./notes.ts";
 import { recordKeyOf } from "./verdict-keys.ts";
-import { getVerdict, upsertVerdict } from "./verdicts.ts";
+import { getVerdict, upsertVerdict, type VerdictWrite } from "./verdicts.ts";
 
 /** What a restore wrote, and what it left because the library had it already. */
 export interface RestoreOutcome {
   /** `moved`: restored verdicts whose release a dump loaded since has put on another record. */
   verdicts: { restored: number; keptNewer: number; moved: number };
+  /** Items of the Discogs account, including the seed verdicts of backups before version 3. */
+  memberships: { restored: number };
   trackMarks: { restored: number; keptNewer: number };
   heardTunes: { added: number };
   attachedVideos: { added: number };
@@ -27,6 +36,7 @@ export function readBackedUpData(db: Db): BackedUpData {
     ...readHistory(db),
     sessions: readSessions(db),
     verdicts: readVerdicts(db),
+    memberships: readMemberships(db),
     trackMarks: readTrackMarks(db),
     heardTunes: readHeardTunes(db),
     attachedVideos: readAttachedVideos(db),
@@ -49,6 +59,7 @@ export function restoreBackedUpData(
     withoutChangeLogs(db, () => {
       const outcome = {
         verdicts: restoreVerdicts(db, data, backupTime),
+        memberships: { restored: restoreMemberships(db, data) },
         trackMarks: restoreTrackMarks(db, data.trackMarks, backupTime),
         heardTunes: { added: addHeardTunes(db, data.heardTunes) },
         attachedVideos: { added: addAttachedVideos(db, data.attachedVideos) },
@@ -76,19 +87,42 @@ function readVerdicts(db: Db): BackedUpData["verdicts"] {
     key: string;
     status: VerdictStatus;
     source: VerdictSource;
-    notes: string | null;
     release_id: number | null;
     decided_at: string;
-    dug_at: string | null;
   }[];
   return rows.map((row) => ({
     key: row.key,
     status: row.status,
     source: row.source,
-    notes: row.notes,
     releaseId: row.release_id,
     decidedAt: row.decided_at,
-    dugAt: row.dug_at,
+  }));
+}
+
+function readMemberships(db: Db): BackedUpData["memberships"] {
+  const rows = db
+    .prepare("SELECT * FROM memberships ORDER BY added_at, kind, release_id")
+    .all() as {
+    kind: MembershipKind;
+    release_id: number;
+    master_id: number | null;
+    date_added: string | null;
+    rating: number | null;
+    notes: string | null;
+    added_at: string;
+    imported_at: string;
+    removed_at: string | null;
+  }[];
+  return rows.map((row) => ({
+    kind: row.kind,
+    releaseId: row.release_id,
+    masterId: row.master_id,
+    dateAdded: row.date_added,
+    rating: row.rating,
+    notes: row.notes,
+    addedAt: row.added_at,
+    importedAt: row.imported_at,
+    removedAt: row.removed_at,
   }));
 }
 
@@ -173,9 +207,10 @@ function readNoAudioVideos(db: Db): BackedUpData["noAudioVideos"] {
 }
 
 /**
- * A record judged in Digga after the backup keeps its verdict, also when a seed has replaced it
- * since; so do the videos its no-audio record had. Each verdict goes to the record its release
- * is on now.
+ * A record judged in Digga after the backup keeps its verdict; so do the videos its no-audio
+ * record had. Each verdict goes to the record its release is on now. A backup before version 3
+ * also holds the account's items as seed verdicts, and each verdict's note: those become
+ * memberships and release notes.
  */
 function restoreVerdicts(
   db: Db,
@@ -190,13 +225,14 @@ function restoreVerdicts(
   const forgetVideos = db.prepare("DELETE FROM no_audio_videos WHERE key = ?");
   const outcome = { restored: 0, keptNewer: 0, moved: 0 };
   for (const backedUp of data.verdicts) {
-    const verdict = { ...backedUp, key: recordKeyOf(db, backedUp) };
-    const dugAt = getVerdict(db, verdict.key)?.dugAt ?? null;
-    if (dugAt !== null && Date.parse(dugAt) > backupTime) {
+    restoreVerdictNote(db, backedUp, backupTime);
+    const verdict = verdictWriteOf(backedUp);
+    if (verdict === null) continue;
+    verdict.key = recordKeyOf(db, backedUp);
+    if (decidedHereAfter(db, verdict.key, backupTime)) {
       outcome.keptNewer += 1;
       continue;
     }
-    verdict.notes = restoredNote(db, verdict, backupTime);
     upsertVerdict(db, verdict);
     const videoIds = recorded.get(backedUp.key);
     if (verdict.status === "no_audio" && videoIds)
@@ -208,15 +244,85 @@ function restoreVerdicts(
   return outcome;
 }
 
-/** A release note saved in Digga after the backup wins over the note the backup has. */
-function restoredNote(
+/** A verdict as the library stores it; null for the seed verdict of a backup before version 3. */
+function verdictWriteOf(backedUp: BackedUpData["verdicts"][number]): VerdictWrite | null {
+  const status = VERDICT_STATUSES.find((known) => known === backedUp.status);
+  const source = VERDICT_SOURCES.find((known) => known === backedUp.source);
+  if (status === undefined || source === undefined) return null;
+  return {
+    key: backedUp.key,
+    status,
+    source,
+    releaseId: backedUp.releaseId,
+    decidedAt: backedUp.decidedAt,
+  };
+}
+
+function decidedHereAfter(db: Db, key: string, backupTime: number): boolean {
+  const saved = getVerdict(db, key);
+  return saved !== null && isTriageSource(saved.source) && Date.parse(saved.decidedAt) > backupTime;
+}
+
+/** A backup before version 3 kept notes on verdicts; a note saved after the backup wins. */
+function restoreVerdictNote(
   db: Db,
-  verdict: { releaseId: number | null; notes: string | null },
+  verdict: { releaseId: number | null; notes?: string | null },
   backupTime: number,
-): string | null {
-  if (verdict.releaseId === null) return verdict.notes;
-  const newer = releaseNoteSavedAfter(db, verdict.releaseId, new Date(backupTime).toISOString());
-  return newer ? newer.notes : verdict.notes;
+): void {
+  if (verdict.releaseId === null || verdict.notes === undefined || verdict.notes === null) return;
+  db.prepare(
+    `INSERT INTO release_notes (release_id, notes, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(release_id) DO UPDATE SET notes = excluded.notes, updated_at = excluded.updated_at
+     WHERE excluded.updated_at > release_notes.updated_at`,
+  ).run(verdict.releaseId, verdict.notes, new Date(backupTime).toISOString());
+}
+
+const LEGACY_SEED_KINDS: Partial<Record<string, MembershipKind>> = {
+  "seed:collection": "collection",
+  "seed:wantlist": "wantlist",
+  "seed:list": "list",
+};
+
+/**
+ * Adds the account's items the backup holds; one the library imported more recently keeps its
+ * state. Returns how many were written.
+ */
+function restoreMemberships(db: Db, data: Pick<BackedUpData, "memberships" | "verdicts">): number {
+  const save = db.prepare(
+    `INSERT INTO memberships (kind, release_id, master_id, date_added, rating, notes, added_at,
+       imported_at, removed_at)
+     VALUES (@kind, @releaseId, @masterId, @dateAdded, @rating, @notes, @addedAt, @importedAt,
+       @removedAt)
+     ON CONFLICT(kind, release_id) DO UPDATE SET master_id = excluded.master_id,
+       date_added = excluded.date_added, rating = excluded.rating, notes = excluded.notes,
+       imported_at = excluded.imported_at, removed_at = excluded.removed_at
+     WHERE excluded.imported_at > memberships.imported_at`,
+  );
+  let restored = 0;
+  for (const membership of [...data.memberships, ...legacySeedMemberships(data.verdicts)])
+    restored += save.run(membership).changes;
+  return restored;
+}
+
+/** The seed verdicts of a backup before version 3, as the memberships they stood for. */
+function legacySeedMemberships(verdicts: BackedUpData["verdicts"]): BackedUpData["memberships"] {
+  const memberships: BackedUpData["memberships"] = [];
+  for (const verdict of verdicts) {
+    const kind = LEGACY_SEED_KINDS[verdict.source];
+    if (kind === undefined || verdict.releaseId === null) continue;
+    memberships.push({
+      kind,
+      releaseId: verdict.releaseId,
+      masterId: null,
+      dateAdded: verdict.decidedAt,
+      rating: null,
+      notes: null,
+      addedAt: verdict.decidedAt,
+      importedAt: verdict.decidedAt,
+      removedAt: null,
+    });
+  }
+  return memberships;
 }
 
 function restoreTrackMarks(

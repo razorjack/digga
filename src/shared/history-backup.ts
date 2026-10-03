@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { toUtcTimestamp } from "./timestamp.ts";
-import { TRACK_MARKS, VERDICT_SOURCES, VERDICT_STATUSES } from "./types.ts";
+import { LEGACY_VERDICT_SOURCES, LEGACY_VERDICT_STATUSES, TRACK_MARKS } from "./types.ts";
 
 const text = z.string().nullable();
 const number = z.number().nullable();
@@ -34,8 +34,9 @@ export const HISTORY_SCHEMAS = {
     ...event,
     key: z.string(),
     previous_key: text,
-    status: z.enum(VERDICT_STATUSES),
-    source: z.enum(VERDICT_SOURCES),
+    // The log keeps the seed verdicts written before memberships replaced them.
+    status: z.enum(LEGACY_VERDICT_STATUSES),
+    source: z.enum(LEGACY_VERDICT_SOURCES),
     notes: text,
     release_id: number,
     // Seed decisions logged before Digga stored UTC throughout kept Discogs' offset.

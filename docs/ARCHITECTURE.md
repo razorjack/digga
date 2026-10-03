@@ -120,10 +120,11 @@ once; the player rebuilds the open release's playlist when its videos change.
 
 ## Verdicts and coverage
 
-`verdicts` holds one row per triage key. Seeds (`import collection|wantlist|history|list`) write
-`collection`, `wantlist`, `seen` or `maybe` (from the Discogs Maybe list) under the precedence in
-`docs/DATA_MODEL.md`; triage decisions (`rejected`, `accepted`, `maybe`, `candidate`, `snoozed`,
-`no_audio`) are written by the UI. `listen_log` records
+`verdicts` holds one row per triage key: the decisions made in Digga (`rejected`, `accepted`,
+`maybe`, `candidate`, `snoozed`, `no_audio`), written by the UI, and `seen` from the browser
+history import. `import collection|wantlist|list` record what the Discogs account holds in
+`memberships` and never change a verdict; the queue leaves out records with either, and Twelves
+shows both (`docs/DATA_MODEL.md`). `listen_log` records
 every listen (proof of coverage) and feeds `heard_tracks`, keyed by the normalized
 `artist - title`, so a tune already heard on another release is greyed out instead of replayed.
 
@@ -203,10 +204,10 @@ database, so sandbox verdicts, which live in the browser tab, are not in them.
 between them, backs off on `429` and pauses when `X-Discogs-Ratelimit-Remaining` is exhausted.
 `addToWantlist` (`PUT /users/{u}/wants/{id}`) and `removeFromWantlist` (`DELETE`, where `404`
 counts as removed) back `POST` / `DELETE /api/discogs/wantlist/:id`. A push sends the
-release's grail and keep tracks and the record's note (`wantlistNote()` in
+release's grail and keep tracks and its note (`wantlistNote()` in
 `src/shared/wantlist.ts`, at most 255 characters); the server then records or
-forgets the release in `seed_items`, as a wantlist import would, so Twelves knows which wants are on
-the Discogs wantlist.
+forgets the release in `memberships`, as a wantlist import would, so Twelves knows which wants
+are on the Discogs wantlist.
 
 ## Configuration and paths
 

@@ -4,6 +4,8 @@ import type { DiscogsCollectionPage, DiscogsWantlistPage } from "../src/server/d
 import { importCollection } from "../src/server/importers/collection.ts";
 import { importWantlist } from "../src/server/importers/wantlist.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
+import { recordMembershipOf } from "../src/server/db/memberships.ts";
+import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import {
   applySeedVerdict,
@@ -47,7 +49,7 @@ function fakeDiscogs(
 }
 
 describe("collection and wantlist importers", () => {
-  it("creates stubs for unknown releases, keeps dump rows, writes verdicts with date_added in UTC", async () => {
+  it("creates stubs for unknown releases, keeps dump rows, and holds every item apart from verdicts", async () => {
     const db = await fixtureDb();
     const pages: DiscogsCollectionPage[] = [
       {
@@ -91,7 +93,7 @@ describe("collection and wantlist importers", () => {
       pages: 2,
       processed: 3,
       stubs: 2,
-      verdictsWritten: 3,
+      added: 3,
     });
     expect(progress).toEqual([2, 3]);
     expect(getRelease(db, 1001)!.inUniverse).toBe(true);
@@ -100,18 +102,17 @@ describe("collection and wantlist importers", () => {
     expect(stub.triageKey).toBe("m:9500");
     expect(stub.artistDisplay).toBe("Someone");
     expect(stub.isVinyl).toBe(true);
-    expect(getVerdict(db, "m:501")).toMatchObject({
-      status: "collection",
-      source: "seed:collection",
-      releaseId: 1001,
-      decidedAt: "2020-01-02T08:00:00.000Z",
-    });
-    expect(getVerdict(db, "m:9500")!.status).toBe("collection");
-    expect(getVerdict(db, "r:9002")!.status).toBe("collection");
-    const seed = db
-      .prepare("SELECT kind, date_added, rating FROM seed_items WHERE release_id = 1001")
+    expect(db.prepare("SELECT COUNT(*) FROM verdicts").pluck().get()).toBe(0);
+    for (const key of ["m:501", "m:9500", "r:9002"])
+      expect(recordMembershipOf(db, key)).toEqual({
+        owned: true,
+        onWantlist: false,
+        onList: false,
+      });
+    const held = db
+      .prepare("SELECT kind, date_added, rating FROM memberships WHERE release_id = 1001")
       .get();
-    expect(seed).toEqual({
+    expect(held).toEqual({
       kind: "collection",
       date_added: "2020-01-02T00:00:00-08:00",
       rating: 4,
@@ -120,11 +121,11 @@ describe("collection and wantlist importers", () => {
       { db, discogs: fakeDiscogs(pages, []), logger: silentLogger },
       { username: "dj" },
     );
-    expect(again.verdictsWritten).toBe(0);
+    expect(again.added).toBe(0);
     db.close();
   });
 
-  it("wantlist never downgrades a collection verdict", async () => {
+  it("holds a record in the collection and on the wantlist at once", async () => {
     const db = await fixtureDb();
     const collection: DiscogsCollectionPage[] = [
       {
@@ -156,13 +157,17 @@ describe("collection and wantlist importers", () => {
     const discogs = fakeDiscogs(collection, wants);
     await importCollection({ db, discogs, logger: silentLogger }, { username: "dj" });
     const result = await importWantlist({ db, discogs, logger: silentLogger }, { username: "dj" });
-    expect(result).toMatchObject({ kind: "wantlist", processed: 2, stubs: 0, verdictsWritten: 1 });
-    expect(getVerdict(db, "m:501")!.status).toBe("collection");
-    expect(getVerdict(db, "m:506")).toMatchObject({
-      status: "wantlist",
-      notes: null,
-      releaseId: 1006,
+    expect(result).toMatchObject({ kind: "wantlist", processed: 2, stubs: 0, added: 2 });
+    expect(recordMembershipOf(db, "m:501")).toEqual({
+      owned: true,
+      onWantlist: true,
+      onList: false,
     });
+    expect(
+      db
+        .prepare("SELECT notes FROM memberships WHERE kind = 'wantlist' AND release_id = 1002")
+        .get(),
+    ).toEqual({ notes: "repress" });
     db.close();
   });
 
@@ -175,78 +180,59 @@ describe("collection and wantlist importers", () => {
   });
 });
 
-describe("seed precedence", () => {
-  it("history 'seen' never overrides a triage decision, but collection does", async () => {
+describe("the Discogs account beside decisions made in Digga", () => {
+  it("leaves decisions alone, and a history hit never overrides one", async () => {
     const db = await fixtureDb();
-    upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage" });
+    upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage", releaseId: 1001 });
     expect(
       applySeedVerdict(db, { key: "m:501", status: "seen", source: "seed:history" }).written,
     ).toBe(false);
-    expect(getVerdict(db, "m:501")!.status).toBe("rejected");
-    expect(
-      applySeedVerdict(db, { key: "m:501", status: "collection", source: "seed:collection" })
-        .written,
-    ).toBe(true);
-    expect(getVerdict(db, "m:501")!.status).toBe("collection");
-    expect(
-      applySeedVerdict(db, { key: "m:501", status: "wantlist", source: "seed:wantlist" }).written,
-    ).toBe(false);
+    const seed = { releaseId: 1001, masterId: 501, dateAdded: null, rating: null, notes: null };
+    applySeedItem(db, { ...seed, kind: "collection", basicInformation: basic(1001, 501, "W") });
+
+    expect(getVerdict(db, "m:501")?.status).toBe("rejected");
+    expect(recordMembershipOf(db, "m:501").owned).toBe(true);
     db.close();
   });
 
-  it("keeps a grail through the wantlist import, until the record is owned", async () => {
+  it("keeps a grail and its date when the record reaches the wantlist and the collection", async () => {
     const db = await fixtureDb();
-    upsertVerdict(db, { key: "m:501", status: "candidate", source: "triage" });
+    const decidedAt = "2026-10-03T21:15:00.000Z";
+    upsertVerdict(db, { key: "m:501", status: "candidate", source: "triage", decidedAt });
     const seed = { releaseId: 1001, masterId: 501, dateAdded: null, rating: null, notes: null };
     const info = basic(1001, 501, "Wormhole");
     applySeedItem(db, { ...seed, kind: "wantlist", basicInformation: info });
-    expect(getVerdict(db, "m:501")?.status).toBe("candidate");
     applySeedItem(db, { ...seed, kind: "collection", basicInformation: info });
-    expect(getVerdict(db, "m:501")?.status).toBe("collection");
-    db.close();
-  });
 
-  it("still counts a want as dug, at its own time, after the wantlist import takes it over", async () => {
-    const db = await fixtureDb();
-    const dugAt = "2026-10-03T21:15:00.000Z";
-    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", decidedAt: dugAt });
-    upsertVerdict(db, { key: "m:506", status: "wantlist", source: "seed:wantlist" });
-    const seed = { releaseId: 1001, masterId: 501, rating: null, notes: null };
-    applySeedItem(db, {
-      ...seed,
-      kind: "wantlist",
-      dateAdded: "2026-10-03T21:15:02.000Z",
-      basicInformation: basic(1001, 501, "Wormhole"),
+    expect(getVerdict(db, "m:501")).toMatchObject({ status: "candidate", decidedAt });
+    expect(recordMembershipOf(db, "m:501")).toEqual({
+      owned: true,
+      onWantlist: true,
+      onList: false,
     });
-
-    expect(getVerdict(db, "m:501")).toMatchObject({ status: "wantlist", dugAt });
-    expect(getVerdict(db, "m:506")?.dugAt).toBeNull();
     expect(countDug(db)).toBe(1);
-    expect(triageDecisionTimes(db)).toEqual([dugAt]);
+    expect(triageDecisionTimes(db)).toEqual([decidedAt]);
     db.close();
   });
 
-  it("keeps the note written in Digga when the wantlist import takes over a want", async () => {
+  it("keeps the note written in Digga apart from the note Discogs has on the want", async () => {
     const db = await fixtureDb();
     const note = "the Kool FM tune, ".repeat(20);
-    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", notes: note });
-    const seed = { releaseId: 1001, masterId: 501, dateAdded: null, rating: null };
+    saveReleaseNote(db, 1001, note);
     applySeedItem(db, {
-      ...seed,
+      releaseId: 1001,
+      masterId: 501,
+      dateAdded: null,
+      rating: null,
       kind: "wantlist",
       notes: "grail A1; the Kool FM tune...",
       basicInformation: basic(1001, 501, "Wormhole"),
     });
-    expect(getVerdict(db, "m:501")).toMatchObject({ status: "wantlist", notes: note });
-    applySeedItem(db, {
-      ...seed,
-      releaseId: 1006,
-      masterId: 506,
-      kind: "wantlist",
-      notes: "from Discogs",
-      basicInformation: basic(1006, 506, "Messiah"),
-    });
-    expect(getVerdict(db, "m:506")?.notes).toBe("from Discogs");
+
+    expect(releaseNote(db, 1001)).toBe(note);
+    expect(db.prepare("SELECT notes FROM memberships WHERE release_id = 1001").pluck().get()).toBe(
+      "grail A1; the Kool FM tune...",
+    );
     db.close();
   });
 });

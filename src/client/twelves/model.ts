@@ -1,12 +1,7 @@
-import {
-  TWELVES_STATUSES,
-  type MarkedTrack,
-  type QueueItem,
-  type TwelvesItem,
-} from "../../shared/api.ts";
+import type { MarkedTrack, QueueItem, TwelvesItem } from "../../shared/api.ts";
 import type { TrackMark, VerdictStatus } from "../../shared/types.ts";
-import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
+import type { RecordStamp } from "../keymap.ts";
 export type ShelfId =
   | "all"
   | "accepted"
@@ -34,9 +29,6 @@ export const SHELVES: {
   { id: "tracks", label: "Tracks" },
   { id: "no_audio", label: "No audio" },
 ];
-
-/** The verdicts the record shelves load. */
-export const STATUSES: VerdictStatus[] = TWELVES_STATUSES;
 
 export const SORTS: {
   id: SortId;
@@ -126,7 +118,7 @@ export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${trac
 /** The verdicts a re-judgement in Twelves can write. */
 export type JudgedStatus = "accepted" | "maybe" | "candidate" | "rejected" | "snoozed" | "no_audio";
 
-/** Only triage verdicts can be re-judged here; seeds describe the Discogs account. */
+/** Only records decided in Digga can be re-judged here; the rest is the Discogs account's. */
 export const JUDGE_KEYS: Record<string, JudgedStatus> = {
   a: "accepted",
   m: "maybe",
@@ -146,22 +138,39 @@ export const TRIAGE_STATUSES = new Set<VerdictStatus>([
 ]);
 
 /** A maybe decided in Digga that has not shown up on the Discogs list yet. */
-export const notOnList = (i: TwelvesItem) =>
-  i.verdict.status === "maybe" && isTriageSource(i.verdict.source);
+export const notOnList = (i: TwelvesItem) => i.verdict?.status === "maybe" && !i.membership.onList;
 
-/** A want or grail that is not on the Discogs wantlist: a failed or undone push, or an old grail. */
+/**
+ * A want or grail that is not on the Discogs wantlist: a failed or undone push, or an old grail.
+ * An owned record has ended its hunt.
+ */
 export const notOnWantlist = (i: TwelvesItem) =>
-  isWantlistVerdict(i.verdict.status) && !i.onWantlist;
+  i.verdict !== null &&
+  isWantlistVerdict(i.verdict.status) &&
+  !i.membership.onWantlist &&
+  !i.membership.owned;
 
 /** The wants and grails on a shelf that are not on the Discogs wantlist. */
 export function missingFromWantlist(items: TwelvesItem[], shelf: ShelfId): TwelvesItem[] {
   return items.filter((item) => notOnWantlist(item) && matchesShelf(item, shelf));
 }
 
-export const releaseIdOf = (i: TwelvesItem) => i.verdict.releaseId ?? i.release?.id ?? null;
+export const releaseIdOf = (i: TwelvesItem) => i.verdict?.releaseId ?? i.release?.id ?? null;
 
 export const nameOf = (i: TwelvesItem) =>
-  i.release ? `${i.release.artistDisplay} – ${i.release.title}` : i.verdict.key;
+  i.release ? `${i.release.artistDisplay} – ${i.release.title}` : i.key;
+
+/**
+ * What a record's stamp says: owned first, since owning ends the hunt, then a grail or want,
+ * the Discogs wantlist, any other decision, and last the Maybe list.
+ */
+export function recordStamp(item: TwelvesItem): RecordStamp {
+  const status = item.verdict?.status ?? null;
+  if (item.membership.owned) return "collection";
+  if (status === "candidate" || status === "accepted") return status;
+  if (item.membership.onWantlist) return "wantlist";
+  return status ?? "maybe";
+}
 
 /** The shelf a re-judgement puts the record on; a skip takes it off the shelves. */
 const JUDGED_SHELF: Record<JudgedStatus, ShelfId | null> = {
@@ -187,16 +196,17 @@ function shelfLabel(id: ShelfId): string {
 }
 
 export function countShelves(items: TwelvesItem[], tracks: MarkedTrack[]): Record<ShelfId, number> {
+  const count = (shelf: RecordShelf) => items.filter((item) => matchesShelf(item, shelf)).length;
   return {
-    all: items.filter((item) => matchesShelf(item, "all")).length,
-    accepted: items.filter((item) => item.verdict.status === "accepted").length,
-    wantlist: items.filter((item) => item.verdict.status === "wantlist").length,
-    collection: items.filter((item) => item.verdict.status === "collection").length,
-    maybe: items.filter((item) => item.verdict.status === "maybe").length,
-    candidate: items.filter((item) => item.verdict.status === "candidate").length,
-    snoozed: items.filter((item) => item.verdict.status === "snoozed").length,
+    all: count("all"),
+    accepted: count("accepted"),
+    wantlist: count("wantlist"),
+    collection: count("collection"),
+    maybe: count("maybe"),
+    candidate: count("candidate"),
+    snoozed: count("snoozed"),
     tracks: tracks.filter((track) => SHELF_MARKS.has(track.mark.mark)).length,
-    no_audio: items.filter((item) => item.verdict.status === "no_audio").length,
+    no_audio: count("no_audio"),
   };
 }
 
@@ -258,7 +268,7 @@ export function visibleTracks(
 }
 
 const recordSortable = (item: TwelvesItem): Sortable => ({
-  decidedAt: item.verdict.decidedAt,
+  decidedAt: item.since,
   release: item.release,
 });
 
@@ -267,10 +277,27 @@ const trackSortable = (track: MarkedTrack): Sortable => ({
   release: track.release,
 });
 
-/** Everything is what you want, own or put aside; records without audio have a shelf only. */
+type RecordShelf = Exclude<ShelfId, "tracks">;
+
+/**
+ * Whether a record is on a shelf. Want and Grail hold decisions made in Digga, Discogs wantlist
+ * and Owned what the account holds, so one record can be on several; owning ends the hunt.
+ */
+const SHELF_TESTS: Record<Exclude<RecordShelf, "all">, (item: TwelvesItem) => boolean> = {
+  accepted: (item) => item.verdict?.status === "accepted" && !item.membership.owned,
+  candidate: (item) => item.verdict?.status === "candidate" && !item.membership.owned,
+  wantlist: (item) => item.membership.onWantlist,
+  collection: (item) => item.membership.owned,
+  maybe: (item) => item.verdict?.status === "maybe" || item.membership.onList,
+  snoozed: (item) => item.verdict?.status === "snoozed",
+  no_audio: (item) => item.verdict?.status === "no_audio",
+};
+
+/** Everything is what you want, own or put aside, each record once; no audio has a shelf only. */
 function matchesShelf(item: TwelvesItem, shelf: ShelfId): boolean {
-  if (shelf === "all") return item.verdict.status !== "no_audio";
-  return item.verdict.status === shelf;
+  if (shelf === "tracks") return false;
+  if (shelf !== "all") return SHELF_TESTS[shelf](item);
+  return Object.entries(SHELF_TESTS).some(([other, test]) => other !== "no_audio" && test(item));
 }
 
 function matchesQuery(item: TwelvesItem, query: string): boolean {
@@ -281,7 +308,8 @@ function matchesQuery(item: TwelvesItem, query: string): boolean {
     release?.title,
     release?.labelName,
     release?.catno,
-    item.verdict.notes,
+    item.note,
+    ...item.pressingNotes.map((pressing) => pressing.notes),
   ].some((value) => value?.toLowerCase().includes(query));
 }
 

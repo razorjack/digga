@@ -1,4 +1,4 @@
-import type { MarkedTrack, QueueItem, TuneSnapshot } from "./api.ts";
+import type { MarkedTrack, QueueItem, TuneSnapshot, TwelvesItem } from "./api.ts";
 import type { Verdict } from "./types.ts";
 
 /** A moment in an upload to start playing from, and the tune it belongs to when known. */
@@ -19,6 +19,11 @@ export interface ReplayItem {
 export interface ReplayRequest {
   items: ReplayItem[];
   playback?: PlaybackPosition;
+}
+
+/** A Twelves record as Triage hears it again. */
+export function replayItemOf(item: TwelvesItem): ReplayItem {
+  return { release: item.release, verdict: item.verdict, onWantlist: item.membership.onWantlist };
 }
 
 /** Replays a marked track's record, from the moment saved with the mark when it has one. */

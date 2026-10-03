@@ -1,13 +1,17 @@
 <script lang="ts">
+  import type { PressingNote } from "../../shared/api.ts";
   import Key from "../components/Key.svelte";
 
   let {
     note,
+    pressingNote,
     editing,
     onsave,
     oncancel,
   }: {
     note: string | null;
+    /** A note written on another pressing, shown with its catalogue number when this one has none. */
+    pressingNote: PressingNote | null;
     editing: boolean;
     onsave: (text: string) => void;
     oncancel: () => void;
@@ -40,6 +44,11 @@
     <span class="hint" id="{id}-hint"><Key label="Enter" size="sm" /> save note</span>
   {:else if note}
     <p class="note"><Key label="E" size="sm" /> <span>{note}</span></p>
+  {:else if pressingNote}
+    <p class="note pressing">
+      <span>{pressingNote.notes}</span>
+      <span class="on">on {pressingNote.catno ?? "another pressing"}</span>
+    </p>
   {/if}
 </div>
 
@@ -74,5 +83,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .pressing {
+    color: var(--fg-muted);
+  }
+  .note .on {
+    flex: none;
+    color: var(--fg-faint);
+    font-size: var(--text-sm);
   }
 </style>

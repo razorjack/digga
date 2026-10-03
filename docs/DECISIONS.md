@@ -808,3 +808,22 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      under the release's current key and answers that key, which Triage's undo uses. A decision
      stays keyed by record rather than by release: re-judging a record is then one write, and the
      merged-away verdict stays in the log.
+134. **What the Discogs account holds is kept apart from decisions made in Digga.** The
+     collection, wantlist and Maybe-list imports wrote seed verdicts that competed with the user's
+     own decisions by rank (decisions 7, 49 and 85): a wantlist import turned a want into a seed,
+     the collection ended a grail, `dug_at` had to survive the replacement (decision 123), and
+     restore needed the same ranks. The pre-release review (F10) asked whether these are
+     independent facts; the owner decided they are. `memberships` holds the account's items per
+     release, with Discogs' date, rating and note and, for a removal an import finds, `removed_at`;
+     verdicts hold decisions made in Digga and history hits. Imports never change a verdict, a
+     record either holds is out of the queue, and Twelves' shelves became filters: Want and Grail
+     show decisions, Discogs wantlist and Owned show the account, a record can be on several,
+     owning ends the hunt, and Everything lists each record once. Migration 17 moved the seed
+     verdicts and put back the decision a seed had replaced from `verdict_log`. Notes belong to the
+     release (`release_notes`): a verdict has none, a record shows the notes of its other pressings
+     labelled with their catalogue number, and the trigger that copied verdict notes is gone. With
+     seeds gone, `dug_at` is the date of a decision made in Digga and was dropped. Triage may now
+     judge a record only Discogs holds, since a judgment no longer overwrites what Discogs holds;
+     Twelves still re-judges only records decided in Digga. The decisions backup is version 3: it
+     holds memberships, and versions 1 and 2 restore with their seed verdicts as memberships and
+     their verdict notes as release notes.

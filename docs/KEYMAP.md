@@ -77,8 +77,7 @@ Digga, and Twelves marks it for `A` or "add all".
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is
 undone locally. Undoing a want or grail that already reached the Discogs wantlist takes it off again. The
 counter reads "4,312 dug", where dug counts every record judged in Digga (source `triage` or
-`manual`), also after an import has replaced its verdict with a seed, and never a record only
-seeded.
+`manual`), whatever the Discogs account holds of it, and never a record only an import brought.
 
 A round of snoozed records starts from Twelves (`Enter` on a snoozed record) or from the end of
 the queue. The records come before the queue: a verdict replaces the snooze, `N` leaves it, and
@@ -121,7 +120,10 @@ set at, so the moment it is about can be found again.
 The Tracks shelf lists the tracks marked grail or keep in Triage, with their release and the
 record's verdict; `J`/`K`, `O`, `E`, `/` and `S` work there too. Marks themselves change in Triage.
 
-Wantlist and owned records come from Discogs and cannot be re-judged here. Re-judging a record as
+Records only the Discogs account holds (on the wantlist, owned, on the Maybe list) were not
+decided in Digga and cannot be re-judged here; Triage can judge them when it plays them. A record
+can be on several shelves: a pushed want is on Want and on Discogs wantlist, and owning one takes
+it off Want and Grail. Re-judging a record as
 want or grail adds it to the Discogs wantlist; re-judging a want or grail as anything else takes it
 off, and switching between want and grail leaves it there.
 

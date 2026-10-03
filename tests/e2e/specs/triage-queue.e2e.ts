@@ -108,9 +108,9 @@ async function snoozeLabelAndFirstRecord(app: DiggaApp): Promise<Map<string, str
       key: record.triageKey,
       status: "snoozed",
       releaseId: record.id,
-      notes: note,
       decidedAt: `2026-09-0${index + 1}T12:00:00.000Z`,
     });
+    await app.given.note(record.id, note);
     notes.set(record.triageKey, note);
   }
   return notes;

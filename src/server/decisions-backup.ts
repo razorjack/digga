@@ -141,10 +141,10 @@ function formatSections(data: BackedUpData): string {
   }).join(",\n");
 }
 
-/** Anything made in Digga; seeds alone come back from the Discogs and history imports. */
+/** Anything made in Digga; the account's items and history hits come back from the imports. */
 function hasDiggaData(data: BackedUpData): boolean {
   return (
-    data.verdicts.some((verdict) => typeof verdict.dugAt === "string") ||
+    data.verdicts.some((verdict) => verdict.source === "triage" || verdict.source === "manual") ||
     data.trackMarks.length > 0 ||
     data.heardTunes.length > 0 ||
     data.attachedVideos.length > 0 ||

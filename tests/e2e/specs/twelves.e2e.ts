@@ -268,9 +268,10 @@ test(
     await app.given.verdicts(
       datedVerdicts([
         { release: FIRST_RECORD, status: "snoozed" },
-        { release: SECOND_RECORD, status: "snoozed", notes: oldNote },
+        { release: SECOND_RECORD, status: "snoozed" },
       ]),
     );
+    await app.given.note(SECOND_RECORD.id, oldNote);
     const first = twelves.record(triageKeyOf(FIRST_RECORD));
     const second = twelves.record(triageKeyOf(SECOND_RECORD));
     await twelves.open();
@@ -429,7 +430,6 @@ test.describe("with a verdict restored for a release no dump has", () => {
           key: triageKeyOf(NOT_IN_ANY_DUMP),
           status: "snoozed",
           source: "triage",
-          notes: null,
           releaseId: NOT_IN_ANY_DUMP.id,
           decidedAt: "2026-09-29T12:00:00.000Z",
         },

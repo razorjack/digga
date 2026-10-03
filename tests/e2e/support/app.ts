@@ -118,6 +118,11 @@ export class Given {
     await this.#api().send("POST", "/api/verdicts", input);
   }
 
+  /** A note on a release, as `E` saves one. */
+  async note(releaseId: number, notes: string): Promise<void> {
+    await this.#api().send("PUT", `/api/releases/${releaseId}/note`, { notes });
+  }
+
   /** Verdicts saved one after the other, in the list's order. */
   async verdicts(inputs: VerdictInput[]): Promise<void> {
     for (const input of inputs) await this.verdict(input);

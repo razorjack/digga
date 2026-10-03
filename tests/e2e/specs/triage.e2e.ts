@@ -98,13 +98,9 @@ test.describe("with a Discogs account", () => {
       const shelved = await app.api.get<TwelvesResponse>(
         `/api/twelves?status=${TWELVES_STATUSES.join(",")}`,
       );
-      const onShelves = shelved.items.filter((item) => judged.has(item.verdict.key));
-      expect(onShelves.map((item) => item.verdict.status).toSorted()).toEqual([
-        "accepted",
-        "candidate",
-        "no_audio",
-        "snoozed",
-      ]);
+      const onShelves = shelved.items.filter((item) => judged.has(item.key));
+      const statuses = onShelves.flatMap((item) => (item.verdict ? [item.verdict.status] : []));
+      expect(statuses.toSorted()).toEqual(["accepted", "candidate", "no_audio", "snoozed"]);
       expect(fakes.requests("PUT /users/:user/wants/:id").map((request) => request.params)).toEqual(
         pushed.map((id) => ({ user: "dj", id })),
       );

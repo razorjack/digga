@@ -17,7 +17,7 @@ let db: Db;
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-backup-"));
   db = openDb(path.join(tmp, "digga.sqlite"));
-  upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", notes: "keep" });
+  upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage" });
 });
 
 afterEach(() => {
@@ -38,7 +38,7 @@ describe("database backups", () => {
       key: "r:1",
       status: "accepted",
       source: "triage",
-      notes: "before upgrade",
+      decidedAt: "2026-09-01T10:00:00.000Z",
     });
     old.close();
     const upgraded = openDb(file);
@@ -48,7 +48,7 @@ describe("database backups", () => {
       readonly: true,
     });
     expect(getMeta(snapshot, "schema_version")).toBe("10");
-    expect(getVerdict(snapshot, "r:1")?.notes).toBe("before upgrade");
+    expect(getVerdict(snapshot, "r:1")?.decidedAt).toBe("2026-09-01T10:00:00.000Z");
     snapshot.close();
   });
 
@@ -71,7 +71,7 @@ describe("database backups", () => {
     expect(await backupDaily(db, { dir, day: "2026-09-28" })).toBeNull();
 
     const copy = openDb(first!.file, { readonly: true });
-    expect(getVerdict(copy, "m:501")).toMatchObject({ status: "accepted", notes: "keep" });
+    expect(getVerdict(copy, "m:501")).toMatchObject({ status: "accepted", source: "triage" });
     copy.close();
   });
 

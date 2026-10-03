@@ -267,7 +267,6 @@ grail, marked on its track, with a note:
       "key": "m:34620",
       "status": "accepted",
       "source": "triage",
-      "notes": null,
       "releaseId": 8667,
       "decidedAt": "2026-09-30T20:41:07.332Z"
     },
@@ -275,7 +274,6 @@ grail, marked on its track, with a note:
       "key": "r:620767",
       "status": "candidate",
       "source": "triage",
-      "notes": "finally found it",
       "releaseId": 620767,
       "decidedAt": "2026-09-30T20:52:39.905Z"
     }
@@ -315,10 +313,11 @@ grail, marked on its track, with a note:
   release without a master, like
   [discogs.com/release/620767](https://www.discogs.com/release/620767).
 - `status` is the verdict: `accepted` (want), `candidate` (grail), `rejected` (skip), `maybe`,
-  `snoozed` or `no_audio`, or `wantlist`, `collection` and `seen` from your imports. A record you
-  skipped looks the same with `"status":"rejected"`.
-- `source` is `triage` for a decision you made in Digga, `seed:wantlist`, `seed:collection`,
-  `seed:list` or `seed:history` for one an import made.
+  `snoozed` or `no_audio`, or `seen` from the browser history import. A record you skipped looks
+  the same with `"status":"rejected"`. What your Discogs collection, wantlist and Maybe list hold
+  is in `memberships`, apart from your decisions.
+- `source` is `triage` for a decision you made in Digga, or `seed:history` for a page the history
+  import found.
 - `releaseId` is the pressing you heard. Times are in UTC.
 
 **To restore**, stop the server first. With a database copy, copy `digga-YYYY-MM-DD.sqlite` over

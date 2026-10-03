@@ -15,19 +15,18 @@ import type { MarkedTrack, TwelvesItem, VerdictInput } from "../src/shared/api.t
 import type { TrackMark, Verdict } from "../src/shared/types.ts";
 import { queueItem } from "./helpers/catalog.ts";
 
-function record(id: number): TwelvesItem {
+const decidedAt = "2026-01-01T00:00:00.000Z";
+
+/** A record decided in Digga as a maybe, which the Discogs account does not hold. */
+function record(id: number): TwelvesItem & { verdict: Verdict } {
   return {
+    key: `r:${id}`,
     release: queueItem(id),
-    onWantlist: false,
-    verdict: {
-      key: `r:${id}`,
-      status: "maybe",
-      source: "triage",
-      releaseId: id,
-      notes: null,
-      decidedAt: "2026-01-01T00:00:00.000Z",
-      dugAt: "2026-01-01T00:00:00.000Z",
-    },
+    verdict: { key: `r:${id}`, status: "maybe", source: "triage", releaseId: id, decidedAt },
+    membership: { owned: false, onWantlist: false, onList: false },
+    since: decidedAt,
+    note: null,
+    pressingNotes: [],
   };
 }
 
@@ -68,11 +67,11 @@ async function setup(sandboxMode = false) {
     }),
     pushToWantlist: vi.fn(async () => {
       calls.push("push");
-      item = { ...item, onWantlist: true };
+      item = { ...item, membership: { ...item.membership, onWantlist: true } };
     }),
     removeFromWantlist: vi.fn(async () => {
       calls.push("remove");
-      item = { ...item, onWantlist: false };
+      item = { ...item, membership: { ...item.membership, onWantlist: false } };
     }),
   };
   const sandboxWrites = {
@@ -103,7 +102,10 @@ describe("Twelves changes", () => {
     shelf.enqueueTask(() => shelf.undo());
     await shelf.changes;
     expect(calls).toEqual(["accepted", "push", "rejected", "remove", "accepted", "push"]);
-    expect(shelf.items[0]).toMatchObject({ verdict: { status: "accepted" }, onWantlist: true });
+    expect(shelf.items[0]).toMatchObject({
+      verdict: { status: "accepted" },
+      membership: { onWantlist: true },
+    });
   });
 
   it("keeps a grail on the wantlist like a want, and takes it off for anything else", async () => {
@@ -118,13 +120,16 @@ describe("Twelves changes", () => {
     shelf.rejudge(shelf.items[0]!, "snoozed");
     await shelf.changes;
     expect(calls.slice(4)).toEqual(["snoozed", "remove"]);
-    expect(shelf.items[0]).toMatchObject({ verdict: { status: "snoozed" }, onWantlist: false });
+    expect(shelf.items[0]).toMatchObject({
+      verdict: { status: "snoozed" },
+      membership: { onWantlist: false },
+    });
   });
 
   it("offers to add a grail made before grails were pushed", async () => {
     const { shelf, calls } = await setup();
     shelf.items = [
-      { ...shelf.items[0]!, verdict: { ...shelf.items[0]!.verdict, status: "candidate" } },
+      { ...shelf.items[0]!, verdict: { ...shelf.items[0]!.verdict!, status: "candidate" } },
     ];
     shelf.shelf = "candidate";
     expect(shelf.wantsPending).toHaveLength(1);
@@ -142,11 +147,11 @@ describe("Twelves changes", () => {
     http.postVerdict.mockRejectedValueOnce(new Error("disk full"));
     await shelf.undo();
     expect(shelf.undoStack).toHaveLength(1);
-    expect(shelf.items[0]?.verdict.status).toBe("accepted");
+    expect(shelf.items[0]?.verdict?.status).toBe("accepted");
     expect(http.removeFromWantlist).not.toHaveBeenCalled();
     await shelf.undo();
     expect(shelf.undoStack).toHaveLength(0);
-    expect(shelf.items[0]?.verdict.status).toBe("maybe");
+    expect(shelf.items[0]?.verdict?.status).toBe("maybe");
   });
 
   it("keeps a successful write locally when its reload fails", async () => {
@@ -154,7 +159,7 @@ describe("Twelves changes", () => {
     http.getTwelves.mockRejectedValueOnce(new Error("reload failed"));
     shelf.rejudge(shelf.items[0]!, "snoozed");
     await shelf.changes;
-    expect(shelf.items[0]?.verdict.status).toBe("snoozed");
+    expect(shelf.items[0]?.verdict?.status).toBe("snoozed");
     expect(shelf.error).toBe("reload failed");
   });
 
@@ -208,11 +213,11 @@ describe("the flash after re-judging", () => {
 describe("Twelves filtering and ordering", () => {
   it("combines shelf and case-insensitive note matching without changing input order", () => {
     const items = [record(1), record(2)];
-    items[0]!.verdict.notes = "Radio recording";
+    items[0]!.note = "Radio recording";
     items[1]!.verdict.status = "snoozed";
     const visible = visibleItems(items, { shelf: "maybe", query: " RADIO ", sort: "newest" });
-    expect(visible.map((item) => item.verdict.key)).toEqual(["r:1"]);
-    expect(items.map((item) => item.verdict.key)).toEqual(["r:1", "r:2"]);
+    expect(visible.map((item) => item.key)).toEqual(["r:1"]);
+    expect(items.map((item) => item.key)).toEqual(["r:1", "r:2"]);
   });
 
   it("keeps missing numbers last in either sort direction", () => {
@@ -223,9 +228,7 @@ describe("Twelves filtering and ordering", () => {
     items[1]!.release!.communityWant = 10;
     items[2]!.release!.communityWant = 20;
     expect(
-      visibleItems(items, { shelf: "all", query: "", sort: "want" }).map(
-        (item) => item.verdict.key,
-      ),
+      visibleItems(items, { shelf: "all", query: "", sort: "want" }).map((item) => item.key),
     ).toEqual(["r:3", "r:2", "r:1"]);
   });
 });
@@ -296,7 +299,7 @@ describe("pages", () => {
     const shelf = new TwelvesShelf(createAppApi(http as unknown as Api, (inner) => inner));
     shelves.push(shelf);
     await shelf.load();
-    shelf.selectedKey = items[PAGE_SIZE - 1]!.verdict.key;
+    shelf.selectedKey = items[PAGE_SIZE - 1]!.key;
     expect(shelf.page).toMatchObject({ index: 0, first: 1, last: PAGE_SIZE });
     shelf.move(1);
     expect(shelf.page).toMatchObject({ index: 1, first: PAGE_SIZE + 1 });

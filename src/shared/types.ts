@@ -1,6 +1,8 @@
+/**
+ * What was decided about a record: in Digga, or `seen` from the browser history. What the
+ * Discogs account holds is not a verdict but a membership (MEMBERSHIP_KINDS).
+ */
 export const VERDICT_STATUSES = [
-  "collection",
-  "wantlist",
   "seen",
   "rejected",
   "accepted",
@@ -11,15 +13,24 @@ export const VERDICT_STATUSES = [
 ] as const;
 export type VerdictStatus = (typeof VERDICT_STATUSES)[number];
 
-export const VERDICT_SOURCES = [
+export const VERDICT_SOURCES = ["seed:history", "triage", "manual"] as const;
+export type VerdictSource = (typeof VERDICT_SOURCES)[number];
+
+/**
+ * Statuses and sources verdicts had before Digga kept the Discogs account apart (migration 17).
+ * The decision log and older backups still hold them.
+ */
+export const LEGACY_VERDICT_STATUSES = [...VERDICT_STATUSES, "collection", "wantlist"] as const;
+export const LEGACY_VERDICT_SOURCES = [
+  ...VERDICT_SOURCES,
   "seed:collection",
   "seed:wantlist",
-  "seed:history",
   "seed:list",
-  "triage",
-  "manual",
 ] as const;
-export type VerdictSource = (typeof VERDICT_SOURCES)[number];
+
+/** What the Discogs account holds a release on: its collection, wantlist or Maybe list. */
+export const MEMBERSHIP_KINDS = ["collection", "wantlist", "list"] as const;
+export type MembershipKind = (typeof MEMBERSHIP_KINDS)[number];
 
 export const TRACK_MARKS = ["keep", "meh", "candidate"] as const;
 export type TrackMark = (typeof TRACK_MARKS)[number];
@@ -129,11 +140,16 @@ export interface Verdict {
   key: string;
   status: VerdictStatus;
   source: VerdictSource;
-  notes: string | null;
+  /** The release the decision was made on; null for a browser-history hit on a master. */
   releaseId: number | null;
   decidedAt: string;
-  /** When the record was last judged in Digga, kept when a seed replaces the verdict. */
-  dugAt: string | null;
+}
+
+/** What the Discogs account holds of a record: any of its releases, as imported or pushed. */
+export interface RecordMembership {
+  owned: boolean;
+  onWantlist: boolean;
+  onList: boolean;
 }
 
 export interface TrackVerdict {
@@ -223,7 +239,8 @@ export interface ImportProgress {
   pages: number | null;
   processed: number;
   stubs: number;
-  verdictsWritten: number;
+  /** Items new to Digga: not held before, or found again after an import missed them. */
+  added: number;
 }
 
 export interface HistoryImportProgress {

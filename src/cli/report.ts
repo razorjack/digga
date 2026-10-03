@@ -69,12 +69,12 @@ export function showImport(result: ImportResult): void {
   }
   if (result.kind === "list") {
     console.log(
-      `import list "${result.listName}": ${result.processed} items, ${result.stubs} stub releases, ${result.verdictsWritten} verdicts written`,
+      `import list "${result.listName}": ${result.processed} items, ${result.stubs} stub releases, ${result.added} new`,
     );
     return;
   }
   console.log(
-    `import ${result.kind}: ${result.processed} items over ${result.pages ?? 0} page(s), ${result.stubs} stub releases, ${result.verdictsWritten} verdicts written`,
+    `import ${result.kind}: ${result.processed} items over ${result.pages ?? 0} page(s), ${result.stubs} stub releases, ${result.added} new`,
   );
 }
 
@@ -88,7 +88,8 @@ export function showRestore(restore: {
   copy: BackupFile;
   outcome: RestoreOutcome;
 }): void {
-  const { verdicts, trackMarks, heardTunes, attachedVideos, sessions } = restore.outcome;
+  const { verdicts, memberships, trackMarks, heardTunes, attachedVideos, sessions } =
+    restore.outcome;
   const kept = (count: number) =>
     count > 0 ? `, ${count} kept: decided here after the backup` : "";
   const moved =
@@ -98,6 +99,7 @@ export function showRestore(restore: {
   console.log(
     `  verdicts:        ${verdicts.restored} restored${moved}${kept(verdicts.keptNewer)}`,
   );
+  console.log(`  Discogs items:   ${memberships.restored} restored`);
   console.log(`  track marks:     ${trackMarks.restored} restored${kept(trackMarks.keptNewer)}`);
   console.log(`  heard tunes:     ${heardTunes.added} added`);
   console.log(`  attached videos: ${attachedVideos.added} added`);

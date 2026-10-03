@@ -102,8 +102,7 @@ function twelves(request: Context, context: AppContext) {
   if (!query.ok) return query.response;
   const config = context.getConfig();
   const filters = query.data.applyFilters ? config.filters : null;
-  const items = queryTwelves(db, query.data.status, filters);
-  const body: TwelvesResponse = { items, statuses: query.data.status };
+  const body: TwelvesResponse = { items: queryTwelves(db, query.data.status, filters) };
   return request.json(body);
 }
 

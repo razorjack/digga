@@ -9,7 +9,7 @@ interface Move {
   toKey: string;
 }
 
-/** A verdict that has to move to the key it won, with the notes and dug date it keeps there. */
+/** A verdict that has to move to the key it won. */
 interface Arrival {
   fromKey: string;
   verdict: Verdict;
@@ -66,9 +66,9 @@ function readMoves(db: Db, releaseIds: number[]): Move[] {
 }
 
 /**
- * Decides which verdict the key keeps, the higher rank and then the newer decision, with every
- * note and the latest dug date, and deletes the others with their no-audio videos. Returns the
- * arriving verdict that still has to move to the key; null when the verdict there stays.
+ * Decides which verdict the key keeps, the higher rank and then the newer decision, and deletes
+ * the others with their no-audio videos; the log keeps them. Returns the arriving verdict that
+ * still has to move to the key; null when the verdict there stays.
  */
 function settleDestination(
   db: Db,
@@ -78,36 +78,14 @@ function settleDestination(
   const { resident, arriving } = verdicts;
   const candidates = resident ? [resident, ...arriving] : arriving;
   const kept = candidates.reduce((left, right) => preferredVerdict(left, right));
-  const merged = mergedVerdict(toKey, kept, candidates);
 
   for (const verdict of candidates) {
     if (verdict === kept) continue;
     deleteVerdict(db, verdict.key);
     forgetNoAudioVideos(db, verdict.key);
   }
-  if (kept !== resident) return { fromKey: kept.key, verdict: merged };
-  upsertVerdict(db, merged);
-  return null;
-}
-
-/**
- * The verdict a key keeps, with the notes of those it replaced and the latest of their dug
- * dates, so the record counts as dug when any of them was.
- */
-function mergedVerdict(key: string, kept: Verdict, candidates: Verdict[]): Verdict {
-  const others = candidates.filter((verdict) => verdict !== kept);
-  const notes = [kept, ...others].map((verdict) => verdict.notes).filter((note) => note !== null);
-  const dugDates = candidates.map((verdict) => verdict.dugAt).filter((date) => date !== null);
-  return {
-    ...kept,
-    key,
-    notes: notes.length === 0 ? null : [...new Set(notes)].join("; "),
-    dugAt: dugDates.length === 0 ? null : dugDates.reduce(laterTime),
-  };
-}
-
-function laterTime(left: string, right: string): string {
-  return Date.parse(right) > Date.parse(left) ? right : left;
+  if (kept === resident) return null;
+  return { fromKey: kept.key, verdict: { ...kept, key: toKey } };
 }
 
 /**
@@ -127,9 +105,7 @@ function placeArrivals(db: Db, arrivals: Arrival[]): void {
 
 function moveVerdict(db: Db, arrival: Arrival): void {
   const { fromKey, verdict } = arrival;
-  db.prepare(
-    "UPDATE verdicts SET key = @key, notes = @notes, dug_at = @dug_at WHERE key = @from_key",
-  ).run({ key: verdict.key, notes: verdict.notes, dug_at: verdict.dugAt, from_key: fromKey });
+  db.prepare("UPDATE verdicts SET key = ? WHERE key = ?").run(verdict.key, fromKey);
   forgetNoAudioVideos(db, verdict.key);
   db.prepare("UPDATE no_audio_videos SET key = ? WHERE key = ?").run(verdict.key, fromKey);
 }

@@ -7,10 +7,10 @@ import type {
   QueueQuery,
   ReleaseDetail,
   Stats,
-  TwelvesItem,
   VerdictInput,
   TrackVerdictInput,
 } from "../src/shared/api.ts";
+import type { ReplayItem } from "../src/shared/replay.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { QueueScope } from "../src/shared/scope.ts";
 import {
@@ -34,8 +34,10 @@ async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> 
 /** A server stand-in that records the writes the session makes. */
 function fakeServer(queue: number[], labelName: string | null = null) {
   const calls: string[] = [];
-  /** Notes sent with verdicts, as "key note". */
+  /** Release notes saved, as "release id note". */
   const notes: string[] = [];
+  /** Notes the server has saved for releases, by release id. */
+  const releaseNotes = new Map<number, string>();
   const verdicts = new Map<string, Verdict>();
   const queries: QueueQuery[] = [];
   const state = { pushDelayMs: 0, enrichDelayMs: 0 };
@@ -44,6 +46,8 @@ function fakeServer(queue: number[], labelName: string | null = null) {
     tracks: [],
     videos: [],
     verdict: verdicts.get(`r:${id}`) ?? null,
+    note: releaseNotes.get(id) ?? null,
+    pressingNotes: [],
     trackVerdicts: [],
     siblings: [],
   });
@@ -68,20 +72,20 @@ function fakeServer(queue: number[], labelName: string | null = null) {
       if (verdicts.get(`r:${id}`)?.status === "no_audio") verdicts.delete(`r:${id}`);
       return detail(id);
     },
-    putReleaseNote: async (_id: number, notes: string | null) => ({ notes }),
+    putReleaseNote: async (id: number, note: string | null) => {
+      notes.push(`${id} ${note}`);
+      return { notes: note };
+    },
     postVerdict: async (input: VerdictInput) => {
       calls.push(
         `verdict ${input.key} ${input.status}${input.decidedAt ? ` ${input.decidedAt}` : ""}`,
       );
-      if (input.notes) notes.push(`${input.key} ${input.notes}`);
       const v: Verdict = {
         key: input.key,
         status: input.status,
         source: input.source ?? "triage",
-        notes: input.notes ?? null,
         releaseId: input.releaseId ?? null,
         decidedAt: input.decidedAt ?? new Date().toISOString(),
-        dugAt: input.decidedAt ?? new Date().toISOString(),
       };
       verdicts.set(input.key, v);
       return v;
@@ -122,13 +126,14 @@ function fakeServer(queue: number[], labelName: string | null = null) {
         tracks: [],
         videos: [],
         verdict: null,
+        pressingNotes: [],
         trackVerdicts: [],
         siblings: [],
       };
     },
   } as unknown as Api;
   const app = createAppApi(http, (inner) => inner);
-  return { app, http, calls, notes, verdicts, queries, state };
+  return { app, http, calls, notes, releaseNotes, verdicts, queries, state };
 }
 
 async function started(queue: number[]) {
@@ -138,16 +143,12 @@ async function started(queue: number[]) {
   return { ...server, session };
 }
 
-const snoozed = (id: number, decidedAt: string): TwelvesItem => ({
-  verdict: {
-    key: `r:${id}`,
-    status: "snoozed",
-    source: "triage",
-    notes: "check the flip",
-    releaseId: id,
-    decidedAt,
-    dugAt: decidedAt,
-  },
+/** A snoozed record as Twelves hands it to Triage. */
+const snoozed = (
+  id: number,
+  decidedAt: string,
+): ReplayItem & { verdict: Verdict; onWantlist: boolean } => ({
+  verdict: { key: `r:${id}`, status: "snoozed", source: "triage", releaseId: id, decidedAt },
   release: queueItem(id),
   onWantlist: false,
 });
@@ -366,18 +367,16 @@ describe("triage session", () => {
     session.destroy();
   });
 
-  it("replays an unjudged marked track and refuses to rejudge imported records", async () => {
+  it("replays an unjudged marked track, and judges a record only Discogs holds like any other", async () => {
     const { session, calls } = await started([1, 2]);
     session.startRound([{ release: queueItem(9), verdict: null }]);
     session.endRound();
     expect(session.current?.id).toBe(1);
-    const item = snoozed(10, "2026-01-02T03:04:05.000Z");
-    item.verdict.status = "collection";
-    session.startRound([item]);
+    session.startRound([{ release: queueItem(10), verdict: null, onWantlist: true }]);
     session.judge("accepted");
-    expect(session.current?.id).toBe(10);
-    expect(calls).toEqual([]);
-    expect(session.flash).toContain("change them there");
+    await until(() => !session.slipBusy);
+    // Already on the wantlist, so the want sends nothing to Discogs.
+    expect(calls).toEqual(["verdict r:10 accepted"]);
     session.destroy();
   });
 
@@ -868,7 +867,7 @@ describe("pricing with P", () => {
 });
 
 describe("notes in Triage", () => {
-  it("saves a note independently and includes it in a later verdict", async () => {
+  it("saves a note on the release, apart from the verdicts made after it", async () => {
     const { session, calls, notes } = await started([1, 2]);
     session.setNote(session.current!, "  the Kool FM tune  ");
     session.pass();
@@ -878,7 +877,8 @@ describe("notes in Triage", () => {
     session.undo();
     expect(session.noteFor(session.current!)).toBe("the Kool FM tune");
     session.judge("accepted");
-    await until(() => notes.includes("r:1 the Kool FM tune"));
+    await until(() => calls.includes("verdict r:1 accepted"));
+    expect(notes).toEqual(["1 the Kool FM tune"]);
     session.destroy();
   });
 
@@ -896,14 +896,15 @@ describe("notes in Triage", () => {
     session.destroy();
   });
 
-  it("starts from a snoozed record's note, and an empty note removes it", async () => {
-    const { session, calls, notes } = await started([1]);
+  it("starts from the release's saved note, and an empty note removes it", async () => {
+    const { session, calls, notes, releaseNotes } = await started([1]);
+    releaseNotes.set(5, "check the flip");
     session.startRound([snoozed(5, "2026-01-01T00:00:00.000Z")]);
-    expect(session.noteFor(session.current!)).toBe("check the flip");
+    await until(() => session.noteFor(session.current!) === "check the flip");
     session.setNote(session.current!, " ");
     session.judge("rejected");
     await until(() => calls.includes("verdict r:5 rejected"));
-    expect(notes).toEqual([]);
+    expect(notes).toEqual(["5 null"]);
     session.destroy();
   });
 });
@@ -954,6 +955,7 @@ describe("digging one label or artist", () => {
       dug: 0,
       universe: { releases: 10, keys: 10, filteredKeys: 10 },
       verdicts: verdicts as Record<VerdictStatus, number>,
+      discogs: { collection: 0, wantlist: 0, list: 0 },
       rate: { verdictsPerHour: null, sessions: 0, etaHours: null },
       dump: { date: null, loadedAt: null, lastLoad: null },
       heardTracks: 0,

@@ -108,7 +108,7 @@ const HAS_PERSONAL_DATA = `(
   OR EXISTS (SELECT 1 FROM release_notes n WHERE n.release_id = releases.id)
   OR EXISTS (SELECT 1 FROM user_videos u WHERE u.release_id = releases.id)
   OR EXISTS (SELECT 1 FROM listen_log l WHERE l.release_id = releases.id)
-  OR EXISTS (SELECT 1 FROM seed_items s WHERE s.release_id = releases.id))`;
+  OR EXISTS (SELECT 1 FROM memberships s WHERE s.release_id = releases.id))`;
 
 /**
  * Undoes loads that did not finish, for the setup's "Change your picks": the releases they

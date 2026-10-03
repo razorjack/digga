@@ -85,10 +85,11 @@ describe("HTTP API", () => {
     let detail = (await get<ReleaseDetail>("/api/releases/1001")).body;
     expect(detail.note).toBe("hear the B side again");
     expect(detail.verdict).toBeNull();
+    // 1002 is the other pressing of master 501: it shows the note with the pressing it is on.
+    expect((await get<ReleaseDetail>("/api/releases/1002")).body.pressingNotes).toEqual([
+      { releaseId: 1001, catno: "RH 20", notes: "hear the B side again" },
+    ]);
     await send("POST", "/api/verdicts", { key: "m:501", releaseId: 1001, status: "snoozed" });
-    expect((await get<ReleaseDetail>("/api/releases/1001")).body.verdict?.notes).toBe(
-      "hear the B side again",
-    );
     await send("DELETE", "/api/verdicts/m:501");
     detail = (await get<ReleaseDetail>("/api/releases/1001")).body;
     expect(detail.verdict).toBeNull();
@@ -185,15 +186,9 @@ describe("HTTP API", () => {
       key: "m:501",
       status: "accepted",
       releaseId: 1001,
-      notes: "wheel up",
     });
     expect(v.status).toBe(200);
-    expect(v.body).toMatchObject({
-      key: "m:501",
-      status: "accepted",
-      source: "triage",
-      notes: "wheel up",
-    });
+    expect(v.body).toMatchObject({ key: "m:501", status: "accepted", source: "triage" });
     // The want puts Renegade Hardware among the coverage labels, which lets its undated 1003 in.
     expect((await get<QueueResponse>("/api/queue")).body.items.map((i) => i.id)).toEqual([
       1006, 1003,

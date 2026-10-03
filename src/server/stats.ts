@@ -4,6 +4,7 @@ import type { ScopeRef } from "../shared/scope.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type Db, getMeta } from "./db/db.ts";
 import { latestDumpLoad } from "./db/dump-loads.ts";
+import { countMemberships } from "./db/memberships.ts";
 import {
   countDug,
   countHeardTracks,
@@ -23,6 +24,7 @@ export function computeStats(db: Db, config: Config, scope: ScopeRef | null = nu
       filteredKeys: countUniverseKeys(db, config.filters),
     },
     verdicts: countVerdictsByStatus(db),
+    discogs: countMemberships(db),
     remaining,
     scopeRemaining: scope ? countRemaining(db, config.filters, scope) : null,
     rate: rateSummary(triageDecisionTimes(db), remaining),

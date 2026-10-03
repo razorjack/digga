@@ -1,34 +1,31 @@
 import type { CoverageIds } from "../../../tools/dump/coverage.ts";
-import type { VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 
 /**
- * The coverage labels and artists are those of the records the user wants or owns: wants,
- * grails, the Discogs wantlist and the collection. Every pressing of such a record counts, stubs
- * included, since a wanted record outside the loaded styles is what the coverage pass is for.
+ * The coverage labels and artists are those of the records the user wants or owns: wants and
+ * grails decided in Digga, and what the Discogs wantlist and collection hold. Every pressing of
+ * such a record counts, stubs included, since a wanted record outside the loaded styles is what
+ * the coverage pass is for.
  */
-export const COVERAGE_STATUSES: VerdictStatus[] = [
-  "accepted",
-  "candidate",
-  "wantlist",
-  "collection",
-];
-
-const STATUSES = COVERAGE_STATUSES.map((status) => `'${status}'`).join(", ");
+const WANTED_OR_OWNED_KEYS = `
+SELECT key FROM verdicts WHERE status IN ('accepted', 'candidate')
+UNION
+SELECT mr.triage_key FROM memberships m JOIN releases mr ON mr.id = m.release_id
+WHERE m.kind IN ('wantlist', 'collection') AND m.removed_at IS NULL`;
 
 // Self-releases share names like "Not On Label (Artist Self-released)" and cover every style.
 const COVERAGE_LABEL_IDS = `
 SELECT json_extract(cl.value, '$.id') AS id
-FROM verdicts cv JOIN releases cr ON cr.triage_key = cv.key, json_each(cr.labels_json) cl
-WHERE cv.status IN (${STATUSES})
+FROM releases cr, json_each(cr.labels_json) cl
+WHERE cr.triage_key IN (${WANTED_OR_OWNED_KEYS})
   AND json_extract(cl.value, '$.id') > 0
   AND json_extract(cl.value, '$.name') NOT LIKE 'Not On Label%'`;
 
 // 194 is Discogs' "Various", credited on every compilation.
 const COVERAGE_ARTIST_IDS = `
 SELECT json_extract(ca.value, '$.id') AS id
-FROM verdicts cv JOIN releases cr ON cr.triage_key = cv.key, json_each(cr.artists_json) ca
-WHERE cv.status IN (${STATUSES})
+FROM releases cr, json_each(cr.artists_json) ca
+WHERE cr.triage_key IN (${WANTED_OR_OWNED_KEYS})
   AND json_extract(ca.value, '$.id') > 0
   AND json_extract(ca.value, '$.id') <> 194
   AND json_extract(ca.value, '$.name') <> 'Unknown Artist'`;

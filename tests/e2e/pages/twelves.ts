@@ -1,5 +1,5 @@
 import { expect, type Locator, type Response } from "@playwright/test";
-import { STATUS_COPY } from "../../../src/client/keymap.ts";
+import { type RecordStamp, STATUS_COPY } from "../../../src/client/keymap.ts";
 import {
   JUDGE_KEYS,
   type JudgedStatus,
@@ -71,7 +71,7 @@ export class TwelvesPage {
   }
 
   /** The verdict's stamp in a row; exact, since the market cell's "1,210 want" contains "want". */
-  stamp(row: Locator, status: VerdictStatus): Locator {
+  stamp(row: Locator, status: RecordStamp): Locator {
     return row.getByText(STATUS_COPY[status], { exact: true });
   }
 
@@ -250,12 +250,13 @@ export class TwelvesPage {
 
   /**
    * E, the text and Enter on the selected record; an empty text removes the note. Returns once the
-   * server has saved the verdict with it and the shelf says so.
+   * server has saved it as the shown release's note and the shelf says so.
    */
   async writeNote(text: string): Promise<void> {
     await this.openNote();
     await this.noteField.fill(text);
-    const saved = this.#response("POST", "/api/verdicts");
+    const releaseId = await this.selected.getAttribute("data-release-id");
+    const saved = this.#response("PUT", `/api/releases/${releaseId}/note`);
     await this.app.page.keyboard.press("Enter");
     await completed(await saved);
     await expect(this.messages).toHaveText(

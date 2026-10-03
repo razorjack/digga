@@ -1,7 +1,7 @@
 # Data model
 
 Every timestamp Digga stores is ISO 8601 in UTC with `Z` (`2026-09-22T21:48:52.000Z`), so SQL
-orders them as text; only `seed_items.date_added` keeps the text Discogs sent.
+orders them as text; only `memberships.date_added` keeps the text Discogs sent.
 
 SQLite, WAL mode, one file: `digga.sqlite` in the library folder (`paths.dbFile`). With
 `synchronous = NORMAL`, an OS crash or power cut can roll back the last writes but never corrupts
@@ -89,32 +89,33 @@ in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
 
 ## verdicts
 
-| column       | notes                                                                                                 |
-| ------------ | ----------------------------------------------------------------------------------------------------- |
-| `key`        | PK, triage key                                                                                        |
-| `status`     | `collection`, `wantlist`, `seen`, `rejected`, `accepted`, `maybe`, `candidate`, `no_audio`, `snoozed` |
-| `source`     | `seed:collection`, `seed:wantlist`, `seed:history`, `seed:list`, `triage`, `manual`                   |
-| `notes`      | nullable                                                                                              |
-| `release_id` | the release that was on screen or imported, nullable for master-only history hits                     |
-| `decided_at` | ISO in UTC; seeds use Discogs `date_added` (converted from its offset) or the last browser visit      |
-| `dug_at`     | when the record was last judged in Digga; a seed that replaces the verdict keeps it, null if never    |
+What was decided about a record: in Digga, or `seen` from the browser history. What the Discogs
+account holds is not a verdict (see `memberships`).
 
-Seed precedence (`applySeedVerdict`, ranks in `src/shared/verdict-rank.ts`): collection (3) >
-`candidate` (grail, 2.5) > wantlist (2) > `accepted` from triage (1.6) > the Discogs Maybe list,
-`maybe` from `seed:list` (1.55) > other triage/manual decisions (1.5) > seen (1). A seed never
-downgrades a higher rank. A grail is on the wantlist too, so the wantlist import leaves it a grail. `maybe` means the release belongs on the Discogs Maybe list: from `triage` it is not
-there yet, from `seed:list` it is. `snoozed` is "hear it again later": a round of snoozed records
-in Triage replaces it with the new verdict, and undo there restores the snooze with its original
-`decided_at` (`POST /api/verdicts` accepts `decidedAt` for that). The "dug" count is every verdict
-with a `dug_at`, and the rate reads those times (`dugAtAfter()` in `src/shared/verdict-rank.ts`):
-a `triage` or `manual` write sets `dug_at` to its `decided_at`, a seed keeps the record's, and undo
-in Twelves restores the one it had (`dugAt`).
+| column       | notes                                                                       |
+| ------------ | --------------------------------------------------------------------------- |
+| `key`        | PK, triage key                                                              |
+| `status`     | `seen`, `rejected`, `accepted`, `maybe`, `candidate`, `no_audio`, `snoozed` |
+| `source`     | `seed:history`, `triage`, `manual`                                          |
+| `release_id` | the release that was on screen, nullable for master-only history hits       |
+| `decided_at` | ISO in UTC; a history hit uses the last browser visit                       |
+
+Precedence (`verdictRank()` in `src/shared/verdict-rank.ts`) decides only which verdict a record
+keeps when two meet on one key: `candidate` (grail) > `accepted` (want) > any other decision >
+`seen`. A history hit never replaces a decision (`applySeedVerdict`). `maybe` means the release
+belongs on the Discogs Maybe list; Twelves says when the list does not hold it yet. `snoozed` is
+"hear it again later": a round of snoozed records in Triage replaces it with the new verdict, and
+undo there restores the snooze with its original `decided_at` (`POST /api/verdicts` accepts
+`decidedAt` for that). The "dug" count is every verdict with source `triage` or `manual`, and
+the rate reads their `decided_at`. Migration 17 moved the collection, wantlist and Maybe-list
+seeds that verdicts used to hold into `memberships`, put back the decision made in Digga that a
+seed had replaced (from `verdict_log`), and dropped `notes` and `dug_at`.
 
 A verdict follows the release it was given on (`release_id`, indexed): a dump load that changes the
 release's key moves the verdict, and the videos of a no-audio record, to the new key
 (`moveVerdictsToReleaseKeys()` in `src/server/db/verdict-keys.ts`). When the new key has a verdict,
-the higher rank stays, then the newer decision (`preferredVerdict()`); the notes of all are kept
-and the latest `dug_at`. A load's moves are worked out together before any is made, so verdicts
+the higher rank stays, then the newer decision (`preferredVerdict()`), and the log keeps the
+others. A load's moves are worked out together before any is made, so verdicts
 whose releases swap masters swap keys instead of merging. `POST /api/verdicts` and `digga restore`
 put a verdict with a `releaseId` on the key its release has now, whatever key the page or the
 backup had. A verdict without a `release_id`, such as a browser-history hit on a master, stays on
@@ -159,14 +160,17 @@ It has every play, also one shorter than the 4 s after which a tune turns heard;
 (`heard: false` in `POST /api/listen-log`) leaves `heard_tracks` alone. A play of 4 s or more is
 logged at 4 s and again with the rest when the listener leaves it, so one play can be two rows.
 
-## seed_items
+## memberships
 
-Raw Discogs seed rows: `(kind, release_id)` PK with `kind` in `collection | wantlist`, `master_id`,
-`date_added`, `rating`, `notes`, `basic_information_json`, `imported_at`. A want Digga pushes to
-the Discogs wantlist is recorded here too (with `basic_information_json` built from the release
-row), and removed when Digga takes it off, so `TwelvesItem.onWantlist` can say which wants reached
-Discogs before the next wantlist import. The push leaves the `accepted` verdict as it is; the next
-wantlist import turns it into a `wantlist` seed by rank.
+What the Discogs account holds: `(kind, release_id)` PK with `kind` in `collection | wantlist |
+list` (the Maybe list), `master_id`, `date_added`, `rating` and `notes` as Discogs sent them (the
+list item's comment for `list`), `added_at` (first seen by Digga), `imported_at` (the last import
+or push that found it) and `removed_at` (null while Discogs holds it). The imports write it; a
+want Digga pushes to the Discogs wantlist is recorded here too, and deleted when Digga takes it
+off, so Twelves can say which wants reached Discogs before the next wantlist import. A record the
+account holds any release of, also one that left the account outside Digga, is out of the queue
+(`undecidedClause()`); Twelves shows it on the Discogs wantlist, Owned and Maybe shelves beside
+the decisions made in Digga, which the imports never change.
 
 ## sellers and seller_releases
 
@@ -217,10 +221,13 @@ not participate in daily retention. Checkpoints restore through the same CLI as 
 
 ## release_notes
 
-Independent notes keyed by `release_id`, with nullable `notes` and `updated_at`. A cleared note
-keeps a null row so an older backup cannot bring it back. Verdict writes keep their note in
-step with this table; undoing a verdict leaves the independent note. Release details expose
-`note` even without a verdict. Portable backups include these rows.
+Notes belong to releases: `release_id` PK, nullable `notes` and `updated_at`. `E` in Triage and
+Twelves writes the note of the release shown. A cleared note keeps a null row so an older backup
+cannot bring it back. Verdicts have no note, so undoing or merging a verdict never touches one.
+Release details and Twelves expose the release's own `note` and `pressingNotes`, the notes
+written on the record's other pressings, which the page labels with their catalogue number. The
+want Digga pushes to Discogs carries the pushed release's note. Portable backups include these
+rows.
 
 Track marks retain their original tune snapshot even when a catalogue refresh reuses the position.
 Triage follows a moved tune only when its heard key identifies one track unambiguously. Twelves

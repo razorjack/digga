@@ -73,8 +73,11 @@ export const VERDICT_KEYS: VerdictKey[] = [
   },
 ];
 
-/** How each verdict status reads on screen. */
-export const STATUS_COPY: Record<VerdictStatus, string> = {
+/** What a record's stamp says: its verdict, or what the Discogs account holds of it. */
+export type RecordStamp = VerdictStatus | "wantlist" | "collection";
+
+/** How each stamp reads on screen. */
+export const STATUS_COPY: Record<RecordStamp, string> = {
   rejected: "skip",
   accepted: "want",
   maybe: "maybe",
@@ -98,7 +101,7 @@ export function trackMarkForKey(key: string): TrackMark | null {
   return TRACK_MARK_KEYS.find((binding) => binding.key.toLowerCase() === key)?.mark ?? null;
 }
 
-export const STATUS_TONE: Record<VerdictStatus, StampTone> = {
+export const STATUS_TONE: Record<RecordStamp, StampTone> = {
   rejected: "plain",
   accepted: "accent",
   maybe: "plain",

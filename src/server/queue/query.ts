@@ -74,9 +74,15 @@ const HAS_VIDEO = `(EXISTS (SELECT 1 FROM videos vf WHERE vf.release_id = r.id A
          CROSS JOIN tracks tp ON tp.release_id = rp.id AND tp.position = up.matched_position
          WHERE rp.master_id = r.master_id AND rp.id <> r.id AND ${SHARES_TUNE}))`;
 
+/**
+ * Records without a decision that the Discogs account does not hold. A release that left the
+ * account outside Digga stays out too: the user has been through it.
+ */
 function undecidedClause(filters: Filters): string {
   const exclusion = filters.skipHistory ? "" : " AND v.status <> 'seen'";
-  return `NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key${exclusion})`;
+  return `NOT EXISTS (SELECT 1 FROM verdicts v WHERE v.key = r.triage_key${exclusion})
+    AND NOT EXISTS (SELECT 1 FROM releases mr JOIN memberships m ON m.release_id = mr.id
+      WHERE mr.triage_key = r.triage_key)`;
 }
 
 const ON_LABEL = `EXISTS (SELECT 1 FROM json_each(r.labels_json) sl

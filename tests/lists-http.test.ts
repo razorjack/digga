@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { createHttpApi } from "../src/client/api.ts";
 import { createSandboxApi } from "../src/client/sandbox.ts";
 import type { Db } from "../src/server/db/db.ts";
+import { recordMembershipOf } from "../src/server/db/memberships.ts";
 import { getVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
@@ -104,12 +105,13 @@ describe("Discogs lists over HTTP", () => {
     expect(res.status).toBe(502);
   });
 
-  it("imports the configured list as maybe seeds", async () => {
+  it("holds the configured list's records on the Maybe list", async () => {
     const started = await server.app.request("/api/jobs/import/list", { method: "POST" });
     expect(started.status).toBe(202);
     const job = await waitForJob(((await started.json()) as Job).id);
     expect(job).toMatchObject({ type: "import_list", status: "done" });
-    expect(getVerdict(db, "m:506")).toMatchObject({ status: "maybe", source: "seed:list" });
+    expect(recordMembershipOf(db, "m:506").onList).toBe(true);
+    expect(getVerdict(db, "m:506")).toBeNull();
   });
 
   it("applies the list in memory in the sandbox", async () => {
@@ -121,12 +123,10 @@ describe("Discogs lists over HTTP", () => {
       await new Promise((r) => setTimeout(r, 10));
       done = await sandbox.getJob(job.id);
     }
-    expect(done).toMatchObject({ status: "done", progress: { processed: 2, verdictsWritten: 2 } });
-    const maybes = await sandbox.getTwelves({ status: ["maybe"] });
-    expect(maybes.items.map((i) => `${i.verdict.key} ${i.verdict.source}`).sort()).toEqual([
-      "m:501 seed:list",
-      "m:506 seed:list",
-    ]);
+    expect(done).toMatchObject({ status: "done", progress: { processed: 2, added: 2 } });
+    const twelves = await sandbox.getTwelves();
+    const listed = twelves.items.filter((item) => item.membership.onList);
+    expect(listed.map((item) => item.key).sort()).toEqual(["m:501", "m:506"]);
     const stats = await sandbox.getStats();
     expect(stats.remaining).toBe(before - 2);
     expect(stats.dug).toBe(0);

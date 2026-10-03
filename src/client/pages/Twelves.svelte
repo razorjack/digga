@@ -3,7 +3,7 @@
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
-  import { type ReplayRequest, replayTrack } from "../../shared/replay.ts";
+  import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
@@ -27,6 +27,7 @@
     JUDGE_KEYS,
     notOnList,
     notOnWantlist,
+    recordStamp,
     trackKey,
   } from "../twelves/model.ts";
   const shelfState = new TwelvesShelf();
@@ -55,7 +56,7 @@
 
   $effect(() => {
     if (shelfState.selectedIndex === -1 && shelfState.visible.length > 0)
-      shelfState.selectedKey = shelfState.visible[0]!.verdict.key;
+      shelfState.selectedKey = shelfState.visible[0]!.key;
   });
 
   $effect(() => {
@@ -94,12 +95,12 @@
       shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
       return null;
     }
-    return { items };
+    return { items: items.map(replayItemOf) };
   }
 
   function startEditing(item: TwelvesItem): void {
-    editingKey = item.verdict.key;
-    noteDraft = item.verdict.notes ?? "";
+    editingKey = item.key;
+    noteDraft = item.note ?? "";
   }
 
   /** The note input appears when E is pressed, so it takes focus as it mounts. */
@@ -108,10 +109,7 @@
   function saveNote(item: TwelvesItem): void {
     editingKey = null;
     const notes = noteDraft.trim() === "" ? null : noteDraft.trim();
-    if (notes === item.verdict.notes) return;
-    shelfState.enqueue(item.verdict.key, (fresh) =>
-      shelfState.write(fresh, { notes }, notes ? "Note saved." : "Note removed."),
-    );
+    if (notes !== item.note) shelfState.saveNote(item, notes);
   }
 
   const ACTIONS: Record<string, () => void> = {
@@ -369,17 +367,18 @@
         </tr>
       </thead>
       <tbody>
-        {#each shelfState.page.items as item (item.verdict.key)}
+        {#each shelfState.page.items as item (item.key)}
           {@const release = item.release}
-          {@const isSelected = item.verdict.key === shelfState.selectedKey}
+          {@const isSelected = item.key === shelfState.selectedKey}
+          {@const stamp = recordStamp(item)}
           <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
           <tr
             class:selected={isSelected}
             aria-current={isSelected ? "true" : undefined}
-            data-triage-key={item.verdict.key}
+            data-triage-key={item.key}
             data-release-id={release?.id}
-            onclick={() => (shelfState.selectedKey = item.verdict.key)}
+            onclick={() => (shelfState.selectedKey = item.key)}
           >
             <td class="catno">{release?.catno ?? ""}</td>
             <td class="who">
@@ -389,9 +388,9 @@
                   <span class="title">{release.title}</span>
                 </a>
               {:else}
-                <span class="title">Not in the loaded dump ({item.verdict.key})</span>
+                <span class="title">Not in the loaded dump ({item.key})</span>
               {/if}
-              {#if editingKey === item.verdict.key}
+              {#if editingKey === item.key}
                 <input
                   class="note-input"
                   bind:value={noteDraft}
@@ -405,9 +404,14 @@
                   }}
                   onblur={() => (editingKey = null)}
                 />
-              {:else if item.verdict.notes}
-                <p class="note">{item.verdict.notes}</p>
+              {:else if item.note}
+                <p class="note">{item.note}</p>
               {/if}
+              {#each item.pressingNotes as pressing (pressing.releaseId)}
+                <p class="note">
+                  {pressing.notes} <span class="quiet">(on {pressing.catno ?? "another pressing"})</span>
+                </p>
+              {/each}
               {#if notOnList(item)}
                 <p class="pending">not on your Discogs Maybe list yet</p>
               {:else if notOnWantlist(item)}
@@ -430,14 +434,14 @@
             </td>
             <td class="verdict">
               <Stamp
-                text={STATUS_COPY[item.verdict.status]}
-                tone={STATUS_TONE[item.verdict.status]}
-                seed={release?.id ?? item.verdict.key.length}
+                text={STATUS_COPY[stamp]}
+                tone={STATUS_TONE[stamp]}
+                seed={release?.id ?? item.key.length}
                 size="sm"
               />
             </td>
             <td class="day quiet">
-              <time datetime={item.verdict.decidedAt}>{formatDay(item.verdict.decidedAt)}</time>
+              <time datetime={item.since}>{formatDay(item.since)}</time>
             </td>
           </tr>
         {/each}

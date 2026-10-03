@@ -3,12 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { applyMigrations, type Db, listMigrations, openDb } from "../src/server/db/db.ts";
-import {
-  applySeedVerdict,
-  deleteVerdict,
-  setTrackVerdict,
-  upsertVerdict,
-} from "../src/server/db/verdicts.ts";
+import { deleteVerdict, setTrackVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { fixtureDb } from "./helpers.ts";
 
 const opened: Db[] = [];
@@ -18,6 +13,24 @@ afterEach(() => {
 
 async function library(): Promise<Db> {
   const db = await fixtureDb();
+  opened.push(db);
+  return db;
+}
+
+/** Applies the migrations up to `version`, as a library of that age has them. */
+function migrateTo(db: Db, version: number): void {
+  const early = fs.mkdtempSync(path.join(os.tmpdir(), "digga-migrations-"));
+  try {
+    for (const migration of listMigrations().filter((m) => m.version <= version))
+      fs.copyFileSync(migration.file, path.join(early, migration.name));
+    applyMigrations(db, early);
+  } finally {
+    fs.rmSync(early, { recursive: true, force: true });
+  }
+}
+
+function migrating(): Db {
+  const db = openDb(":memory:", { foreign: true });
   opened.push(db);
   return db;
 }
@@ -35,43 +48,24 @@ function trackMarkLog(db: Db): Record<string, unknown>[] {
 }
 
 describe("the decision log", () => {
-  it("keeps a verdict made in Digga after an import replaces it and undo deletes it", async () => {
+  it("keeps every verdict made in Digga through a re-judgement and an undo that deletes it", async () => {
     const db = await library();
     upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1001 });
-    applySeedVerdict(db, {
-      key: "m:501",
-      status: "wantlist",
-      source: "seed:wantlist",
-      releaseId: 1001,
-      decidedAt: "2026-10-03T10:00:00.000Z",
-    });
+    upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage", releaseId: 1001 });
     deleteVerdict(db, "m:501");
 
+    const logged = (change: string, status: string) => ({
+      change,
+      key: "m:501",
+      previous_key: null,
+      status,
+      source: "triage",
+      notes: null,
+    });
     expect(verdictLog(db)).toEqual([
-      {
-        change: "insert",
-        key: "m:501",
-        previous_key: null,
-        status: "accepted",
-        source: "triage",
-        notes: null,
-      },
-      {
-        change: "update",
-        key: "m:501",
-        previous_key: null,
-        status: "wantlist",
-        source: "seed:wantlist",
-        notes: null,
-      },
-      {
-        change: "delete",
-        key: "m:501",
-        previous_key: null,
-        status: "wantlist",
-        source: "seed:wantlist",
-        notes: null,
-      },
+      logged("insert", "accepted"),
+      logged("update", "rejected"),
+      logged("delete", "rejected"),
     ]);
   });
 
@@ -155,33 +149,72 @@ describe("the decision log", () => {
   });
 
   it("moves seed dates to UTC without logging the change as a decision", () => {
-    const early = fs.mkdtempSync(path.join(os.tmpdir(), "digga-migrations-"));
-    const db = openDb(":memory:", { foreign: true });
-    opened.push(db);
-    try {
-      for (const migration of listMigrations().filter((m) => m.version <= 14))
-        fs.copyFileSync(migration.file, path.join(early, migration.name));
-      applyMigrations(db, early);
-      db.prepare(
-        `INSERT INTO verdicts (key, status, source, release_id, decided_at, dug_at) VALUES
-           ('m:501', 'wantlist', 'seed:wantlist', 1001, '2026-09-22T14:48:52-07:00', NULL),
-           ('m:502', 'collection', 'seed:collection', 1002, '2020-01-02', NULL),
-           ('m:503', 'accepted', 'triage', 1003, '2026-09-28T10:00:00.000Z', '2026-09-28T10:00:00.000Z')`,
-      ).run();
-      const logged = verdictLog(db).length;
-      applyMigrations(db);
+    const db = migrating();
+    migrateTo(db, 14);
+    db.prepare(
+      `INSERT INTO verdicts (key, status, source, release_id, decided_at, dug_at) VALUES
+         ('m:501', 'wantlist', 'seed:wantlist', 1001, '2026-09-22T14:48:52-07:00', NULL),
+         ('m:502', 'collection', 'seed:collection', 1002, '2020-01-02', NULL),
+         ('m:503', 'accepted', 'triage', 1003, '2026-09-28T10:00:00.000Z', '2026-09-28T10:00:00.000Z')`,
+    ).run();
+    const logged = verdictLog(db).length;
+    migrateTo(db, 15);
 
-      expect(db.prepare("SELECT key, decided_at FROM verdicts ORDER BY key").all()).toEqual([
-        { key: "m:501", decided_at: "2026-09-22T21:48:52.000Z" },
-        { key: "m:502", decided_at: "2020-01-02T00:00:00.000Z" },
-        { key: "m:503", decided_at: "2026-09-28T10:00:00.000Z" },
-      ]);
-      expect(
-        db.prepare("SELECT decided_at FROM verdict_log WHERE key = 'm:501'").pluck().all(),
-      ).toEqual(["2026-09-22T21:48:52.000Z"]);
-      expect(verdictLog(db)).toHaveLength(logged);
-    } finally {
-      fs.rmSync(early, { recursive: true, force: true });
-    }
+    expect(db.prepare("SELECT key, decided_at FROM verdicts ORDER BY key").all()).toEqual([
+      { key: "m:501", decided_at: "2026-09-22T21:48:52.000Z" },
+      { key: "m:502", decided_at: "2020-01-02T00:00:00.000Z" },
+      { key: "m:503", decided_at: "2026-09-28T10:00:00.000Z" },
+    ]);
+    expect(
+      db.prepare("SELECT decided_at FROM verdict_log WHERE key = 'm:501'").pluck().all(),
+    ).toEqual(["2026-09-22T21:48:52.000Z"]);
+    expect(verdictLog(db)).toHaveLength(logged);
+  });
+
+  it("moves the account's items out of the verdicts, and brings back a want a seed replaced", () => {
+    const db = migrating();
+    migrateTo(db, 16);
+    const at = "2026-09-20T10:00:00.000Z";
+    db.prepare(
+      `INSERT INTO verdicts (key, status, source, notes, release_id, decided_at, dug_at) VALUES
+         ('m:501', 'accepted', 'triage', 'my note', 1001, '${at}', '${at}'),
+         ('m:503', 'rejected', 'triage', 'too dark', 1003, '${at}', '${at}'),
+         ('m:506', 'maybe', 'seed:list', 'check the flip', 1006, '${at}', NULL)`,
+    ).run();
+    // The wantlist import took the pushed want over, keeping its dug date.
+    db.prepare(
+      "UPDATE verdicts SET status = 'wantlist', source = 'seed:wantlist', decided_at = ? WHERE key = 'm:501'",
+    ).run("2026-09-22T21:48:52.000Z");
+    db.prepare(
+      `INSERT INTO seed_items (kind, release_id, master_id, date_added, notes, basic_information_json,
+         imported_at)
+       VALUES ('wantlist', 1001, 501, '2026-09-22T14:48:52-07:00', 'repress', '{}', '${at}')`,
+    ).run();
+    const logged = verdictLog(db).length;
+    applyMigrations(db);
+
+    expect(db.prepare("SELECT * FROM verdicts ORDER BY key").all()).toEqual([
+      { key: "m:501", status: "accepted", source: "triage", release_id: 1001, decided_at: at },
+      { key: "m:503", status: "rejected", source: "triage", release_id: 1003, decided_at: at },
+    ]);
+    expect(
+      db.prepare("SELECT kind, release_id, date_added, notes FROM memberships ORDER BY kind").all(),
+    ).toEqual([
+      { kind: "list", release_id: 1006, date_added: null, notes: "check the flip" },
+      {
+        kind: "wantlist",
+        release_id: 1001,
+        date_added: "2026-09-22T14:48:52-07:00",
+        notes: "repress",
+      },
+    ]);
+    expect(
+      db.prepare("SELECT release_id, notes FROM release_notes ORDER BY release_id").all(),
+    ).toEqual([
+      { release_id: 1001, notes: "my note" },
+      { release_id: 1003, notes: "too dark" },
+      { release_id: 1006, notes: "check the flip" },
+    ]);
+    expect(verdictLog(db)).toHaveLength(logged);
   });
 });

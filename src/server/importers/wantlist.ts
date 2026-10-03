@@ -14,7 +14,7 @@ export async function importWantlist(
     pages: null,
     processed: 0,
     stubs: 0,
-    verdictsWritten: 0,
+    added: 0,
   };
   let page = 1;
   for (;;) {
@@ -35,7 +35,7 @@ export async function importWantlist(
         });
         progress.processed += 1;
         if (result.stubCreated) progress.stubs += 1;
-        if (result.verdictWritten) progress.verdictsWritten += 1;
+        if (result.added) progress.added += 1;
       }
     })();
     onProgress?.({ ...progress });

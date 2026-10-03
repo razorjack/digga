@@ -22,7 +22,6 @@ const BACKED_UP_AT = "2026-09-30T12:00:00.000Z";
 export interface DatedVerdict {
   release: FixtureRelease;
   status: VerdictStatus;
-  notes?: string;
 }
 
 /**
@@ -35,7 +34,6 @@ export function datedVerdicts(verdicts: DatedVerdict[]): VerdictInput[] {
     key: triageKeyOf(verdict.release),
     status: verdict.status,
     source: "triage",
-    notes: verdict.notes ?? null,
     releaseId: verdict.release.id,
     decidedAt: new Date(newest - index * 86_400_000).toISOString(),
   }));
@@ -49,6 +47,7 @@ export function decisionsBackup(verdicts: BackedUpData["verdicts"]): DecisionsBa
     version: DECISIONS_BACKUP_VERSION,
     backedUpAt: BACKED_UP_AT,
     verdicts,
+    memberships: [],
     trackMarks: [],
     heardTunes: [],
     attachedVideos: [],

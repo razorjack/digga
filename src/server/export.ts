@@ -33,13 +33,12 @@ function decisionsJson(db: Db, now: Date): string {
 }
 
 function verdictsCsv(db: Db): string {
-  const header = ["key", "status", "source", "decided_at", "dug_at", "notes", ...RELEASE_HEADER];
+  const header = ["key", "status", "source", "decided_at", "notes", ...RELEASE_HEADER];
   const rows = listVerdictExports(db).map((verdict) => [
     verdict.key,
     verdict.status,
     verdict.source,
     verdict.decidedAt,
-    verdict.dugAt,
     verdict.notes,
     verdict.releaseId,
     verdict.artist,

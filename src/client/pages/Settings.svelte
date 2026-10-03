@@ -447,7 +447,7 @@
         <p class="quiet">
           want {formatCount(summary.verdicts.accepted)}, grail {formatCount(summary.verdicts.candidate)}, maybe {formatCount(summary.verdicts.maybe)},
           skip {formatCount(summary.verdicts.rejected)}, snooze {formatCount(summary.verdicts.snoozed)}, no audio {formatCount(summary.verdicts.no_audio)};
-          Discogs wantlist {formatCount(summary.verdicts.wantlist)}, owned {formatCount(summary.verdicts.collection)}, seen {formatCount(summary.verdicts.seen)}
+          Discogs wantlist {formatCount(summary.discogs.wantlist)}, owned {formatCount(summary.discogs.collection)}, seen {formatCount(summary.verdicts.seen)}
         </p>
       {/if}
     </section>

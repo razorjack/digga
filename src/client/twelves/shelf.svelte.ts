@@ -8,7 +8,6 @@ import { errorMessage, stats, settings } from "../stores.svelte.ts";
 import {
   type ShelfId,
   type SortId,
-  STATUSES,
   SORTS,
   TRIAGE_STATUSES,
   missingFromWantlist,
@@ -25,10 +24,15 @@ import {
   visibleItems,
   visibleTracks,
 } from "./model.ts";
-interface UndoEntry {
-  previous: Verdict;
-  wantlist: { releaseId: number; change: "added" | "removed" } | null;
-}
+type UndoEntry =
+  | {
+      kind: "verdict";
+      previous: Verdict;
+      wantlist: { releaseId: number; change: "added" | "removed" } | null;
+    }
+  | { kind: "note"; key: string; releaseId: number; previous: string | null };
+
+type WantlistChange = Extract<UndoEntry, { kind: "verdict" }>["wantlist"];
 export class TwelvesShelf {
   #app: AppApi;
   #client: Api;
@@ -72,9 +76,7 @@ export class TwelvesShelf {
   visible = $derived(
     visibleItems(this.items, { shelf: this.shelf, sort: this.sort, query: this.query }),
   );
-  selectedIndex = $derived(
-    this.visible.findIndex((index) => index.verdict.key === this.selectedKey),
-  );
+  selectedIndex = $derived(this.visible.findIndex((item) => item.key === this.selectedKey));
   selected = $derived(this.selectedIndex === -1 ? null : this.visible[this.selectedIndex]!);
   /** The page of the shelf that holds the selected record. */
   page = $derived(pageAround(this.visible, this.selectedIndex));
@@ -92,7 +94,7 @@ export class TwelvesShelf {
     const version = ++this.#loadVersion;
     try {
       const [response, marks] = await Promise.all([
-        this.#client.getTwelves({ status: STATUSES }),
+        this.#client.getTwelves(),
         this.#client.getTrackMarks(),
       ]);
       if (!this.#current() || version !== this.#loadVersion) return;
@@ -129,15 +131,15 @@ export class TwelvesShelf {
     item: TwelvesItem,
     status: VerdictStatus,
   ): Promise<{
-    entry: UndoEntry["wantlist"];
+    entry: WantlistChange;
     note: string;
   }> {
     const releaseId = releaseIdOf(item);
-    const from = item.verdict.status;
+    const from = item.verdict?.status ?? null;
     if (releaseId === null || status === from) return { entry: null, note: "" };
     // A want that becomes a grail, or the reverse, stays on the wantlist.
     if (isWantlistVerdict(status)) {
-      if (item.onWantlist) return { entry: null, note: "" };
+      if (item.membership.onWantlist) return { entry: null, note: "" };
       const error = await this.wantlistWrite(releaseId, true);
       return error
         ? {
@@ -146,11 +148,11 @@ export class TwelvesShelf {
           }
         : { entry: { releaseId, change: "added" }, note: " Added to your Discogs wantlist." };
     }
-    if (isWantlistVerdict(from)) {
+    if (from !== null && isWantlistVerdict(from)) {
       // Sent even when the want is not marked as on the wantlist: a push from Triage may have
       // landed after this page loaded. Discogs treats a missing want as removed.
       const error = await this.wantlistWrite(releaseId, false);
-      if (!item.onWantlist) return { entry: null, note: "" };
+      if (!item.membership.onWantlist) return { entry: null, note: "" };
       return error
         ? { entry: null, note: ` Still on your Discogs wantlist: ${error}.` }
         : { entry: { releaseId, change: "removed" }, note: " Taken off your Discogs wantlist." };
@@ -166,42 +168,62 @@ export class TwelvesShelf {
 
   enqueue(key: string, change: (item: TwelvesItem) => Promise<void>): void {
     this.enqueueTask(async () => {
-      const item = this.items.find((index) => index.verdict.key === key);
+      const item = this.items.find((candidate) => candidate.key === key);
       if (item) await change(item);
     });
   }
 
-  async write(item: TwelvesItem, next: Partial<Verdict>, message: string): Promise<void> {
-    const previous = item.verdict;
+  /** Re-judges a record decided in Digga, keeping the Discogs wantlist in step. */
+  async #writeVerdict(item: TwelvesItem, previous: Verdict, status: JudgedStatus): Promise<void> {
     // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
-    const index = this.visible.findIndex((index) => index.verdict.key === previous.key);
-    const neighbour = (this.visible[index + 1] ?? this.visible[index - 1])?.verdict.key ?? null;
+    const index = this.visible.findIndex((visible) => visible.key === item.key);
+    const neighbour = (this.visible[index + 1] ?? this.visible[index - 1])?.key ?? null;
     try {
       const saved = await this.#client.postVerdict({
         key: previous.key,
-        status: next.status ?? previous.status,
-        source: next.source ?? previous.source,
-        notes: next.notes === undefined ? previous.notes : next.notes,
+        status,
+        source: "triage",
         releaseId: previous.releaseId,
       });
-      this.#replaceVerdict(saved);
+      this.#replaceVerdict(item.key, saved);
     } catch (error) {
       this.showFlash(`Not saved: ${errorMessage(error)}`);
       return;
     }
-    const wantlist = await this.syncWantlist(item, next.status ?? previous.status);
-    this.undoStack = [...this.undoStack, { previous, wantlist: wantlist.entry }];
-    this.showFlash(`${message}${wantlist.note} Z undoes it.`);
+    const wantlist = await this.syncWantlist(item, status);
+    this.undoStack = [...this.undoStack, { kind: "verdict", previous, wantlist: wantlist.entry }];
+    this.showFlash(`${rejudgedSentence(nameOf(item), status)}${wantlist.note} Z undoes it.`);
     await this.load();
-    if (!this.visible.some((index) => index.verdict.key === this.selectedKey))
+    if (!this.visible.some((visible) => visible.key === this.selectedKey))
       this.selectedKey = neighbour;
     void stats.refresh();
   }
 
-  #replaceVerdict(verdict: Verdict): void {
-    this.items = this.items.map((item) =>
-      item.verdict.key === verdict.key ? { ...item, verdict } : item,
-    );
+  #replaceVerdict(key: string, verdict: Verdict): void {
+    this.items = this.items.map((item) => (item.key === key ? { ...item, verdict } : item));
+  }
+
+  /** Saves the note on the record's shown release; an empty note removes it. */
+  saveNote(selectedItem: TwelvesItem, notes: string | null): void {
+    this.enqueue(selectedItem.key, async (item) => {
+      const releaseId = item.release?.id ?? null;
+      if (releaseId === null) {
+        this.showFlash("This record is not in the loaded dump, so a note cannot go on it.");
+        return;
+      }
+      try {
+        await this.#client.putReleaseNote(releaseId, notes);
+      } catch (error) {
+        this.showFlash(`Not saved: ${errorMessage(error)}`);
+        return;
+      }
+      this.undoStack = [
+        ...this.undoStack,
+        { kind: "note", key: item.key, releaseId, previous: item.note },
+      ];
+      this.showFlash(`${notes ? "Note saved." : "Note removed."} Z undoes it.`);
+      await this.load();
+    });
   }
 
   async undo(): Promise<void> {
@@ -210,30 +232,29 @@ export class TwelvesShelf {
       this.showFlash("Nothing to undo.");
       return;
     }
-    const { previous, wantlist } = entry;
     try {
-      await this.#client.postVerdict({
-        key: previous.key,
-        status: previous.status,
-        source: previous.source,
-        notes: previous.notes,
-        releaseId: previous.releaseId,
-        decidedAt: previous.decidedAt,
-        dugAt: previous.dugAt,
-      });
+      if (entry.kind === "note") await this.#client.putReleaseNote(entry.releaseId, entry.previous);
+      else await this.#client.postVerdict(entry.previous);
     } catch (error) {
       this.showFlash(`Undo failed: ${errorMessage(error)}`);
       return;
     }
     this.undoStack = this.undoStack.slice(0, -1);
-    this.#replaceVerdict(previous);
-    const error = wantlist
-      ? await this.wantlistWrite(wantlist.releaseId, wantlist.change === "removed")
-      : null;
-    this.selectedKey = previous.key;
+    const error = entry.kind === "verdict" ? await this.#undoWantlistChange(entry) : null;
+    this.selectedKey = entry.kind === "note" ? entry.key : entry.previous.key;
     this.showFlash(error ? `Undone, but the Discogs wantlist did not follow: ${error}` : "Undone.");
     await this.load();
     void stats.refresh();
+  }
+
+  /** Restores the verdict's record and takes back what the re-judgement did to the wantlist. */
+  async #undoWantlistChange(
+    entry: Extract<UndoEntry, { kind: "verdict" }>,
+  ): Promise<string | null> {
+    this.#replaceVerdict(entry.previous.key, entry.previous);
+    const { wantlist } = entry;
+    if (!wantlist) return null;
+    return this.wantlistWrite(wantlist.releaseId, wantlist.change === "removed");
   }
 
   async addToWantlist(list: TwelvesItem[]): Promise<void> {
@@ -267,22 +288,23 @@ export class TwelvesShelf {
   }
 
   rejudge(selectedItem: TwelvesItem, status: JudgedStatus): void {
-    this.enqueue(selectedItem.verdict.key, async (item) => {
-      if (!TRIAGE_STATUSES.has(item.verdict.status)) {
+    this.enqueue(selectedItem.key, async (item) => {
+      const { verdict } = item;
+      if (verdict === null || !TRIAGE_STATUSES.has(verdict.status)) {
         this.showFlash("Wantlist and owned records come from Discogs; change them there.");
         return;
       }
-      if (item.verdict.status === status) {
+      if (verdict.status === status) {
         if (notOnWantlist(item)) await this.addToWantlist([item]);
         return;
       }
-      await this.write(item, { status, source: "triage" }, rejudgedSentence(nameOf(item), status));
+      await this.#writeVerdict(item, verdict, status);
     });
   }
 
   /** Attaches a YouTube link to the record's release; a record without audio goes back to the queue. */
   attachVideo(selectedItem: TwelvesItem, url: string): void {
-    this.enqueue(selectedItem.verdict.key, async (item) => {
+    this.enqueue(selectedItem.key, async (item) => {
       const releaseId = releaseIdOf(item);
       if (releaseId === null) {
         this.showFlash("This record is not in the loaded dump, so a link cannot go on it.");
@@ -291,7 +313,7 @@ export class TwelvesShelf {
       let requeued: boolean;
       try {
         const detail = await this.#client.attachVideo(releaseId, url);
-        requeued = item.verdict.status === "no_audio" && detail.verdict === null;
+        requeued = item.verdict?.status === "no_audio" && detail.verdict === null;
       } catch (error) {
         this.showFlash(`The link was not attached: ${errorMessage(error)}`);
         return;
@@ -327,7 +349,7 @@ export class TwelvesShelf {
       this.visible.length - 1,
       Math.max(0, (this.selectedIndex === -1 ? 0 : this.selectedIndex) + delta),
     );
-    this.selectedKey = this.visible[index]!.verdict.key;
+    this.selectedKey = this.visible[index]!.key;
   }
 
   /** ← and →: selects the first record of the page before or after. */
@@ -338,7 +360,7 @@ export class TwelvesShelf {
       return;
     }
     const start = turnedPageStart(this.visible.length, this.selectedIndex, turn);
-    if (start !== null) this.selectedKey = this.visible[start]!.verdict.key;
+    if (start !== null) this.selectedKey = this.visible[start]!.key;
   }
 
   #moveTrack(delta: number): void {
@@ -366,7 +388,7 @@ export class TwelvesShelf {
       await this.load();
       void stats.refresh();
       this.showFlash(
-        `Your Discogs Maybe list has ${formatCount(progress.processed)} records; ${formatCount(progress.verdictsWritten)} changed here.`,
+        `Your Discogs Maybe list has ${formatCount(progress.processed)} records; ${formatCount(progress.added)} new here.`,
       );
     } catch (error) {
       this.showFlash(`The list check failed: ${errorMessage(error)}`);

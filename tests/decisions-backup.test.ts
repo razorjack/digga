@@ -4,7 +4,8 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import type { Db } from "../src/server/db/db.ts";
-import { saveReleaseNote } from "../src/server/db/notes.ts";
+import { recordMembership, recordMembershipOf } from "../src/server/db/memberships.ts";
+import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
 import { addUserVideo } from "../src/server/db/releases.ts";
 import { readBackedUpData, restoreBackedUpData } from "../src/server/db/user-data.ts";
 import {
@@ -41,10 +42,10 @@ async function libraryWithDecisions(): Promise<Db> {
     key: "m:501",
     status: "candidate",
     source: "triage",
-    notes: "the Kool FM tune",
     releaseId: 1001,
     decidedAt: "2026-09-01T10:00:00.000Z",
   });
+  saveReleaseNote(db, 1001, "the Kool FM tune");
   upsertVerdict(db, {
     key: "m:506",
     status: "no_audio",
@@ -53,13 +54,7 @@ async function libraryWithDecisions(): Promise<Db> {
     decidedAt: "2026-09-02T10:00:00.000Z",
   });
   recordNoAudioVideos(db, getVerdict(db, "m:506")!);
-  upsertVerdict(db, {
-    key: "r:4242",
-    status: "wantlist",
-    source: "seed:wantlist",
-    releaseId: 4242,
-    decidedAt: "2026-08-01T09:02:08-07:00",
-  });
+  recordMembership(db, { ...WANT_4242, dateAdded: "2026-08-01T09:02:08-07:00" });
   setTrackVerdict(db, {
     releaseId: 1001,
     position: "A1",
@@ -80,6 +75,15 @@ async function libraryWithDecisions(): Promise<Db> {
 
 const on = (day: string) => ({ dir, day, now: new Date(`${day}T12:00:00.000Z`) });
 
+const WANT_4242 = {
+  kind: "wantlist",
+  releaseId: 4242,
+  masterId: null,
+  dateAdded: null,
+  rating: null,
+  notes: null,
+} as const;
+
 describe("the decisions backup", () => {
   it("brings everything back into a library loaded from a dump", async () => {
     const source = await libraryWithDecisions();
@@ -90,7 +94,8 @@ describe("the decisions backup", () => {
     const outcome = restoreBackedUpData(target, backup, backup.backedUpAt);
 
     expect(outcome).toEqual({
-      verdicts: { restored: 3, keptNewer: 0, moved: 0 },
+      verdicts: { restored: 2, keptNewer: 0, moved: 0 },
+      memberships: { restored: 1 },
       trackMarks: { restored: 1, keptNewer: 0 },
       heardTunes: { added: 1 },
       attachedVideos: { added: 1 },
@@ -123,10 +128,8 @@ describe("the decisions backup", () => {
     const decidedAt = getVerdict(target, "m:501")?.decidedAt;
     saveReleaseNote(target, 1001, "newer independent note");
     restoreBackedUpData(target, backup, "2026-09-10T12:00:00Z");
-    expect(getVerdict(target, "m:501")).toMatchObject({
-      notes: "newer independent note",
-      decidedAt,
-    });
+    expect(releaseNote(target, 1001)).toBe("newer independent note");
+    expect(getVerdict(target, "m:501")?.decidedAt).toBe(decidedAt);
     source.close();
     target.close();
   });
@@ -140,7 +143,7 @@ describe("the decisions backup", () => {
     db.close();
   });
 
-  it("keeps what was decided here after the backup, and replaces seeds and older decisions", async () => {
+  it("keeps what was decided here after the backup, and replaces history hits and older decisions", async () => {
     const source = await libraryWithDecisions();
     const backup = readDecisionsBackup((await writeDecisionsBackup(source, on("2026-09-10"))).file);
     backup.attachedVideos.push({ ...backup.attachedVideos[0]!, releaseId: 999_999 });
@@ -164,7 +167,8 @@ describe("the decisions backup", () => {
 
     expect(getVerdict(target, "m:501")?.status).toBe("rejected");
     expect(getVerdict(target, "m:506")?.status).toBe("no_audio");
-    expect(outcome.verdicts).toEqual({ restored: 2, keptNewer: 1, moved: 0 });
+    expect(outcome.verdicts).toEqual({ restored: 1, keptNewer: 1, moved: 0 });
+    expect(outcome.memberships).toEqual({ restored: 1 });
     expect(outcome.trackMarks).toEqual({ restored: 0, keptNewer: 1 });
     expect(outcome.attachedVideos).toEqual({ added: 2 });
     expect(
@@ -208,13 +212,13 @@ describe("the decisions backup", () => {
       "{",
       '  "app": "digga",',
       '  "kind": "decisions",',
-      '  "version": 2,',
+      '  "version": 3,',
       '  "backedUpAt": "2026-09-10T12:00:00.000Z",',
       '  "config": null,',
       '  "verdicts": [',
     ]);
     expect(lines).toContain(
-      '    {"key":"m:501","status":"candidate","source":"triage","notes":"the Kool FM tune","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z","dugAt":"2026-09-01T10:00:00.000Z"},',
+      '    {"key":"m:501","status":"candidate","source":"triage","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z"},',
     );
     db.close();
   });
@@ -245,9 +249,50 @@ describe("the decisions backup", () => {
 
     const outcome = restoreBackedUpData(target, readDecisionsBackup(file), backup.backedUpAt);
 
-    expect(outcome.verdicts.restored).toBe(3);
+    expect(outcome.verdicts.restored).toBe(2);
     expect(outcome.sessions).toEqual({ restored: 0, leftOut: 1 });
     source.close();
+    target.close();
+  });
+
+  it("turns the seed verdicts and verdict notes of a version 2 backup into memberships and notes", async () => {
+    const file = path.join(dir, "decisions-2026-09-10.json");
+    const seed = { releaseId: 1006, decidedAt: "2026-08-01T09:02:08-07:00", dugAt: null };
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        app: "digga",
+        kind: "decisions",
+        version: 2,
+        backedUpAt: "2026-09-10T12:00:00.000Z",
+        verdicts: [
+          { ...seed, key: "m:506", status: "wantlist", source: "seed:wantlist", notes: null },
+          {
+            key: "m:501",
+            status: "accepted",
+            source: "triage",
+            notes: "the Kool FM tune",
+            releaseId: 1001,
+            decidedAt: "2026-09-01T10:00:00.000Z",
+            dugAt: "2026-09-01T10:00:00.000Z",
+          },
+        ],
+        trackMarks: [],
+        heardTunes: [],
+        attachedVideos: [],
+        noAudioVideos: [],
+      }),
+    );
+    const backup = readDecisionsBackup(file);
+    const target = await fixtureDb();
+
+    const outcome = restoreBackedUpData(target, backup, backup.backedUpAt);
+
+    expect(outcome.verdicts.restored).toBe(1);
+    expect(outcome.memberships).toEqual({ restored: 1 });
+    expect(getVerdict(target, "m:506")).toBeNull();
+    expect(recordMembershipOf(target, "m:506").onWantlist).toBe(true);
+    expect(releaseNote(target, 1001)).toBe("the Kool FM tune");
     target.close();
   });
 
@@ -267,7 +312,7 @@ describe("the decisions backup", () => {
 describe("the daily decisions backup", () => {
   it("writes nothing for a library with nothing made in Digga", async () => {
     const db = await fixtureDb();
-    upsertVerdict(db, { key: "r:4242", status: "wantlist", source: "seed:wantlist" });
+    recordMembership(db, WANT_4242);
     expect(await backupDecisionsDaily(db, on("2026-09-10"))).toBeNull();
     expect(listDecisionsBackups(dir)).toEqual([]);
     db.close();

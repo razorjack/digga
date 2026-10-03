@@ -18,7 +18,6 @@ interface VerdictExportRow extends ReleaseColumns {
   source: VerdictSource;
   notes: string | null;
   decided_at: string;
-  dug_at: string | null;
 }
 
 interface TrackMarkExportRow extends ReleaseColumns {
@@ -37,15 +36,19 @@ interface TrackMarkExportRow extends ReleaseColumns {
 const RELEASE_COLUMNS =
   "r.id AS release_id, r.artist_display, r.title, r.label_name, r.catno, r.year, r.country";
 
-/** Every verdict, oldest first, with the release it was made on (or its record's main release). */
+/**
+ * Every verdict, oldest first, with the release it was made on (or its record's main release)
+ * and that release's note.
+ */
 export function listVerdictExports(db: Db): VerdictExport[] {
   const rows = db
     .prepare(
-      `SELECT v.key, v.status, v.source, v.notes, v.decided_at, v.dug_at, ${RELEASE_COLUMNS}
+      `SELECT v.key, v.status, v.source, n.notes, v.decided_at, ${RELEASE_COLUMNS}
        FROM verdicts v
        LEFT JOIN releases r ON r.id = COALESCE(v.release_id, (
          SELECT k.id FROM releases k WHERE k.triage_key = v.key
          ORDER BY k.is_main_release DESC, k.id LIMIT 1))
+       LEFT JOIN release_notes n ON n.release_id = r.id
        ORDER BY v.decided_at, v.key`,
     )
     .all() as VerdictExportRow[];
@@ -55,7 +58,6 @@ export function listVerdictExports(db: Db): VerdictExport[] {
     source: row.source,
     notes: row.notes,
     decidedAt: row.decided_at,
-    dugAt: row.dug_at,
     ...exportedRelease(row),
   }));
 }

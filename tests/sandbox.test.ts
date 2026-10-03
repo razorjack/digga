@@ -108,9 +108,8 @@ describe("sandbox api", () => {
     expect(tableCounts()).toEqual(before);
   });
 
-  it("counts a record dug on the server after a seed replaced its verdict, and adds its own", async () => {
+  it("counts the records dug on the server, and adds its own", async () => {
     upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1001 });
-    applySeedVerdict(db, { key: "m:501", status: "wantlist", source: "seed:wantlist" });
     expect((await sandbox.getStats()).dug).toBe(1);
 
     await sandbox.getRelease(1001);
@@ -228,18 +227,20 @@ describe("sandbox api", () => {
     await sandbox.getQueue();
     await sandbox.postVerdict({ key: "m:501", status: "accepted", releaseId: 1001 });
     const twelves = await sandbox.getTwelves({ status: ["accepted"] });
-    expect(twelves.items.map((i) => [i.verdict.key, i.release?.id, i.onWantlist])).toEqual([
+    expect(twelves.items.map((i) => [i.key, i.release?.id, i.membership.onWantlist])).toEqual([
       ["m:501", 1001, false],
     ]);
     expect(await sandbox.pushToWantlist(1001)).toEqual({
       releaseId: 1001,
       ok: true,
     });
-    expect((await sandbox.getTwelves({ status: ["accepted"] })).items[0]!.onWantlist).toBe(true);
+    const onWantlist = async () =>
+      (await sandbox.getTwelves({ status: ["accepted"] })).items[0]!.membership.onWantlist;
+    expect(await onWantlist()).toBe(true);
     await sandbox.removeFromWantlist(1001);
-    expect((await sandbox.getTwelves({ status: ["accepted"] })).items[0]!.onWantlist).toBe(false);
+    expect(await onWantlist()).toBe(false);
     expect(tableCounts().verdicts).toBe(0);
-    expect((db.prepare("SELECT COUNT(*) AS n FROM seed_items").get() as { n: number }).n).toBe(0);
+    expect(db.prepare("SELECT COUNT(*) FROM memberships").pluck().get()).toBe(0);
   });
 
   it("restores a verdict with its original date", async () => {
@@ -247,7 +248,7 @@ describe("sandbox api", () => {
     const at = "2026-01-02T03:04:05.000Z";
     await sandbox.postVerdict({ key: "m:501", status: "snoozed", releaseId: 1001, decidedAt: at });
     const item = (await sandbox.getTwelves({ status: ["snoozed"] })).items[0]!;
-    expect(item.verdict.decidedAt).toBe(at);
+    expect(item.verdict?.decidedAt).toBe(at);
   });
 
   it("saves settings on the server, since they set the app up rather than dig", async () => {

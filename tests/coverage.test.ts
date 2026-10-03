@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { recordMembership } from "../src/server/db/memberships.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import { upsertVerdict } from "../src/server/db/verdicts.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
@@ -88,11 +89,13 @@ describe("the coverage labels and artists", () => {
     const db = await fixtureDb();
     expect(coverageIds(db)).toEqual({ labelIds: [], artistIds: [] });
     upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1001 });
-    const compilation = getRelease(db, 1003)!;
-    upsertVerdict(db, {
-      key: compilation.triageKey,
-      status: "collection",
-      source: "seed:collection",
+    recordMembership(db, {
+      kind: "collection",
+      releaseId: 1003,
+      masterId: null,
+      dateAdded: null,
+      rating: null,
+      notes: null,
     });
     upsertVerdict(db, { key: "m:504", status: "rejected", source: "triage", releaseId: 1004 });
     // Ed Rush (2) and Optical on 1001; the compilation's Various (194) is left out.

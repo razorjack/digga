@@ -2,8 +2,8 @@ import type { QueueItem } from "../../shared/api.ts";
 import type { SavedSession, SessionResolution } from "../../shared/digging-session.ts";
 import type { ReplayItem } from "../../shared/replay.ts";
 import type { Db } from "../db/db.ts";
+import { recordMembershipOf } from "../db/memberships.ts";
 import { getVerdict } from "../db/verdicts.ts";
-import { wantlistKeys } from "../importers/seeds.ts";
 import { buildFilterWhere, queueItemForRelease } from "./query.ts";
 
 /**
@@ -36,7 +36,6 @@ function queuedRelease(db: Db, session: SavedSession): (id: number) => QueueItem
 
 /** Round records come back whatever their verdict, as Twelves hands them over. */
 function resolveRound(db: Db, ids: number[]): ReplayItem[] {
-  const onWantlist = wantlistKeys(db);
   const items: ReplayItem[] = [];
   for (const id of ids) {
     const release = queueItemForRelease(db, id);
@@ -44,7 +43,7 @@ function resolveRound(db: Db, ids: number[]): ReplayItem[] {
     items.push({
       release,
       verdict: getVerdict(db, release.triageKey),
-      onWantlist: onWantlist.has(release.triageKey),
+      onWantlist: recordMembershipOf(db, release.triageKey).onWantlist,
     });
   }
   return items;

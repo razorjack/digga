@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { recordMembershipOf } from "../src/server/db/memberships.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import type { DiscogsClient } from "../src/server/discogs/client.ts";
@@ -72,34 +73,33 @@ describe("Discogs Maybe list import", () => {
     ]);
     expect(calls).toEqual(["release 9001", "master 9600", "release 9601", "release 9999"]);
     const api = listEntriesForApi(db, entries);
-    expect(api[1]).toMatchObject({
-      comment: "check the flip",
-      release: { id: 1006 },
-      verdict: null,
-    });
+    expect(api[1]).toMatchObject({ comment: "check the flip", release: { id: 1006 } });
     expect(api[2]!.release).toMatchObject({ id: 9001, catno: "LBL 9", country: "UK" });
     expect(getRelease(db, 9001)).toBeNull();
     db.close();
   });
 
-  it("marks entries maybe, below want and grail, and turns a triage maybe into a list seed", async () => {
+  it("holds every entry on the list and leaves the decisions made in Digga alone", async () => {
     const db = await fixtureDb();
     upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage" });
-    upsertVerdict(db, { key: "m:506", status: "maybe", source: "triage", notes: "mine" });
+    upsertVerdict(db, { key: "m:506", status: "maybe", source: "triage" });
     const deps = { db, discogs: fakeDiscogs([]), logger: silentLogger };
     const result = await importList(deps, { listId: 77, currency: "EUR" });
     expect(result).toMatchObject({ kind: "list", listName: "Maybe", processed: 5, stubs: 2 });
-    expect(result.verdictsWritten).toBe(4);
+    expect(result.added).toBe(5);
     expect(getVerdict(db, "m:501")).toMatchObject({ status: "accepted", source: "triage" });
-    expect(getVerdict(db, "m:506")).toMatchObject({
-      status: "maybe",
-      source: "seed:list",
-      notes: "check the flip",
-    });
-    expect(getVerdict(db, "m:9600")).toMatchObject({ status: "maybe", releaseId: 9601 });
+    expect(getVerdict(db, "m:506")).toMatchObject({ status: "maybe", source: "triage" });
+    for (const key of ["m:501", "m:506", "m:9600"])
+      expect(recordMembershipOf(db, key).onList).toBe(true);
+    expect(
+      db
+        .prepare("SELECT notes FROM memberships WHERE kind = 'list' AND release_id = 1006")
+        .pluck()
+        .get(),
+    ).toBe("check the flip");
     expect(getRelease(db, 9601)).toMatchObject({ masterId: 9600, inUniverse: false });
     const again = await importList(deps, { listId: 77, currency: "EUR" });
-    expect(again.verdictsWritten).toBe(0);
+    expect(again.added).toBe(0);
     db.close();
   });
 });

@@ -4,6 +4,7 @@ import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
 import type { QueueScope } from "../../shared/scope.ts";
 import { markForTrack, tuneSnapshot } from "../../shared/track-identity.ts";
 import type { ReleaseSnapshot, TrackMark, TrackVerdict, Verdict } from "../../shared/types.ts";
+import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
 import { type Api, ApiRequestError, type AppApi, api as appApi } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
@@ -13,8 +14,6 @@ type VerdictEntry = {
   kind: "verdict";
   item: QueueItem;
   status: TriageStatus;
-  /** The note saved with the verdict. */
-  notes: string | null;
   /** The verdict this one replaced (a record heard again from Twelves); undo restores it. */
   previous: Verdict | null;
   /**
@@ -300,13 +299,8 @@ export class TriageSession {
     if (!item) return;
     const client = this.#api.pinned();
     const previous = this.#roundVerdicts.get(item.triageKey) ?? this.currentDetail?.verdict ?? null;
-    if (previous?.status === "collection" || previous?.status === "wantlist") {
-      this.#flash("Wantlist and owned records come from Discogs; change them there.");
-      return;
-    }
 
-    const notes = this.noteFor(item);
-    const entry: VerdictEntry = { kind: "verdict", item, status, notes, previous, savedKey: null };
+    const entry: VerdictEntry = { kind: "verdict", item, status, previous, savedKey: null };
     this.upcoming = this.upcoming.slice(1);
     this.history = [...this.history, entry];
     const id = ++this.#slipSeq;
@@ -332,15 +326,10 @@ export class TriageSession {
     entry: VerdictEntry,
     operation: { client: Api; generation: number; slipId: number },
   ): Promise<void> {
-    const { item, status, notes } = entry;
+    const { item, status } = entry;
     const { client, generation, slipId } = operation;
     try {
-      const saved = await client.postVerdict({
-        key: item.triageKey,
-        status,
-        releaseId: item.id,
-        notes,
-      });
+      const saved = await client.postVerdict({ key: item.triageKey, status, releaseId: item.id });
       entry.savedKey = saved.key;
     } catch (error) {
       this.#settleSlip(slipId);
@@ -386,12 +375,10 @@ export class TriageSession {
     return this.slip !== null && this.#savingSlip === this.slip.id;
   }
 
-  /** The record's note: written in this session, else the one its snoozed verdict has. */
+  /** The release's note: written in this session, else the saved one. */
   noteFor(item: QueueItem): string | null {
     if (this.notes.has(item.triageKey)) return this.notes.get(item.triageKey) ?? null;
-    const detail = this.details.get(item.id);
-    if (detail?.note !== undefined) return detail.note;
-    return this.#roundVerdicts.get(item.triageKey)?.notes ?? null;
+    return this.details.get(item.id)?.note ?? null;
   }
 
   /** Saves a note without making or changing a judgement; an empty note removes it. */
@@ -915,7 +902,7 @@ export class TriageSession {
     const verdicts = { ...current.verdicts, [status]: current.verdicts[status] + delta };
     if (previous) verdicts[previous.status] -= delta;
     // A record dug before only changes status; one the queue held also leaves the remaining count.
-    const dugDelta = previous?.dugAt ? 0 : delta;
+    const dugDelta = previous && isTriageSource(previous.source) ? 0 : delta;
     const wasQueued = previous === null || previous.status === "seen";
     const remainingDelta = wasQueued ? delta : 0;
     const { scopeRemaining } = current;

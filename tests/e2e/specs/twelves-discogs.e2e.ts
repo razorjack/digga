@@ -347,7 +347,7 @@ test.describe("with a Maybe list", () => {
       await twelves.checkMaybeList();
 
       await expect(twelves.messages).toHaveText(
-        "Your Discogs Maybe list has 2 records; 2 changed here.",
+        "Your Discogs Maybe list has 2 records; 2 new here.",
       );
       await expect(twelves.maybeHandoff).toHaveText(
         /^1 maybe is not on your Discogs Maybe list yet\./,

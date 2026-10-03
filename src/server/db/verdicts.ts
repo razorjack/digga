@@ -10,18 +10,15 @@ import type {
 } from "../../shared/types.ts";
 import { VERDICT_STATUSES } from "../../shared/types.ts";
 import { toUtcTimestamp } from "../../shared/timestamp.ts";
-import { dugAtAfter, seedRank } from "../../shared/verdict-rank.ts";
+import { verdictRank } from "../../shared/verdict-rank.ts";
 import { type Db, nowIso } from "./db.ts";
-import { releaseNote } from "./notes.ts";
 
 interface VerdictRow {
   key: string;
   status: VerdictStatus;
   source: VerdictSource;
-  notes: string | null;
   release_id: number | null;
   decided_at: string;
-  dug_at: string | null;
 }
 
 interface TrackVerdictRow {
@@ -47,10 +44,8 @@ const rowToVerdict = (row: VerdictRow): Verdict => ({
   key: row.key,
   status: row.status,
   source: row.source,
-  notes: row.notes,
   releaseId: row.release_id,
   decidedAt: row.decided_at,
-  dugAt: row.dug_at,
 });
 
 const rowToTrackVerdict = (row: TrackVerdictRow): TrackVerdict => ({
@@ -68,11 +63,9 @@ export interface VerdictWrite {
   key: string;
   status: VerdictStatus;
   source: VerdictSource;
-  notes?: string | null;
   releaseId?: number | null;
+  /** Omitted, the verdict is dated now; undo and restore pass the original date. */
   decidedAt?: string;
-  /** Omitted, a decision made in Digga sets it and a seed keeps it (dugAtAfter()). */
-  dugAt?: string | null;
 }
 
 export function getVerdict(db: Db, key: string): Verdict | null {
@@ -91,41 +84,35 @@ export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
 }
 
 /**
- * Unconditional write (triage and manual decisions). Times are stored in UTC, whatever offset a
- * seed's Discogs date or an undo brings.
+ * Unconditional write (triage and manual decisions). The time is stored in UTC, whatever offset
+ * an undo or a restored backup brings.
  */
 export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
-  const decidedAt = toUtcTimestamp(verdict.decidedAt ?? nowIso());
-  const dugAt = dugAtAfter({ ...verdict, decidedAt }, getVerdict(db, verdict.key));
   db.prepare(
-    `INSERT INTO verdicts (key, status, source, notes, release_id, decided_at, dug_at)
-     VALUES (@key, @status, @source, @notes, @release_id, @decided_at, @dug_at)
-     ON CONFLICT(key) DO UPDATE SET status = excluded.status, source = excluded.source, notes = excluded.notes,
-       release_id = excluded.release_id, decided_at = excluded.decided_at, dug_at = excluded.dug_at`,
+    `INSERT INTO verdicts (key, status, source, release_id, decided_at)
+     VALUES (@key, @status, @source, @release_id, @decided_at)
+     ON CONFLICT(key) DO UPDATE SET status = excluded.status, source = excluded.source,
+       release_id = excluded.release_id, decided_at = excluded.decided_at`,
   ).run({
     key: verdict.key,
     status: verdict.status,
     source: verdict.source,
-    notes: verdict.notes === undefined ? savedNoteOf(db, verdict.releaseId) : verdict.notes,
     release_id: verdict.releaseId ?? null,
-    decided_at: decidedAt,
-    dug_at: dugAt === null ? null : toUtcTimestamp(dugAt),
+    decided_at: toUtcTimestamp(verdict.decidedAt ?? nowIso()),
   });
   return getVerdict(db, verdict.key)!;
 }
 
-/** A verdict written without notes takes the note saved for its release. */
-function savedNoteOf(db: Db, releaseId: number | null | undefined): string | null {
-  if (releaseId === null || releaseId === undefined) return null;
-  return releaseNote(db, releaseId) ?? null;
-}
-
+/**
+ * Writes a browser-history hit unless the record has a verdict that outranks it: a decision
+ * made in Digga always does. A newer visit to a page already seen moves its date.
+ */
 export function applySeedVerdict(
   db: Db,
   verdict: VerdictWrite,
 ): { written: boolean; previous: Verdict | null } {
   const previous = getVerdict(db, verdict.key);
-  if (previous && seedRank(verdict) < seedRank(previous)) return { written: false, previous };
+  if (previous && verdictRank(verdict) < verdictRank(previous)) return { written: false, previous };
   if (
     previous &&
     previous.status === verdict.status &&
@@ -167,21 +154,22 @@ export function listVerdicts(db: Db, statuses: VerdictStatus[]): Verdict[] {
   return rows.map(rowToVerdict);
 }
 
-/** Records judged in Digga, also those whose verdict a seed has replaced: the "dug" count. */
+const MADE_IN_DIGGA = "source IN ('triage', 'manual')";
+
+/** Records judged in Digga: the "dug" count. */
 export function countDug(db: Db): number {
-  return (
-    db.prepare("SELECT COUNT(*) AS n FROM verdicts WHERE dug_at IS NOT NULL").get() as {
-      n: number;
-    }
-  ).n;
+  return db.prepare(`SELECT COUNT(*) FROM verdicts WHERE ${MADE_IN_DIGGA}`).pluck().get() as number;
 }
 
-/** When each record was last judged in Digga, oldest first, for the rate/ETA estimate. */
+/** When each record was judged in Digga, oldest first, for the rate/ETA estimate. */
 export function triageDecisionTimes(db: Db, limit = 5000): string[] {
-  const rows = db
-    .prepare("SELECT dug_at FROM verdicts WHERE dug_at IS NOT NULL ORDER BY dug_at DESC LIMIT ?")
-    .all(limit) as { dug_at: string }[];
-  return rows.map((row) => row.dug_at).reverse();
+  const times = db
+    .prepare(
+      `SELECT decided_at FROM verdicts WHERE ${MADE_IN_DIGGA} ORDER BY decided_at DESC LIMIT ?`,
+    )
+    .pluck()
+    .all(limit) as string[];
+  return times.reverse();
 }
 
 export interface TrackMarkWrite {

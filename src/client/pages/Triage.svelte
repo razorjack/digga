@@ -4,6 +4,7 @@
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
+  import { replayItemOf } from "../../shared/replay.ts";
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
@@ -126,7 +127,8 @@
     if (loadingSnoozed) return;
     loadingSnoozed = true;
     try {
-      session.startRound((await api.getTwelves({ status: ["snoozed"] })).items.toReversed());
+      const snoozed = await api.getTwelves({ status: ["snoozed"] });
+      session.startRound(snoozed.items.map(replayItemOf).toReversed());
     } catch (event) {
       session.showFlash(`The snoozed records did not load: ${errorMessage(event)}`);
     } finally {
@@ -137,6 +139,8 @@
   /** E opened the note on the current record. */
   let editingNote = $state(false);
   const note = $derived(session.current ? session.noteFor(session.current) : null);
+  /** The newest note written on another pressing of the record, shown when this one has none. */
+  const pressingNote = $derived(session.currentDetail?.pressingNotes[0] ?? null);
 
   // A verdict or N moves on; a half-written note stays with the record it was for. The key, not
   // the item, decides: P replaces the item with fresh market data.
@@ -501,7 +505,7 @@
             onprice={() => void session.price()}
           />
           {#if note || editingNote}
-            <NoteLine {note} editing={editingNote} onsave={saveNote} oncancel={() => (editingNote = false)} />
+            <NoteLine {note} {pressingNote} editing={editingNote} onsave={saveNote} oncancel={() => (editingNote = false)} />
           {/if}
         </div>
         {#if session.currentDetail}

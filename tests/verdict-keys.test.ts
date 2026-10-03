@@ -38,7 +38,6 @@ describe("verdicts when a dump load changes a release's key", () => {
       status: "rejected",
       source: "triage",
       releaseId: 1001,
-      notes: "too dark",
       decidedAt: "2026-10-03T10:00:00.000Z",
     });
 
@@ -49,9 +48,7 @@ describe("verdicts when a dump load changes a release's key", () => {
       status: "rejected",
       source: "triage",
       releaseId: 1001,
-      notes: "too dark",
       decidedAt: "2026-10-03T10:00:00.000Z",
-      dugAt: "2026-10-03T10:00:00.000Z",
     });
     expect(
       db
@@ -73,14 +70,13 @@ describe("verdicts when a dump load changes a release's key", () => {
     expect(noAudioVideos(db)).toEqual([{ key: "m:506", video_ids_json: '["x"]' }]);
   });
 
-  it("merge with a verdict the record has: the higher rank stays, with both notes", async () => {
+  it("merge with a verdict the record has: the higher rank stays", async () => {
     const db = await library();
     upsertVerdict(db, {
       key: "r:1002",
       status: "accepted",
       source: "triage",
       releaseId: 1002,
-      notes: "the B side",
       decidedAt: "2026-10-03T10:00:00.000Z",
     });
     upsertVerdict(db, {
@@ -88,7 +84,6 @@ describe("verdicts when a dump load changes a release's key", () => {
       status: "rejected",
       source: "triage",
       releaseId: 1001,
-      notes: "too dark",
       decidedAt: "2026-10-04T10:00:00.000Z",
     });
 
@@ -98,9 +93,7 @@ describe("verdicts when a dump load changes a release's key", () => {
     expect(getVerdict(db, "m:501")).toMatchObject({
       status: "accepted",
       releaseId: 1002,
-      notes: "the B side; too dark",
       decidedAt: "2026-10-03T10:00:00.000Z",
-      dugAt: "2026-10-04T10:00:00.000Z",
     });
   });
 
@@ -151,16 +144,15 @@ describe("verdicts when a dump load changes a release's key", () => {
       key: "r:1001",
       status: "candidate",
       source: "triage",
-      notes: null,
       releaseId: 1001,
       decidedAt: "2026-09-01T10:00:00.000Z",
-      dugAt: "2026-09-01T10:00:00.000Z",
     } as const;
 
     const outcome = restoreBackedUpData(
       db,
       {
         verdicts: [verdict],
+        memberships: [],
         trackMarks: [],
         heardTunes: [],
         attachedVideos: [],

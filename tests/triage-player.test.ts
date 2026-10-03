@@ -66,6 +66,7 @@ function detail(id: number): ReleaseDetail {
     trackVerdicts: [],
     siblings: [],
     verdict: null,
+    pressingNotes: [],
     videos: [
       {
         releaseId: id,

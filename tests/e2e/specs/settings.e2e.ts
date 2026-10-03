@@ -374,8 +374,8 @@ test.describe("with the September dump listed", () => {
         key: triageKeyOf(PULSAR_REMIXES),
         status: "snoozed",
         releaseId: PULSAR_REMIXES.id,
-        notes: "the remix",
       });
+      await app.given.note(PULSAR_REMIXES.id, "the remix");
       await settings.open();
       const update = await startHeldUpdate(settings, fakes);
       fakes.dumps.release();
@@ -388,8 +388,8 @@ test.describe("with the September dump listed", () => {
       expect(detail.verdict).toMatchObject({
         key: triageKeyOf(PULSAR_REMIXES_IN_SEPTEMBER),
         status: "snoozed",
-        notes: "the remix",
       });
+      expect(detail.note).toBe("the remix");
     },
   );
 });

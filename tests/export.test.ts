@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import type { Db } from "../src/server/db/db.ts";
+import { saveReleaseNote } from "../src/server/db/notes.ts";
 import { setTrackVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
@@ -33,9 +34,9 @@ beforeEach(async () => {
     status: "accepted",
     source: "triage",
     releaseId: 1001,
-    notes: 'the "Kool FM" one, B side',
     decidedAt: "2026-09-28T10:00:00.000Z",
   });
+  saveReleaseNote(db, 1001, 'the "Kool FM" one, B side');
   upsertVerdict(db, {
     key: "m:506",
     status: "rejected",
@@ -79,15 +80,13 @@ describe("exports", () => {
     );
     const lines = (await response.text()).trimEnd().split("\r\n");
     expect(lines[0]).toBe(
-      "key,status,source,decided_at,dug_at,notes,release_id,artist,title,label,catno,year,country",
+      "key,status,source,decided_at,notes,release_id,artist,title,label,catno,year,country",
     );
     expect(lines[1]).toBe(
-      'm:501,accepted,triage,2026-09-28T10:00:00.000Z,2026-09-28T10:00:00.000Z,"the ""Kool FM"" one, B side",1001,Ed Rush & Optical,Wormhole,Renegade Hardware,RH 20,2000,UK',
+      'm:501,accepted,triage,2026-09-28T10:00:00.000Z,"the ""Kool FM"" one, B side",1001,Ed Rush & Optical,Wormhole,Renegade Hardware,RH 20,2000,UK',
     );
     // Without a release id, the verdict is shown with its record's main release.
-    expect(lines[2]).toMatch(
-      /^m:506,rejected,triage,2026-09-28T11:00:00.000Z,2026-09-28T11:00:00.000Z,,1006,/,
-    );
+    expect(lines[2]).toMatch(/^m:506,rejected,triage,2026-09-28T11:00:00.000Z,,1006,/);
   });
 
   it("downloads verdicts and track marks as JSON", async () => {

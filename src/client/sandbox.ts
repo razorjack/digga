@@ -2,6 +2,7 @@ import {
   ImportJobInputSchema,
   ListenLogInputSchema,
   TrackVerdictInputSchema,
+  TWELVES_STATUSES,
   VerdictInputSchema,
   type DiscogsListEntry,
   type MarkedTrack,
@@ -15,8 +16,14 @@ import { formatSummary } from "../shared/formats.ts";
 import { rateSummary } from "../shared/rate.ts";
 import { type ScopeRef, scopeKey } from "../shared/scope.ts";
 import { assertTrackIdentity, markForTrack } from "../shared/track-identity.ts";
-import type { Job, TrackVerdict, Verdict } from "../shared/types.ts";
-import { dugAtAfter, seedRank } from "../shared/verdict-rank.ts";
+import type {
+  Job,
+  RecordMembership,
+  TrackVerdict,
+  Verdict,
+  VerdictStatus,
+} from "../shared/types.ts";
+import { isTriageSource } from "../shared/verdict-rank.ts";
 import type { Api } from "./api.ts";
 
 export interface SandboxOptions {
@@ -120,6 +127,12 @@ class SandboxApi implements Api {
   /** Triage keys the server listed on the wantlist in the latest Twelves or track marks read. */
   #serverWantlist = new Set<string>();
 
+  /** Records the Maybe-list read in this sandbox put on the list, with the release to show. */
+  #listed = new Map<string, QueueItem | null>();
+
+  /** Triage keys the server listed on the Maybe list in the latest Twelves read. */
+  #serverListed = new Set<string>();
+
   /** The queue filter of the same name, as the latest queue or stats read found it. */
   #skipHistory = true;
 
@@ -180,9 +193,11 @@ class SandboxApi implements Api {
     return detail ? queueItemFromDetail(detail, detail.videos.length) : null;
   };
 
-  /** Local verdicts that took a record out of the queue reduce the remaining count. */
+  /** Records taken out of the queue in this sandbox reduce the remaining count. */
   #newlyDecided = () =>
-    [...this.#verdicts.values()].filter((local) => this.#leftQueue(local)).length;
+    [...new Set([...this.#verdicts.keys(), ...this.#listed.keys()])].filter((key) =>
+      this.#leftQueue(key),
+    ).length;
 
   /**
    * The queue holds a record with this verdict: none (null), or a history "seen" while the
@@ -193,9 +208,11 @@ class SandboxApi implements Api {
     return verdict?.status === "seen" && !this.#skipHistory;
   }
 
-  #leftQueue(local: LocalVerdict | undefined): boolean {
-    if (!local) return false;
-    return this.#isQueued(local.base) && !this.#isQueued(local.verdict);
+  /** The server's queue had the record, and a verdict or a list read here took it out. */
+  #leftQueue(key: string): boolean {
+    const local = this.#verdicts.get(key);
+    if (!this.#isQueued(local ? local.base : this.#serverVerdicts.get(key))) return false;
+    return (local !== undefined && !this.#isQueued(local.verdict)) || this.#listed.has(key);
   }
 
   /** A wantlist change made in the sandbox wins over what the server reports. */
@@ -217,21 +234,23 @@ class SandboxApi implements Api {
   #remainingAfterLocal = (remaining: number, scope?: ScopeRef): number => {
     if (!scope) return Math.max(0, remaining - this.#newlyDecided());
     const keys = [...this.#keysInScope(scope)];
-    const decided = keys.filter((key) => this.#leftQueue(this.#verdicts.get(key))).length;
+    const decided = keys.filter((key) => this.#leftQueue(key)).length;
     return Math.max(0, remaining - decided);
   };
 
+  /** Records judged in this sandbox that were not judged in Digga on the server, and back. */
   #dugDelta = () => {
     let delta = 0;
     for (const { verdict, base } of this.#verdicts.values()) {
-      const wasDug = base ? base.dugAt !== null : false;
-      if (verdict.dugAt !== null && !wasDug) delta += 1;
-      if (verdict.dugAt === null && wasDug) delta -= 1;
+      const wasDug = base ? isTriageSource(base.source) : false;
+      const isDug = isTriageSource(verdict.source);
+      if (isDug && !wasDug) delta += 1;
+      if (!isDug && wasDug) delta -= 1;
     }
     return delta;
   };
 
-  /** Uses the real list as read-only input and applies seed precedence in memory. */
+  /** Uses the real list as read-only input and holds its records on the list in memory. */
   #applyListSeeds = async (
     listId: number,
     job: {
@@ -252,33 +271,22 @@ class SandboxApi implements Api {
         pages: 1,
         processed: list.entries.length,
         stubs: 0,
-        verdictsWritten: written,
+        added: written,
       },
       finishedAt: this.#now().toISOString(),
     };
   };
 
+  /** Holds the entry's record on the list; true when neither this sandbox nor the server did. */
   #applyListEntry(entry: DiscogsListEntry): boolean {
     if (entry.release) this.#rememberRelease(entry.release);
-    if (!this.#serverVerdicts.has(entry.key)) this.#serverVerdicts.set(entry.key, entry.verdict);
-    const previous =
-      this.#verdicts.get(entry.key)?.verdict ?? this.#serverVerdicts.get(entry.key) ?? null;
-    const decidedAt = this.#now().toISOString();
-    const seed: Verdict = {
-      key: entry.key,
-      status: "maybe",
-      source: "seed:list",
-      notes: entry.comment ?? previous?.notes ?? null,
-      releaseId: entry.release?.id ?? null,
-      decidedAt,
-      dugAt: dugAtAfter({ source: "seed:list", decidedAt }, previous),
-    };
-    if (!shouldApplyListSeed(seed, previous)) return false;
-    const existing = this.#verdicts.get(entry.key);
-    this.#verdicts.set(entry.key, {
-      verdict: seed,
-      base: existing ? existing.base : entry.verdict,
-    });
+    const { owned, onWantlist, onList } = entry.membership;
+    // A record the account holds already was never in the queue, whatever its verdict.
+    if (!this.#serverVerdicts.has(entry.key) && !owned && !onWantlist && !onList)
+      this.#serverVerdicts.set(entry.key, entry.verdict);
+    if (onList) this.#serverListed.add(entry.key);
+    if (this.#listed.has(entry.key) || this.#serverListed.has(entry.key)) return false;
+    this.#listed.set(entry.key, entry.release);
     return true;
   }
 
@@ -292,7 +300,7 @@ class SandboxApi implements Api {
         id: `sandbox-${this.#jobSeq}`,
         type: "import_list",
         status: "running",
-        progress: { page: 1, pages: 1, processed: 0, stubs: 0, verdictsWritten: 0 },
+        progress: { page: 1, pages: 1, processed: 0, stubs: 0, added: 0 },
         error: null,
         createdAt: stamp,
         startedAt: stamp,
@@ -334,7 +342,8 @@ class SandboxApi implements Api {
         if (!this.#serverVerdicts.has(item.triageKey))
           this.#serverVerdicts.set(item.triageKey, null);
         const local = this.#verdicts.get(item.triageKey);
-        const stillQueued = !local || this.#isQueued(local.verdict);
+        const stillQueued =
+          (!local || this.#isQueued(local.verdict)) && !this.#listed.has(item.triageKey);
         if (stillQueued && items.length < want) items.push(item);
       }
       offset += response.items.length;
@@ -373,25 +382,18 @@ class SandboxApi implements Api {
 
   putReleaseNote: Api["putReleaseNote"] = async (id, notes) => {
     this.#notes.set(id, notes);
-    const key = this.#keyForRelease(id);
-    const saved = key ? this.#verdicts.get(key) : undefined;
-    if (saved) saved.verdict = { ...saved.verdict, notes };
     return { notes };
   };
 
   postVerdict: Api["postVerdict"] = async (input) => {
     const inputVerdict = VerdictInputSchema.parse(input);
     const existing = this.#verdicts.get(inputVerdict.key);
-    const previous = existing?.verdict ?? this.#serverVerdicts.get(inputVerdict.key) ?? null;
-    const decidedAt = inputVerdict.decidedAt ?? this.#now().toISOString();
     const verdict: Verdict = {
       key: inputVerdict.key,
       status: inputVerdict.status,
       source: inputVerdict.source,
-      notes: inputVerdict.notes ?? null,
       releaseId: inputVerdict.releaseId ?? null,
-      decidedAt,
-      dugAt: dugAtAfter({ ...inputVerdict, decidedAt }, previous),
+      decidedAt: inputVerdict.decidedAt ?? this.#now().toISOString(),
     };
     this.#verdicts.set(inputVerdict.key, {
       verdict,
@@ -509,34 +511,81 @@ class SandboxApi implements Api {
     return { id: this.#listenSeq, heardKey: track?.heardKey ?? null };
   };
 
+  /**
+   * The server's Twelves records with this sandbox's verdicts, wantlist changes, list reads and
+   * notes laid over them, and the records only this sandbox put on the shelves.
+   */
   getTwelves: Api["getTwelves"] = async (query = {}) => {
     const response = await this.#inner.getTwelves(query);
-    for (const item of response.items) {
-      this.#serverVerdicts.set(item.verdict.key, item.verdict);
-      if (item.onWantlist) this.#serverWantlist.add(item.verdict.key);
-      else this.#serverWantlist.delete(item.verdict.key);
-      if (item.release) this.#rememberRelease(item.release);
+    for (const item of response.items) this.#learnTwelvesItem(item);
+    const server = new Map(response.items.map((item) => [item.key, item]));
+    const listed = query.status ? [] : [...this.#listed.keys()];
+    const keys = new Set([...server.keys(), ...this.#verdicts.keys(), ...listed]);
+
+    const items: TwelvesItem[] = [];
+    for (const key of keys) {
+      const item = this.#twelvesItem(key, server.get(key) ?? null);
+      if (this.#onShelves(item, query.status ?? null)) items.push(item);
     }
-    const serverWantlist = new Set(
-      response.items.filter((item) => item.onWantlist).map((item) => item.verdict.key),
-    );
-    const onWantlist = (key: string) => this.#wantlist.get(key) ?? serverWantlist.has(key);
-    const local: TwelvesItem[] = [...this.#verdicts.values()]
-      .filter((localVerdict) => response.statuses.includes(localVerdict.verdict.status))
-      .map((localVerdict) => ({
-        verdict: { ...localVerdict.verdict },
-        release: this.#releaseFor(localVerdict.verdict),
-        onWantlist: onWantlist(localVerdict.verdict.key),
-      }));
-    const items = [
-      ...local,
-      ...response.items
-        .filter((i) => !this.#verdicts.has(i.verdict.key))
-        .map((i) => ({ ...i, onWantlist: onWantlist(i.verdict.key) })),
-    ];
-    items.sort((a, b) => b.verdict.decidedAt.localeCompare(a.verdict.decidedAt));
-    return { ...response, items };
+    items.sort((left, right) => right.since.localeCompare(left.since));
+    return { items };
   };
+
+  #learnTwelvesItem(item: TwelvesItem): void {
+    if (item.verdict) this.#serverVerdicts.set(item.key, item.verdict);
+    if (item.release) this.#rememberRelease(item.release);
+    if (item.membership.onWantlist) this.#serverWantlist.add(item.key);
+    else this.#serverWantlist.delete(item.key);
+    if (item.membership.onList) this.#serverListed.add(item.key);
+  }
+
+  #twelvesItem(key: string, server: TwelvesItem | null): TwelvesItem {
+    const local = this.#verdicts.get(key);
+    const release = this.#twelvesRelease(key, server, local);
+    return {
+      key,
+      verdict: local ? local.verdict : (server?.verdict ?? null),
+      release,
+      membership: this.#membership(key, server?.membership ?? null),
+      since: local?.verdict.decidedAt ?? server?.since ?? this.#now().toISOString(),
+      note: this.#noteOf(release, server?.note ?? null),
+      pressingNotes: server?.pressingNotes ?? [],
+    };
+  }
+
+  #twelvesRelease(
+    key: string,
+    server: TwelvesItem | null,
+    local: LocalVerdict | undefined,
+  ): QueueItem | null {
+    if (server?.release) return server.release;
+    const judged = local ? this.#releaseFor(local.verdict) : null;
+    return judged ?? this.#listed.get(key) ?? null;
+  }
+
+  /** A note written in this sandbox wins over the server's. */
+  #noteOf(release: QueueItem | null, onServer: string | null): string | null {
+    if (release === null || !this.#notes.has(release.id)) return onServer;
+    return this.#notes.get(release.id) ?? null;
+  }
+
+  #membership(key: string, onServer: RecordMembership | null): RecordMembership {
+    return {
+      owned: onServer?.owned ?? false,
+      onWantlist: this.#wantlist.get(key) ?? onServer?.onWantlist ?? false,
+      onList: this.#listed.has(key) || (onServer?.onList ?? false),
+    };
+  }
+
+  /** With statuses, records with one of those verdicts; else every record Twelves shelves. */
+  #onShelves(item: TwelvesItem, statuses: VerdictStatus[] | null): boolean {
+    const status = item.verdict?.status;
+    if (statuses !== null) return status !== undefined && statuses.includes(status);
+    const { owned, onWantlist, onList } = item.membership;
+    return (
+      (status !== undefined && TWELVES_STATUSES.includes(status)) || owned || onWantlist || onList
+    );
+  }
 
   getStats: Api["getStats"] = async (query = {}) => {
     const [stats, config] = await Promise.all([
@@ -554,7 +603,8 @@ class SandboxApi implements Api {
       ? this.#remainingAfterLocal(stats.scopeRemaining ?? 0, query.scope)
       : null;
     const times: string[] = [];
-    for (const { verdict } of this.#verdicts.values()) if (verdict.dugAt) times.push(verdict.dugAt);
+    for (const { verdict } of this.#verdicts.values())
+      if (isTriageSource(verdict.source)) times.push(verdict.decidedAt);
     times.sort();
     const local = rateSummary(times, remaining);
     const serverRate = stats.rate.verdictsPerHour;
@@ -651,9 +701,4 @@ function markMoment(
   if (input.videoId === undefined || input.atSeconds === undefined)
     return { videoId: previous?.videoId ?? null, atSeconds: previous?.atSeconds ?? null };
   return { videoId: input.videoId, atSeconds: input.atSeconds };
-}
-
-function shouldApplyListSeed(seed: Verdict, previous: Verdict | null): boolean {
-  if (previous?.status === "maybe" && previous.source === "seed:list") return false;
-  return previous === null || seedRank(seed) >= seedRank(previous);
 }

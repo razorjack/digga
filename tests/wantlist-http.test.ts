@@ -49,15 +49,15 @@ const send = async <T>(method: string, url: string, body?: unknown) => {
 
 const wantlistRows = () =>
   (
-    db.prepare("SELECT release_id AS id FROM seed_items WHERE kind = 'wantlist'").all() as {
+    db.prepare("SELECT release_id AS id FROM memberships WHERE kind = 'wantlist'").all() as {
       id: number;
     }[]
   ).map((r) => r.id);
 
 const acceptedOnWantlist = async () =>
   (await send<TwelvesResponse>("GET", "/api/twelves?status=accepted")).body.items.map((i) => [
-    i.verdict.key,
-    i.onWantlist,
+    i.key,
+    i.membership.onWantlist,
   ]);
 
 function serverWith(secrets: Secrets): DiggaServer {
@@ -104,13 +104,9 @@ describe("Discogs wantlist over HTTP", () => {
     expect(await acceptedOnWantlist()).toEqual([["m:501", true]]);
   });
 
-  it("sends the grail and keep tracks and the record's note with a want", async () => {
-    await send("POST", "/api/verdicts", {
-      key: "m:501",
-      status: "accepted",
-      releaseId: 1001,
-      notes: "from the Kool FM tape",
-    });
+  it("sends the grail and keep tracks and the release's note with a want", async () => {
+    await send("POST", "/api/verdicts", { key: "m:501", status: "accepted", releaseId: 1001 });
+    await send("PUT", "/api/releases/1001/note", { notes: "from the Kool FM tape" });
     await send("POST", "/api/track-verdicts", { releaseId: 1001, position: "B1", mark: "keep" });
     await send("POST", "/api/track-verdicts", {
       releaseId: 1001,
@@ -119,7 +115,7 @@ describe("Discogs wantlist over HTTP", () => {
     });
     await send("POST", "/api/discogs/wantlist/1001", {});
     expect(bodies).toEqual([{ notes: "grail A2; keep B1; from the Kool FM tape" }]);
-    const row = db.prepare("SELECT notes FROM seed_items WHERE release_id = 1001").get();
+    const row = db.prepare("SELECT notes FROM memberships WHERE release_id = 1001").get();
     expect(row).toEqual({ notes: "grail A2; keep B1; from the Kool FM tape" });
   });
 

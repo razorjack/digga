@@ -4,19 +4,22 @@ import type { Db } from "./db.ts";
 /** Styles shown, most first; the setup suggests the top few and reads their years. */
 const STYLES_KEPT = 30;
 
+const SEED_RELEASES =
+  "(SELECT release_id FROM memberships WHERE kind IN ('collection', 'wantlist'))";
+
 /**
  * The styles and years of the releases the collection and wantlist imports brought in. Their
  * stubs carry what Discogs sends with each item, so this works before any dump is loaded.
  */
 export function tallySeedReleases(db: Db): SeedTally {
   const releases = db
-    .prepare("SELECT COUNT(DISTINCT release_id) FROM seed_items")
+    .prepare(`SELECT COUNT(DISTINCT release_id) FROM ${SEED_RELEASES}`)
     .pluck()
     .get() as number;
   const rows = db
     .prepare(
       `SELECT style.value AS name, r.year AS year, COUNT(*) AS releases
-       FROM (SELECT DISTINCT release_id FROM seed_items) s
+       FROM (SELECT DISTINCT release_id FROM ${SEED_RELEASES}) s
        JOIN releases r ON r.id = s.release_id, json_each(r.styles_json) style
        GROUP BY style.value, r.year`,
     )

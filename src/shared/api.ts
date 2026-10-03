@@ -13,6 +13,8 @@ import {
   VERDICT_SOURCES,
   VERDICT_STATUSES,
   type Job,
+  type MembershipKind,
+  type RecordMembership,
   type ReleaseRecord,
   type TrackMark,
   type TrackRecord,
@@ -118,11 +120,20 @@ export interface ReleaseDetail {
   tracks: TrackDetail[];
   videos: VideoRecord[];
   verdict: Verdict | null;
-  /** The release's note, saved apart from the verdict; absent from details built before notes. */
+  /** The release's note; absent from details built before notes. */
   note?: string | null;
+  /** Notes written on the record's other pressings, newest first. */
+  pressingNotes: PressingNote[];
   trackVerdicts: TrackVerdict[];
   /** Other releases sharing the master, excluding this one. */
   siblings: ReleaseSibling[];
+}
+
+/** A note written on another pressing of the record, shown with its catalogue number. */
+export interface PressingNote {
+  releaseId: number;
+  catno: string | null;
+  notes: string;
 }
 
 export const ReleaseNoteInputSchema = z.object({ notes: z.string().max(4000).nullable() });
@@ -132,12 +143,9 @@ export const VerdictInputSchema = z.object({
   key: z.string().regex(TRIAGE_KEY_PATTERN),
   status: z.enum(VERDICT_STATUSES),
   source: z.enum(VERDICT_SOURCES).default("triage"),
-  notes: z.string().max(4000).nullable().optional(),
   releaseId: z.number().int().positive().nullable().optional(),
   /** Restores a verdict's original date (undo); omitted, the verdict is dated now. */
   decidedAt: z.iso.datetime({ offset: true }).optional(),
-  /** Restores when the record was last judged in Digga (undo); omitted, see dugAtAfter(). */
-  dugAt: z.iso.datetime({ offset: true }).nullable().optional(),
 });
 export type VerdictInput = z.input<typeof VerdictInputSchema>;
 export type VerdictResponse = Verdict;
@@ -201,11 +209,9 @@ export interface ListenLogResponse {
   heardKey: string | null;
 }
 
-/** The verdicts Twelves shows on its shelves. */
+/** The verdicts Twelves shows on its shelves, besides what the Discogs account holds. */
 export const TWELVES_STATUSES: VerdictStatus[] = [
   "accepted",
-  "wantlist",
-  "collection",
   "maybe",
   "candidate",
   "snoozed",
@@ -216,15 +222,14 @@ export const TWELVES_STATUSES: VerdictStatus[] = [
 export const AttachVideoInputSchema = z.object({ url: z.string().min(1).max(2000) });
 export type AttachVideoInput = z.infer<typeof AttachVideoInputSchema>;
 
-// GET /api/twelves?status=accepted,wantlist
+// GET /api/twelves?status=snoozed
 export const TwelvesQuerySchema = z.object({
+  /** Only records with one of these verdicts; omitted, every record the shelves show. */
   status: z
     .string()
     .optional()
-    .transform((text) =>
-      text ? text.split(",").map((x) => x.trim()) : ["accepted", "wantlist", "collection"],
-    )
-    .pipe(z.array(z.enum(VERDICT_STATUSES)).min(1)),
+    .transform((text) => (text ? text.split(",").map((x) => x.trim()) : null))
+    .pipe(z.array(z.enum(VERDICT_STATUSES)).min(1).nullable()),
   applyFilters: z
     .string()
     .optional()
@@ -233,16 +238,23 @@ export const TwelvesQuerySchema = z.object({
 export type TwelvesQuery = z.infer<typeof TwelvesQuerySchema>;
 export type TwelvesQueryInput = z.input<typeof TwelvesQuerySchema>;
 
+/** A record on the Twelves shelves: decided in Digga, held by the Discogs account, or both. */
 export interface TwelvesItem {
-  verdict: Verdict;
+  /** The record's triage key. */
+  key: string;
+  /** The decision made in Digga; null for a record only the Discogs account holds. */
+  verdict: Verdict | null;
   release: QueueItem | null;
-  /** A release of this record is on the Discogs wantlist, as imported or pushed from Digga. */
-  onWantlist: boolean;
+  membership: RecordMembership;
+  /** When it was decided, else when it reached the Discogs account; the newest sort reads it. */
+  since: string;
+  /** The shown release's note. */
+  note: string | null;
+  pressingNotes: PressingNote[];
 }
 
 export interface TwelvesResponse {
   items: TwelvesItem[];
-  statuses: VerdictStatus[];
 }
 
 // GET /api/track-marks
@@ -274,7 +286,7 @@ export const StatsQuerySchema = z.object({
 export type StatsQuery = z.infer<typeof StatsQuerySchema>;
 
 export interface Stats {
-  /** Records judged in Digga (triage or manual), also those whose verdict a seed has replaced. */
+  /** Records judged in Digga (triage or manual). */
   dug: number;
   universe: {
     releases: number;
@@ -282,6 +294,8 @@ export interface Stats {
     filteredKeys: number;
   };
   verdicts: Record<VerdictStatus, number>;
+  /** Releases the Discogs account holds, as imported or pushed. */
+  discogs: Record<MembershipKind, number>;
   remaining: number;
   /** Records still to dig in the scope the request named; null without one. */
   scopeRemaining: number | null;
@@ -482,8 +496,9 @@ export interface DiscogsListEntry {
   comment: string | null;
   /** The release shown for the entry: from the dump, or built from the API when outside it. */
   release: QueueItem | null;
-  /** Digga's verdict for the key before the list is applied. */
+  /** Digga's verdict on the record, and what the Discogs account holds of it already. */
   verdict: Verdict | null;
+  membership: RecordMembership;
 }
 export interface DiscogsListResponse {
   id: number;
@@ -529,9 +544,9 @@ export interface VerdictExport extends ExportedRelease {
   key: string;
   status: VerdictStatus;
   source: VerdictSource;
+  /** The note on the verdict's release. */
   notes: string | null;
   decidedAt: string;
-  dugAt: string | null;
 }
 
 export interface TrackMarkExport extends ExportedRelease {

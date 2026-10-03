@@ -1,5 +1,5 @@
 import { type ReleaseDetail, type TrackDetail } from "../../shared/api.ts";
-import type { ReleaseRecord, TrackRecord, Verdict, VideoRecord } from "../../shared/types.ts";
+import type { ReleaseRecord, TrackRecord, VideoRecord } from "../../shared/types.ts";
 import { formatSummary } from "../../shared/formats.ts";
 import { markForTrack } from "../../shared/track-identity.ts";
 import type { Db } from "../db/db.ts";
@@ -13,7 +13,7 @@ import {
   getUserVideos,
   getVideos,
 } from "../db/releases.ts";
-import { releaseNote } from "../db/notes.ts";
+import { pressingNotes, releaseNote } from "../db/notes.ts";
 import { getHeardKeys, getTrackVerdicts, getVerdict } from "../db/verdicts.ts";
 
 export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
@@ -35,13 +35,13 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
     hasVideo: videoPositions.has(track.position),
     mark: markForTrack(track, marks, tracks)?.mark ?? null,
   }));
-  const verdict = getVerdict(db, release.triageKey);
   return {
     release,
     tracks: trackDetails,
     videos,
-    verdict,
-    note: noteOf(db, id, verdict),
+    verdict: getVerdict(db, release.triageKey),
+    note: releaseNote(db, id) ?? null,
+    pressingNotes: pressingNotes(db, release),
     trackVerdicts: marks,
     siblings: getSiblings(db, release).map((sibling) => ({
       id: sibling.id,
@@ -56,12 +56,6 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
       inUniverse: sibling.inUniverse,
     })),
   };
-}
-
-/** The release's own note, else the note on its record's verdict, which may name a sibling. */
-function noteOf(db: Db, releaseId: number, verdict: Verdict | null): string | null {
-  const note = releaseNote(db, releaseId);
-  return note === undefined ? (verdict?.notes ?? null) : note;
 }
 
 /**

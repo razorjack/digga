@@ -22,7 +22,7 @@ describe("job contracts", () => {
     try {
       const runner = createJobRunner(db, silentLogger);
       const { job, result } = await runner.runAndWait("import_wantlist", async ({ onProgress }) => {
-        onProgress({ page: 2, pages: 3, processed: 150, stubs: 0, verdictsWritten: 150 });
+        onProgress({ page: 2, pages: 3, processed: 150, stubs: 0, added: 150 });
         return { completed: 2 };
       });
       expect(result.completed).toBe(2);
@@ -143,7 +143,7 @@ describe("job contracts", () => {
         pages: 1,
         processed: 1,
         stubs: 0,
-        verdictsWritten: 1,
+        added: 1,
       });
       expect(() => getJob(db, job.id)).toThrow();
     } finally {
@@ -166,7 +166,7 @@ it("waits for cancelled async work before releasing its database", async () => {
   const job = runner.run("import_wantlist", async ({ signal, onProgress }) => {
     await pending;
     expect(signal.aborted).toBe(true);
-    onProgress({ page: 1, pages: null, processed: 0, stubs: 0, verdictsWritten: 0 });
+    onProgress({ page: 1, pages: null, processed: 0, stubs: 0, added: 0 });
   });
   let stopped = false;
   const stopping = runner.stop().then(() => {
@@ -191,7 +191,7 @@ it("finishes a worker step only once the worker has exited", async () => {
   const script = new URL(
     `data:text/javascript,${encodeURIComponent(`
     import { parentPort } from 'node:worker_threads';
-    parentPort.postMessage({ type: 'progress', progress: { page: 1, pages: 2, processed: 100, stubs: 0, verdictsWritten: 100 } });
+    parentPort.postMessage({ type: 'progress', progress: { page: 1, pages: 2, processed: 100, stubs: 0, added: 100 } });
     parentPort.postMessage({ type: 'done', result: 7 });
     setTimeout(() => {}, 200);
   `)}`,
