@@ -1,5 +1,4 @@
-import { formatDecisionsBackup } from "../src/server/decisions-backup.ts";
-import { DecisionsBackupSchema } from "../src/shared/decisions-backup.ts";
+import { formatDecisionsBackup, parseDecisionsBackup } from "../src/server/decisions-backup.ts";
 import { expect, it } from "vite-plus/test";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { SessionInput } from "../src/shared/digging-session.ts";
@@ -35,17 +34,16 @@ it("preserves session context, restores checkpoints, and ignores records decided
   expect(latestSession(db)?.config).toEqual(original.config);
   expect(latestSession(db)?.state.playback).toBeNull();
   const rebuilt = await fixtureDb();
-  const backup = DecisionsBackupSchema.parse(
-    JSON.parse(
-      formatDecisionsBackup({
-        ...readBackedUpData(db),
-        app: "digga",
-        kind: "decisions",
-        version: 2,
-        backedUpAt: "2099-01-01T00:00:00Z",
-        config: DEFAULT_CONFIG,
-      }),
-    ),
+  const backup = parseDecisionsBackup(
+    formatDecisionsBackup({
+      ...readBackedUpData(db),
+      app: "digga",
+      kind: "decisions",
+      version: 3,
+      backedUpAt: "2099-01-01T00:00:00Z",
+      config: DEFAULT_CONFIG,
+    }),
+    "checkpoint",
   );
   restoreBackedUpData(rebuilt, backup, backup.backedUpAt);
   expect(latestSession(rebuilt)).toEqual(latestSession(db));

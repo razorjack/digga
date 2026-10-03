@@ -13,8 +13,10 @@ import {
  * The daily decisions backup: every verdict, what the Discogs account holds, the track marks, the
  * tunes heard, release notes, the videos attached by pasting a link, and the videos no-audio
  * records had. Release data is left out: the Discogs ids in the keys find it again after a dump
- * load, so a library rebuilt from a dump gets everything back with `digga restore`. Version 3
- * keeps the account's items apart from verdicts; versions 1 and 2 held them as seed verdicts.
+ * load, so a library rebuilt from a dump gets everything back with `digga restore`. Version 3 is
+ * JSON Lines, a header and then one camelCase record per line (`src/server/decisions-backup.ts`),
+ * and keeps the account's items apart from verdicts; versions 1 and 2 are one JSON document and
+ * held those items as seed verdicts.
  */
 export const DECISIONS_BACKUP_VERSION = 3;
 
@@ -50,8 +52,10 @@ const BackupMembershipSchema = z.object({
   removedAt: timestamp.nullable(),
 });
 
-/** Backups written before Digga saved a mark's tune and moment read those as null. */
-/** A mark from before marks kept their tune has no `heardKey`; restore finds it by position. */
+/**
+ * Backups written before Digga saved a mark's tune and moment read those as null; restore finds
+ * a mark without its tune by position.
+ */
 const BackupTrackMarkSchema = z.object({
   releaseId: id,
   position: z.string(),

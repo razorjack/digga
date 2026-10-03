@@ -32,18 +32,14 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 describe("daily backups", () => {
   it("checkpoints changed decisions during the day and once more at shutdown", async () => {
     const paths = resolvePaths({ dataDir: tmp });
-    let now = new Date("2026-10-03T10:00:00Z");
-    const backups = startDailyBackups(
-      db,
-      { paths, logger: silentLogger },
-      { everyMs: 10, now: () => now },
-    );
+    // Each check is a minute later, so each checkpoint has a name of its own.
+    let minutes = 0;
+    const now = () => new Date(Date.UTC(2026, 9, 3, 10, minutes++));
+    const backups = startDailyBackups(db, { paths, logger: silentLogger }, { everyMs: 10, now });
     await expect.poll(() => listCheckpoints(paths.backupsDir).length).toBe(1);
     upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage" });
-    now = new Date("2026-10-03T10:15:00Z");
     await expect.poll(() => listCheckpoints(paths.backupsDir).length).toBe(2);
     upsertVerdict(db, { key: "m:502", status: "rejected", source: "triage" });
-    now = new Date("2026-10-03T10:16:00Z");
     await backups.stop();
     const latest = listCheckpoints(paths.backupsDir)[0]!;
     expect(readDecisionsBackup(latest.file).verdicts.map((verdict) => verdict.key)).toEqual([

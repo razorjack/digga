@@ -105,7 +105,8 @@ src/shared/            types, config schema, API contracts, pure logic (normaliz
 src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
                        context.ts, paths.ts, secrets.ts, logger.ts, stats.ts, static.ts, export.ts,
                        attach-video.ts, youtube.ts (oEmbed titles), enrich.ts (one release, for Triage),
-                       dump-files.ts, decisions-backup.ts and daily-backups.ts (the daily backups),
+                       dump-files.ts, decisions-backup.ts, decisions-backup-worker.ts and daily-backups.ts (the
+                       daily backups),
                        setup.ts (what the first run needs), style-census.ts + style-census.json (shipped)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
                        export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts, seed-tally.ts,

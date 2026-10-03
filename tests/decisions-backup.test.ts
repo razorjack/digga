@@ -211,24 +211,38 @@ describe("the decisions backup", () => {
     });
   });
 
-  it("writes one entry per line, fields in a fixed order, gzipped", async () => {
+  it("writes a header, then one camelCase record per line in a fixed field order, gzipped", async () => {
     const db = await libraryWithDecisions();
     const written = await writeDecisionsBackup(db, on("2026-09-10"));
     const lines = zlib.gunzipSync(fs.readFileSync(written.file)).toString("utf8").split("\n");
 
     expect(path.basename(written.file)).toBe("decisions-2026-09-10.json.gz");
-    expect(lines.slice(0, 7)).toEqual([
-      "{",
-      '  "app": "digga",',
-      '  "kind": "decisions",',
-      '  "version": 3,',
-      '  "backedUpAt": "2026-09-10T12:00:00.000Z",',
-      '  "config": null,',
-      '  "verdicts": [',
-    ]);
+    expect(JSON.parse(lines[0]!)).toEqual({
+      app: "digga",
+      kind: "decisions",
+      version: 3,
+      backedUpAt: "2026-09-10T12:00:00.000Z",
+      dataHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      config: null,
+    });
     expect(lines).toContain(
-      '    {"key":"m:501","status":"candidate","source":"triage","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z","updatedAt":"2026-09-01T10:00:00.000Z"},',
+      '{"record":"verdict","key":"m:501","status":"candidate","source":"triage","releaseId":1001,"decidedAt":"2026-09-01T10:00:00.000Z","updatedAt":"2026-09-01T10:00:00.000Z"}',
     );
+    const listen = lines.find((line) => line.startsWith('{"record":"listen"'));
+    expect(Object.keys(JSON.parse(listen!))).toContain("releaseId");
+    db.close();
+  });
+
+  it("reads a version 2 document, and skips a daily backup when the data hash says nothing changed", async () => {
+    const db = await libraryWithDecisions();
+    const backup = readDecisionsBackup((await writeDecisionsBackup(db, on("2026-09-10"))).file);
+    const older = path.join(dir, "decisions-2026-09-09.json");
+    fs.writeFileSync(older, JSON.stringify({ ...backup, version: 2 }, null, 2));
+    expect(readDecisionsBackup(older).verdicts).toEqual(backup.verdicts);
+
+    expect(await backupDecisionsDaily(db, on("2026-09-11"))).toBeNull();
+    upsertVerdict(db, { key: "m:503", status: "maybe", source: "triage", releaseId: 1003 });
+    expect(await backupDecisionsDaily(db, on("2026-09-12"))).not.toBeNull();
     db.close();
   });
 

@@ -2,12 +2,11 @@ import { type Context, Hono } from "hono";
 import { type BackupSummary, type BackupsResponse, EXPORT_FILES } from "../../shared/api.ts";
 import { type BackupFile, BACKUPS_KEPT, localDay, listBackups, writeBackup } from "../db/backup.ts";
 import {
+  backUpDecisionsInWorker,
   CHECKPOINTS_KEPT,
-  checkpointDecisions,
   DECISIONS_BACKUPS_KEPT,
   listCheckpoints,
   listDecisionsBackups,
-  writeDecisionsBackup,
 } from "../decisions-backup.ts";
 import { buildExport } from "../export.ts";
 import type { AppContext } from "../context.ts";
@@ -29,9 +28,10 @@ async function backUpNow(request: Context, context: AppContext) {
     now,
     config: context.getConfig(),
   };
-  await writeDecisionsBackup(context.db, options);
-  await checkpointDecisions(context.db, options);
-  await writeBackup(context.db, options);
+  const { db, paths } = context;
+  await backUpDecisionsInWorker(db, paths.dbFile, { backup: "now", options });
+  await backUpDecisionsInWorker(db, paths.dbFile, { backup: "checkpoint", options });
+  await writeBackup(db, options);
   return backups(request, context);
 }
 

@@ -239,73 +239,31 @@ folder:
 With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the path under
 **Backups and exports**.
 
-- **`decisions-YYYY-MM-DD.json.gz`: your decisions.** Every verdict with its note, your track
-  marks, the tunes you heard, the YouTube links you attached, and the videos a record marked "no
-  audio" had. Your imported wantlist, collection and Maybe list are in it too. Release details
-  are not: the Discogs ids find them again. Digga keeps the last 30. A day on which nothing
-  changed adds no file, so they cover your last 30 days of digging, and a library with nothing
-  decided in it yet writes none. With every Drum n Bass record from 1998 to 2002 judged, about
-  60,000 decisions and two tunes heard on each, the file is about 3.5 MB.
+- **`decisions-YYYY-MM-DD.json.gz`: your decisions.** Every verdict, your notes and track marks,
+  the tunes you heard and every listen, the YouTube links you attached, the videos a record marked
+  "no audio" had, the history of every decision, your recent digging sessions and your settings.
+  Your imported wantlist, collection and Maybe list are in it too. Release details are not: the
+  Discogs ids find them again. Digga keeps the last 30. A day on which nothing changed adds no
+  file, so they cover your last 30 days of digging, and a library with nothing decided in it yet
+  writes none. A library with 40,000 decisions, 120,000 logged changes to them and 300,000 listens
+  writes about 17 MB.
 - **`digga-YYYY-MM-DD.sqlite`: the whole database.** Digga keeps the last two. It restores
   everything with one command, but is 100 MB or more.
 
 The server writes both when it starts, and again each day while it runs. `npm run digga -- backup`
 writes both at once.
 
-`gunzip -c decisions-2026-09-30.json.gz` shows what a decisions backup holds, one entry per
-line. Here, Stakka & Skynet's _Clockwork_ is a want, and _Crime Audio_ by Item A La Playa is a
-grail, marked on its track, with a note:
+`gunzip -c decisions-2026-09-30.json.gz` shows what a decisions backup holds: a header line, then
+one record per line, each naming its kind in `record`. Here, Stakka & Skynet's _Clockwork_ is a
+want, and _Crime Audio_ by Item A La Playa is a grail, marked on its track (lines shortened):
 
 ```json
-{
-  "app": "digga",
-  "kind": "decisions",
-  "version": 1,
-  "backedUpAt": "2026-09-30T21:04:12.518Z",
-  "verdicts": [
-    {
-      "key": "m:34620",
-      "status": "accepted",
-      "source": "triage",
-      "releaseId": 8667,
-      "decidedAt": "2026-09-30T20:41:07.332Z"
-    },
-    {
-      "key": "r:620767",
-      "status": "candidate",
-      "source": "triage",
-      "releaseId": 620767,
-      "decidedAt": "2026-09-30T20:52:39.905Z"
-    }
-  ],
-  "trackMarks": [
-    {
-      "releaseId": 620767,
-      "position": "A",
-      "mark": "candidate",
-      "notes": null,
-      "decidedAt": "2026-09-30T20:52:31.118Z"
-    }
-  ],
-  "heardTunes": [
-    {
-      "heardKey": "stakka and skynet - clockwork",
-      "firstReleaseId": 8667,
-      "secondsListened": 14.2,
-      "firstHeardAt": "2026-09-30T20:40:51.020Z",
-      "lastHeardAt": "2026-09-30T20:40:51.020Z"
-    },
-    {
-      "heardKey": "item a la playa - crime audio",
-      "firstReleaseId": 620767,
-      "secondsListened": 48.9,
-      "firstHeardAt": "2026-09-30T20:51:40.604Z",
-      "lastHeardAt": "2026-09-30T20:52:30.211Z"
-    }
-  ],
-  "attachedVideos": [],
-  "noAudioVideos": []
-}
+{"app":"digga","kind":"decisions","version":3,"backedUpAt":"2026-09-30T21:04:12.518Z","dataHash":"9c41…","config":{…}}
+{"record":"verdict","key":"m:34620","status":"accepted","source":"triage","releaseId":8667,"decidedAt":"2026-09-30T20:41:07.332Z","updatedAt":"2026-09-30T20:41:07.332Z"}
+{"record":"verdict","key":"r:620767","status":"candidate","source":"triage","releaseId":620767,"decidedAt":"2026-09-30T20:52:39.905Z","updatedAt":"2026-09-30T20:52:39.905Z"}
+{"record":"trackMark","releaseId":620767,"position":"A","mark":"candidate","notes":null,"decidedAt":"2026-09-30T20:52:31.118Z","heardKey":"item a la playa - crime audio",…}
+{"record":"heardTune","heardKey":"stakka and skynet - clockwork","firstReleaseId":8667,"secondsListened":14.2,…}
+{"record":"listen","eventId":"3f0c…","releaseId":8667,"position":"A","videoId":"…","seconds":14.2,…}
 ```
 
 - `key` is the record: `m:` and a Discogs master id, like
@@ -330,8 +288,9 @@ same way. Without a database copy:
 1. Load the catalogue again: `npm run digga -- dump update`, or **Update from the newest dump** in
    Settings.
 2. Run `npm run digga -- restore decisions-YYYY-MM-DD.json.gz`, with a path or the name of a file
-   in the backups folder. It copies the database first, then brings back every decision in the
-   file. A decision you made in Digga after the backup was written stays as it is.
+   in the backups folder. It copies the database first, then merges the file in: each verdict and
+   track mark keeps whichever side changed it last, so one you changed or deleted after the backup
+   was written stays as it is. To go back to an earlier state, restore a database copy instead.
 3. Import your collection and wantlist again, so what changed on Discogs since the backup
    applies.
 

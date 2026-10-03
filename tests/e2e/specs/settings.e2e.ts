@@ -449,7 +449,9 @@ test(
   { tag: ["@SET-19", "@P2"] },
   async ({ app }) => {
     const settings = new SettingsPage(app);
-    // The first start ran before the verdict existed, and an empty library gets no backup.
+    // The first start checks before the verdict exists; its checkpoint is the check's last write.
+    await expect.poll(async () => (await backups(app)).checkpoints.backups).toHaveLength(1);
+    // An empty library gets no daily backup.
     expect((await backups(app)).decisions.backups).toEqual([]);
     await app.given.verdict({
       key: triageKeyOf(FIRST_RECORD),

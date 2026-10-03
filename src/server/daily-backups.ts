@@ -2,11 +2,7 @@ import type { BackupFailure } from "../shared/api.ts";
 import type { Config } from "../shared/config.ts";
 import { backupDaily, localDay } from "./db/backup.ts";
 import type { Db } from "./db/db.ts";
-import {
-  backupDecisionsDaily,
-  checkpointDecisions,
-  type DecisionsBackupOptions,
-} from "./decisions-backup.ts";
+import { backUpDecisionsInWorker, type DecisionsBackupOptions } from "./decisions-backup.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
 
@@ -37,14 +33,21 @@ export function startDailyBackups(
 ): DailyBackups {
   const now = schedule.now ?? (() => new Date());
   let failure: BackupFailure | null = null;
+  let checking = false;
   const check = async () => {
-    const at = now();
-    const failed = await writeDailyBackups(db, deps, at);
-    failure = failed.length > 0 ? { at: at.toISOString(), message: failed.join("; ") } : null;
+    checking = true;
+    try {
+      const at = now();
+      const failed = await writeDailyBackups(db, deps, at);
+      failure = failed.length > 0 ? { at: at.toISOString(), message: failed.join("; ") } : null;
+    } finally {
+      checking = false;
+    }
   };
   let latest = check();
   const timer = setInterval(() => {
-    latest = latest.then(check);
+    // A check that is still running stands in for this one.
+    if (!checking) latest = check();
   }, schedule.everyMs ?? CHECKPOINT_MS);
   timer.unref();
   return {
@@ -68,7 +71,8 @@ async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<s
 
   const failures = await Promise.all([
     attempt(logger, "the daily decisions backup", async () => {
-      const backup = await backupDecisionsDaily(db, options);
+      const task = { backup: "daily", options } as const;
+      const backup = await backUpDecisionsInWorker(db, deps.paths.dbFile, task);
       if (backup) logger.info(`backed up your decisions to ${backup.file}`);
     }),
     attempt(logger, "the daily database backup", async () => {
@@ -81,8 +85,9 @@ async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<s
 }
 
 function writeCheckpoint(db: Db, deps: BackupDeps, now: Date): Promise<string | null> {
+  const task = { backup: "checkpoint", options: backupOptions(deps, now) } as const;
   return attempt(deps.logger, "the decisions checkpoint", () =>
-    checkpointDecisions(db, backupOptions(deps, now)),
+    backUpDecisionsInWorker(db, deps.paths.dbFile, task),
   );
 }
 

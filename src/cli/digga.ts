@@ -43,6 +43,13 @@ async function main(argv: string[]): Promise<void> {
   }
 }
 
+// A parent that stops reading the output closes the pipe; the next log line must not end the
+// command, least of all a server.
+for (const output of [process.stdout, process.stderr])
+  output.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EPIPE") throw error;
+  });
+
 main(process.argv.slice(2)).catch((error: unknown) => {
   console.error(`digga: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;

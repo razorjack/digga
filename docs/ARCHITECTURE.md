@@ -193,11 +193,19 @@ staged file over `digga.sqlite`, and opens it once to apply the migrations it la
 
 It also writes `decisions-YYYY-MM-DD.json.gz` there, gzipped at level 9, and keeps the newest 30
 (`src/server/decisions-backup.ts`). The file holds what only the user made, read by
-`db/user-data.ts`: every verdict, track marks, heard tunes, attached videos and the videos of
-no-audio records, oldest first, one entry per line, in the format `src/shared/decisions-backup.ts`
-validates. No release data: the Discogs ids in the keys find it again after a dump load. A day
-gets no file when one exists, when the library holds nothing made in Digga, or when nothing
-changed since the newest file, so idle days and a new library never push older backups out.
+`db/user-data.ts` in one read transaction: every verdict, the account's items, track marks,
+heard tunes, attached videos, the videos of no-audio records, release notes, sessions and the
+listen and decision logs, oldest first. Version 3 is JSON Lines: a header line (format version,
+time, settings and a SHA-256 `dataHash` of the record lines), then one record per line, its type
+in `record` and its fields in camelCase in a fixed order; `src/shared/decisions-backup.ts`
+validates it, and versions 1 and 2, one JSON document each, still restore. No release data: the
+Discogs ids in the keys find it again after a dump load. A day gets no file when one exists,
+when the library holds nothing made in Digga, or when the newest file's `dataHash` matches, so
+idle days and a new library never push older backups out; the check reads only that file's
+header. Reading and formatting a long history takes seconds (3.8 s for 300,000 listens and
+120,000 logged decisions), so the server writes these backups and the checkpoints in a worker
+thread with its own connection (`decisions-backup-worker.ts`); an in-memory database is backed up
+inline.
 `digga backup` writes both backups on demand. `digga restore` with a decisions backup copies the
 database, then merges the file into the library in one transaction (`restoreBackedUpData`): a
 verdict or track mark keeps whichever side changed it last, a deletion included; heard tunes and

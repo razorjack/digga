@@ -915,3 +915,19 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      import, and backed-up verdicts that meet on one record keep the one `preferredVerdict()`
      picks. A write that changes nothing leaves `updated_at` alone. Going back in time is a
      database copy's job (decision 135).
+143. **The decisions backup is JSON Lines, read in one transaction and written off the server
+     thread.** The pre-release review (F12) asked for the backup layout to settle before release,
+     since released files must stay restorable. The owner chose to restructure version 3: a
+     header line, then one record per line with its type in `record`, every field in camelCase
+     (the logged rows used database column names), and a SHA-256 of the record lines in the
+     header, so the unchanged check reads one header line instead of parsing the newest file.
+     Versions 1 and 2 still restore. `readBackedUpData()` reads every section in one read
+     transaction. A benchmark on a synthetic library (40,000 verdicts, 120,000 decision events,
+     300,000 listens, 8,000 marks, 20 large sessions) took 1.3 s to read and 2.6 s to format and
+     hash 200 MB of lines, all on the server thread every fifteen minutes even when nothing
+     changed, so scheduled backups, checkpoints and Back up now run in a worker with its own
+     connection; the longest pause of the server thread fell to 7 ms. The scheduler skips a tick
+     while a check still runs. Sessions are cursors, not history: the newest 20 and any touched
+     in 90 days are kept. A failed scheduled check is shown in Settings until one succeeds. The
+     CLI ignores `EPIPE` on its output, since a parent that stops reading must not end the
+     server.
