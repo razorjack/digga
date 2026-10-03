@@ -25,6 +25,16 @@ export const DISCOGS_CURRENCIES = [
 ] as const;
 export type ColorScheme = (typeof COLOR_SCHEMES)[number];
 
+/**
+ * A label left out of the queue, by Discogs id; an entry typed in Settings has no id and matches
+ * the name. Configs before ids held the names alone.
+ */
+const HiddenLabelSchema = z.preprocess(
+  (value) => (typeof value === "string" ? { id: null, name: value } : value),
+  z.object({ id: z.number().int().positive().nullable(), name: z.string().min(1) }),
+);
+export type HiddenLabel = z.infer<typeof HiddenLabelSchema>;
+
 // Genre/style defaults for the owner's use case live here and in
 // digga.config.json only. Nothing else in the codebase may assume them.
 export const FiltersSchema = z.object({
@@ -44,8 +54,8 @@ export const FiltersSchema = z.object({
   skipHistory: z.boolean().default(true),
   /** Leave out releases without an embeddable video, so every record in the queue can play. */
   skipWithoutVideos: z.boolean().default(false),
-  /** Labels left out, by the exact name of a release's first label (the one the sweep uses). */
-  excludeLabels: z.array(z.string().min(1)).default([]),
+  /** Labels left out, matched against a release's first label (the one the sweep uses). */
+  excludeLabels: z.array(HiddenLabelSchema).default([]),
   /** Format descriptions a release needs one of, such as 12" or EP; empty means any. */
   includeDescriptions: z.array(z.string().min(1)).default([]),
   /** Format descriptions that leave a release out, such as Unofficial Release or Compilation. */
@@ -128,10 +138,32 @@ export type Filters = Config["filters"];
 export const DEFAULT_CONFIG: Config = ConfigSchema.parse({});
 
 /** The filters with a label left out of the queue, or let back in. */
-export function withLabelExcluded(filters: Filters, label: string, excluded: boolean): Filters {
-  const others = filters.excludeLabels.filter((name) => name !== label);
+export function withLabelExcluded(
+  filters: Filters,
+  label: HiddenLabel,
+  excluded: boolean,
+): Filters {
+  const others = filters.excludeLabels.filter((hidden) => !isSameLabel(hidden, label));
   return { ...filters, excludeLabels: excluded ? [...others, label] : others };
 }
+
+/**
+ * Hidden labels for Settings' lines of names. A line that names a hidden label keeps that entry
+ * and its id; a new name has no id.
+ */
+export function hiddenLabelsFromNames(names: string[], hidden: HiddenLabel[]): HiddenLabel[] {
+  return names.map(
+    (name) => hidden.find((label) => isSameName(label.name, name)) ?? { id: null, name },
+  );
+}
+
+/** The same label: by Discogs id when both have one, otherwise by name, ignoring case. */
+function isSameLabel(left: HiddenLabel, right: HiddenLabel): boolean {
+  if (left.id !== null && right.id !== null) return left.id === right.id;
+  return isSameName(left.name, right.name);
+}
+
+const isSameName = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
 
 export function parseConfig(input: unknown): Config {
   return ConfigSchema.parse(input);

@@ -1,3 +1,4 @@
+import type { HiddenLabel } from "../../../src/shared/config.ts";
 import { triageKeyFor } from "../../../src/shared/triage-key.ts";
 
 /**
@@ -508,10 +509,16 @@ export const YOUTUBE_ONLY = {
   staticTrack: video("relicstatic", "Relic - Static", 372),
 };
 
-/** Every label of the small catalogue but these; a test that digs only them leaves the rest out. */
-export function labelsBesides(names: string[]): string[] {
-  const labels = new Set(SMALL.map((fixture) => fixture.label.name));
-  return [...labels].filter((name) => !names.includes(name));
+/**
+ * Every label of the small catalogue but these, with their ids as X hides them; a test that digs
+ * only them leaves the rest out.
+ */
+export function labelsBesides(names: string[]): HiddenLabel[] {
+  const labels = new Map<number, HiddenLabel>();
+  for (const { label } of SMALL) {
+    if (!names.includes(label.name)) labels.set(label.id, { id: label.id, name: label.name });
+  }
+  return [...labels.values()];
 }
 
 /** A release on the account's wantlist that no dump has. */

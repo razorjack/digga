@@ -1,8 +1,8 @@
 import type { QueueItem } from "../../shared/api.ts";
-import type { Filters, QueueStrategy } from "../../shared/config.ts";
+import type { Filters, HiddenLabel, QueueStrategy } from "../../shared/config.ts";
 import { formatSummary } from "../../shared/formats.ts";
 import type { ScopeRef } from "../../shared/scope.ts";
-import type { FormatRef } from "../../shared/types.ts";
+import type { FormatRef, LabelRef } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import type { ReleaseRow } from "../db/releases.ts";
 import { ON_COVERAGE } from "./coverage.ts";
@@ -171,18 +171,35 @@ function countryClause(filters: Filters): SqlFragment | null {
 }
 
 /**
- * Leaves out records whose first label is hidden. A name also covers its variants in brackets:
- * Discogs names self-releases "Not On Label (Artist Self-released)" and tells same-named labels
- * apart as "Name (2)".
+ * Leaves out records whose first label, the one the sweep orders by, is hidden: by its Discogs id,
+ * or by its name, ignoring case, for an entry without an id. Hidden Not On Label also leaves out
+ * the self-release variants, "Not On Label (Artist Self-released)", which have ids of their own.
  */
 function labelClause(filters: Filters): SqlFragment | null {
   const labels = filters.excludeLabels;
   if (labels.length === 0) return null;
-  const variants = labels.map(() => "r.label_name LIKE ? ESCAPE '\\'").join(" OR ");
+  const ids = labels.map((label) => label.id).filter((id) => id !== null);
+  const names = labels.filter((label) => label.id === null).map((label) => label.name);
+  const hidden = [
+    inList("json_extract(r.labels_json, '$[0].id')", ids),
+    inList("r.label_name COLLATE NOCASE", names),
+    labels.some(isNotOnLabel) ? { sql: SELF_RELEASE_VARIANT, params: [] } : null,
+  ].filter((fragment) => fragment !== null);
+  // A missing first label or id makes a comparison NULL, which does not hide the release.
   return {
-    sql: `(r.label_name IS NULL OR NOT (r.label_name COLLATE NOCASE IN (${placeholders(labels.length)}) OR ${variants}))`,
-    params: [...labels, ...labels.map((label) => `${escapeLike(label)} (%`)],
+    sql: `(${hidden.map((fragment) => fragment.sql).join(" OR ")}) IS NOT TRUE`,
+    params: hidden.flatMap((fragment) => fragment.params),
   };
+}
+
+// LIKE ignores ASCII case, as the name match does.
+const SELF_RELEASE_VARIANT = "r.label_name LIKE 'Not On Label (%'";
+
+const isNotOnLabel = (label: HiddenLabel) => label.name.toLowerCase() === "not on label";
+
+function inList(expression: string, values: unknown[]): SqlFragment | null {
+  if (values.length === 0) return null;
+  return { sql: `${expression} IN (${placeholders(values.length)})`, params: values };
 }
 
 export function escapeLike(text: string): string {
@@ -248,12 +265,14 @@ LIMIT ? OFFSET ?`;
 }
 
 export function rowToQueueItem(row: QueueRow): QueueItem {
+  const labels = JSON.parse(row.labels_json) as LabelRef[];
   return {
     id: row.id,
     triageKey: row.triage_key,
     masterId: row.master_id,
     title: row.title,
     artistDisplay: row.artist_display,
+    labelId: labels[0]?.id ?? null,
     labelName: row.label_name,
     catno: row.catno,
     year: row.year,

@@ -8,6 +8,8 @@
     type ColorScheme,
     type Config,
     DISCOGS_CURRENCIES,
+    type HiddenLabel,
+    hiddenLabelsFromNames,
     QUEUE_STRATEGIES,
     type QueueStrategy,
     validateConfig,
@@ -306,6 +308,14 @@
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line !== "");
+  const hiddenLabelLines = (labels: HiddenLabel[]) => labels.map((label) => label.name).join("\n");
+
+  /** A line that still names a hidden label keeps its Discogs id. */
+  function setHiddenLabels(text: string): void {
+    if (!draft) return;
+    draft.filters.excludeLabels = hiddenLabelsFromNames(parseLines(text), draft.filters.excludeLabels);
+  }
+
   const numberOrNull = (text: string): number | null => {
     return parseInteger(text);
   };
@@ -553,13 +563,13 @@
               id="{id}-labels"
               rows="3"
               aria-describedby="{id}-labels-hint"
-              value={draft.filters.excludeLabels.join("\n")}
-              onchange={(event) => (draft!.filters.excludeLabels = parseLines(event.currentTarget.value))}
+              value={hiddenLabelLines(draft.filters.excludeLabels)}
+              onchange={(event) => setHiddenLabels(event.currentTarget.value)}
               placeholder="none"
             ></textarea>
             <span class="hint" id="{id}-labels-hint">
               One label name per line, as Discogs writes it: Not On Label, Virgin. A record is left out when its first
-              label is one of them or a variant in brackets, such as Not On Label (Artist Self-released).
+              label is one of them; Not On Label also covers self-releases such as Not On Label (Artist Self-released).
               <Key label="X" size="sm" /> in Triage hides the label on screen.
             </span>
           </div>

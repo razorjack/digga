@@ -840,3 +840,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      `digga.sqlite-wal` and `digga.sqlite-shm`, moves the copy into place and opens it once, so an
      older copy is migrated. `--config` is refused with a database copy, which holds no settings.
      Restoring stays a CLI command; Settings says how to run it.
+136. **A hidden label is a Discogs id with its name.** The pre-release review (F14) noted that
+     `filters.excludeLabels` held names, so a label Discogs renames would return to the queue
+     after the next load, and that the bracket rule of decision 77 also hid `Signal (2)`, a
+     different label, when `Signal` was hidden. An entry is now `{ id, name }` and still matches a release's first label,
+     the one the sweep orders by. `X` stores the label's id, which matches whatever Discogs calls
+     the label later. An entry without an id, typed in Settings or saved by an older Digga as a
+     plain name, matches the first label's name, ignoring case; in the owner's catalogue no name
+     belongs to several ids. Settings lists the names one per line and keeps the id of a line
+     that still names an entry. The bracket rule remains only for Not On Label: Discogs gives each
+     "Not On Label (Artist Self-released)" an id of its own (705 in the owner's catalogue), so
+     hiding Not On Label also hides every first label whose name starts with "Not On Label (".

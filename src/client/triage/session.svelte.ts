@@ -1,4 +1,5 @@
 import type { QueueItem, ReleaseDetail, TrackVerdictInput } from "../../shared/api.ts";
+import type { HiddenLabel } from "../../shared/config.ts";
 import type { SessionResolution, SessionState } from "../../shared/digging-session.ts";
 import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
 import type { QueueScope } from "../../shared/scope.ts";
@@ -24,7 +25,7 @@ type VerdictEntry = {
 };
 
 /** X hid the label of the record on screen; undo lets it back into the queue. */
-type LabelEntry = { kind: "label"; item: QueueItem; label: string };
+type LabelEntry = { kind: "label"; item: QueueItem; label: HiddenLabel };
 
 type HistoryEntry = VerdictEntry | { kind: "pass"; item: QueueItem } | LabelEntry;
 
@@ -80,7 +81,7 @@ export interface SessionOptions {
   /** The waits before each new try of a failed push; PUSH_RETRY_DELAYS_MS unless a test sets them. */
   pushRetryDelaysMs?: number[];
   /** Leaves a label out of the queue filters, or lets it back in; saving restarts the queue. */
-  setLabelHidden?: (label: string, hidden: boolean) => Promise<void>;
+  setLabelHidden?: (label: HiddenLabel, hidden: boolean) => Promise<void>;
 }
 
 export class TriageSession {
@@ -497,12 +498,12 @@ export class TriageSession {
   /** X: leaves every record on the current record's label out of the queue; Z lets them back. */
   async hideLabel(): Promise<void> {
     const item = this.current;
-    const label = item?.labelName;
     if (!item || !this.#setLabelHidden) return;
-    if (!label) {
+    if (!item.labelName) {
       this.#flash("This record has no label to hide.");
       return;
     }
+    const label = { id: item.labelId, name: item.labelName };
     try {
       await this.#setLabelHidden(label, true);
     } catch (error) {
@@ -510,7 +511,7 @@ export class TriageSession {
       return;
     }
     this.history = [...this.history, { kind: "label", item, label }];
-    this.slip = { kind: "label", item, label, id: ++this.#slipSeq };
+    this.slip = { kind: "label", item, label: label.name, id: ++this.#slipSeq };
   }
 
   undo(): void {
@@ -557,7 +558,7 @@ export class TriageSession {
       await this.#setLabelHidden?.(entry.label, false);
     } catch (error) {
       this.history = [...this.history, entry];
-      this.#flash(`${entry.label} is still hidden: ${errorMessage(error)}`);
+      this.#flash(`${entry.label.name} is still hidden: ${errorMessage(error)}`);
       return;
     }
     this.slip = { kind: "undo", item: entry.item, undone: "label", id: ++this.#slipSeq };

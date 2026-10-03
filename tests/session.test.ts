@@ -11,7 +11,7 @@ import type {
   TrackVerdictInput,
 } from "../src/shared/api.ts";
 import type { ReplayItem } from "../src/shared/replay.ts";
-import { DEFAULT_CONFIG } from "../src/shared/config.ts";
+import { DEFAULT_CONFIG, type HiddenLabel } from "../src/shared/config.ts";
 import type { QueueScope } from "../src/shared/scope.ts";
 import {
   type ReleaseRecord,
@@ -32,7 +32,7 @@ async function until(condition: () => boolean, timeoutMs = 2000): Promise<void> 
 }
 
 /** A server stand-in that records the writes the session makes. */
-function fakeServer(queue: number[], labelName: string | null = null) {
+function fakeServer(queue: number[], label: HiddenLabel | null = null) {
   const calls: string[] = [];
   /** Release notes saved, as "release id note". */
   const notes: string[] = [];
@@ -57,7 +57,11 @@ function fakeServer(queue: number[], labelName: string | null = null) {
       queries.push(query);
       return {
         items: queue
-          .map((id) => ({ ...queueItem(id), labelName }))
+          .map((id) => ({
+            ...queueItem(id),
+            labelId: label?.id ?? null,
+            labelName: label?.name ?? null,
+          }))
           .filter((i) => !verdicts.has(i.triageKey)),
         remaining: 0,
         strategy: "label_sweep",
@@ -911,11 +915,11 @@ describe("notes in Triage", () => {
 
 describe("hiding a label", () => {
   async function withLabels(fail = false) {
-    const server = fakeServer([1, 2], "Moving Shadow");
+    const server = fakeServer([1, 2], { id: 88, name: "Moving Shadow" });
     const changes: string[] = [];
-    const setLabelHidden = async (label: string, hidden: boolean) => {
+    const setLabelHidden = async (label: HiddenLabel, hidden: boolean) => {
       if (fail) throw new Error("disk full");
-      changes.push(`${hidden ? "hide" : "show"} ${label}`);
+      changes.push(`${hidden ? "hide" : "show"} ${label.id} ${label.name}`);
     };
     const session = new TriageSession(server.app, { setLabelHidden });
     await session.start(50);
@@ -926,11 +930,11 @@ describe("hiding a label", () => {
     const { session, changes, calls } = await withLabels();
     session.judge("rejected");
     await session.hideLabel();
-    expect(changes).toEqual(["hide Moving Shadow"]);
+    expect(changes).toEqual(["hide 88 Moving Shadow"]);
     expect(session.slip).toMatchObject({ kind: "label", label: "Moving Shadow" });
     session.undo();
     await until(() => changes.length === 2);
-    expect(changes).toEqual(["hide Moving Shadow", "show Moving Shadow"]);
+    expect(changes).toEqual(["hide 88 Moving Shadow", "show 88 Moving Shadow"]);
     expect(session.slip).toMatchObject({ kind: "undo", undone: "label" });
     session.undo();
     await until(() => calls.includes("forget r:1"));

@@ -71,6 +71,8 @@ export interface QueueItem {
   masterId: number | null;
   title: string;
   artistDisplay: string;
+  /** The Discogs id of the first label, the one labelName names; X hides the label by it. */
+  labelId: number | null;
   labelName: string | null;
   catno: string | null;
   year: number | null;

@@ -129,7 +129,7 @@ test(
 );
 
 test(
-  "SET-04 hidden labels: one per line, a saved label leaves the queue, and X's labels show here",
+  "SET-04 hidden labels: one per line, a saved label leaves the queue, and X's labels show here with their ids",
   { tag: ["@SET-04", "@P1"] },
   async ({ app }) => {
     const settings = new SettingsPage(app);
@@ -145,8 +145,8 @@ test(
 
     await expect(settings.hiddenLabels).toHaveValue(`${first}\n${third}`);
     expect((await app.api.get<Config>("/api/settings")).filters.excludeLabels).toEqual([
-      first,
-      third,
+      { id: null, name: first },
+      { id: null, name: third },
     ]);
     await header.goTo("triage");
     await expect(triage.record).toHaveAttribute("data-release-id", String(SECOND_RECORD.id));
@@ -157,6 +157,13 @@ test(
     await expect(settings.hiddenLabels).toHaveValue(
       `${first}\n${third}\n${SECOND_RECORD.label.name}`,
     );
+    await settings.change(settings.hiddenLabels, `${first}\n${SECOND_RECORD.label.name}`);
+    await settings.save();
+
+    expect((await app.api.get<Config>("/api/settings")).filters.excludeLabels).toEqual([
+      { id: null, name: first },
+      { id: SECOND_RECORD.label.id, name: SECOND_RECORD.label.name },
+    ]);
   },
 );
 

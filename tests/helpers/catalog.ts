@@ -6,6 +6,7 @@ export function queueItem(id: number): QueueItem {
     masterId: null,
     title: `Title ${id}`,
     artistDisplay: `Artist ${id}`,
+    labelId: null,
     labelName: null,
     catno: null,
     year: 2000,

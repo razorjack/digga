@@ -8,8 +8,14 @@ import {
   representativeForKey,
 } from "../src/server/queue/query.ts";
 import { searchScopes } from "../src/server/queue/scopes.ts";
-import { type Filters, withLabelExcluded } from "../src/shared/config.ts";
+import {
+  type Filters,
+  type HiddenLabel,
+  hiddenLabelsFromNames,
+  withLabelExcluded,
+} from "../src/shared/config.ts";
 import type { ScopeRef } from "../src/shared/scope.ts";
+import type { LabelRef } from "../src/shared/types.ts";
 import { filters, fixtureDb } from "./helpers.ts";
 
 describe("queue query", () => {
@@ -22,6 +28,7 @@ describe("queue query", () => {
     ]);
     expect(items[1]).toMatchObject({
       videoCount: 2,
+      labelId: 77,
       labelName: "Renegade Hardware",
       catno: "RH 20",
       formatSummary: '2 x Vinyl (12", 33 ⅓ RPM)',
@@ -139,21 +146,69 @@ describe("queue query", () => {
     db.close();
   });
 
-  it("leaves out labels and format descriptions", async () => {
+  describe("hidden labels", () => {
+    async function catalogue() {
+      const db = await fixtureDb();
+      const kept = (excludeLabels: HiddenLabel[]) =>
+        queryQueue(db, { filters: filters({ excludeLabels }), strategy: "label_sweep", limit: 10 })
+          .map((item) => item.id)
+          .toSorted((left, right) => left - right);
+      const relabel = (releaseId: number, labels: LabelRef[]) =>
+        db
+          .prepare("UPDATE releases SET labels_json = ?, label_name = ? WHERE id = ?")
+          .run(JSON.stringify(labels), labels[0]?.name ?? null, releaseId);
+      return { db, kept, relabel };
+    }
+
+    it("leave out records whose first label has the id, or the name of one without an id", async () => {
+      const { db, kept, relabel } = await catalogue();
+      // Both records are on Renegade Hardware (77); 1006 also names Renegade Hardware Ltd. (78).
+      expect(kept([{ id: 77, name: "Renegade Hardware" }])).toEqual([]);
+      expect(kept([{ id: 77, name: "A name Discogs has since changed" }])).toEqual([]);
+      expect(kept([{ id: 78, name: "Renegade Hardware Ltd." }])).toEqual([1001, 1006]);
+      expect(kept([{ id: null, name: "renegade hardware" }])).toEqual([]);
+      expect(kept([{ id: null, name: "Renegade" }])).toEqual([1001, 1006]);
+      expect(kept([{ id: null, name: "Moving Shadow" }])).toEqual([1001, 1006]);
+
+      relabel(1006, [{ id: 79, name: "Renegade Hardware (2)", catno: "RH 18" }]);
+      expect(kept([{ id: 77, name: "Renegade Hardware" }])).toEqual([1006]);
+      expect(kept([{ id: null, name: "Renegade Hardware" }])).toEqual([1006]);
+      db.close();
+    });
+
+    it("keep records without a first label or its id", async () => {
+      const { db, kept, relabel } = await catalogue();
+      relabel(1006, [{ id: null, name: "Renegade Hardware", catno: "RH 18" }]);
+      expect(kept([{ id: 77, name: "Renegade Hardware" }])).toEqual([1006]);
+      relabel(1006, []);
+      const both = [
+        { id: 77, name: "Renegade Hardware" },
+        { id: null, name: "Moving Shadow" },
+      ];
+      expect(kept(both)).toEqual([1006]);
+      db.close();
+    });
+
+    it("leave out every self-release with Not On Label, and one by its own id", async () => {
+      const { db, kept, relabel } = await catalogue();
+      // 1002 is a pressing of 1001's record.
+      relabel(1001, [{ id: 1818, name: "Not on Label", catno: "none" }]);
+      relabel(1002, [{ id: 1818, name: "Not On Label", catno: "none" }]);
+      relabel(1006, [{ id: 4242, name: "Not On Label (Ed Rush Self-released)", catno: "none" }]);
+      expect(kept([{ id: 1818, name: "Not On Label" }])).toEqual([]);
+      expect(kept([{ id: null, name: "not on label" }])).toEqual([]);
+      expect(kept([{ id: 4242, name: "Not On Label (Ed Rush Self-released)" }])).toEqual([1001]);
+      db.close();
+    });
+  });
+
+  it("leaves out format descriptions", async () => {
     const db = await fixtureDb();
     const ids = (overrides: Partial<Filters>) =>
       queryQueue(db, { filters: filters(overrides), strategy: "label_sweep", limit: 10 }).map(
         (item) => item.id,
       );
     expect(ids({})).toEqual([1006, 1001]);
-    expect(ids({ excludeLabels: ["renegade hardware"] })).toEqual([]);
-    expect(ids({ excludeLabels: ["Moving Shadow"] })).toEqual([1006, 1001]);
-    db.prepare("UPDATE releases SET label_name = 'Renegade Hardware (2)' WHERE id = 1006").run();
-    expect(ids({ excludeLabels: ["Renegade Hardware"] })).toEqual([]);
-    // The sweep now orders the renamed label after the original.
-    expect(ids({ excludeLabels: ["Renegade"] })).toEqual([1001, 1006]);
-    expect(ids({ excludeLabels: ["Renegade_Hardware"] })).toEqual([1001, 1006]);
-    db.prepare("UPDATE releases SET label_name = 'Renegade Hardware' WHERE id = 1006").run();
     expect(ids({ includeDescriptions: ["45 RPM"] })).toEqual([1006]);
     expect(ids({ excludeDescriptions: ["45 RPM"] })).toEqual([1001]);
     expect(ids({ includeDescriptions: ['12"'], excludeDescriptions: ["Sampler"] })).toEqual([
@@ -162,11 +217,34 @@ describe("queue query", () => {
     db.close();
   });
 
-  it("adds and removes a label from the ones left out", () => {
-    const hidden = withLabelExcluded(filters({ excludeLabels: ["Virgin"] }), "Moving Shadow", true);
-    expect(hidden.excludeLabels).toEqual(["Virgin", "Moving Shadow"]);
-    expect(withLabelExcluded(hidden, "Moving Shadow", true).excludeLabels).toHaveLength(2);
-    expect(withLabelExcluded(hidden, "Virgin", false).excludeLabels).toEqual(["Moving Shadow"]);
+  it("adds and removes a label from the ones left out, by id when both have one", () => {
+    const virgin = { id: null, name: "Virgin" };
+    const movingShadow = { id: 88, name: "Moving Shadow" };
+    const hidden = withLabelExcluded(filters({ excludeLabels: [virgin] }), movingShadow, true);
+    expect(hidden.excludeLabels).toEqual([virgin, movingShadow]);
+    expect(withLabelExcluded(hidden, movingShadow, true).excludeLabels).toHaveLength(2);
+    expect(withLabelExcluded(hidden, { id: 88, name: "Renamed" }, false).excludeLabels).toEqual([
+      virgin,
+    ]);
+    expect(
+      withLabelExcluded(hidden, { id: 89, name: "Moving Shadow" }, false).excludeLabels,
+    ).toEqual([virgin, movingShadow]);
+    // Hiding the label by its id replaces the entry that has only its name.
+    expect(withLabelExcluded(hidden, { id: 7, name: "VIRGIN" }, true).excludeLabels).toEqual([
+      movingShadow,
+      { id: 7, name: "VIRGIN" },
+    ]);
+  });
+
+  it("keeps the id of a hidden label that a line of Settings still names", () => {
+    const hidden: HiddenLabel[] = [
+      { id: 88, name: "Moving Shadow" },
+      { id: null, name: "Virgin" },
+    ];
+    expect(hiddenLabelsFromNames(["moving shadow", "Metalheadz"], hidden)).toEqual([
+      { id: 88, name: "Moving Shadow" },
+      { id: null, name: "Metalheadz" },
+    ]);
   });
 
   it("counts videos of other pressings when skipping records without one", async () => {

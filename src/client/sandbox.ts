@@ -58,6 +58,7 @@ function queueItemFromDetail(detail: ReleaseDetail, videoCount: number): QueueIt
     masterId: release.masterId,
     title: release.title,
     artistDisplay: release.artistDisplay,
+    labelId: release.labels[0]?.id ?? null,
     labelName: release.labelName,
     catno: release.catno,
     year: release.year,

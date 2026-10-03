@@ -29,7 +29,8 @@ value clears all of it
 
 Priority: **P1**.
 
-Hidden labels: one per line; a saved label leaves the queue; `X`'s labels appear here
+Hidden labels: one per line; a saved label leaves the queue; `X`'s labels appear here, and keep
+their Discogs id when the list is edited and saved again
 
 ## SET-05
 

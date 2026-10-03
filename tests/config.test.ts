@@ -39,6 +39,20 @@ describe("config schema", () => {
     expect(ConfigSchema.safeParse({ queue: { strategy: "loudest" } }).success).toBe(false);
   });
 
+  it("reads hidden labels saved as plain names, which have no id", () => {
+    const config = ConfigSchema.parse({
+      filters: { excludeLabels: ["Virgin", { id: 1818, name: "Not On Label" }] },
+    });
+    expect(config.filters.excludeLabels).toEqual([
+      { id: null, name: "Virgin" },
+      { id: 1818, name: "Not On Label" },
+    ]);
+    expect(validateConfig({ filters: { excludeLabels: [""] } }).ok).toBe(false);
+    expect(validateConfig({ filters: { excludeLabels: [{ id: 1.5, name: "Virgin" }] } }).ok).toBe(
+      false,
+    );
+  });
+
   it("reads a config saved with enrich ahead, which no longer exists, and drops it", () => {
     const config = ConfigSchema.parse({ discogs: { username: "dj", enrichAhead: 5 } });
     expect(config.discogs).toEqual({ username: "dj", currency: "EUR", maybeListId: null });

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
-  import { withLabelExcluded } from "../../shared/config.ts";
+  import { type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
@@ -41,7 +41,7 @@
   const session = new TriageSession(api, { setLabelHidden });
 
   /** Saves the queue filters with the label left out or let back in; the queue restarts. */
-  async function setLabelHidden(label: string, hidden: boolean): Promise<void> {
+  async function setLabelHidden(label: HiddenLabel, hidden: boolean): Promise<void> {
     const config = settings.value;
     if (!config) throw new Error("the settings have not loaded");
     await settings.save({ ...config, filters: withLabelExcluded(config.filters, label, hidden) });

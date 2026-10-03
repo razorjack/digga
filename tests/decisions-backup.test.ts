@@ -137,7 +137,7 @@ describe("the decisions backup", () => {
   it("includes settings without the saved token", async () => {
     const db = await fixtureDb();
     const config = structuredClone(DEFAULT_CONFIG);
-    config.filters.excludeLabels = ["Hidden label"];
+    config.filters.excludeLabels = [{ id: 7, name: "Hidden label" }];
     const written = await writeDecisionsBackup(db, { ...on("2026-09-10"), config });
     expect(readDecisionsBackup(written.file).config).toEqual(config);
     db.close();
