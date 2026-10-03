@@ -68,13 +68,14 @@ export function listTrackMarkExports(db: Db): TrackMarkExport[] {
   const rows = db
     .prepare(
       `SELECT tv.release_id AS mark_release_id, tv.position, tv.mark, tv.notes, tv.decided_at,
-         COALESCE(t.artist_display, tv.artist_display) AS track_artist,
-         COALESCE(t.title, tv.title) AS track_title, tv.heard_key, tv.video_id, tv.at_seconds,
+         COALESCE(tv.artist_display, t.artist_display) AS track_artist,
+         COALESCE(tv.title, t.title) AS track_title, tv.heard_key, tv.video_id, tv.at_seconds,
          ${RELEASE_COLUMNS}
        FROM track_verdicts tv
        LEFT JOIN releases r ON r.id = tv.release_id
        LEFT JOIN tracks t ON t.release_id = tv.release_id AND t.seq = (
-         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position)
+         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position
+           AND (tv.heard_key IS NULL OR s.heard_key = tv.heard_key))
        ORDER BY tv.decided_at, tv.release_id, tv.position`,
     )
     .all() as TrackMarkExportRow[];

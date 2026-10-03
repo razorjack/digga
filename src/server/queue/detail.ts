@@ -1,3 +1,4 @@
+import { markForTrack } from "../../shared/track-identity.ts";
 import { type ReleaseDetail, type TrackDetail } from "../../shared/api.ts";
 import type { ReleaseRecord, TrackRecord, VideoRecord } from "../../shared/types.ts";
 import { formatSummary } from "../../shared/formats.ts";
@@ -23,7 +24,7 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
     db,
     tracks.map((track) => track.heardKey),
   );
-  const marks = new Map(getTrackVerdicts(db, id).map((mark) => [mark.position, mark]));
+  const marks = getTrackVerdicts(db, id);
   const videoPositions = new Set(
     videos.map((video) => video.matchedPosition).filter((p): p is string => p !== null),
   );
@@ -31,7 +32,7 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
     ...track,
     heard: heard.has(track.heardKey),
     hasVideo: videoPositions.has(track.position),
-    mark: marks.get(track.position)?.mark ?? null,
+    mark: markForTrack(track, marks, tracks)?.mark ?? null,
   }));
   const verdict = getVerdict(db, release.triageKey);
   const note = releaseNote(db, id);
@@ -41,7 +42,7 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
     tracks: trackDetails,
     videos,
     verdict,
-    trackVerdicts: [...marks.values()],
+    trackVerdicts: marks,
     siblings: getSiblings(db, release).map((sibling) => ({
       id: sibling.id,
       title: sibling.title,

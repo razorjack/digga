@@ -1,3 +1,4 @@
+import { markForTrack } from "../../shared/track-identity.ts";
 import type { QueueItem, ReleaseDetail, TwelvesItem, TrackVerdictInput } from "../../shared/api.ts";
 import type { QueueScope } from "../../shared/scope.ts";
 import type { ReleaseSnapshot, TrackMark, Verdict } from "../../shared/types.ts";
@@ -521,6 +522,8 @@ export class TriageSession {
     const detail = this.details.get(releaseId);
     const track = detail?.tracks.find((t) => t.position === position);
     if (!detail || !track) return;
+    const saved = markForTrack(track, detail.trackVerdicts, detail.tracks);
+    const savedPosition = saved?.position ?? position;
     const next = track.mark === mark ? null : mark;
     const key = `${releaseId}:${position}`;
     const state = this.#trackWrites.get(key) ?? { saved: track.mark, version: 0 };
@@ -530,11 +533,26 @@ export class TriageSession {
     const client = this.#api.pinned();
     const generation = this.#apiGeneration;
     void this.#write(() =>
-      this.#saveTrackMark({ releaseId, position, mark: next, ...moment }, client, {
-        key,
-        version,
-        generation,
-      }),
+      this.#saveTrackMark(
+        {
+          releaseId,
+          position: savedPosition,
+          mark: next,
+          tune: {
+            heardKey: track.heardKey,
+            artistDisplay: track.artistDisplay,
+            title: track.title,
+          },
+          ...moment,
+        },
+        client,
+        {
+          position,
+          key,
+          version,
+          generation,
+        },
+      ),
     );
   }
 
@@ -550,19 +568,27 @@ export class TriageSession {
   async #saveTrackMark(
     input: TrackVerdictInput,
     client: Api,
-    operation: { key: string; version: number; generation: number },
+    operation: { key: string; position: string; version: number; generation: number },
   ): Promise<void> {
     try {
-      await client.postTrackVerdict(input);
+      const saved = await client.postTrackVerdict(input);
       if (operation.generation !== this.#apiGeneration) return;
       const state = this.#trackWrites.get(operation.key);
       if (state) state.saved = input.mark;
+      const detail = this.details.get(input.releaseId);
+      if (detail) {
+        const trackVerdicts = detail.trackVerdicts.filter(
+          (mark) => mark.position !== input.position,
+        );
+        if (saved) trackVerdicts.push(saved);
+        this.details = new Map(this.details).set(input.releaseId, { ...detail, trackVerdicts });
+      }
     } catch (error) {
       if (operation.generation !== this.#apiGeneration) return;
       const state = this.#trackWrites.get(operation.key);
       // Later queued marks own their optimistic value until their own write settles.
       if (state?.version === operation.version) {
-        this.#setTrackMark(input.releaseId, input.position, state.saved);
+        this.#setTrackMark(input.releaseId, operation.position, state.saved);
       }
       this.#flash(`The track mark was not saved: ${errorMessage(error)}`);
     }

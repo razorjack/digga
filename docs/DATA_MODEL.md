@@ -209,3 +209,8 @@ Independent notes keyed by `release_id`, with nullable `notes` and `updated_at`.
 keeps a null row so an older backup cannot bring it back. Verdict writes keep their note in
 step with this table; undoing a verdict leaves the independent note. Release details expose
 `note` even without a verdict. Portable backups include these rows.
+
+Track marks retain their original tune snapshot even when a catalogue refresh reuses the position.
+Triage follows a moved tune only when its heard key identifies one track unambiguously. Twelves
+flags changed tracklists and displays the saved name. A mark for a different tune at the saved
+position cannot overwrite it; this requires reviewing the old mark instead of automatic relabelling.

@@ -16,6 +16,7 @@ interface MarkedTrackRow {
   track_artist: string | null;
   track_title: string | null;
   duration_seconds: number | null;
+  tracklist_changed: number;
 }
 
 /**
@@ -27,17 +28,19 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
     .prepare(
       `SELECT tv.release_id, tv.position, tv.mark, tv.notes, tv.decided_at,
          tv.heard_key, tv.video_id, tv.at_seconds,
-         COALESCE(t.artist_display, tv.artist_display) AS track_artist,
-         COALESCE(t.title, tv.title) AS track_title, t.duration_seconds
+         COALESCE(tv.artist_display, t.artist_display) AS track_artist,
+         COALESCE(tv.title, t.title) AS track_title, t.duration_seconds, t.seq IS NULL AS tracklist_changed
        FROM track_verdicts tv
        LEFT JOIN tracks t ON t.release_id = tv.release_id AND t.seq = (
-         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position)
+         SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = tv.release_id AND s.position = tv.position
+           AND (tv.heard_key IS NULL OR s.heard_key = tv.heard_key))
        ORDER BY tv.decided_at DESC, tv.release_id, tv.position`,
     )
     .all() as MarkedTrackRow[];
   return rows.map((row) => {
     const release = queueItemForRelease(db, row.release_id);
     return {
+      tracklistChanged: Boolean(row.tracklist_changed),
       mark: {
         releaseId: row.release_id,
         position: row.position,

@@ -1,3 +1,5 @@
+import { assertTrackIdentity } from "../../shared/track-identity.ts";
+import type { TuneSnapshot } from "../../shared/api.ts";
 import type { ListenContext } from "../../shared/api.ts";
 import { releaseNote } from "./notes.ts";
 import type {
@@ -177,6 +179,7 @@ export function triageDecisionTimes(db: Db, limit = 5000): string[] {
 }
 
 export interface TrackMarkWrite {
+  tune?: TuneSnapshot;
   releaseId: number;
   position: string;
   mark: TrackMark | null;
@@ -189,10 +192,12 @@ export interface TrackMarkWrite {
 /**
  * Sets or clears the mark on a track. Omitted notes keep the saved ones, and the mark keeps its
  * date while it stays the same, so editing a note does not make an old mark new. The mark takes
- * the tune from the tracklist, and keeps the one it has when the release no longer lists the
- * position.
+ * its first tune snapshot and keeps it through later catalogue edits.
  */
 export function setTrackVerdict(db: Db, input: TrackMarkWrite): TrackVerdict | null {
+  const previous =
+    getTrackVerdicts(db, input.releaseId).find((mark) => mark.position === input.position) ?? null;
+  assertTrackIdentity(previous, input.tune?.heardKey);
   if (input.mark === null) {
     db.prepare("DELETE FROM track_verdicts WHERE release_id = ? AND position = ?").run(
       input.releaseId,
@@ -200,7 +205,16 @@ export function setTrackVerdict(db: Db, input: TrackMarkWrite): TrackVerdict | n
     );
     return null;
   }
-  const tune = trackTune(db, input.releaseId, input.position);
+  writeTrackMark(db, input);
+
+  const row = db
+    .prepare("SELECT * FROM track_verdicts WHERE release_id = ? AND position = ?")
+    .get(input.releaseId, input.position) as TrackVerdictRow;
+  return rowToTrackVerdict(row);
+}
+
+function writeTrackMark(db: Db, input: TrackMarkWrite): void {
+  const tune = input.tune ?? trackTune(db, input.releaseId, input.position);
   db.prepare(
     `INSERT INTO track_verdicts (release_id, position, mark, notes, decided_at,
        heard_key, artist_display, title, video_id, at_seconds)
@@ -211,9 +225,9 @@ export function setTrackVerdict(db: Db, input: TrackMarkWrite): TrackVerdict | n
        decided_at = CASE WHEN track_verdicts.mark = excluded.mark
          THEN track_verdicts.decided_at ELSE excluded.decided_at END,
        mark = excluded.mark,
-       heard_key = COALESCE(excluded.heard_key, track_verdicts.heard_key),
-       artist_display = COALESCE(excluded.artist_display, track_verdicts.artist_display),
-       title = COALESCE(excluded.title, track_verdicts.title),
+       heard_key = COALESCE(track_verdicts.heard_key, excluded.heard_key),
+       artist_display = COALESCE(track_verdicts.artist_display, excluded.artist_display),
+       title = COALESCE(track_verdicts.title, excluded.title),
        video_id = CASE WHEN @keep_moment THEN track_verdicts.video_id ELSE excluded.video_id END,
        at_seconds = CASE WHEN @keep_moment THEN track_verdicts.at_seconds ELSE excluded.at_seconds END`,
   ).run({
@@ -223,32 +237,22 @@ export function setTrackVerdict(db: Db, input: TrackMarkWrite): TrackVerdict | n
     notes: input.notes ?? null,
     keep_notes: input.notes === undefined ? 1 : 0,
     decided_at: nowIso(),
-    heard_key: tune?.heard_key ?? null,
-    artist_display: tune?.artist_display ?? null,
+    heard_key: tune?.heardKey ?? null,
+    artist_display: tune?.artistDisplay ?? null,
     title: tune?.title ?? null,
     video_id: input.videoId ?? null,
     at_seconds: input.atSeconds ?? null,
     keep_moment: input.videoId === undefined ? 1 : 0,
   });
-  const row = db
-    .prepare("SELECT * FROM track_verdicts WHERE release_id = ? AND position = ?")
-    .get(input.releaseId, input.position) as TrackVerdictRow;
-  return rowToTrackVerdict(row);
 }
 
-function trackTune(
-  db: Db,
-  releaseId: number,
-  position: string,
-): { heard_key: string; artist_display: string; title: string } | undefined {
+function trackTune(db: Db, releaseId: number, position: string): TuneSnapshot | undefined {
   return db
     .prepare(
-      `SELECT heard_key, artist_display, title FROM tracks
+      `SELECT heard_key AS heardKey, artist_display AS artistDisplay, title FROM tracks
        WHERE release_id = ? AND position = ? ORDER BY seq LIMIT 1`,
     )
-    .get(releaseId, position) as
-    | { heard_key: string; artist_display: string; title: string }
-    | undefined;
+    .get(releaseId, position) as TuneSnapshot | undefined;
 }
 
 export function getTrackVerdicts(db: Db, releaseId: number): TrackVerdict[] {
@@ -348,10 +352,7 @@ function insertListen(
 function listenedTune(db: Db, input: ListenWrite): ListenContext["tune"] {
   if (input.context) return input.context.tune;
   if (!input.position) return null;
-  const tune = trackTune(db, input.releaseId, input.position);
-  return tune
-    ? { heardKey: tune.heard_key, artistDisplay: tune.artist_display, title: tune.title }
-    : null;
+  return trackTune(db, input.releaseId, input.position) ?? null;
 }
 
 function getHeardTrack(db: Db, heardKey: string): HeardTrack | null {

@@ -147,11 +147,19 @@ export interface DeleteVerdictResponse {
   previous: Verdict | null;
 }
 
+export const TuneSnapshotSchema = z.object({
+  heardKey: z.string().max(4000),
+  artistDisplay: z.string().max(4000),
+  title: z.string().max(4000),
+});
+export type TuneSnapshot = z.infer<typeof TuneSnapshotSchema>;
+
 // POST /api/track-verdicts
 export const TrackVerdictInputSchema = z
   .object({
     releaseId: z.number().int().positive(),
     position: z.string().min(1),
+    tune: TuneSnapshotSchema.optional(),
     mark: z.enum(TRACK_MARKS).nullable(),
     notes: z.string().max(4000).nullable().optional(),
     /** The video playing and the second it had reached; omitted, the saved ones stay. */
@@ -171,13 +179,7 @@ export const ListenContextSchema = z.object({
   startSeconds: z.number().nonnegative(),
   endSeconds: z.number().nonnegative(),
   videoTitle: z.string().max(4000),
-  tune: z
-    .object({
-      heardKey: z.string().max(4000),
-      artistDisplay: z.string().max(4000),
-      title: z.string().max(4000),
-    })
-    .nullable(),
+  tune: TuneSnapshotSchema.nullable(),
 });
 export type ListenContext = z.infer<typeof ListenContextSchema>;
 
@@ -244,9 +246,10 @@ export interface TwelvesResponse {
 
 // GET /api/track-marks
 export interface MarkedTrack {
+  tracklistChanged?: boolean;
   mark: TrackVerdict;
   /**
-   * From the tracklist, or saved with the mark when the release no longer lists the position;
+   * The saved tune snapshot, falling back to a matching current track for legacy marks;
    * null for a mark from before Digga saved the tune.
    */
   track: { artistDisplay: string; title: string; durationSeconds: number | null } | null;

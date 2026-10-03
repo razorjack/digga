@@ -89,6 +89,7 @@
             {track.track?.title ?? "No longer on the tracklist"}
             <span class="quiet">{formatDuration(track.track?.durationSeconds ?? null)}</span>
           </span>
+          {#if track.tracklistChanged}<p class="quiet">Tracklist changed; saved tune retained</p>{/if}
           {#if editingKey === key}
             <input
               class="note-input"

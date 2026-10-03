@@ -1,3 +1,4 @@
+import { TrackIdentityConflict } from "../../shared/track-identity.ts";
 import { type Context, Hono } from "hono";
 import {
   type DeleteVerdictResponse,
@@ -49,7 +50,14 @@ async function saveTrackMark(request: Context, context: AppContext) {
   if (refused) return refused;
   const body = await parseJson(request, TrackVerdictInputSchema);
   if (!body.ok) return body.response;
-  return request.json(setTrackVerdict(db, body.data));
+  try {
+    return request.json(setTrackVerdict(db, body.data));
+  } catch (error) {
+    if (error instanceof TrackIdentityConflict) {
+      return request.json({ error: error.message }, 409);
+    }
+    throw error;
+  }
 }
 
 async function listen(request: Context, context: AppContext) {

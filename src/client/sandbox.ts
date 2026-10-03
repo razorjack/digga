@@ -1,3 +1,5 @@
+import { assertTrackIdentity, markForTrack } from "../shared/track-identity.ts";
+import type { TuneSnapshot, TrackVerdictInput } from "../shared/api.ts";
 import {
   ImportJobInputSchema,
   ListenLogInputSchema,
@@ -7,7 +9,6 @@ import {
   type MarkedTrack,
   type QueueItem,
   type ReleaseDetail,
-  type TrackDetail,
   type TwelvesItem,
 } from "../shared/api.ts";
 import { formatSummary } from "../shared/formats.ts";
@@ -109,6 +110,8 @@ class SandboxApi implements Api {
     }
   >();
 
+  #markTunes = new Map<string, TuneSnapshot>();
+
   #notes = new Map<number, string | null>();
 
   #listenSeq = 0;
@@ -119,17 +122,7 @@ class SandboxApi implements Api {
     this.#releases.set(item.id, item);
   };
 
-  #overlayTrack = (track: TrackDetail): TrackDetail => {
-    const mark = this.#marks.get(markKey(track.releaseId, track.position));
-    return {
-      ...track,
-      heard: track.heard || this.#heard.has(track.heardKey),
-      mark: mark === undefined ? track.mark : (mark?.mark ?? null),
-    };
-  };
-
   #overlayDetail = (detail: ReleaseDetail): ReleaseDetail => {
-    const tracks = detail.tracks.map(this.#overlayTrack);
     const trackVerdicts = new Map(
       detail.trackVerdicts.map((trackVerdict) => [trackVerdict.position, trackVerdict]),
     );
@@ -142,7 +135,11 @@ class SandboxApi implements Api {
     return {
       ...detail,
       note: this.#notes.has(detail.release.id) ? this.#notes.get(detail.release.id)! : detail.note,
-      tracks,
+      tracks: detail.tracks.map((track) => ({
+        ...track,
+        heard: track.heard || this.#heard.has(track.heardKey),
+        mark: markForTrack(track, [...trackVerdicts.values()], detail.tracks)?.mark ?? null,
+      })),
       trackVerdicts: [...trackVerdicts.values()],
       verdict: this.#verdicts.get(detail.release.triageKey)?.verdict ?? detail.verdict,
     };
@@ -367,15 +364,15 @@ class SandboxApi implements Api {
   postTrackVerdict: Api["postTrackVerdict"] = async (input) => {
     const trackVerdict = TrackVerdictInputSchema.parse(input);
     const key = markKey(trackVerdict.releaseId, trackVerdict.position);
+    const previous = this.#savedMark(trackVerdict.releaseId, trackVerdict.position);
+    assertTrackIdentity(previous, trackVerdict.tune?.heardKey);
     if (trackVerdict.mark === null) {
       this.#marks.set(key, null);
       return null;
     }
-    // As on the server: omitted notes and moment stay, and an unchanged mark keeps its date.
-    const previous = this.#savedMark(trackVerdict.releaseId, trackVerdict.position);
-    const track = this.#details
-      .get(trackVerdict.releaseId)
-      ?.tracks.find((candidate) => candidate.position === trackVerdict.position);
+    // Omitted notes and moment stay; an unchanged mark keeps its date.
+    const tune = this.#trackTune(trackVerdict);
+    if (tune && !previous) this.#markTunes.set(key, tune);
     const mark: TrackVerdict = {
       releaseId: trackVerdict.releaseId,
       position: trackVerdict.position,
@@ -383,12 +380,19 @@ class SandboxApi implements Api {
       notes: trackVerdict.notes === undefined ? (previous?.notes ?? null) : trackVerdict.notes,
       decidedAt:
         previous?.mark === trackVerdict.mark ? previous.decidedAt : this.#now().toISOString(),
-      heardKey: track?.heardKey ?? previous?.heardKey ?? null,
+      heardKey: previous?.heardKey ?? tune?.heardKey ?? null,
       ...markMoment(trackVerdict, previous),
     };
     this.#marks.set(key, mark);
     return { ...mark };
   };
+
+  #trackTune(input: TrackVerdictInput): TuneSnapshot | undefined {
+    return (
+      input.tune ??
+      this.#details.get(input.releaseId)?.tracks.find((track) => track.position === input.position)
+    );
+  }
 
   #savedMark(releaseId: number, position: string): TrackVerdict | null {
     const local = this.#marks.get(markKey(releaseId, position));
@@ -411,18 +415,24 @@ class SandboxApi implements Api {
 
   #markedTrack(mark: TrackVerdict): MarkedTrack {
     const detail = this.#details.get(mark.releaseId);
-    const track = detail?.tracks.find((candidate) => candidate.position === mark.position);
+    const track = detail?.tracks.find(
+      (candidate) =>
+        candidate.position === mark.position &&
+        (!mark.heardKey || candidate.heardKey === mark.heardKey),
+    );
+    const tune = this.#markTunes.get(markKey(mark.releaseId, mark.position)) ?? track;
     const release = detail
       ? queueItemFromDetail(detail, detail.videos.length)
       : (this.#releases.get(mark.releaseId) ?? null);
     const serverVerdict = release ? (this.#serverVerdicts.get(release.triageKey) ?? null) : null;
     return {
       mark: { ...mark },
-      track: track
+      tracklistChanged: !track,
+      track: tune
         ? {
-            artistDisplay: track.artistDisplay,
-            title: track.title,
-            durationSeconds: track.durationSeconds,
+            artistDisplay: tune.artistDisplay,
+            title: tune.title,
+            durationSeconds: track?.durationSeconds ?? null,
           }
         : null,
       release,

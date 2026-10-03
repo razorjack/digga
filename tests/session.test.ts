@@ -680,13 +680,15 @@ describe("track mark recovery", () => {
     const writes = vi.spyOn(http, "postTrackVerdict");
     session.markTrack(1, "B1", "candidate", MOMENT);
     await until(() => calls.includes("mark B1 candidate"));
-    expect(writes).toHaveBeenCalledWith({
-      releaseId: 1,
-      position: "B1",
-      mark: "candidate",
-      videoId: "aaaaaaaaaa1",
-      atSeconds: 61.5,
-    });
+    expect(writes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        releaseId: 1,
+        position: "B1",
+        mark: "candidate",
+        videoId: "aaaaaaaaaa1",
+        atSeconds: 61.5,
+      }),
+    );
   });
 });
 
