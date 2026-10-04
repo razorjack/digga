@@ -170,7 +170,9 @@
     text-decoration-color: var(--fg-faint);
     text-underline-offset: 3px;
   }
+  /* Indented to clear the playing row's accent bar, so the position does not shift. */
   .pos {
+    padding-left: 12px;
     color: var(--fg-muted);
     font-weight: 600;
   }
@@ -218,9 +220,6 @@
   }
   .playing button {
     box-shadow: inset 3px 0 0 var(--accent-mark);
-  }
-  .playing .pos {
-    padding-left: 12px;
   }
   .playing .glyph {
     color: var(--fg-accent);
