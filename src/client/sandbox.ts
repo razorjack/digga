@@ -62,6 +62,8 @@ function queueItemFromDetail(detail: ReleaseDetail, videoCount: number): QueueIt
     videoCount,
     communityWant: release.snapshot.communityWant,
     communityHave: release.snapshot.communityHave,
+    ratingAverage: release.snapshot.ratingAverage,
+    ratingCount: release.snapshot.ratingCount,
     numForSale: release.snapshot.numForSale,
     lowestPrice: release.snapshot.lowestPrice,
     currency: release.snapshot.currency,

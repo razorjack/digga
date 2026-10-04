@@ -16,6 +16,8 @@ export function queueItem(id: number): QueueItem {
     videoCount: 0,
     communityWant: null,
     communityHave: null,
+    ratingAverage: null,
+    ratingCount: null,
     numForSale: null,
     lowestPrice: null,
     currency: null,

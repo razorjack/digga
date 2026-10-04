@@ -82,6 +82,9 @@ export interface QueueItem {
   videoCount: number;
   communityWant: number | null;
   communityHave: number | null;
+  /** The community rating out of 5; null when nobody has rated the release. */
+  ratingAverage: number | null;
+  ratingCount: number | null;
   numForSale: number | null;
   lowestPrice: number | null;
   currency: string | null;

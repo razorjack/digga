@@ -630,7 +630,13 @@ function refuseOtherAccount(request: FakeRequest): FakeAnswer | null {
 }
 
 /** What the fake Discogs says of every release's market, in the currency asked for. */
-export const MARKET = { lowestPrice: 12.5, numForSale: 3, have: 400, want: 900 };
+export const MARKET = {
+  lowestPrice: 12.5,
+  numForSale: 3,
+  have: 400,
+  want: 900,
+  rating: { average: 4.33, count: 27 },
+};
 
 function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
   const fixture = releaseById(Number(request.params.id));
@@ -640,7 +646,7 @@ function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
     title: fixture.title,
     lowest_price: MARKET.lowestPrice,
     num_for_sale: MARKET.numForSale,
-    community: { have: MARKET.have, want: MARKET.want },
+    community: { have: MARKET.have, want: MARKET.want, rating: MARKET.rating },
     videos: fixture.videos.map((video) => ({
       uri: `https://www.youtube.com/watch?v=${video.id}`,
       title: video.title,

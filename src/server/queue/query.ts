@@ -282,6 +282,8 @@ export function rowToQueueItem(row: QueueRow): QueueItem {
     videoCount: row.video_count,
     communityWant: row.community_want,
     communityHave: row.community_have,
+    ratingAverage: row.rating_average,
+    ratingCount: row.rating_count,
     numForSale: row.num_for_sale,
     lowestPrice: row.lowest_price,
     currency: row.currency,

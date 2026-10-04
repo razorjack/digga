@@ -126,6 +126,9 @@ test(
     await expect(triage.market).toContainText(
       `${formatCount(MARKET.want)} want ${formatCount(MARKET.have)} have`,
     );
+    await expect(triage.market).toContainText(
+      `${MARKET.rating.average} of 5 from ${MARKET.rating.count} ratings`,
+    );
     await expect(triage.market).toContainText("checked just now");
     expect(fakes.requests("GET /releases/:id")).toEqual([
       expect.objectContaining({

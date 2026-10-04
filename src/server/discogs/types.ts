@@ -48,7 +48,7 @@ export interface DiscogsRelease {
   styles?: string[];
   lowest_price?: number | null;
   num_for_sale?: number;
-  community?: { have?: number; want?: number };
+  community?: { have?: number; want?: number; rating?: { average?: number; count?: number } };
   videos?: DiscogsVideo[];
   tracklist?: DiscogsTrack[];
 }

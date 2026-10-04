@@ -29,7 +29,7 @@ const apiRelease = (id: number): DiscogsRelease => ({
   title: "x",
   lowest_price: 12.5,
   num_for_sale: 3,
-  community: { have: 100, want: 250 },
+  community: { have: 100, want: 250, rating: { average: 4.25, count: 12 } },
   videos: [
     {
       uri: "https://www.youtube.com/watch?v=aaaaaaaaaa1",
@@ -58,12 +58,23 @@ describe("enriching one release", () => {
       currency: "EUR",
       communityHave: 100,
       communityWant: 250,
+      ratingAverage: 4.25,
+      ratingCount: 12,
     });
     expect(release.snapshot.enrichedAt).not.toBeNull();
     expect(getVideos(db, 1001).map((v) => [v.videoId, v.matchedPosition])).toEqual([
       ["aaaaaaaaaa1", "A1"],
       ["newnewnew01", "A2"],
     ]);
+    db.close();
+  });
+
+  it("stores an unrated release without an average", async () => {
+    const db = await fixtureDb();
+    const unrated = { ...apiRelease(1001), community: { rating: { average: 0, count: 0 } } };
+    const discogs = fakeDiscogs(() => Promise.resolve(unrated));
+    await enrichRelease({ db, discogs, logger: silentLogger }, 1001, "EUR");
+    expect(getRelease(db, 1001)!.snapshot).toMatchObject({ ratingAverage: null, ratingCount: 0 });
     db.close();
   });
 

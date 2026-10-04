@@ -189,8 +189,8 @@ A scope dug to the end: "Nothing is left to dig from the label …", "go round",
 
 Priority: **P1**.
 
-`P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, "checked just now";
-the fake got `GET /releases/{id}?curr_abbr=EUR`; works in the sandbox
+`P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, the rating,
+"checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`; works in the sandbox
 
 ## TRI-24
 

@@ -88,6 +88,9 @@ export interface ReleaseSnapshot {
   currency: string | null;
   communityHave: number | null;
   communityWant: number | null;
+  /** The community rating out of 5; null when nobody has rated the release. */
+  ratingAverage: number | null;
+  ratingCount: number | null;
   enrichedAt: string | null;
 }
 

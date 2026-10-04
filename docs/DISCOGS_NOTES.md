@@ -72,7 +72,8 @@ a 1.1 s gap between requests, pauses 60 s when `Remaining` reaches 1 and honours
 Endpoints used:
 
 - `GET /releases/{id}?curr_abbr=EUR`: `lowest_price`, `num_for_sale`, `community.have/want`,
-  `videos[].uri/title/duration/embed`, `tracklist`. Median and highest sale prices are shown on the
+  `community.rating.average/count` (0 and 0 when unrated), `videos[].uri/title/duration/embed`,
+  `tracklist`. Median and highest sale prices are shown on the
   website only; the API does not expose them. `curr_abbr` accepts USD, GBP, EUR, CAD, AUD, JPY,
   CHF, MXN, BRL, NZD, SEK, ZAR; PLN is not supported, hence the EUR default.
 - `GET /users/{u}/collection/folders/0/releases?per_page=100&page=N&sort=added&sort_order=desc`:

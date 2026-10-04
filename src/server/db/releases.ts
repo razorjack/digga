@@ -76,6 +76,8 @@ export interface ReleaseRow {
   currency: string | null;
   community_have: number | null;
   community_want: number | null;
+  rating_average: number | null;
+  rating_count: number | null;
   enriched_at: string | null;
   updated_at: string;
 }
@@ -127,6 +129,8 @@ export function rowToRelease(row: ReleaseRow): ReleaseRecord {
       currency: row.currency,
       communityHave: row.community_have,
       communityWant: row.community_want,
+      ratingAverage: row.rating_average,
+      ratingCount: row.rating_count,
       enrichedAt: row.enriched_at,
     },
     updatedAt: row.updated_at,
@@ -401,12 +405,16 @@ export interface SnapshotWrite {
   currency: string | null;
   communityHave: number | null;
   communityWant: number | null;
+  ratingAverage: number | null;
+  ratingCount: number | null;
 }
 
 export function writeSnapshot(db: Db, releaseId: number, snapshot: SnapshotWrite): void {
   db.prepare(
     `UPDATE releases SET lowest_price = @lowest_price, num_for_sale = @num_for_sale, currency = @currency,
-     community_have = @community_have, community_want = @community_want, enriched_at = @enriched_at WHERE id = @id`,
+     community_have = @community_have, community_want = @community_want,
+     rating_average = @rating_average, rating_count = @rating_count, enriched_at = @enriched_at
+     WHERE id = @id`,
   ).run({
     id: releaseId,
     lowest_price: snapshot.lowestPrice,
@@ -414,6 +422,8 @@ export function writeSnapshot(db: Db, releaseId: number, snapshot: SnapshotWrite
     currency: snapshot.currency,
     community_have: snapshot.communityHave,
     community_want: snapshot.communityWant,
+    rating_average: snapshot.ratingAverage,
+    rating_count: snapshot.ratingCount,
     enriched_at: nowIso(),
   });
 }

@@ -1131,6 +1131,8 @@ function withMarketData(item: QueueItem, snapshot: ReleaseSnapshot): QueueItem {
     currency: snapshot.currency,
     communityHave: snapshot.communityHave,
     communityWant: snapshot.communityWant,
+    ratingAverage: snapshot.ratingAverage,
+    ratingCount: snapshot.ratingCount,
     enrichedAt: snapshot.enrichedAt,
   };
 }

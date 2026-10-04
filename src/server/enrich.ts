@@ -1,7 +1,13 @@
 import { prepareVideos } from "../shared/videos.ts";
 import type { Db } from "./db/db.ts";
 import { requeueNoAudio } from "./queue/no-audio.ts";
-import { getRelease, getTracks, writeSnapshot, writeVideos } from "./db/releases.ts";
+import {
+  getRelease,
+  getTracks,
+  type SnapshotWrite,
+  writeSnapshot,
+  writeVideos,
+} from "./db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "./discogs/client.ts";
 import type { DiscogsRelease } from "./discogs/types.ts";
 import type { Logger } from "./logger.ts";
@@ -30,6 +36,7 @@ export function applyEnrichment(
       currency,
       communityHave: release.community?.have ?? null,
       communityWant: release.community?.want ?? null,
+      ...communityRating(release),
     });
     if (Array.isArray(release.videos)) {
       const tracks = getTracks(db, releaseId);
@@ -49,6 +56,16 @@ export function applyEnrichment(
       writeVideos(db, releaseId, videos, { replace: true });
     }
   })();
+}
+
+/** Discogs reports an unrated release as an average of 0 from 0 ratings. */
+function communityRating(
+  release: DiscogsRelease,
+): Pick<SnapshotWrite, "ratingAverage" | "ratingCount"> {
+  const rating = release.community?.rating;
+  const count = rating?.count ?? null;
+  const average = count ? (rating?.average ?? null) : null;
+  return { ratingAverage: average, ratingCount: count };
 }
 
 /** Fetches one release from Discogs and stores its market data and videos. False on failure. */

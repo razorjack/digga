@@ -79,6 +79,15 @@
             <span class="strong">{formatCount(item.communityWant ?? 0)}</span> want
             <span class="strong">{formatCount(item.communityHave ?? 0)}</span> have
           </span>
+          <span>
+            {#if item.ratingAverage !== null && item.ratingCount}
+              <span class="strong">{item.ratingAverage.toFixed(2)}</span> of 5 from
+              {formatCount(item.ratingCount)}
+              {item.ratingCount === 1 ? "rating" : "ratings"}
+            {:else}
+              not rated
+            {/if}
+          </span>
         {/if}
         {#if pricing}
           <span class="quiet">asking Discogs…</span>
