@@ -85,32 +85,36 @@
   <h2 id="{id}-library-title">Library</h2>
   {#if stats.value}
     {@const summary = stats.value}
-    <p>
-      <b>{formatCount(summary.universe.releases)}</b> releases loaded
-      {#if summary.dump.date}from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump{:else if summary.dump.loadedAt}from a dump of unknown date{:else}(no dump loaded yet){/if},
-      grouped into <b>{formatCount(summary.universe.keys)}</b> records.
-    </p>
-    {#if summary.dump.lastLoad}
-      {@const load = summary.dump.lastLoad}
-      {@const missing = missingReleasesNote(load.missing)}
-      <p>
+    <ul class="counts" aria-label="The library">
+      <li><b>{formatCount(summary.universe.releases)}</b> releases</li>
+      <li><b>{formatCount(summary.universe.keys)}</b> records</li>
+      <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
+      <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
+      <li><b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard</li>
+    </ul>
+    <ul class="counts small" aria-label="Your decisions">
+      <li><b>{formatCount(summary.verdicts.accepted)}</b> want</li>
+      <li><b>{formatCount(summary.verdicts.candidate)}</b> grail</li>
+      <li><b>{formatCount(summary.verdicts.maybe)}</b> maybe</li>
+      <li><b>{formatCount(summary.verdicts.rejected)}</b> skip</li>
+      <li><b>{formatCount(summary.verdicts.snoozed)}</b> snooze</li>
+      <li><b>{formatCount(summary.verdicts.no_audio)}</b> no audio</li>
+      <li><b>{formatCount(summary.verdicts.seen)}</b> seen</li>
+      <li><b>{formatCount(summary.discogs.wantlist)}</b> on the Discogs wantlist</li>
+      <li><b>{formatCount(summary.discogs.collection)}</b> owned</li>
+    </ul>
+    <p class="quiet">
+      {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No dump loaded yet.{/if}
+      {#if summary.dump.lastLoad}
+        {@const load = summary.dump.lastLoad}
+        {@const missing = missingReleasesNote(load.missing)}
         The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
-        added <b>{formatCount(load.added)}</b> {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
+        added {formatCount(load.added)} {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
         {#if load.toDig > 0}
-          <b>{formatCount(load.toDig)}</b> records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
+          {formatCount(load.toDig)} records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
         {/if}
         {#if missing}{missing}{/if}
-      </p>
-    {/if}
-    <p>
-      <b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters;
-      <b>{formatCount(summary.remaining)}</b> are still to dig.
-      <b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard.
-    </p>
-    <p class="quiet">
-      want {formatCount(summary.verdicts.accepted)}, grail {formatCount(summary.verdicts.candidate)}, maybe {formatCount(summary.verdicts.maybe)},
-      skip {formatCount(summary.verdicts.rejected)}, snooze {formatCount(summary.verdicts.snoozed)}, no audio {formatCount(summary.verdicts.no_audio)};
-      Discogs wantlist {formatCount(summary.discogs.wantlist)}, owned {formatCount(summary.discogs.collection)}, seen {formatCount(summary.verdicts.seen)}
+      {/if}
     </p>
   {/if}
 </section>
@@ -236,8 +240,29 @@
 </section>
 
 <style>
-  .library p {
+  .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
     color: var(--fg-muted);
+    font-size: var(--text-sm);
+  }
+  .counts b {
+    margin-right: 0.3em;
+    font-family: var(--display);
+    font-size: var(--text-lg);
+    font-weight: 400;
+  }
+  .counts.small {
+    gap: 6px 20px;
+  }
+  .counts.small b {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
   }
   .file {
     width: 26em;

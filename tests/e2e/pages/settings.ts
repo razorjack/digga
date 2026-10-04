@@ -80,6 +80,11 @@ export class SettingsPage {
     return this.root.getByRole("region", { name: "Library" });
   }
 
+  /** One of the Library's counts, such as "still to dig", which reads "4,909 still to dig". */
+  libraryCount(label: string): Locator {
+    return this.library.getByRole("listitem").filter({ hasText: new RegExp(`^[\\d,]+ ${label}$`) });
+  }
+
   get backups(): Locator {
     return this.root.getByRole("region", { name: "Backups", exact: true });
   }

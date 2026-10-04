@@ -103,9 +103,10 @@ test(
     await expect(settings.preview).toHaveText("These filters match 14 records, 13 still to dig.");
     await expect(settings.root.getByText("Unsaved changes.", { exact: true })).toBeVisible();
     await settings.showTab("library");
-    await expect(settings.library).toContainText(
-      "18 match your saved filters; 17 are still to dig.",
+    await expect(settings.libraryCount("match your saved filters")).toHaveText(
+      "18 match your saved filters",
     );
+    await expect(settings.libraryCount("still to dig")).toHaveText("17 still to dig");
     expect((await app.api.get<Config>("/api/settings")).filters.yearFrom).toBe(1998);
     expect(app.apiRequests()).not.toContain("PUT /api/settings");
   },

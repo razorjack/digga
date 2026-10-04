@@ -181,7 +181,10 @@ test.describe("with an account to import", () => {
       const twelves = new TwelvesPage(app);
       const page = fakes.hold(COLLECTION_PAGE);
       await settings.open("library");
-      await expect(settings.library).toContainText("Discogs wantlist 0, owned 0");
+      await expect(settings.libraryCount("on the Discogs wantlist")).toHaveText(
+        "0 on the Discogs wantlist",
+      );
+      await expect(settings.libraryCount("owned")).toHaveText("0 owned");
       await settings.showTab("discogs");
 
       const collection = await settings.startJob(
@@ -208,9 +211,10 @@ test.describe("with an account to import", () => {
         `page 1 of 1, ${DJ.wantlist.length} items`,
       );
       await settings.showTab("library");
-      await expect(settings.library).toContainText(
-        `Discogs wantlist ${DJ.wantlist.length}, owned ${DJ.collection.length}`,
+      await expect(settings.libraryCount("on the Discogs wantlist")).toHaveText(
+        `${DJ.wantlist.length} on the Discogs wantlist`,
       );
+      await expect(settings.libraryCount("owned")).toHaveText(`${DJ.collection.length} owned`);
 
       await new HeaderPage(app).goTo("twelves");
       await twelves.showShelf("collection");
