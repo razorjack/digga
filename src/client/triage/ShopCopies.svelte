@@ -90,9 +90,11 @@
   .comment {
     color: var(--fg-muted);
     font-size: var(--text-sm);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .quiet {
     color: var(--fg-faint);

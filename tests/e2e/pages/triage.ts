@@ -94,7 +94,7 @@ export class TriagePage {
 
   /** In a seller scope, the seller's copies of the record: price, grading and comment. */
   get sellerCopies(): Locator {
-    return this.record.getByRole("region", { name: / sells$/ });
+    return this.root.getByRole("region", { name: / sells$/ });
   }
 
   get resumeSession(): Locator {

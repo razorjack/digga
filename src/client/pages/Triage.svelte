@@ -26,6 +26,7 @@
   import PlayerPanel from "../triage/PlayerPanel.svelte";
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
   import ScopePicker from "../triage/ScopePicker.svelte";
+  import ShopCopies from "../triage/ShopCopies.svelte";
   import { loadStatus } from "../load-status.svelte.ts";
   import { SessionCheckpoint } from "../triage/checkpoint.svelte.ts";
   import ResumeSession from "../triage/ResumeSession.svelte";
@@ -503,7 +504,6 @@
           <ReleaseFacts
             item={session.current}
             detail={session.currentDetail}
-            {copies}
             pricing={session.pricing.has(session.current.id)}
             onprice={() => void session.price()}
           />
@@ -534,6 +534,9 @@
         startAtFraction={startAt}
         seekStepSeconds={seekStep}
       />
+      {#if copies}
+        <ShopCopies {copies} />
+      {/if}
       <Slip
         slip={session.slip}
         next={session.next}
