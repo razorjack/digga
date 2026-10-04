@@ -66,6 +66,14 @@ export function formatDay(iso: string, now: Date = new Date()): string {
   return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
 }
 
+/** "19:23", "07:05": the local time of day on a 24-hour clock. */
+export function formatTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 const ages = new Intl.RelativeTimeFormat("en-GB", { numeric: "auto" });
 const AGE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ["year", 365 * 86_400],

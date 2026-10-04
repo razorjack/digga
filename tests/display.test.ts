@@ -4,6 +4,7 @@ import {
   formatBytes,
   formatCount,
   formatDay,
+  formatTime,
   formatDuration,
   formatEta,
   formatPrice,
@@ -38,6 +39,12 @@ describe("display formatting", () => {
     expect(formatDay("2026-09-27T10:00:00Z", now)).toBe("27 Sep");
     expect(formatDay("2025-01-03T10:00:00Z", now)).toBe("3 Jan 2025");
     expect(formatDay("garbage", now)).toBe("");
+  });
+
+  it("writes a local time of day on a 24-hour clock", () => {
+    expect(formatTime(new Date(2026, 9, 4, 19, 23, 2).toISOString())).toBe("19:23");
+    expect(formatTime(new Date(2026, 9, 4, 7, 5).toISOString())).toBe("07:05");
+    expect(formatTime("garbage")).toBe("");
   });
 
   it("says how long ago something happened", () => {
