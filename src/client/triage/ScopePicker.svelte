@@ -44,7 +44,7 @@
     if (!search.active) return recordScopes.length === 0 ? "Type two letters or more." : "";
     if (search.searching) return "Searching…";
     if (options.length === 0)
-      return `Nothing matches “${search.text.trim()}”. A seller's shop is read in Settings, under Jobs.`;
+      return `Nothing matches “${search.text.trim()}”. A seller's shop is read in Settings, under Discogs.`;
     return `${formatCount(options.length)} ${options.length === 1 ? "match" : "matches"}, most records first.`;
   });
 

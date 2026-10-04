@@ -165,7 +165,7 @@
       {/if}
 
       {#if loadStatus.job}
-        <LoadIndicator href={firstRun ? "#/setup" : "#/settings"} />
+        <LoadIndicator href={firstRun ? "#/setup" : "#/settings/library"} />
       {/if}
 
       <div class="counter">

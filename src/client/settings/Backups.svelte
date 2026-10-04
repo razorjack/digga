@@ -37,10 +37,10 @@
   }
 </script>
 
-<section class="data" aria-labelledby="{id}-title">
+<section aria-labelledby="{id}-title">
   <h2 id="{id}-title">Backups and exports</h2>
   <div>
-    <button type="button" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>Back up now</button>
+    <button type="button" class="secondary" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>Back up now</button>
   </div>
   <p role="status">{message ?? ""}</p>
   {#if error}
@@ -96,43 +96,9 @@
 </section>
 
 <style>
-  button {
-    padding: 7px 14px;
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-    background: var(--bg);
-    color: var(--fg);
-    font-weight: 600;
-  }
-  button:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .data {
-    display: grid;
-    gap: 12px;
-    max-width: 940px;
-    padding: 24px 0;
-    border-top: 1px solid var(--rule);
-  }
-  h2 {
-    margin-bottom: 6px;
-  }
   p {
     color: var(--fg-muted);
     max-width: 80ch;
-  }
-  b {
-    color: var(--fg);
-  }
-  .problem {
-    color: var(--fg-accent);
-  }
-  code {
-    font-family: inherit;
-    color: var(--fg);
-    overflow-wrap: anywhere;
   }
   a {
     color: var(--fg);

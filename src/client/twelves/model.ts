@@ -45,8 +45,8 @@ export const SORTS: {
 export const EMPTY: Record<ShelfId, string> = {
   all: "Nothing here yet. Press A on a release in Triage, or import your Discogs wantlist and collection.",
   accepted: "Nothing wanted yet. Press A on a release in Triage.",
-  wantlist: "No wantlist imported. Settings imports it, under Jobs.",
-  collection: "No collection imported. Settings imports it, under Jobs.",
+  wantlist: "No wantlist imported. Settings imports it, under Discogs.",
+  collection: "No collection imported. Settings imports it, under Discogs.",
   maybe: "No maybes. Press M in Triage for a release that belongs on your Discogs Maybe list.",
   candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
   snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",

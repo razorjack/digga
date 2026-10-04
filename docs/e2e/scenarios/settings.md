@@ -114,7 +114,7 @@ Priority: **P1**.
 
 Given: `small` with the username `dj` and a saved token.
 
-Jobs: Collection and Wantlist add a row that runs (its page held at the fake) and ends done with its
+Imports: Collection and Wantlist add a row that runs (its page held at the fake) and ends done with its
 counts; the Library and Twelves show the imports
 
 ## SET-14
@@ -123,7 +123,7 @@ Priority: **P1**.
 
 Given: `small` with the username `dj` and a saved token.
 
-Jobs: an import cancelled while its page is held at the fake reads running until the page has
+Imports: an import cancelled while its page is held at the fake reads running until the page has
 returned, then cancelled
 
 ## SET-15
@@ -132,7 +132,7 @@ Priority: **P2**.
 
 Given: `small-account` with a saved token, and Brave's history with visits to two releases.
 
-Jobs: History reads the fake home's history file (the row reads "2 Discogs links, 2 releases", and
+Imports: History reads the fake home's history file (the row reads "2 Discogs links, 2 releases", and
 the export has them seen, from `seed:history`); Maybe list is disabled until a list is saved, not
 merely chosen; Read shop needs a username, reads `shopkeeper`, and `F`'s search then offers the
 seller

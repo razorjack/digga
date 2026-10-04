@@ -52,8 +52,10 @@ that reads as a music streaming app. Ergonomics win every tie.
   the counter. Everything else recedes.
 - **Twelves** (`#/twelves`): what has been accepted, wanted, owned, plus maybes and candidates; a
   list that reads like a record box, sortable, with notes.
-- **Settings** (`#/settings`): universe (styles, load years), filters, strategy, Discogs account,
-  player defaults, appearance, and the jobs panel (load dump, import seeds) with progress.
+- **Settings** (`#/settings/<tab>`): five tabs. Digging holds the filters, the order and the
+  player defaults; Library the counts, the universe (styles, load years) and the dump jobs;
+  Discogs the account, the imports and the seller shop; Backups the backups and exports; General
+  the sandbox and the appearance. Each tab lists its own recent jobs with progress.
 
 ## The design as built (session 2)
 
@@ -92,9 +94,11 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   title, note, label and year, market, a verdict stamp and the day it was decided. Wants missing
   from the Discogs wantlist and maybes missing from the Maybe list carry a small marker, with a
   dashed banner above the shelf.
-- **Settings** is one column of sections with a sticky save bar and the jobs panel at the end.
-  The Sandbox section comes first and switches at once, outside the save bar; arriving from the
-  header stamp highlights it with the same sleeve and flyer bar as a selected Twelves row.
+- **Settings** has a list of its tabs on the left, marked like a selected Twelves row, and the
+  tab's sections beside it, with a sticky save bar at the bottom. Digging, Library and Discogs
+  each render the part of the settings form they hold; the save bar saves all of it. The Sandbox
+  section, first under General, switches at once, outside the save bar; arriving from the header
+  stamp opens General and highlights it with the same sleeve and flyer bar.
 
 ## What exists already
 

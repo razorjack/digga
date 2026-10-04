@@ -1,4 +1,5 @@
 import { expect, type Locator, type Response } from "@playwright/test";
+import { SETTINGS_TAB_LABEL, type SettingsTab } from "../../../src/client/settings/tabs.ts";
 import type { ColorScheme, QueueStrategy } from "../../../src/shared/config.ts";
 import type { Job, JobStatus } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
@@ -47,6 +48,15 @@ export class SettingsPage {
     return this.app.page.getByRole("main");
   }
 
+  /** The list of Settings' tabs, which shows once the settings have loaded. */
+  get tabs(): Locator {
+    return this.root.getByRole("navigation", { name: "Settings sections" });
+  }
+
+  tabLink(tab: SettingsTab): Locator {
+    return this.tabs.getByRole("link", { name: SETTINGS_TAB_LABEL[tab], exact: true });
+  }
+
   get sandbox(): Locator {
     return this.root.getByRole("region", { name: "Sandbox" });
   }
@@ -78,8 +88,14 @@ export class SettingsPage {
     return this.root.getByRole("region", { name: "Discogs" });
   }
 
-  get jobs(): Locator {
-    return this.root.getByRole("region", { name: "Jobs" });
+  /** The Discogs tab's imports, the seller shop included, with their recent jobs. */
+  get imports(): Locator {
+    return this.root.getByRole("region", { name: "Imports" });
+  }
+
+  /** The Library tab's dump jobs and the dumps folder, with their recent jobs. */
+  get dumpSection(): Locator {
+    return this.root.getByRole("region", { name: "Dump" });
   }
 
   get skipHistory(): Locator {
@@ -165,7 +181,7 @@ export class SettingsPage {
   }
 
   get dumps(): Locator {
-    return this.jobs.getByRole("list", { name: "Dumps in the folder" });
+    return this.dumpSection.getByRole("list", { name: "Dumps in the folder" });
   }
 
   /** The dump's row in the folder's list, with its size and use. */
@@ -175,7 +191,7 @@ export class SettingsPage {
 
   /** The file Load reads, typed or picked from the datalist of the folder's dumps. */
   get dumpFile(): Locator {
-    return this.jobs.getByRole("combobox", { name: "Dump file" });
+    return this.dumpSection.getByRole("combobox", { name: "Dump file" });
   }
 
   /** The names the dump file field's datalist offers, in order. Never waits. */
@@ -190,8 +206,9 @@ export class SettingsPage {
     return this.dumps.getByRole("button", { name: `Delete ${name}`, exact: true });
   }
 
+  /** A job's row, on the tab that lists jobs of its type. */
   job(id: string): Locator {
-    return this.jobs.locator(`[data-job-id="${id}"]`);
+    return this.root.locator(`[data-job-id="${id}"]`);
   }
 
   /** The row's status cell, while it reads the status. */
@@ -199,10 +216,16 @@ export class SettingsPage {
     return this.job(id).getByRole("cell", { name: status, exact: true });
   }
 
-  /** The page with its form, which shows once the settings have loaded. */
-  async open(): Promise<void> {
-    await this.app.open("#/settings");
-    await expect(this.saveButton).toBeVisible();
+  /** The page on a tab, Digging by default, which shows once the settings have loaded. */
+  async open(tab: SettingsTab = "digging"): Promise<void> {
+    await this.app.open(`#/settings/${tab}`);
+    await expect(this.tabLink(tab)).toHaveAttribute("aria-current", "page");
+  }
+
+  /** Clicks a tab in the list; returns once it is the current one. */
+  async showTab(tab: SettingsTab): Promise<void> {
+    await this.tabLink(tab).click();
+    await expect(this.tabLink(tab)).toHaveAttribute("aria-current", "page");
   }
 
   /** "Try again" after the settings failed to load: returns once they have loaded and the form shows. */
@@ -213,7 +236,7 @@ export class SettingsPage {
     );
     await this.root.getByRole("button", { name: "Try again" }).click();
     expect((await loaded).ok()).toBe(true);
-    await expect(this.saveButton).toBeVisible();
+    await expect(this.tabs).toBeVisible();
   }
 
   /** Clicks Save; returns once the save and the queue's reload have answered and the bar says so. */
@@ -227,12 +250,13 @@ export class SettingsPage {
   }
 
   /**
-   * The Sandbox section's button. The page saves the mode at once, switches the api, and the
-   * hidden Triage page reads its queue in the new mode; returns once both have answered, the page
-   * says so and the header's sandbox stamp follows.
+   * The Sandbox section's button, on the General tab. The page saves the mode at once, switches
+   * the api, and the hidden Triage page reads its queue in the new mode; returns once both have
+   * answered, the page says so and the header's sandbox stamp follows.
    */
   async switchSandbox(mode: "on" | "off"): Promise<void> {
     const header = new HeaderPage(this.app);
+    await this.showTab("general");
     const { first: saved, next: queue } = waitForResponses(
       this.app.page,
       (response) => isRequest(response, "PUT", "/api/settings"),
@@ -249,10 +273,11 @@ export class SettingsPage {
   }
 
   /**
-   * An Appearance radio, which the page saves at once without restarting the queue; returns once
-   * the save has answered and the root element carries the scheme.
+   * An Appearance radio, on the General tab, which the page saves at once without restarting the
+   * queue; returns once the save has answered and the root element carries the scheme.
    */
   async chooseColorScheme(scheme: ColorScheme): Promise<void> {
+    await this.showTab("general");
     const saved = this.#response("PUT", "/api/settings");
     await this.colorScheme(scheme).check();
     await this.#completed(await saved);

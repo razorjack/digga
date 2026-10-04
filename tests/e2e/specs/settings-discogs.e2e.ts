@@ -38,7 +38,7 @@ test(
   async ({ app }) => {
     app.expectProblems({ apiErrors: [/^PUT \/api\/discogs\/token answered 400$/] });
     const settings = new SettingsPage(app);
-    await settings.open();
+    await settings.open("discogs");
     await expect(settings.token).toHaveAccessibleDescription(/^No Discogs token is set\. /);
 
     const saved = await settings.saveToken("e2e-token-dj");
@@ -81,7 +81,7 @@ test.describe("with a token from the environment", () => {
     { tag: ["@SET-09", "@P1"] },
     async ({ app }) => {
       const settings = new SettingsPage(app);
-      await settings.open();
+      await settings.open("discogs");
 
       await expect(settings.token).toBeDisabled();
       await expect(settings.saveTokenButton).toBeDisabled();
@@ -110,7 +110,7 @@ test.describe("with a Discogs account", () => {
       const settings = new SettingsPage(app);
       // The saved token's given state has asked Discogs whose it is already.
       const mark = fakes.log.length;
-      await settings.open();
+      await settings.open("discogs");
       await expect(settings.token).toHaveAccessibleDescription(/^Works for dj\. /);
       await expect(settings.listsButton).toHaveText("Reload lists");
 
@@ -137,7 +137,7 @@ test.describe("with a Discogs account", () => {
       const settings = new SettingsPage(app);
       const header = new HeaderPage(app);
       fakes.fail("GET /users/:user/lists", { status: 500, times: 1 });
-      await settings.open();
+      await settings.open("discogs");
 
       await expect(settings.maybeList).toHaveAccessibleDescription(
         "Lists did not load: Discogs answered 500.",
@@ -162,6 +162,7 @@ test.describe("with a Discogs account", () => {
       );
       await header.goTo("settings");
       expect((await lists).ok()).toBe(true);
+      await settings.showTab("discogs");
       await expect(settings.listsButton).toHaveText("Reload lists");
       await expect(settings.maybeList).toHaveValue(String(MAYBE_LIST.id));
       await expect(settings.maybeList.getByRole("option")).toHaveCount(3);
@@ -179,11 +180,12 @@ test.describe("with an account to import", () => {
       const settings = new SettingsPage(app);
       const twelves = new TwelvesPage(app);
       const page = fakes.hold(COLLECTION_PAGE);
-      await settings.open();
+      await settings.open("library");
       await expect(settings.library).toContainText("Discogs wantlist 0, owned 0");
+      await settings.showTab("discogs");
 
       const collection = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Collection" }),
+        settings.imports.getByRole("button", { name: "Collection" }),
       );
       await expect(
         settings.root.getByText("Import collection started.", { exact: true }),
@@ -199,12 +201,13 @@ test.describe("with an account to import", () => {
       );
 
       const wantlist = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Wantlist" }),
+        settings.imports.getByRole("button", { name: "Wantlist" }),
       );
       await settings.waitForJob(wantlist, "done");
       await expect(settings.job(wantlist)).toContainText(
         `page 1 of 1, ${DJ.wantlist.length} items`,
       );
+      await settings.showTab("library");
       await expect(settings.library).toContainText(
         `Discogs wantlist ${DJ.wantlist.length}, owned ${DJ.collection.length}`,
       );
@@ -223,9 +226,9 @@ test.describe("with an account to import", () => {
     async ({ app, fakes }) => {
       const settings = new SettingsPage(app);
       const page = fakes.hold(COLLECTION_PAGE);
-      await settings.open();
+      await settings.open("discogs");
       const collection = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Collection" }),
+        settings.imports.getByRole("button", { name: "Collection" }),
       );
       await page.received;
 
@@ -250,7 +253,7 @@ test.describe("with a token", () => {
     async ({ app, fakes }) => {
       const settings = new SettingsPage(app);
       const triage = new TriagePage(app);
-      await settings.open();
+      await settings.open("discogs");
       await expect(settings.currency).toHaveValue("EUR");
 
       await settings.currency.selectOption("GBP");
@@ -290,13 +293,15 @@ test.describe("with an account, a token and Brave's history", () => {
     async ({ app }) => {
       const settings = new SettingsPage(app);
       const triage = new TriagePage(app);
-      const maybeList = settings.jobs.getByRole("button", { name: "Maybe list", exact: true });
-      const readShop = settings.jobs.getByRole("button", { name: "Read shop" });
-      await settings.open();
+      const maybeList = settings.imports.getByRole("button", { name: "Maybe list", exact: true });
+      const readShop = settings.imports.getByRole("button", { name: "Read shop" });
+      await settings.open("discogs");
 
-      await expect(settings.jobs.getByRole("combobox", { name: "Browser" })).toHaveValue("brave");
+      await expect(settings.imports.getByRole("combobox", { name: "Browser" })).toHaveValue(
+        "brave",
+      );
       const history = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "History" }),
+        settings.imports.getByRole("button", { name: "History" }),
       );
       await settings.waitForJob(history, "done");
       await expect(settings.job(history)).toContainText("2 Discogs links, 2 releases");
@@ -321,7 +326,7 @@ test.describe("with an account, a token and Brave's history", () => {
       await expect(maybeList).toBeEnabled();
 
       await expect(readShop).toBeDisabled();
-      await settings.jobs
+      await settings.imports
         .getByRole("textbox", { name: "Seller's Discogs username" })
         .fill(SHOPKEEPER.username);
       const shop = await settings.startJob(readShop);

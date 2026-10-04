@@ -22,7 +22,7 @@
 <section class="copies" aria-labelledby="seller-copies">
   <h2 id="seller-copies">{copies.username} sells</h2>
   {#if copies.listings.length === 0}
-    <p class="quiet">No price or grading yet: read the shop again in settings, under Jobs.</p>
+    <p class="quiet">No price or grading yet: read the shop again in Settings, under Discogs.</p>
   {:else}
     <ul>
       {#each shown as listing (listing.id)}

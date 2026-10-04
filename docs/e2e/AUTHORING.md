@@ -255,10 +255,12 @@ element, and explain that exception in a comment.
 
 ### Names and state contracts
 
-- Settings names the Sandbox, Library, Backups and exports, Discogs, and Jobs regions with
-  `aria-labelledby`. Discogs is inside the settings form; other form sections stay unnamed.
-  Opened at `#/settings/sandbox`, the Sandbox region has `aria-current="location"`, which also
-  draws its highlight.
+- Settings shows one tab at a time, listed in the "Settings sections" navigation with
+  `aria-current="page"` on the current one; `SettingsPage.open(tab)` and `showTab(tab)` go
+  there. It names the Library and Dump (Library tab), Discogs and Imports (Discogs tab), Backups
+  and exports, and Sandbox (General tab) regions with `aria-labelledby`. Discogs is inside the
+  settings form; other form sections stay unnamed. Opened at `#/settings/sandbox`, General shows
+  the Sandbox region with `aria-current="location"`, which also draws its highlight.
 - The slips are groups named "Last action" and "Up next", retaining the last action's
   `aria-live`. Groups identify the slips without adding landmarks. The last action is busy
   from a verdict or undo key until the request has answered and the page has acted on it;

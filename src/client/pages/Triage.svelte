@@ -433,12 +433,12 @@
         <div class="state">
           <h1 class="headline">No releases loaded yet.</h1>
           <p class="quiet">
-            Digga digs a Discogs releases dump. In settings, under Jobs, "Update from the newest dump"
+            Digga digs a Discogs releases dump. In settings, under Library, "Update from the newest dump"
             downloads the latest one, over 10 GB, and loads it. The styles and years it keeps are under
-            Universe.
+            Universe beside it.
           </p>
           <p class="actions">
-            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
+            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings", "library")}>
               <Key label="," aria-hidden="true" /> settings
             </button>
           </p>

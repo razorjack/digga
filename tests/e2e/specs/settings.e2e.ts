@@ -91,6 +91,7 @@ test(
 
     await expect(settings.preview).toHaveText("These filters match 14 records, 13 still to dig.");
     await expect(settings.root.getByText("Unsaved changes.", { exact: true })).toBeVisible();
+    await settings.showTab("library");
     await expect(settings.library).toContainText(
       "18 match your saved filters; 17 are still to dig.",
     );
@@ -287,7 +288,7 @@ test.describe("with dumps in the folder", () => {
       const july = smallDump("july");
       const august = smallDump("august");
       const september = smallDump("september");
-      await settings.open();
+      await settings.open("library");
       await expect(settings.dumps.getByRole("listitem")).toHaveText([
         new RegExp(`^${september.name}`),
         new RegExp(`^${august.name}`),
@@ -315,7 +316,7 @@ test.describe("with dumps in the folder", () => {
 
       fakes.dumps.holdAt("part-way");
       const download = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Download only" }),
+        settings.dumpSection.getByRole("button", { name: "Download only" }),
       );
       await settings.waitForJob(download, "running");
       await expect
@@ -344,7 +345,7 @@ test.describe("with the September dump listed", () => {
       const header = new HeaderPage(app);
       const september = smallDump("september");
       const jobsBefore = await jobIds(app);
-      await settings.open();
+      await settings.open("library");
       const update = await startHeldUpdate(settings, fakes);
 
       // The job Settings started reaches the header without a reload.
@@ -383,7 +384,7 @@ test.describe("with the September dump listed", () => {
         releaseId: PULSAR_REMIXES.id,
       });
       await app.given.note(PULSAR_REMIXES.id, "the remix");
-      await settings.open();
+      await settings.open("library");
       const update = await startHeldUpdate(settings, fakes);
       fakes.dumps.release();
       await settings.waitForJob(update, "done");
@@ -411,18 +412,18 @@ test.describe("with the September dump in the folder", () => {
       const settings = new SettingsPage(app);
       const september = smallDump("september");
       const statsBefore = await app.api.get<Stats>("/api/stats");
-      await settings.open();
+      await settings.open("library");
       expect(await settings.dumpFileOptions()).toEqual([september.name, smallDump("july").name]);
 
       await settings.dumpFile.fill(september.name);
-      await settings.jobs.getByRole("spinbutton", { name: "Limit" }).fill("2");
-      await settings.jobs.getByRole("checkbox", { name: "dry run" }).check();
+      await settings.dumpSection.getByRole("spinbutton", { name: "Limit" }).fill("2");
+      await settings.dumpSection.getByRole("checkbox", { name: "dry run" }).check();
       const sent = app.page.waitForRequest(
         (request) =>
           request.method() === "POST" && new URL(request.url()).pathname === "/api/jobs/dump-load",
       );
       const load = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Load", exact: true }),
+        settings.dumpSection.getByRole("button", { name: "Load", exact: true }),
       );
       expect((await sent).postDataJSON()).toEqual({
         file: september.name,
@@ -458,14 +459,14 @@ test(
       status: "snoozed",
       releaseId: FIRST_RECORD.id,
     });
-    await settings.open();
+    await settings.open("backups");
     await expect(settings.exports).toContainText("Your decisions: no backup yet.");
 
     await app.relaunch();
     // The start writes the backup beside answering requests.
     await expect.poll(async () => (await backups(app)).decisions.backups).toHaveLength(1);
     const [backup] = (await backups(app)).decisions.backups;
-    await settings.open();
+    await settings.open("backups");
 
     await expect(settings.exports).toContainText(
       `Your decisions: last backed up ${formatDay(`${backup!.day}T00:00:00`)} (${formatBytes(backup!.bytes)}).`,
@@ -491,7 +492,7 @@ test(
       position: grail!.position,
       mark: "candidate",
     });
-    await settings.open();
+    await settings.open("general");
     await settings.sandbox.getByRole("button", { name: "Back to the sandbox" }).click();
     await expect(
       settings.sandbox.getByRole("button", { name: "Turn off the sandbox" }),
@@ -500,6 +501,7 @@ test(
     const sandboxKey = await triage.currentKey();
     await triage.judgeInSandbox("accepted");
     await header.goTo("settings");
+    await settings.showTab("backups");
     await expect(settings.exports).toContainText(
       "The sandbox verdicts in this tab are not saved, so they are not in them.",
     );
@@ -547,7 +549,7 @@ test(
 async function startHeldUpdate(settings: SettingsPage, fakes: FakeServices): Promise<string> {
   fakes.dumps.holdAt("part-way");
   const update = await settings.startJob(
-    settings.jobs.getByRole("button", { name: "Update from the newest dump" }),
+    settings.dumpSection.getByRole("button", { name: "Update from the newest dump" }),
   );
   await expect.poll(() => fakes.dumps.sentBytes).toBe(fakes.dumps.checkpoint("part-way").offset);
   await settings.waitForJob(update, "running");
@@ -586,7 +588,7 @@ async function expectNoProblem(field: Locator): Promise<void> {
 /** The buttons a running dump job disables: the jobs that write the folder, and each Delete. */
 function dumpButtons(settings: SettingsPage, dumps: string[]) {
   const jobs = ["Update from the newest dump", "Download only", "Load"].map((name) =>
-    settings.jobs.getByRole("button", { name, exact: true }),
+    settings.dumpSection.getByRole("button", { name, exact: true }),
   );
   return [...jobs, ...dumps.map((name) => settings.deleteButton(name))];
 }

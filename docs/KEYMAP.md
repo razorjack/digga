@@ -59,7 +59,7 @@ again. Hidden `Not On Label` also covers the self-releases, such as
 
 `F` opens a picker with the labels and artists of the record on screen, the artists of its tracks
 included, then the records the last dump load added that are still to dig, and a search field for
-any label or artist that has loaded records, and for any seller whose shop was read (Settings, Jobs,
+any label or artist that has loaded records, and for any seller whose shop was read (Settings, Discogs,
 "Seller shop", or `digga import seller <username>`). `↓` moves from the field to the options, the
 arrows choose, Enter digs and Esc cancels, also while the field holds text. The queue then holds
 only the records on that label (on any of their labels), by that artist (on the release or on one of

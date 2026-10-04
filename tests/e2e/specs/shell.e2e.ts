@@ -62,21 +62,22 @@ test(
   async ({ app }) => {
     const settings = new SettingsPage(app);
     const twelvesKey = page("twelves").key.toLowerCase();
-    await settings.open();
+    await settings.open("discogs");
 
     await settings.username.click();
     await app.page.keyboard.type(`${page("triage").key}${page("twelves").key}`.toLowerCase());
     await expect(settings.username).toHaveValue("tw");
-    expect(await currentHash(app)).toBe("#/settings");
+    expect(await currentHash(app)).toBe("#/settings/discogs");
     await settings.username.blur();
 
     for (const modifier of ["Meta", "Control", "Alt"]) {
       await app.page.keyboard.press(`${modifier}+${twelvesKey}`);
       // The key's handler runs before the press returns, and a page key sets the hash in it.
-      expect(await currentHash(app), `${modifier}+${twelvesKey}`).toBe("#/settings");
+      expect(await currentHash(app), `${modifier}+${twelvesKey}`).toBe("#/settings/discogs");
     }
 
     // Decision 60: a clicked checkbox used to keep the page keys.
+    await settings.showTab("digging");
     const checkbox = settings.root.getByRole("checkbox", {
       name: "include releases without a year",
     });
@@ -145,6 +146,7 @@ test.describe("in the sandbox", () => {
       await expect(settings.sandbox).toHaveAttribute("aria-current", "location");
 
       await header.goTo("settings");
+      await settings.showTab("general");
       await expect(settings.sandbox).not.toHaveAttribute("aria-current");
     },
   );
@@ -255,6 +257,7 @@ test(
     await triage.pass();
     const key = await triage.currentKey();
     await header.goTo("settings");
+    await settings.showTab("general");
     await expect(settings.colorScheme("system")).toBeChecked();
     const queueReads = queueReadCount(app);
 

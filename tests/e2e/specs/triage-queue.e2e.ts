@@ -414,7 +414,7 @@ test.describe("with a Discogs account and shopkeeper's shop read", () => {
       await triage.scopeSearch.focus();
       await triage.searchScopes("zzq");
       await expect(triage.scopeStatus).toHaveText(
-        "Nothing matches “zzq”. A seller's shop is read in Settings, under Jobs.",
+        "Nothing matches “zzq”. A seller's shop is read in Settings, under Discogs.",
       );
       await expect(triage.scopePicker.getByRole("radio")).toHaveCount(0);
       await triage.closeScopePicker();

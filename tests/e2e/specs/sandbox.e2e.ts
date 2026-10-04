@@ -237,10 +237,10 @@ test.describe("in the sandbox, with dj's username and token", () => {
       const twelves = new TwelvesPage(app);
       const triage = new TriagePage(app);
       const header = new HeaderPage(app);
-      await settings.open();
+      await settings.open("discogs");
 
       const job = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Collection" }),
+        settings.imports.getByRole("button", { name: "Collection" }),
       );
       await settings.waitForJob(job, "done");
       await header.goTo("twelves");
@@ -279,15 +279,15 @@ test.describe("in the sandbox, with a Discogs account and its Maybe list", () =>
       const twelves = new TwelvesPage(app);
       const header = new HeaderPage(app);
       const maybes = [FIRST_RECORD, SECOND_RECORD].map((fixture) => triageKeyOf(fixture));
-      const job = settings.jobs
+      const job = settings.imports
         .getByRole("row")
         .filter({ has: app.page.getByRole("rowheader", { name: JOB_LABEL.import_list }) });
-      await settings.open();
+      await settings.open("discogs");
 
       const read = app.page.waitForResponse((response) =>
         isRequest(response, "GET", `/api/discogs/lists/${MAYBE_LIST.id}`),
       );
-      await settings.jobs.getByRole("button", { name: "Maybe list", exact: true }).click();
+      await settings.imports.getByRole("button", { name: "Maybe list", exact: true }).click();
       expect((await read).ok()).toBe(true);
       await expect(
         settings.root.getByText(

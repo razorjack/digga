@@ -27,7 +27,7 @@ export class SettingsJobs {
     try {
       const response = await this.#api.getJobs();
       if (!this.#current(version, generation)) return;
-      this.items = response.jobs.slice(0, 12);
+      this.items = response.jobs;
       this.error = null;
       // What a job imported or loaded shows in the counts, also when it ended between two reads.
       if (before && someJobEnded(before, this.items)) void this.#refreshStats();

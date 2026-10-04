@@ -126,7 +126,7 @@ test.describe("with an account to import", () => {
       const job = await startHeldImport(settings, page);
 
       await app.relaunch({ crash: true });
-      await settings.open();
+      await settings.open("discogs");
 
       await settings.waitForJob(job, "failed");
       await expect(settings.job(job)).toContainText(`: ${INTERRUPTED_JOB_ERROR}`);
@@ -157,7 +157,7 @@ test.describe("with an account to import", () => {
       expect(relaunched).toBe(false);
       page.release();
       await relaunching;
-      await settings.open();
+      await settings.open("discogs");
 
       await settings.waitForJob(job, "cancelled");
       expect((await app.api.get<Job>(`/api/jobs/${job}`)).status).toBe("cancelled");
@@ -274,8 +274,8 @@ async function startHeldImport(
   settings: SettingsPage,
   page: { received: Promise<void> },
 ): Promise<string> {
-  await settings.open();
-  const job = await settings.startJob(settings.jobs.getByRole("button", { name: "Collection" }));
+  await settings.open("discogs");
+  const job = await settings.startJob(settings.imports.getByRole("button", { name: "Collection" }));
   await page.received;
   await settings.waitForJob(job, "running");
   return job;

@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
+import { SETTINGS_TAB_LABEL, type SettingsTab } from "../../../src/client/settings/tabs.ts";
 import { endOfQueueHeadline } from "../../../src/client/triage/end-of-queue.ts";
 import { SHELVES } from "../../../src/client/twelves/model.ts";
 import type { Stats } from "../../../src/shared/api.ts";
@@ -123,16 +124,19 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
       const settings = new SettingsPage(app);
       await settings.open();
       await expect(settings.preview).toBeVisible();
+      await expectAccessible(app.page, "Settings, Digging");
 
-      for (const region of [
-        settings.sandbox,
-        settings.library,
-        settings.exports,
-        settings.discogs,
-        settings.jobs,
-      ])
-        await expect(region).toBeVisible();
-      await expectAccessible(app.page, "Settings");
+      const regions: [SettingsTab, Locator[]][] = [
+        ["library", [settings.library, settings.dumpSection]],
+        ["discogs", [settings.discogs, settings.imports]],
+        ["backups", [settings.exports]],
+        ["general", [settings.sandbox]],
+      ];
+      for (const [tab, shown] of regions) {
+        await settings.showTab(tab);
+        for (const region of shown) await expect(region).toBeVisible();
+        await expectAccessible(app.page, `Settings, ${SETTINGS_TAB_LABEL[tab]}`);
+      }
     });
   });
 
@@ -303,10 +307,10 @@ test.describe("with the September dump listed", () => {
       await twelves.open();
       await twelves.writeNote("rolling bassline");
 
-      await settings.open();
+      await settings.open("library");
       fakes.dumps.holdAt("part-way");
       const update = await settings.startJob(
-        settings.jobs.getByRole("button", { name: "Update from the newest dump" }),
+        settings.dumpSection.getByRole("button", { name: "Update from the newest dump" }),
       );
       await expect(header.loadIndicator).toBeVisible();
       fakes.dumps.release();

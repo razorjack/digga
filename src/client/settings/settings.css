@@ -1,0 +1,122 @@
+/* The Settings page's sections, fields and buttons, which its tab components share. */
+
+.settings section {
+  display: grid;
+  gap: 12px;
+  max-width: 940px;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+}
+/* A tab's first section, also inside its form, needs no rule above it. */
+.settings .panel > :where(section:first-child),
+.settings .panel > :where(form:first-child) > :where(section:first-child) {
+  padding-top: 0;
+  border-top: 0;
+}
+.settings h2 {
+  margin-bottom: 6px;
+}
+.settings b {
+  color: var(--fg);
+  font-weight: 600;
+}
+.settings code {
+  font-family: inherit;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.settings .quiet {
+  color: var(--fg-muted);
+}
+.settings .hint {
+  color: var(--fg-faint);
+  font-size: var(--text-sm);
+}
+.settings .problem,
+.settings .flash {
+  color: var(--fg-accent);
+}
+
+.settings .fields {
+  display: grid;
+  gap: 16px;
+}
+.settings .field {
+  display: grid;
+  grid-template-columns: 9em minmax(0, 1fr);
+  align-items: center;
+  column-gap: 20px;
+  row-gap: 4px;
+}
+.settings .field > .hint,
+.settings .field > .token-status {
+  grid-column: 2;
+}
+.settings .field.narrow > input,
+.settings .field.narrow > select {
+  width: 8em;
+}
+.settings .name {
+  color: var(--fg-muted);
+}
+.settings .inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settings .wrap {
+  flex-wrap: wrap;
+}
+
+.settings textarea {
+  resize: vertical;
+}
+.settings input:user-invalid {
+  border-color: var(--accent-mark);
+}
+.settings input[type="number"] {
+  width: 7em;
+}
+.settings input[type="range"] {
+  width: 16em;
+  accent-color: var(--accent-mark);
+}
+.settings input[type="checkbox"],
+.settings input[type="radio"] {
+  accent-color: var(--accent-mark);
+}
+.settings .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-muted);
+}
+
+.settings button.primary,
+.settings button.secondary {
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+.settings button.primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.settings button.secondary {
+  border: 1px solid var(--rule);
+  background: var(--bg);
+}
+.settings button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.settings button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

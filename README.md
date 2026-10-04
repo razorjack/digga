@@ -186,7 +186,7 @@ Settings changes everything the setup chose, and `digga.config.json` holds it:
 
 Changing the queue filters is immediate; loading more styles or years takes another dump load.
 Discogs publishes a new dump at the start of each month. "Update from the newest dump" in
-Settings, under Jobs, loads it: it adds the records Discogs has added since, and `F` in Triage
+Settings, under Library, loads it: it adds the records Discogs has added since, and `F` in Triage
 digs just those. Settings also lists the dumps in the folder, says which one the library came
 from, and deletes the ones you no longer want, about 10 GB each.
 

@@ -963,3 +963,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      at an older version is rematched once as it opens. The rematch writes only
      `matched_position`; verdicts, marks, listens and heard tunes key on the tracklist, not on
      videos, so they stay as they were.
+148. **Settings is split into tabs.** One page of eleven sections had grown to over four screens,
+     with the filters below the backups and the dump jobs far from the universe they load. The
+     tabs group what is changed together: Digging (filters, order, player), Library (counts,
+     universe, dumps), Discogs (account, imports, seller shop), Backups, and General (sandbox,
+     appearance). Each is an address, `#/settings/<tab>`, so the tab list is plain links with
+     `aria-current="page"` rather than an ARIA tab widget, and `#/settings/sandbox` opens General
+     on the highlighted Sandbox section. The draft lives in the page, so changes on one tab stay
+     unsaved while another is shown, and the save bar saves all of them. Each tab lists the
+     newest five of its own jobs in place of the separate jobs panel.
