@@ -3,6 +3,7 @@
   import { type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount } from "../../shared/display.ts";
+  import { sellerCopies } from "../../shared/listings.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
   import { replayItemOf } from "../../shared/replay.ts";
   import type { TrackMark } from "../../shared/types.ts";
@@ -162,6 +163,7 @@
       ? scopesOfRelease(session.currentDetail.release, session.currentDetail.tracks)
       : [],
   );
+  const copies = $derived(sellerCopies(session.scope, session.currentDetail));
   const scopeRemaining = $derived(stats.value?.scopeRemaining ?? null);
   const newRecords = $derived(newRecordsScope(stats.value?.dump.lastLoad ?? null));
 
@@ -501,6 +503,7 @@
           <ReleaseFacts
             item={session.current}
             detail={session.currentDetail}
+            {copies}
             pricing={session.pricing.has(session.current.id)}
             onprice={() => void session.price()}
           />

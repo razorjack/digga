@@ -219,7 +219,7 @@ scenario that needs it; an unimplemented request fails as unplanned.
 | `GET /users/{u}/wants`                         | Pages of the wantlist, including releases that are not in any dump                           |
 | `PUT /users/{u}/wants/{id}`                    | Adds to the wantlist and stores the `notes`; `401` or `403` when the token is another user's |
 | `DELETE /users/{u}/wants/{id}`                 | Removes; `404` when absent (the client counts that as removed)                               |
-| `GET /users/{u}/inventory`                     | Pages of For Sale listings for a seller                                                      |
+| `GET /users/{u}/inventory`                     | Pages of For Sale listings for a seller, graded and priced                                   |
 | `GET /users/{u}/lists`, `GET /lists/{id}`      | The account's lists, private ones only for its own token, and their items                    |
 | `GET /releases/{id}?curr_abbr=`                | Market data and videos from the catalogue, price in the asked currency; `404` when asked     |
 

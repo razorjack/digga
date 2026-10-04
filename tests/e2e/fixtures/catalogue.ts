@@ -41,12 +41,21 @@ export interface FixtureAccount {
   collection: number[];
   /** Release ids; one of them is in no dump. */
   wantlist: number[];
-  /** Release ids of the account's For Sale listings. */
-  inventory: number[];
+  /** The account's For Sale listings. */
+  inventory: FixtureListing[];
   /** The currency of the account's profile (curr_abbr). */
   currency: string;
   /** The account's Discogs lists; a private one shows only to the account's own token. */
   lists: FixtureList[];
+}
+
+/** A copy for sale, graded and priced in the account's currency. */
+export interface FixtureListing {
+  releaseId: number;
+  condition: string;
+  sleeveCondition: string;
+  price: number;
+  comments: string;
 }
 
 export interface FixtureList {
@@ -559,7 +568,22 @@ export const SHOPKEEPER: FixtureAccount = {
   username: "shopkeeper",
   collection: [],
   wantlist: [],
-  inventory: [SHOP_PRESSING.id, NOT_IN_ANY_DUMP.id],
+  inventory: [
+    {
+      releaseId: SHOP_PRESSING.id,
+      condition: "Near Mint (NM or M-)",
+      sleeveCondition: "Generic",
+      price: 3,
+      comments: "Plays perfectly, light ring wear on the generic sleeve.",
+    },
+    {
+      releaseId: NOT_IN_ANY_DUMP.id,
+      condition: "Very Good (VG)",
+      sleeveCondition: "Very Good (VG)",
+      price: 1.5,
+      comments: "",
+    },
+  ],
   currency: "EUR",
   lists: [],
 };

@@ -1,17 +1,22 @@
 <script lang="ts">
   import type { QueueItem, ReleaseDetail } from "../../shared/api.ts";
   import { formatAge, formatCount, formatPrice } from "../../shared/display.ts";
+  import type { SellerCopies } from "../../shared/listings.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
+  import ShopCopies from "./ShopCopies.svelte";
 
   let {
     item,
     detail,
+    copies,
     pricing,
     onprice,
   }: {
     item: QueueItem;
     detail: ReleaseDetail | null;
+    /** The copies of the record in the shop being dug; null outside a seller scope. */
+    copies: SellerCopies | null;
     /** P asked Discogs for the market data and the answer has not come yet. */
     pricing: boolean;
     onprice: () => void;
@@ -110,6 +115,10 @@
       {enrichedAt === null ? "ask Discogs" : "ask again"}
     </button>
   </div>
+
+  {#if copies}
+    <ShopCopies {copies} />
+  {/if}
 
   {#if siblings.length > 0}
     <p class="versions">

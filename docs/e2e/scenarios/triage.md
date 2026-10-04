@@ -316,9 +316,9 @@ ends off the wantlist
 
 Priority: **P1**.
 
-A seller's shop [`small-account` with a saved token, `shopkeeper` read]: `F` digs the seller; `A` on
-the record puts the seller's pressing on the wantlist (the fake's `PUT` names that release id, not
-the main release's)
+A seller's shop [`small-account` with a saved token, `shopkeeper` read]: `F` digs the seller; the
+record shows the seller's copy, priced and graded, with its comment; `A` on the record puts the
+seller's pressing on the wantlist (the fake's `PUT` names that release id, not the main release's)
 
 ## TRI-41
 

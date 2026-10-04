@@ -609,10 +609,14 @@ function removeWant(fakes: FakeServices, request: FakeRequest): FakeAnswer {
 function inventoryPage(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
   const account = accountNamed(request.params.user);
   if (!account) return { status: 404, body: { message: "User does not exist." } };
-  const listings = account.inventory.map((id, index) => ({
+  const listings = account.inventory.map((listing, index) => ({
     id: 70_000 + index,
     status: "For Sale",
-    release: { id },
+    condition: listing.condition,
+    sleeve_condition: listing.sleeveCondition,
+    price: { value: listing.price, currency: account.currency },
+    comments: listing.comments,
+    release: { id: listing.releaseId },
   }));
   const page: DiscogsInventoryPage = { pagination: pagination(1, listings.length), listings };
   return { status: 200, body: page };

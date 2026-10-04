@@ -1,7 +1,7 @@
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { endOfQueueHeadline } from "../../../src/client/triage/end-of-queue.ts";
 import type { DecisionsExport, QueueItem, QueueResponse, Stats } from "../../../src/shared/api.ts";
-import { formatCount } from "../../../src/shared/display.ts";
+import { formatCount, formatPrice } from "../../../src/shared/display.ts";
 import { youtubeWatchUrl } from "../../../src/shared/youtube.ts";
 import {
   COMPILATION,
@@ -442,6 +442,12 @@ test.describe("with a Discogs account and shopkeeper's shop read", () => {
         "Digging the seller shopkeeper: 1 left under your filters.",
       );
       await expect(triage.record).toHaveAttribute("data-release-id", String(SHOP_PRESSING.id));
+      const copy = SHOPKEEPER.inventory[0]!;
+      await expect(triage.sellerCopies).toHaveAccessibleName("shopkeeper sells");
+      await expect(triage.sellerCopies.getByRole("listitem")).toHaveText([
+        // The stamp, then what a screen reader reads instead of it.
+        `${formatPrice(copy.price, SHOPKEEPER.currency)} NM / Generic record ${copy.condition}, sleeve ${copy.sleeveCondition} ${copy.comments}`,
+      ]);
 
       const response = await triage.judgeAndPush("accepted");
       expect(response.ok()).toBe(true);
