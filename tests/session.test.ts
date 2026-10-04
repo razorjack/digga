@@ -51,6 +51,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
     pressingNotes: [],
     trackVerdicts: [],
     siblings: [],
+    listings: [],
   });
   const http = {
     mode: "live",
@@ -134,6 +135,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
         pressingNotes: [],
         trackVerdicts: [],
         siblings: [],
+        listings: [],
       };
     },
   } as unknown as Api;

@@ -65,6 +65,7 @@ function detail(id: number): ReleaseDetail {
     tracks: [],
     trackVerdicts: [],
     siblings: [],
+    listings: [],
     verdict: null,
     pressingNotes: [],
     videos: [

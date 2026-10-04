@@ -49,6 +49,10 @@ describe("job contracts", () => {
       );
       updateJobProgress(db, job.id, { ...reading, listings: 300, records: 5 });
       expect(jobProgress(getJob(db, job.id)!).text).toBe("Shop: 300 listings, 5 loaded records");
+      updateJobProgress(db, job.id, { ...reading, listings: 300, records: 5, gone: 3, added: 12 });
+      expect(jobProgress(getJob(db, job.id)!).text).toBe(
+        "Shop: 300 listings, 5 loaded records; 3 releases gone, 12 new since the last read",
+      );
     } finally {
       db.close();
     }

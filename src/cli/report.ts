@@ -63,8 +63,12 @@ export function showImport(result: ImportResult): void {
   if (result.kind === "seller") {
     const cut = result.listings !== null && result.read < result.listings;
     const read = cut ? `${result.read} of ${result.listings}` : `${result.read}`;
+    const changes =
+      result.gone === null
+        ? ""
+        : `; ${result.gone} releases gone and ${result.added} new since the last read`;
     console.log(
-      `import seller ${result.username}: ${read} listings read, ${result.records ?? 0} of their records are loaded; F in Triage digs them`,
+      `import seller ${result.username}: ${read} listings read, ${result.records ?? 0} of their records are loaded${changes}; F in Triage digs them`,
     );
     return;
   }

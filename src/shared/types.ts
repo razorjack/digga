@@ -271,6 +271,13 @@ export interface SellerImportProgress {
   read: number;
   /** Loaded records among them, one per triage key, once the read is saved. */
   records: number | null;
+  /**
+   * Releases for sale at the previous read that this one did not find, sold or taken off the
+   * shop, and releases it found that the previous one did not. Null until the read is saved,
+   * and on the shop's first read.
+   */
+  gone: number | null;
+  added: number | null;
 }
 
 export interface JobProgressByType {

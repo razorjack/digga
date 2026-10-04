@@ -149,6 +149,12 @@ export interface DiscogsUser {
 export interface DiscogsListing {
   id: number;
   status?: string;
+  /** The media grade, such as "Near Mint (NM or M-)". */
+  condition?: string;
+  sleeve_condition?: string;
+  price?: { value?: number; currency?: string };
+  comments?: string;
+  posted?: string;
   release: { id: number; description?: string };
   seller?: { id: number; username: string };
 }

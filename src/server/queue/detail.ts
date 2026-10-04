@@ -14,6 +14,7 @@ import {
   getVideos,
 } from "../db/releases.ts";
 import { pressingNotes, releaseNote } from "../db/notes.ts";
+import { shopListingsOf } from "../db/sellers.ts";
 import { getHeardKeys, getTrackVerdicts, getVerdict } from "../db/verdicts.ts";
 
 export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
@@ -55,6 +56,7 @@ export function buildReleaseDetail(db: Db, id: number): ReleaseDetail | null {
       videoCount: countVideos(db, sibling.id),
       inUniverse: sibling.inUniverse,
     })),
+    listings: shopListingsOf(db, id),
   };
 }
 

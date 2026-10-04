@@ -194,13 +194,18 @@ any release of, also one that left the account outside Digga, is out of the queu
 (`undecidedClause()`); Twelves shows it on the Discogs wantlist, Owned and Maybe shelves beside
 the decisions made in Digga, which the imports never change.
 
-## sellers and seller_releases
+## sellers, seller_releases and seller_listings
 
 Shops read by `import seller`, for the seller scope in Triage. `sellers`: `id` (the seller's
 Discogs user id, PK), `username`, `listings` (For Sale listings the shop had), `listings_read`
 (fewer when the API stopped paging at 10,000), `read_at`. `seller_releases`: `(seller_id,
-release_id)` PK, the releases for sale at the last read, loaded or not. A new read replaces the
-seller's rows; a cancelled one leaves them. Prices and conditions are not stored.
+release_id)` PK, the releases for sale at the last read, loaded or not. `seller_listings`: one
+row per copy for sale, `id` (the Discogs listing id, PK), `seller_id`, `release_id`,
+`media_condition` and `sleeve_condition` (Discogs's text, such as `Near Mint (NM or M-)`),
+`price` and `currency` (the seller's), `comments` (empty when none), `posted_at`. A new read
+replaces the seller's rows in both and reports how many releases are gone and new since the
+previous one; a cancelled read leaves them. Shops read before migration 22 have releases and
+no listings until their next read.
 
 ## dump_loads
 

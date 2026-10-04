@@ -107,6 +107,9 @@ export const JobSchema = z.discriminatedUnion("type", [
         listings: count.nullable(),
         read: count,
         records: count.nullable(),
+        // Jobs from before a re-read reported its changes have neither.
+        gone: count.nullable().default(null),
+        added: count.nullable().default(null),
       })
       .nullable(),
   }),

@@ -132,6 +132,25 @@ export interface ReleaseDetail {
   trackVerdicts: TrackVerdict[];
   /** Other releases sharing the master, excluding this one. */
   siblings: ReleaseSibling[];
+  /** The release's copies for sale in the shops Digga has read, cheapest first. */
+  listings: ShopListing[];
+}
+
+/** A copy for sale in a seller's shop, as Digga read it. */
+export interface ShopListing {
+  /** The Discogs listing id. */
+  id: number;
+  seller: { id: number; username: string };
+  /** Discogs's grade, such as "Near Mint (NM or M-)". */
+  mediaCondition: string | null;
+  /** The sleeve's grade, or "Generic", "Not Graded" or "No Cover". */
+  sleeveCondition: string | null;
+  /** In `currency`, the seller's. */
+  price: number | null;
+  currency: string | null;
+  /** The seller's comment; empty when there is none. */
+  comments: string;
+  postedAt: string | null;
 }
 
 /** A note written on another pressing of the record, shown with its catalogue number. */

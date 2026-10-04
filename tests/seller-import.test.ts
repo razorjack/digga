@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
-import { countSellerRecords, saveSellerShop } from "../src/server/db/sellers.ts";
+import {
+  countSellerRecords,
+  saveSellerShop,
+  type SellerListing,
+  shopListingsOf,
+} from "../src/server/db/sellers.ts";
 import { DiscogsApiError, type DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsInventoryPage, DiscogsListing } from "../src/server/discogs/types.ts";
 import { importSeller, MAX_INVENTORY_PAGES } from "../src/server/importers/seller.ts";
@@ -11,8 +16,24 @@ import { filters, fixtureDb, silentLogger } from "./helpers.ts";
 const listing = (releaseId: number, status = "For Sale"): DiscogsListing => ({
   id: releaseId * 10,
   status,
+  condition: "Near Mint (NM or M-)",
+  sleeve_condition: "Generic",
+  price: { value: 3, currency: "EUR" },
+  comments: " Plays great. ",
+  posted: "2026-09-01T10:00:00-07:00",
   release: { id: releaseId },
   seller: { id: 6, username: "Shop" },
+});
+
+const sellerListing = (releaseId: number, price: number | null = 3): SellerListing => ({
+  id: releaseId * 10,
+  releaseId,
+  mediaCondition: "Very Good Plus (VG+)",
+  sleeveCondition: null,
+  price,
+  currency: "GBP",
+  comments: "",
+  postedAt: null,
 });
 
 /** A shop whose inventory pages are given, or generated when `pages` is a number. */
@@ -67,6 +88,8 @@ describe("seller shop import", () => {
       listings: 4,
       read: 4,
       records: 1,
+      gone: null,
+      added: null,
     });
     expect(progress.map((step) => [step.page, step.records])).toEqual([
       [1, null],
@@ -88,11 +111,13 @@ describe("seller shop import", () => {
       records: 1,
     });
 
-    // A second read replaces the first.
-    await importSeller(
+    // A second read replaces the first and says what changed.
+    const reread = await importSeller(
       { db, discogs: fakeShop([[listing(1006)]]), logger: silentLogger },
       { username: "Shop" },
     );
+    expect(reread).toMatchObject({ gone: 3, added: 1 });
+    expect(shopListingsOf(db, 1001)).toEqual([]);
     expect(
       queryQueue(db, {
         filters: filters({}),
@@ -101,6 +126,41 @@ describe("seller shop import", () => {
         scope: shopScope,
       }),
     ).toEqual([expect.objectContaining({ id: 1006 })]);
+    db.close();
+  });
+
+  it("keeps each copy's grading, price and comment, cheapest first", async () => {
+    const db = await fixtureDb();
+    await importSeller(
+      { db, discogs: fakeShop([[listing(1001), listing(1006, "Sold")]]), logger: silentLogger },
+      { username: "Shop" },
+    );
+    expect(shopListingsOf(db, 1001)).toEqual([
+      {
+        id: 10010,
+        seller: { id: 6, username: "Shop" },
+        mediaCondition: "Near Mint (NM or M-)",
+        sleeveCondition: "Generic",
+        price: 3,
+        currency: "EUR",
+        comments: "Plays great.",
+        postedAt: "2026-09-01T10:00:00-07:00",
+      },
+    ]);
+    expect(shopListingsOf(db, 1006)).toEqual([]);
+
+    saveSellerShop(db, {
+      id: 6,
+      username: "Shop",
+      listingCount: 3,
+      read: 3,
+      listings: [
+        sellerListing(1001, null),
+        { ...sellerListing(1001, 9), id: 7 },
+        sellerListing(1002, 2),
+      ],
+    });
+    expect(shopListingsOf(db, 1001).map((copy) => copy.price)).toEqual([9, null]);
     db.close();
   });
 
@@ -118,7 +178,13 @@ describe("seller shop import", () => {
 
   it("keeps the previous read when cancelled, and names a user who does not exist", async () => {
     const db = await fixtureDb();
-    saveSellerShop(db, { id: 6, username: "Shop", listings: 1, read: 1, releaseIds: [1006] });
+    saveSellerShop(db, {
+      id: 6,
+      username: "Shop",
+      listingCount: 1,
+      read: 1,
+      listings: [sellerListing(1006)],
+    });
     const controller = new AbortController();
     const result = await importSeller(
       { db, discogs: fakeShop([[listing(1001)], [listing(1002)]]), logger: silentLogger },

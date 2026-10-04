@@ -1,8 +1,8 @@
 import type { SellerImportProgress } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
-import { countSellerRecords, saveSellerShop } from "../db/sellers.ts";
+import { countSellerRecords, type SellerListing, saveSellerShop } from "../db/sellers.ts";
 import { type DiscogsClient, DiscogsApiError } from "../discogs/client.ts";
-import type { DiscogsUser } from "../discogs/types.ts";
+import type { DiscogsListing, DiscogsUser } from "../discogs/types.ts";
 import type { Logger } from "../logger.ts";
 
 export interface SellerImportDeps {
@@ -28,9 +28,9 @@ export const MAX_INVENTORY_PAGES = 100;
 const PER_PAGE = 100;
 
 /**
- * Reads the releases a seller has for sale and keeps them for the seller scope. Prices and
- * conditions are left on Discogs. A cancelled read keeps the previous one, since half a shop
- * would look like a whole one.
+ * Reads the copies a seller has for sale and keeps them, with their grading and price, for the
+ * seller scope. A new read replaces the previous one, so sold copies drop out. A cancelled read
+ * keeps the previous one, since half a shop would look like a whole one.
  */
 export async function importSeller(
   deps: SellerImportDeps,
@@ -42,14 +42,19 @@ export async function importSeller(
   if (options.signal?.aborted)
     return { kind: "seller", sellerId: seller.id, saved: false, ...inventory.progress };
 
-  saveSellerShop(deps.db, {
+  const changes = saveSellerShop(deps.db, {
     id: seller.id,
     username: seller.username,
-    listings: inventory.progress.listings ?? 0,
+    listingCount: inventory.progress.listings ?? 0,
     read: inventory.progress.read,
-    releaseIds: [...inventory.releaseIds],
+    listings: inventory.listings,
   });
-  const progress = { ...inventory.progress, records: countSellerRecords(deps.db, seller.id) };
+  const progress: SellerImportProgress = {
+    ...inventory.progress,
+    records: countSellerRecords(deps.db, seller.id),
+    gone: changes?.gone ?? null,
+    added: changes?.added ?? null,
+  };
   onProgress?.({ ...progress });
 
   deps.logger.info(
@@ -73,7 +78,7 @@ async function readInventory(
   username: string,
   options: SellerImportOptions,
   onProgress?: (progress: SellerImportProgress) => void,
-): Promise<{ progress: SellerImportProgress; releaseIds: Set<number> }> {
+): Promise<{ progress: SellerImportProgress; listings: SellerListing[] }> {
   const progress: SellerImportProgress = {
     username,
     page: 0,
@@ -81,8 +86,10 @@ async function readInventory(
     listings: null,
     read: 0,
     records: null,
+    gone: null,
+    added: null,
   };
-  const releaseIds = new Set<number>();
+  const listings: SellerListing[] = [];
   let page = 1;
   for (;;) {
     if (options.signal?.aborted) break;
@@ -91,7 +98,7 @@ async function readInventory(
     const forSale = data.listings.filter(
       (listing) => (listing.status ?? "For Sale") === "For Sale",
     );
-    for (const listing of forSale) releaseIds.add(listing.release.id);
+    listings.push(...forSale.map(toSellerListing));
     progress.page = page;
     progress.pages = Math.min(data.pagination.pages, MAX_INVENTORY_PAGES);
     progress.listings = data.pagination.items;
@@ -100,5 +107,18 @@ async function readInventory(
     if (page >= progress.pages || data.listings.length === 0) break;
     page += 1;
   }
-  return { progress, releaseIds };
+  return { progress, listings };
+}
+
+function toSellerListing(listing: DiscogsListing): SellerListing {
+  return {
+    id: listing.id,
+    releaseId: listing.release.id,
+    mediaCondition: listing.condition ?? null,
+    sleeveCondition: listing.sleeve_condition ?? null,
+    price: listing.price?.value ?? null,
+    currency: listing.price?.currency ?? null,
+    comments: listing.comments?.trim() ?? "",
+    postedAt: listing.posted ?? null,
+  };
 }

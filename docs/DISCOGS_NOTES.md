@@ -82,8 +82,9 @@ Endpoints used:
 - `GET /users/{u}`: `{ id, username, num_for_sale, num_collection, num_wantlist, curr_abbr }`,
   the seller behind a shop read, and the collection and wantlist sizes and currency the setup
   shows; `404` for an unknown username.
-- `GET /users/{u}/inventory?per_page=100&page=N`: `pagination` and
-  `listings[].{id, status, release.id, seller.{id, username}}`. No token is needed for a public
+- `GET /users/{u}/inventory?per_page=100&page=N`: `pagination` and `listings[]` with `id`,
+  `status`, `condition`, `sleeve_condition`, `price.{value, currency}` (the seller's currency),
+  `comments`, `posted`, `release.id` and `seller.{id, username}`. No token is needed for a public
   shop, which then lists For Sale items only; the seller's own token also returns drafts and sold
   items, which the import skips. Discogs reportedly refuses pages above 100 of someone else's
   inventory ("Pagination above 100 disabled for inventories besides your own"), so a shop read

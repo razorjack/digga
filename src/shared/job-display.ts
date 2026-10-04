@@ -114,9 +114,16 @@ function sellerProgress(progress: SellerImportProgress): ProgressSummary {
   }
   const cut = listings !== null && read < listings ? ` of ${formatCount(listings)}` : "";
   return {
-    text: `${username}: ${formatCount(read)}${cut} listings, ${formatCount(records)} loaded records`,
+    text: `${username}: ${formatCount(read)}${cut} listings, ${formatCount(records)} loaded records${shopChanges(progress)}`,
     fraction: 1,
   };
+}
+
+/** "; 3 releases gone, 5 new since the last read" once a shop has been read before. */
+function shopChanges(progress: SellerImportProgress): string {
+  const { gone, added } = progress;
+  if (gone === null || added === null) return "";
+  return `; ${formatCount(gone)} releases gone, ${formatCount(added)} new since the last read`;
 }
 
 export const JOB_LABEL: Record<JobType, string> = {
