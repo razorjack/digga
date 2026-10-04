@@ -163,18 +163,4 @@
   .backups tbody tr {
     border-top: 1px solid var(--rule-soft);
   }
-  details {
-    color: var(--fg-muted);
-    font-size: var(--text-sm);
-  }
-  summary {
-    cursor: pointer;
-    color: var(--fg);
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 3px;
-  }
-  details p {
-    margin-top: 10px;
-  }
 </style>

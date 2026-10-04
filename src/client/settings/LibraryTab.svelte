@@ -173,11 +173,8 @@
 <section aria-labelledby="{id}-dump-title">
   <h2 id="{id}-dump-title">Dump</h2>
   <p class="quiet">
-    Discogs publishes all its releases once a month, over 10 GB compressed. Update downloads the
-    newest one into {#if dumpFiles.value}<code>{dumpFiles.value.directory}</code>{:else}the dumps folder{/if} unless it is there, checks it
-    against the checksum Discogs publishes, and loads it; the records it adds are offered under
-    <Key label="F" size="sm" /> in Triage. Download and Load do one step each, and Load also takes an absolute path.
-    A dump that is loaded, or older than one that is, can go: Digga reads a dump only while it loads it.
+    Discogs publishes every release once a month, over 10 GB compressed. Update downloads the newest
+    dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
   </p>
   <div class="inline wrap">
     <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
@@ -226,6 +223,17 @@
     </button>
   </div>
   <JobList jobs={dumpJobs} error={jobs.error} oncancel={cancelJob} />
+  <details>
+    <summary>How updates, downloads and loads work</summary>
+    <p>
+      Update downloads the newest dump into {#if dumpFiles.value}<code>{dumpFiles.value.directory}</code>{:else}the
+        dumps folder{/if} unless it is there, checks it against the checksum Discogs publishes, and loads it. Download
+      only and Load do one step each. Load also takes an absolute path, and a limit and a dry run for trying a file.
+    </p>
+    <p>
+      A dump that is loaded, or older than one that is, can go: Digga reads a dump only while it loads it.
+    </p>
+  </details>
 </section>
 
 <style>

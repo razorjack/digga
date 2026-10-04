@@ -230,12 +230,11 @@
 
 <section class="jobs" aria-labelledby="{id}-imports-title">
   <h2 id="{id}-imports-title">Imports</h2>
-  <p class="hint">
-    Imports run on the server, in the sandbox too, since they set Digga up rather than dig. Closing this page does
-    not stop them.{settings.sandbox ? " Only the Maybe list import stays in this tab in the sandbox." : ""}
-  </p>
+  <p class="quiet">Seed verdicts from your Discogs collection, wantlist and Maybe list, and from browser history.</p>
+  {#if settings.sandbox}
+    <p class="hint">In the sandbox, only the Maybe list import keeps what it reads in this tab.</p>
+  {/if}
   <div class="job">
-    <p><b>Import</b> seeds verdicts from Discogs and from browser history.</p>
     <div class="inline wrap">
       <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
       <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
@@ -257,8 +256,8 @@
   </div>
   <form class="job" onsubmit={readSellerShop}>
     <p>
-      <b>Seller shop</b> reads which releases a Discogs seller has for sale, about 100 listings a second and at most
-      10,000, so <Key label="F" size="sm" /> in Triage can dig just those. Buying stays on Discogs.
+      <b>Seller shop</b>: what a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just
+      that.
     </p>
     <div class="inline wrap">
       <input
@@ -273,6 +272,13 @@
     </div>
   </form>
   <JobList jobs={importJobs} error={jobs.error} oncancel={cancelJob} />
+  <details>
+    <summary>How imports run</summary>
+    <p>
+      Imports run on the server, in the sandbox too, since they set Digga up rather than dig; closing this page does
+      not stop them. A shop is read at about 100 listings a second, at most 10,000. Buying stays on Discogs.
+    </p>
+  </details>
 </section>
 
 <style>

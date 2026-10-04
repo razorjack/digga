@@ -38,6 +38,24 @@
   color: var(--fg-accent);
 }
 
+/* Explanations a tab keeps out of the way until asked for. */
+.settings details {
+  max-width: 80ch;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.settings summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+.settings details p {
+  margin-top: 10px;
+}
+
 .settings .fields {
   display: grid;
   gap: 16px;
