@@ -151,8 +151,9 @@
     max-width: 72ch;
   }
   .mode[aria-current="location"] {
+    max-width: calc(940px + 23px);
     margin-left: -23px;
-    padding: 20px 20px 20px 20px;
+    padding: 20px;
     background: var(--surface);
     box-shadow: inset 3px 0 0 var(--accent-mark);
   }

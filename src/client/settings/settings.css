@@ -2,10 +2,10 @@
 
 .settings section {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   max-width: 940px;
-  padding: 24px 0;
-  border-top: 1px solid var(--rule);
+  padding: 36px 0;
+  border-top: 1px solid var(--rule-soft);
 }
 /* A tab's first section, also inside its form, needs no rule above it. */
 .settings .panel > :where(section:first-child),
@@ -14,7 +14,12 @@
   border-top: 0;
 }
 .settings h2 {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+}
+/* A section's one-line introduction belongs to its heading. */
+.settings h2 + .hint,
+.settings h2 + .quiet {
+  margin-top: -8px;
 }
 .settings b {
   color: var(--fg);
@@ -58,12 +63,13 @@
 
 .settings .fields {
   display: grid;
-  gap: 16px;
+  gap: 22px;
 }
+/* Baselines line a field's name up with the first line of its control, whatever its height. */
 .settings .field {
   display: grid;
   grid-template-columns: 9em minmax(0, 1fr);
-  align-items: center;
+  align-items: baseline;
   column-gap: 20px;
   row-gap: 4px;
 }
