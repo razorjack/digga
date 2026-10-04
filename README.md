@@ -71,7 +71,7 @@ back. Sweep label by label in catalogue order,
 browse by country or year, or use a daily shuffle. Set where playback starts and how far
 the seek keys jump.
 
-![Settings: what to dig, with years, formats, countries, format details, hidden labels, and whether to skip releases without videos](docs/assets/screenshots/settings.webp)
+![Settings on its Digging tab: years, formats, countries, format details, hidden labels and what to skip, beside the list of tabs](docs/assets/screenshots/settings.webp)
 
 Imports of your collection, wantlist, and browser history can keep records you already know out
 of the queue. The session counter shows how many you have judged, how many remain, and an estimated
