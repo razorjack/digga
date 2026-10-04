@@ -946,7 +946,7 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
 146. **A shop read keeps each copy's grading, price and comment, and says what changed.** Filling
      one order to a round number makes a cheap clean copy worth a want that the music alone would
      not earn, so Triage in a seller scope shows the seller's copies of the record under the
-     market line: price, a "NM / VG+" stamp (record, then sleeve) and the comment. This replaces
+     player: price, a "NM / VG+" stamp (record, then sleeve) and the comment. This replaces
      "Prices, conditions ... are left to Discogs" in decision 84; carts still are. The read stores
      the listings in `seller_listings` beside `seller_releases`, which stays the scope's set, so
      shops read before migration 22 still scope until their next read and say they have no
