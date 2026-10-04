@@ -20,8 +20,16 @@ interface ScoredPair {
   trackIndex: number;
   score: number;
 }
+/**
+ * The rules matchVideos() follows. A library whose videos were matched by older rules is
+ * rematched when it opens (`src/server/db/video-matches.ts`).
+ */
+export const VIDEO_MATCH_VERSION = 2;
+
 const MATCH_THRESHOLD = 0.5;
 const DUPLICATE_THRESHOLD = 0.85;
+/** Shorter titles found inside run-together words would match by accident. */
+const MIN_JOINED_TITLE_LENGTH = 6;
 
 function titleScore(trackTitle: string, videoTitle: string, videoTokens: Set<string>): number {
   const normalized = normalizeText(trackTitle);
@@ -29,7 +37,13 @@ function titleScore(trackTitle: string, videoTitle: string, videoTokens: Set<str
   if (normalized.length >= 3 && videoTitle.includes(normalized)) {
     return 0.6 + 0.4 * (normalized.length / Math.max(videoTitle.length, normalized.length));
   }
-  const trackTokens = tokens(trackTitle);
+  return Math.max(
+    joinedTitleScore(normalized, videoTitle),
+    tokenScore(tokens(trackTitle), videoTokens),
+  );
+}
+
+function tokenScore(trackTokens: string[], videoTokens: Set<string>): number {
   if (trackTokens.length === 0) return 0;
   const matches = trackTokens.filter((token) => videoTokens.has(token)).length;
   let score = 0.9 * (matches / trackTokens.length);
@@ -39,12 +53,28 @@ function titleScore(trackTitle: string, videoTitle: string, videoTokens: Set<str
   return score;
 }
 
+/** "Cover Girl" in "Outfit - Covergirl": the title found once the spaces are dropped from both. */
+function joinedTitleScore(trackTitle: string, videoTitle: string): number {
+  const joinedTrack = trackTitle.replaceAll(" ", "");
+  const joinedVideo = videoTitle.replaceAll(" ", "");
+  if (joinedTrack.length < MIN_JOINED_TITLE_LENGTH || !joinedVideo.includes(joinedTrack)) return 0;
+  return 0.55 + 0.35 * (joinedTrack.length / joinedVideo.length);
+}
+
+/** "The Outfit" is credited as "Outfit" in many video titles. */
+function artistTokensOf(artist: string): string[] {
+  const artistTokens = tokens(artist);
+  return artistTokens.length > 1 && artistTokens[0] === "the"
+    ? artistTokens.slice(1)
+    : artistTokens;
+}
+
 function scorePair(track: MatchTrack, videoTitle: string, videoTokens: Set<string>): number {
   if (normalizeText(track.title) === "") return 0;
   let score = titleScore(track.title, videoTitle, videoTokens);
   const position = normalizeText(track.position);
   if (position !== "" && videoTokens.has(position)) score += 0.15;
-  const artistTokens = tokens(track.artist ?? "");
+  const artistTokens = artistTokensOf(track.artist ?? "");
   if (artistTokens.length > 0 && artistTokens.every((token) => videoTokens.has(token)))
     score += 0.1;
   return Math.min(score, 1);

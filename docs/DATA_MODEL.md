@@ -75,7 +75,9 @@ tracks follow; a library keyed by older rules is rekeyed as it opens.
 | `title`, `duration_seconds`, `embeddable` | from the dump or the API                                         |
 | `matched_position`                        | track position guessed by `src/shared/match-videos.ts`, nullable |
 
-Non-YouTube videos are dropped at load time.
+Non-YouTube videos are dropped at load time. `meta.video_match_version` records the matching rules
+`matched_position` follows, here and in `user_videos`; a library matched by older rules is
+rematched as it opens, which changes no verdict, mark or listen.
 
 ## user_videos
 

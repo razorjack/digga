@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { migrationBackupFile } from "../paths.ts";
 import { rekeyTunes } from "./tune-keys.ts";
+import { rematchVideos } from "./video-matches.ts";
 
 /**
  * The only module that imports better-sqlite3. Everything else receives a Db.
@@ -39,6 +40,7 @@ export function openDb(file: string, options: OpenOptions = {}): Db {
     backupBeforeMigration(db, file);
     applyMigrations(db);
     rekeyTunes(db);
+    rematchVideos(db);
   } catch (error) {
     db.close();
     throw error;

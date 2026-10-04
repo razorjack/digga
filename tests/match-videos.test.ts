@@ -47,6 +47,31 @@ describe("matchVideos", () => {
     expect(r.map((m) => m.position)).toEqual(["B1", "B1"]);
   });
 
+  it("matches a title whose words the upload runs together or splits", () => {
+    const outfit = [
+      { position: "A", title: "Cover Girl", artist: "The Outfit" },
+      { position: "AA", title: "Love Thing", artist: "The Outfit" },
+    ];
+    const r = matchVideos(outfit, [{ title: "Outfit - Covergirl" }, { title: "Love-Thing" }]);
+    expect(r.map((m) => m.position)).toEqual(["A", "AA"]);
+    const split = matchVideos([{ position: "B", title: "Nightfall" }], [{ title: "Night Fall" }]);
+    expect(split[0]!.position).toBe("B");
+  });
+
+  it("does not match a short title found inside run-together words", () => {
+    const r = matchVideos([{ position: "A", title: "Hitme" }], [{ title: "Whit Meadow" }]);
+    expect(r[0]!.position).toBeNull();
+  });
+
+  it("credits an artist without its leading The", () => {
+    const outfit = [
+      { position: "A", title: "Untitled", artist: "Konflict" },
+      { position: "B", title: "Untitled", artist: "The Outfit" },
+    ];
+    const r = matchVideos(outfit, [{ title: "Outfit - Untitled" }]);
+    expect(r[0]!.position).toBe("B");
+  });
+
   it("returns one entry per video in order", () => {
     const r = matchVideos(tracks, [{ title: "x" }, { title: "Messiah" }]);
     expect(r.map((m) => m.videoIndex)).toEqual([0, 1]);

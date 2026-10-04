@@ -954,3 +954,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      releases gone and new since the previous read. Grades are abbreviated from the text in
      Discogs's condition names, with M and NM in the accent and VG and below muted.
      The release snapshot also keeps the community rating `P` fetches, average and count.
+147. **Video titles match with their words run together, and libraries are rematched.** Uploads
+     write "Covergirl" for a track called "Cover Girl", and credit "The Outfit" as "Outfit", so
+     such a video played under "Other videos". The matcher also compares the titles with their
+     spaces dropped, from six letters up so a short title does not match inside unrelated words,
+     and credits an artist without a leading "The". Matches are stored when a release is loaded,
+     enriched or given a video, so `meta.video_match_version` (2) records the rules and a library
+     at an older version is rematched once as it opens. The rematch writes only
+     `matched_position`; verdicts, marks, listens and heard tunes key on the tracklist, not on
+     videos, so they stay as they were.
