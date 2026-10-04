@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { recentJobs, settingsTab, TAB_JOBS } from "../src/client/settings/tabs.ts";
+import { recentJobs, settingsTab, TAB_JOBS, unsavedTabs } from "../src/client/settings/tabs.ts";
+import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { Job, JobType } from "../src/shared/types.ts";
 
 function job(id: string, type: JobType): Job {
@@ -54,5 +55,27 @@ describe("the jobs a tab lists", () => {
       "4",
       "5",
     ]);
+  });
+});
+
+describe("the tabs with unsaved changes", () => {
+  it("names none while the draft is the saved settings", () => {
+    expect(unsavedTabs(structuredClone(DEFAULT_CONFIG), DEFAULT_CONFIG)).toEqual([]);
+  });
+
+  it("names each tab whose fields changed, in the list's order", () => {
+    const draft = structuredClone(DEFAULT_CONFIG);
+    draft.discogs.currency = "GBP";
+    draft.queue.limit = 50;
+    expect(unsavedTabs(draft, DEFAULT_CONFIG)).toEqual(["digging", "discogs"]);
+    draft.universe.coverage = !draft.universe.coverage;
+    expect(unsavedTabs(draft, DEFAULT_CONFIG)).toEqual(["digging", "library", "discogs"]);
+  });
+
+  it("leaves out the settings General saves at once", () => {
+    const draft = structuredClone(DEFAULT_CONFIG);
+    draft.sandbox = !draft.sandbox;
+    draft.appearance.colorScheme = "dark";
+    expect(unsavedTabs(draft, DEFAULT_CONFIG)).toEqual([]);
   });
 });

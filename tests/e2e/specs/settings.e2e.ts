@@ -46,15 +46,18 @@ test(
     await expect(settings.batch).toHaveValue(String(queue.limit));
     await expect(settings.seekStep).toHaveValue(String(player.seekStepSeconds));
     await expect(settings.fromYear).toHaveValue(String(filters.yearFrom));
-    await expect(settings.root.getByText("All saved.", { exact: true })).toBeVisible();
-    await expect(settings.revertButton).toBeDisabled();
-    await expect(settings.saveButton).toBeDisabled();
+    // Nothing to save: the save bar shows no buttons.
+    await expect(settings.revertButton).toBeHidden();
+    await expect(settings.saveButton).toBeHidden();
 
     await settings.batch.fill("50");
     await expect(settings.root.getByText("Unsaved changes.", { exact: true })).toBeVisible();
+    await expect(settings.tabLink("digging")).toHaveAccessibleDescription("Unsaved changes");
+    await expect(settings.tabLink("library")).toHaveAccessibleDescription("");
     await settings.revertButton.click();
     await expect(settings.batch).toHaveValue(String(queue.limit));
-    await expect(settings.root.getByText("All saved.", { exact: true })).toBeVisible();
+    await expect(settings.saveButton).toBeHidden();
+    await expect(settings.tabLink("digging")).toHaveAccessibleDescription("");
 
     await settings.batch.fill("50");
     await settings.save();
@@ -64,11 +67,19 @@ test(
     await settings.saveWithShortcut();
     expect((await app.api.get<Config>("/api/settings")).player.seekStepSeconds).toBe(15);
 
+    // A change stays unsaved while another tab shows, and saves from there.
+    await settings.batch.fill("60");
+    await settings.showTab("backups");
+    await expect(settings.tabLink("digging")).toHaveAccessibleDescription("Unsaved changes");
+    await settings.save();
+    expect((await app.api.get<Config>("/api/settings")).queue.limit).toBe(60);
+    await expect(settings.tabLink("digging")).toHaveAccessibleDescription("");
+
     await app.page.reload();
-    await expect(settings.saveButton).toBeVisible();
-    await expect(settings.batch).toHaveValue("50");
+    await settings.showTab("digging");
+    await expect(settings.batch).toHaveValue("60");
     await expect(settings.seekStep).toHaveValue("15");
-    await expect(settings.root.getByText("All saved.", { exact: true })).toBeVisible();
+    await expect(settings.saveButton).toBeHidden();
   },
 );
 

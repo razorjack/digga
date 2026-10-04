@@ -7,8 +7,10 @@ and [authoring guidance](../AUTHORING.md). [Scenario conventions and other famil
 
 Priority: **P1**.
 
-The form shows the saved config and "All saved."; a change reads "Unsaved changes."; Revert
-restores; Save and `ControlOrMeta+S` save ("Saved. The queue has reloaded."); a reload keeps it
+The form shows the saved config, and the save bar no buttons; a change reads "Unsaved changes."
+and marks its tab ("Unsaved changes" as the link's description); Revert restores; Save and
+`ControlOrMeta+S` save ("Saved. The queue has reloaded."); a change stays unsaved on another tab
+and saves from there; a reload keeps it
 
 ## SET-02
 

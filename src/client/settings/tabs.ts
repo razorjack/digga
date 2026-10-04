@@ -1,3 +1,4 @@
+import type { Config } from "../../shared/config.ts";
 import type { Job, JobType } from "../../shared/types.ts";
 
 /** The groups Settings shows one at a time, in the order of its section list. */
@@ -12,8 +13,12 @@ export const SETTINGS_TAB_LABEL: Record<SettingsTab, string> = {
   general: "General",
 };
 
-/** The tabs whose fields belong to the settings form, which the save bar saves. */
-export const FORM_TABS: ReadonlySet<SettingsTab> = new Set(["digging", "library", "discogs"]);
+/** The parts of the config each tab's fields edit, in the settings form the save bar saves. */
+const TAB_SETTINGS: Partial<Record<SettingsTab, readonly (keyof Config)[]>> = {
+  digging: ["filters", "queue", "player"],
+  library: ["universe"],
+  discogs: ["discogs"],
+};
 
 /** The jobs a tab starts, which it lists under its controls. */
 export const TAB_JOBS = {
@@ -37,6 +42,20 @@ const RECENT_JOBS = 5;
 export function settingsTab(anchor: string | null): SettingsTab {
   if (anchor === "sandbox") return "general";
   return SETTINGS_TABS.find((tab) => tab === anchor) ?? "digging";
+}
+
+/** Whether the tab holds part of the settings form. */
+export function hasSettingsForm(tab: SettingsTab): boolean {
+  return TAB_SETTINGS[tab] !== undefined;
+}
+
+/** The tabs whose fields differ from the saved settings. */
+export function unsavedTabs(draft: Config, saved: Config): SettingsTab[] {
+  return SETTINGS_TABS.filter((tab) =>
+    (TAB_SETTINGS[tab] ?? []).some(
+      (key) => JSON.stringify(draft[key]) !== JSON.stringify(saved[key]),
+    ),
+  );
 }
 
 /** The newest jobs of the given types, from jobs listed newest first. */

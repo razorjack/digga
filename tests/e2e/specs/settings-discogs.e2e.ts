@@ -47,7 +47,7 @@ test(
     await expect(settings.token).toHaveAccessibleDescription(/^Works for dj\. /);
     // The first token sets the username, and the form takes it, so a later save keeps it.
     await expect(settings.username).toHaveValue(DJ.username);
-    await expect(settings.saveButton).toBeDisabled();
+    await expect(settings.saveButton).toBeHidden();
 
     const refused = await settings.saveToken("e2e-token-refused");
     expect(refused.status()).toBe(400);

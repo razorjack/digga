@@ -13,7 +13,13 @@
   import GeneralTab from "../settings/GeneralTab.svelte";
   import { SettingsJobs } from "../settings/jobs.svelte.ts";
   import LibraryTab from "../settings/LibraryTab.svelte";
-  import { FORM_TABS, SETTINGS_TAB_LABEL, SETTINGS_TABS, settingsTab } from "../settings/tabs.ts";
+  import {
+    hasSettingsForm,
+    SETTINGS_TAB_LABEL,
+    SETTINGS_TABS,
+    settingsTab,
+    unsavedTabs,
+  } from "../settings/tabs.ts";
   import "../settings/settings.css";
 
   const id = $props.id();
@@ -35,6 +41,9 @@
   const validation = $derived(draft ? validateConfig(draft) : null);
   const problems = $derived(validation && !validation.ok ? validation.errors : []);
   const issues = $derived(validation && !validation.ok ? validation.issues : []);
+  const unsaved = $derived(draft && saved ? unsavedTabs(draft, saved) : []);
+  /** The save bar shows only with something to say: a problem, a message or unsaved changes. */
+  const idle = $derived(problems.length === 0 && flash === null && !dirty);
   const tab = $derived(settingsTab(getAnchor()));
   const highlighted = $derived(getAnchor() === "sandbox");
   /** Derived, so saves that keep the username do not fetch the lists again. */
@@ -162,12 +171,18 @@
         <ul>
           {#each SETTINGS_TABS as destination (destination)}
             <li>
-              <a href="#/settings/{destination}" aria-current={tab === destination ? "page" : undefined}>
+              <a
+                href="#/settings/{destination}"
+                aria-current={tab === destination ? "page" : undefined}
+                aria-describedby={unsaved.includes(destination) ? `${id}-unsaved` : undefined}
+              >
                 {SETTINGS_TAB_LABEL[destination]}
+                {#if unsaved.includes(destination)}<span class="unsaved" aria-hidden="true"></span>{/if}
               </a>
             </li>
           {/each}
         </ul>
+        <span id="{id}-unsaved" hidden>Unsaved changes</span>
       </nav>
 
       <div class="panel">
@@ -191,10 +206,14 @@
         {:else}
           <GeneralTab bind:draft {discogs} {highlighted} {showFlash} />
         {/if}
+        {#if !hasSettingsForm(tab)}
+          <!-- Unsaved changes from another tab still save from this one, through this empty form. -->
+          <form id={formId} onsubmit={submit}></form>
+        {/if}
       </div>
     </div>
 
-    <div class="savebar">
+    <div class="savebar" class:idle>
       <p class="status" role="status">
         {#if problems.length > 0}
           <span class="problem">{problems[0]}</span>
@@ -202,17 +221,15 @@
           <span class="flash">{flash}</span>
         {:else if dirty}
           Unsaved changes.
-        {:else}
-          <span class="quiet">All saved.</span>
         {/if}
       </p>
-      {#if FORM_TABS.has(tab)}
-        <button type="button" class="secondary" disabled={!dirty} onclick={revert}>Revert</button>
+      {#if dirty}
+        <button type="button" class="secondary" onclick={revert}>Revert</button>
         <button
           type="submit"
           form={formId}
           class="primary"
-          disabled={!dirty || problems.length > 0 || saving}
+          disabled={problems.length > 0 || saving}
           aria-keyshortcuts="Meta+S Control+S"
         >
           Save settings <kbd class="kbd" aria-hidden="true">⌘S</kbd>
@@ -266,6 +283,15 @@
   .tabs a:hover {
     color: var(--fg);
   }
+  .unsaved {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-left: 8px;
+    border-radius: 50%;
+    background: var(--accent-mark);
+    vertical-align: middle;
+  }
   .tabs a[aria-current="page"] {
     background: var(--surface);
     box-shadow: inset 3px 0 0 var(--accent-mark);
@@ -295,6 +321,12 @@
     padding: 12px 40px;
     border-top: 1px solid var(--rule);
     background: var(--surface);
+  }
+  /* The status stays in the DOM while idle, so its next message is announced. */
+  .savebar.idle {
+    padding-block: 0;
+    border-top: 0;
+    background: none;
   }
   .status {
     margin-right: auto;

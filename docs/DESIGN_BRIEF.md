@@ -95,8 +95,10 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   from the Discogs wantlist and maybes missing from the Maybe list carry a small marker, with a
   dashed banner above the shelf.
 - **Settings** has a list of its tabs on the left, marked like a selected Twelves row, and the
-  tab's sections beside it, with a sticky save bar at the bottom. Digging, Library and Discogs
-  each render the part of the settings form they hold; the save bar saves all of it. The Sandbox
+  tab's sections beside it. Digging, Library and Discogs each render the part of the settings
+  form they hold. A sticky save bar appears at the bottom only with a problem, a message or
+  unsaved changes, and saves all of them from any tab; a tab with unsaved fields carries a small
+  flyer dot. The Sandbox
   section, first under General, switches at once, outside the save bar; arriving from the header
   stamp opens General and highlights it with the same sleeve and flyer bar.
 
