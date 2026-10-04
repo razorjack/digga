@@ -115,11 +115,16 @@ export class SettingsPage {
   }
 
   get skipHistory(): Locator {
-    return this.root.getByRole("checkbox", { name: "skip records opened before", exact: true });
+    return this.skip.getByRole("checkbox", { name: "records opened before", exact: true });
   }
 
   get skipHeard(): Locator {
-    return this.root.getByRole("checkbox", { name: "skip tunes heard before", exact: true });
+    return this.skip.getByRole("checkbox", { name: "tunes heard before", exact: true });
+  }
+
+  /** The Skip group: releases without videos, records opened before, tunes heard before. */
+  get skip(): Locator {
+    return this.root.getByRole("group", { name: "Skip", exact: true });
   }
 
   get fromYear(): Locator {

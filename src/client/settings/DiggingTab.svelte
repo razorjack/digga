@@ -160,20 +160,24 @@
         </span>
       </div>
       <fieldset class="field">
-        <legend class="name">Videos</legend>
-        <label class="check">
-          <input type="checkbox" aria-describedby="{id}-videos-hint" bind:checked={draft.filters.skipWithoutVideos} />
-          skip releases without videos
-        </label>
-        <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
-      </fieldset>
-      <fieldset class="field">
-        <legend class="name">Browser history</legend>
-        <label class="check">
-          <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
-          skip records opened before
-        </label>
-        <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
+        <legend class="name">Skip</legend>
+        <div class="skips">
+          <label class="check">
+            <input type="checkbox" aria-describedby="{id}-videos-hint" bind:checked={draft.filters.skipWithoutVideos} />
+            releases without videos
+          </label>
+          <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
+          <label class="check">
+            <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
+            records opened before
+          </label>
+          <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
+          <label class="check">
+            <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />
+            tunes heard before
+          </label>
+          <span class="hint" id="{id}-heard-hint">When a record starts and when moving on; any track can still be picked.</span>
+        </div>
       </fieldset>
       {#if draft.universe.styles.length > 1}
         <fieldset class="field">
@@ -255,14 +259,6 @@
           <span>{startAtPercent}% into each track</span>
         </div>
       </div>
-      <fieldset class="field">
-        <legend class="name">Heard tunes</legend>
-        <label class="check">
-          <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />
-          skip tunes heard before
-        </label>
-        <span class="hint" id="{id}-heard-hint">When a record starts and when moving on; any track can still be picked.</span>
-      </fieldset>
       <div class="field narrow">
         <label class="name" for="{id}-seek">Seek step</label>
         <input
@@ -291,6 +287,16 @@
     grid-template-columns: auto 12em 1fr;
     align-items: baseline;
     gap: 12px;
+  }
+  .skips {
+    display: grid;
+    row-gap: 2px;
+  }
+  .skips .hint {
+    margin: 0 0 8px 26px;
+  }
+  .skips .hint:last-child {
+    margin-bottom: 0;
   }
   .option label {
     cursor: pointer;
