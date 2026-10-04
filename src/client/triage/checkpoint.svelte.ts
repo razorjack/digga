@@ -31,7 +31,7 @@ export class SessionCheckpoint {
   /** The saved session the page offers to resume, until the listener chooses. */
   pending = $state.raw<SavedSession | null>(null);
   restoring = $state(false);
-  /** How the last save or resume went, for the page's status line. */
+  /** A failed save or how the resume went, for the page's status line. Saves succeed silently. */
   message = $state("");
 
   #api: AppApi;
@@ -47,6 +47,8 @@ export class SessionCheckpoint {
   #saving = false;
   /** The state last saved, serialized, so an unchanged session is not saved again. */
   #lastState = "";
+  /** The status line shows a failed save, which the next successful save clears. */
+  #showingSaveError = false;
 
   constructor(
     api: AppApi,
@@ -93,14 +95,14 @@ export class SessionCheckpoint {
       if (!saved) this.startFresh();
     } catch (error) {
       if (generation === this.#generation)
-        this.message = `Could not read the last session: ${errorMessage(error)}`;
+        this.#showMessage(`Could not read the last session: ${errorMessage(error)}`);
     }
   }
 
   startFresh(): void {
     this.#generation += 1;
     this.#continueSession({ id: crypto.randomUUID(), startedAt: new Date().toISOString() });
-    this.message = "";
+    this.#showMessage("");
   }
 
   async save(): Promise<void> {
@@ -117,10 +119,11 @@ export class SessionCheckpoint {
       await client.putSession({ ...identity, state });
       if (generation !== this.#generation) return;
       this.#lastState = serialized;
-      this.message = "Session position saved.";
+      if (this.#showingSaveError) this.#showMessage("");
     } catch (error) {
-      if (generation === this.#generation)
-        this.message = `Session position not saved: ${errorMessage(error)}`;
+      if (generation !== this.#generation) return;
+      this.#showMessage(`Session position not saved: ${errorMessage(error)}`);
+      this.#showingSaveError = true;
     } finally {
       this.#saving = false;
     }
@@ -147,10 +150,10 @@ export class SessionCheckpoint {
       await this.#session.restoreSession(resolved);
       if (!isCurrent()) return;
       this.#continueSession(saved);
-      this.message = resumedMessage(resolved.unavailable);
+      this.#showMessage(resumedMessage(resolved.unavailable));
     } catch (error) {
       if (generation === this.#generation)
-        this.message = `Could not resume the session: ${errorMessage(error)}`;
+        this.#showMessage(`Could not resume the session: ${errorMessage(error)}`);
     } finally {
       if (generation === this.#generation) this.restoring = false;
     }
@@ -161,12 +164,17 @@ export class SessionCheckpoint {
     this.#identity = null;
   }
 
+  #showMessage(message: string): void {
+    this.message = message;
+    this.#showingSaveError = false;
+  }
+
   /** Forgets the session and any offer; returns the new generation. */
   #reset(): number {
     this.#identity = null;
     this.pending = null;
     this.restoring = false;
-    this.message = "";
+    this.#showMessage("");
     this.#player.sessionId = null;
     this.#player.restorePlayback(null);
     return ++this.#generation;

@@ -39,7 +39,7 @@ function checkpoint() {
   };
 }
 
-it("reports a failed save and retries the current state on the next checkpoint", async () => {
+it("reports a failed save, retries the current state on the next checkpoint and clears the report", async () => {
   const test = checkpoint();
   await test.checkpoint.open();
   test.putSession.mockRejectedValueOnce(new Error("disk full"));
@@ -48,7 +48,7 @@ it("reports a failed save and retries the current state on the next checkpoint",
   test.state.currentId = 2;
   await test.checkpoint.save();
   expect(test.putSession.mock.lastCall?.[0].state.currentId).toBe(2);
-  expect(test.checkpoint.message).toBe("Session position saved.");
+  expect(test.checkpoint.message).toBe("");
   await test.checkpoint.save();
   expect(test.putSession).toHaveBeenCalledTimes(2);
 });

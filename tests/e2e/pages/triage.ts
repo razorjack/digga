@@ -105,9 +105,6 @@ export class TriagePage {
     const saved = this.#response("PUT", "/api/sessions/current");
     await this.app.clock.runFor(5100);
     await this.#completed(await saved);
-    await expect(this.root.getByRole("status", { name: "Session checkpoint" })).toHaveText(
-      "Session position saved.",
-    );
   }
 
   async resumeSessionFromCheckpoint(): Promise<void> {
