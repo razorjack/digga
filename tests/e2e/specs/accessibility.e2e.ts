@@ -129,7 +129,7 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
       const regions: [SettingsTab, Locator[]][] = [
         ["library", [settings.library, settings.dumpSection]],
         ["discogs", [settings.discogs, settings.imports]],
-        ["backups", [settings.exports]],
+        ["backups", [settings.backups, settings.exports]],
         ["general", [settings.sandbox]],
       ];
       for (const [tab, shown] of regions) {

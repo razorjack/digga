@@ -258,7 +258,7 @@ element, and explain that exception in a comment.
 - Settings shows one tab at a time, listed in the "Settings sections" navigation with
   `aria-current="page"` on the current one; `SettingsPage.open(tab)` and `showTab(tab)` go
   there. It names the Library and Dump (Library tab), Discogs and Imports (Discogs tab), Backups
-  and exports, and Sandbox (General tab) regions with `aria-labelledby`. Discogs is inside the
+  and Exports (Backups tab), and Sandbox (General tab) regions with `aria-labelledby`. Discogs is inside the
   settings form; other form sections stay unnamed. Opened at `#/settings/sandbox`, General shows
   the Sandbox region with `aria-current="location"`, which also draws its highlight.
 - The slips are groups named "Last action" and "Up next", retaining the last action's

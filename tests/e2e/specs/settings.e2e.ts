@@ -471,17 +471,20 @@ test(
       releaseId: FIRST_RECORD.id,
     });
     await settings.open("backups");
-    await expect(settings.exports).toContainText("Your decisions: no backup yet.");
+    await expect(settings.backup("Your decisions")).toContainText("none yet");
 
     await app.relaunch();
     // The start writes the backup beside answering requests.
     await expect.poll(async () => (await backups(app)).decisions.backups).toHaveLength(1);
-    const [backup] = (await backups(app)).decisions.backups;
+    const { decisions } = await backups(app);
+    const [backup] = decisions.backups;
     await settings.open("backups");
 
-    await expect(settings.exports).toContainText(
-      `Your decisions: last backed up ${formatDay(`${backup!.day}T00:00:00`)} (${formatBytes(backup!.bytes)}).`,
-    );
+    await expect(settings.backup("Your decisions").getByRole("cell")).toHaveText([
+      formatDay(`${backup!.day}T00:00:00`),
+      formatBytes(backup!.bytes),
+      `last ${decisions.kept}`,
+    ]);
   },
 );
 

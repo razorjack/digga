@@ -13,7 +13,7 @@ Twelves shelf, each Settings tab, each setup step, the crate while loading, the 
 practice card. The region names are asserted directly, since axe reports a dangling
 `aria-labelledby` only as incomplete: Triage's Player region, its "Last action", "Up next" and
 "Verdicts" groups and its two named status regions; each shelf's table; Settings' Library, Dump,
-Discogs, Imports, Backups and exports, and Sandbox regions, each on its tab; each step's region or form, named by its
+Discogs, Imports, Backups, Exports and Sandbox regions, each on its tab; each step's region or form, named by its
 heading, and the crate's "Fill the crate", then "The catalogue is in: …".
 
 Each state is scanned with every rule in the dark scheme the host emulates, then with

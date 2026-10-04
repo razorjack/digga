@@ -80,8 +80,19 @@ export class SettingsPage {
     return this.root.getByRole("region", { name: "Library" });
   }
 
+  get backups(): Locator {
+    return this.root.getByRole("region", { name: "Backups", exact: true });
+  }
+
+  /** The row of the Backups table for a kind of backup, such as "Your decisions". */
+  backup(kind: string): Locator {
+    return this.backups
+      .getByRole("row")
+      .filter({ has: this.app.page.getByRole("rowheader", { name: kind, exact: true }) });
+  }
+
   get exports(): Locator {
-    return this.root.getByRole("region", { name: "Backups and exports" });
+    return this.root.getByRole("region", { name: "Exports", exact: true });
   }
 
   get discogs(): Locator {

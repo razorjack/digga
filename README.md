@@ -237,8 +237,8 @@ folder:
 | Windows | `%APPDATA%\Digga\backups`                                               |
 | Linux   | `~/.config/Digga/backups`, or `$XDG_CONFIG_HOME/Digga/backups` when set |
 
-With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the path under
-**Backups and exports**.
+With `DIGGA_DATA_DIR` set, it is `backups` in that folder. Settings shows the path on its
+**Backups** tab.
 
 - **`decisions-YYYY-MM-DD.json.gz`: your decisions.** Every verdict, your notes and track marks,
   the tunes you heard and every listen, the YouTube links you attached, the videos a record marked

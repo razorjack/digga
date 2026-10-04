@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { BackupsResponse } from "../../shared/api.ts";
+  import type { BackupSummary, BackupsResponse } from "../../shared/api.ts";
   import { formatAge, formatBytes, formatDay } from "../../shared/display.ts";
   import { api } from "../api.ts";
   import { errorMessage, settings } from "../stores.svelte.ts";
+  import { checkpointTime } from "./backups.ts";
 
   const id = $props.id();
   let backups = $state<BackupsResponse | null>(null);
@@ -12,9 +13,8 @@
   /** How the last "Back up now" went. */
   let message = $state<string | null>(null);
 
-  const latest = $derived(backups?.backups[0] ?? null);
-  const latestDecisions = $derived(backups?.decisions.backups[0] ?? null);
   const latestCheckpoint = $derived(backups?.checkpoints.backups[0] ?? null);
+  const checkpointAt = $derived(latestCheckpoint ? checkpointTime(latestCheckpoint.day) : null);
 
   onMount(() => {
     api.getBackups().then(
@@ -37,12 +37,22 @@
   }
 </script>
 
+{#snippet dailyRow(name: string, latest: BackupSummary | undefined, kept: number)}
+  <tr>
+    <th scope="row">{name}</th>
+    {#if latest}
+      <td><time datetime={latest.day}>{formatDay(`${latest.day}T00:00:00`)}</time></td>
+      <td>{formatBytes(latest.bytes)}</td>
+    {:else}
+      <td>none yet</td>
+      <td></td>
+    {/if}
+    <td>last {kept}</td>
+  </tr>
+{/snippet}
+
 <section aria-labelledby="{id}-title">
-  <h2 id="{id}-title">Backups and exports</h2>
-  <div>
-    <button type="button" class="secondary" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>Back up now</button>
-  </div>
-  <p role="status">{message ?? ""}</p>
+  <h2 id="{id}-title">Backups</h2>
   {#if error}
     <p>Backups did not load: {error}</p>
   {:else if backups}
@@ -52,47 +62,73 @@
         {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at once.
       </p>
     {/if}
-    <p>
-      <b>Your decisions</b>:
-      {#if latestDecisions}
-        last backed up <time datetime={latestDecisions.day}>{formatDay(`${latestDecisions.day}T00:00:00`)}</time>
-        ({formatBytes(latestDecisions.bytes)}).
-      {:else}
-        no backup yet.
-      {/if}
-      Once a day Digga writes your verdicts, notes, track marks, listening and decision histories, saved sessions, attached links and settings, to <code>decisions-YYYY-MM-DD.json.gz</code>, and keeps the last
-      {backups.decisions.kept}. Days when nothing changed add none. <code>npm run digga -- restore</code> with
-      the file brings them back into a library loaded from a dump.
-    </p>
-    <p>
-      <b>The database</b>:
-      {#if latest}
-        last copied <time datetime={latest.day}>{formatDay(`${latest.day}T00:00:00`)}</time>
-        ({formatBytes(latest.bytes)}).
-      {:else}
-        no copy yet.
-      {/if}
-      Digga copies it once a day while the server runs and keeps the last {backups.kept}. To restore one, stop the
-      server and run <code>npm run digga -- restore</code> with the file; it keeps the database it replaces.
-    </p>
-    <p>
-      Every fifteen minutes and when the server stops cleanly, changed personal data gets a checkpoint.
-      Digga keeps the last {backups.checkpoints.kept} in addition to the daily backups.
-      {#if latestCheckpoint}
-        Latest checkpoint: <code>{latestCheckpoint.day}</code>.
-      {/if}
-      Schema upgrades first save a separate <code>before-migration</code> database copy, which restores the same way.
-      Use <code>restore &lt;file&gt; --config</code> to restore settings as well.
-    </p>
-    <p>All backups are in <code>{backups.directory}</code>.</p>
+    <table class="backups">
+      <caption class="visually-hidden">The newest backup of each kind</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span class="visually-hidden">Backup</span></th>
+          <th scope="col">Latest</th>
+          <th scope="col">Size</th>
+          <th scope="col">Keeps</th>
+        </tr>
+      </thead>
+      <tbody>
+        {@render dailyRow("Your decisions", backups.decisions.backups[0], backups.decisions.kept)}
+        {@render dailyRow("The database", backups.backups[0], backups.kept)}
+        <tr>
+          <th scope="row">Checkpoints</th>
+          {#if latestCheckpoint}
+            <td>
+              {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time>{:else}{latestCheckpoint.day}{/if}
+            </td>
+            <td>{formatBytes(latestCheckpoint.bytes)}</td>
+          {:else}
+            <td>none yet</td>
+            <td></td>
+          {/if}
+          <td>last {backups.checkpoints.kept}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="hint">In <code>{backups.directory}</code>.</p>
   {/if}
+  <div class="inline">
+    <button type="button" class="secondary" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>
+      Back up now
+    </button>
+    <p role="status">{message ?? ""}</p>
+  </div>
+  <details>
+    <summary>What each backup holds, and how to restore it</summary>
+    <p>
+      <b>Your decisions</b>: once a day, Digga writes your verdicts, notes, track marks, listening and decision
+      histories, saved sessions, attached links and settings to <code>decisions-YYYY-MM-DD.json.gz</code>. Days when
+      nothing changed add none. <code>npm run digga -- restore</code> with the file brings them back into a library
+      loaded from a dump; add <code>--config</code> to restore the settings as well.
+    </p>
+    <p>
+      <b>The database</b>: copied once a day while the server runs. To restore a copy, stop the server and run
+      <code>npm run digga -- restore</code> with the file; it keeps the database it replaces. Schema upgrades first
+      save a separate <code>before-migration</code> copy, which restores the same way.
+    </p>
+    <p>
+      <b>Checkpoints</b>: every fifteen minutes, and when the server stops cleanly, changed personal data gets a
+      checkpoint, in addition to the daily backups.
+    </p>
+  </details>
+</section>
+
+<section aria-labelledby="{id}-exports-title">
+  <h2 id="{id}-exports-title">Exports</h2>
   <p>
-    Export what is saved:
+    What is saved, to download:
     <a href={api.exportUrl("decisions.json")} download>verdicts and track marks (JSON)</a>,
     <a href={api.exportUrl("verdicts.csv")} download>verdicts (CSV)</a>,
     <a href={api.exportUrl("track-marks.csv")} download>track marks (CSV)</a>.
-    {#if settings.sandbox}The sandbox verdicts in this tab are not saved, so they are not in them.{/if}
   </p>
+  {#if settings.sandbox}
+    <p class="hint">The sandbox verdicts in this tab are not saved, so they are not in them.</p>
+  {/if}
 </section>
 
 <style>
@@ -103,5 +139,42 @@
   a {
     color: var(--fg);
     text-underline-offset: 3px;
+  }
+  .backups {
+    max-width: 46em;
+    border-collapse: collapse;
+  }
+  .backups th,
+  .backups td {
+    padding: 6px 24px 6px 0;
+    font-weight: inherit;
+    text-align: left;
+  }
+  .backups thead th {
+    color: var(--fg-faint);
+    font-size: var(--text-sm);
+  }
+  .backups tbody th {
+    color: var(--fg);
+  }
+  .backups td {
+    color: var(--fg-muted);
+  }
+  .backups tbody tr {
+    border-top: 1px solid var(--rule-soft);
+  }
+  details {
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+  }
+  summary {
+    cursor: pointer;
+    color: var(--fg);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+  }
+  details p {
+    margin-top: 10px;
   }
 </style>
