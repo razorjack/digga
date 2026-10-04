@@ -64,7 +64,7 @@
 <form id={formId} {onsubmit}>
   <section>
     <h2>What to dig</h2>
-    <p class="hint">Query-time filters: they narrow the loaded releases without reloading anything.</p>
+    <p class="hint">They narrow the loaded releases; the queue follows as soon as you save.</p>
     <div class="fields">
       <fieldset class="field">
         <legend class="name">Years</legend>
@@ -96,9 +96,7 @@
             or only those on labels and by artists you want
           </label>
         </div>
-        <span class="hint" id="{id}-undated-hint">
-          The labels and artists of the records you want or own, as the coverage pass in Library uses them.
-        </span>
+        <span class="hint" id="{id}-undated-hint">The labels and artists of the records you want or own.</span>
       </fieldset>
       <div class="field">
         <label class="name" for="{id}-formats">Formats</label>
@@ -143,8 +141,7 @@
           />
         </div>
         <span class="hint" id="{id}-descriptions-hint">
-          Discogs format descriptions, comma separated: 12", EP, Promo, Test Pressing, Compilation, Unofficial
-          Release. The first keeps releases with one of them, the second leaves out releases with any.
+          Discogs format descriptions, comma separated: 12", EP, Promo, Test Pressing.
         </span>
       </fieldset>
       <div class="field">
@@ -158,9 +155,8 @@
           placeholder="none"
         ></textarea>
         <span class="hint" id="{id}-labels-hint">
-          One label name per line, as Discogs writes it: Not On Label, Virgin. A record is left out when its first
-          label is one of them; Not On Label also covers self-releases such as Not On Label (Artist Self-released).
-          <Key label="X" size="sm" /> in Triage hides the label on screen.
+          One per line, as Discogs writes it; Not On Label also hides self-releases. <Key label="X" size="sm" /> in
+          Triage adds one.
         </span>
       </div>
       <fieldset class="field">
@@ -169,10 +165,7 @@
           <input type="checkbox" aria-describedby="{id}-videos-hint" bind:checked={draft.filters.skipWithoutVideos} />
           skip releases without videos
         </label>
-        <span class="hint" id="{id}-videos-hint">
-          Leaves out records with no playable YouTube video on any of their pressings. A newer dump brings
-          back those that got one since.
-        </span>
+        <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
       </fieldset>
       <fieldset class="field">
         <legend class="name">Browser history</legend>
@@ -180,10 +173,7 @@
           <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
           skip records opened before
         </label>
-        <span class="hint" id="{id}-history-hint">
-          Turn off to dig records imported from browser history. Opening a Discogs page does not prove you
-          listened.
-        </span>
+        <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
       </fieldset>
       {#if draft.universe.styles.length > 1}
         <fieldset class="field">
@@ -271,9 +261,7 @@
           <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />
           skip tunes heard before
         </label>
-        <span class="hint" id="{id}-heard-hint">
-          Applies when starting a record and moving forward. You can always select a track directly.
-        </span>
+        <span class="hint" id="{id}-heard-hint">When a record starts and when moving on; any track can still be picked.</span>
       </fieldset>
       <div class="field narrow">
         <label class="name" for="{id}-seek">Seek step</label>

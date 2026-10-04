@@ -162,8 +162,7 @@
           also other styles from the labels and artists you want
         </label>
         <span class="hint" id="{id}-coverage-hint">
-          Keeps releases in other styles on the labels, and by the artists, of the records you want or own, when at
-          least a third of that label's or artist's releases in the load years carry one of the styles above.
+          When at least a third of the label's or artist's releases in the load years carry one of the styles above.
         </span>
       </fieldset>
     </div>

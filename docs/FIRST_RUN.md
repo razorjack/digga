@@ -222,8 +222,8 @@ styles in step 3.
   id. Without the account check on open, a revoked token or one for another account would
   surface only when a want fails to reach Discogs. About two read requests per visit are nothing
   next to the limit, so the text states them instead.
-- The same paragraph and list appear in Settings' Discogs section, and in the README as "Digga
-  and the Discogs API".
+- The same list, under a shorter paragraph, appears in Settings' Discogs tab, and in the README
+  as "Digga and the Discogs API".
 - The browser list shows only browsers whose history files exist. In Electron on macOS, the
   line says the history import needs Full Disk Access, and how to grant it.
 - "Continue" starts the chosen imports as jobs and moves on at once; they finish while the user

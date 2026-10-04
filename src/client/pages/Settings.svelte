@@ -151,7 +151,6 @@
 <div class="settings">
   <header class="head" bind:this={head}>
     <h1>Settings</h1>
-    <p class="lede">Filters and order change the queue as soon as you save.</p>
   </header>
 
   {#if !draft}
@@ -251,9 +250,6 @@
     gap: 8px;
     margin-bottom: 28px;
     scroll-margin-top: 32px;
-  }
-  .lede {
-    color: var(--fg-muted);
   }
   .layout {
     display: grid;

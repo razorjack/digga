@@ -103,10 +103,9 @@
     <h2 id="{id}-discogs-title">Discogs</h2>
     <div class="api-use">
       <p>
-        Digga reads the catalogue from the dump, not through your account. It uses the token only for things you
-        do: importing, <Key label="A" size="sm" /> and <Key label="C" size="sm" /> putting records on your
-        wantlist, <Key label="P" size="sm" /> asking for a price, and showing your account here. One request at a
-        time, within Discogs' rate limit.
+        Digga reads the catalogue from the dump. The token is used only for what you do: imports,
+        <Key label="A" size="sm" /> and <Key label="C" size="sm" /> wants, <Key label="P" size="sm" /> prices, and
+        this page.
       </p>
       <RequestList />
     </div>
@@ -124,8 +123,7 @@
         {#if discogs.account?.dataAccount}
           {@const dataAccount = discogs.account.dataAccount}
           <span class="hint" id="{id}-data-account">
-            The library holds the collection, wantlist and Maybe list of {dataAccount}; another account needs them
-            forgotten first.
+            The library holds {dataAccount}'s collection, wantlist and Maybe list; forget them to use another account.
             <button type="button" class="link" disabled={discogs.forgetting} onclick={() => void forgetDiscogsData(dataAccount)}>
               Forget them
             </button>
@@ -175,8 +173,7 @@
             DISCOGS_TOKEN in the environment, or in the .env digga started with, overrides a saved token; remove it
             there to change the token here.
           {:else}
-            A personal access token from discogs.com/settings/developers, saved beside the database in secrets.env. Pushes to your wantlist
-            and reads of private lists need it.
+            From discogs.com/settings/developers; saved in secrets.env beside the database.
           {/if}
         </span>
       </div>
@@ -217,8 +214,7 @@
           {#if discogs.listsState === "error"}
             Lists did not load: {discogs.listsError}.
           {:else}
-            The Discogs list you keep maybes on. Once it is set, M files a release as maybe; the
-            Discogs API cannot add to lists, so Twelves shows which ones still need adding there.
+            Where M files maybes. Discogs lets no app add to a list, so Twelves shows what to add.
           {/if}
         </span>
       </div>
