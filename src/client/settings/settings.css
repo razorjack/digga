@@ -71,6 +71,13 @@
 .settings .field > .token-status {
   grid-column: 2;
 }
+/* Text fields hold short lists and names, so they stop well before the column's edge. */
+.settings .field > input,
+.settings .field > select,
+.settings .field > textarea {
+  justify-self: start;
+  width: min(100%, 26em);
+}
 .settings .field.narrow > input,
 .settings .field.narrow > select {
   width: 8em;
