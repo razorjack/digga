@@ -107,7 +107,7 @@
     {/if}
   {/each}
   {#if strays.length > 0}
-    <li class="heading">Other videos</li>
+    <li class="heading strays">Other videos</li>
     {#each strays as { entry, index } (entry.video.videoId)}
       {@const playing = index === playingIndex}
       {@const failed = player.failed.has(entry.video.videoId)}
@@ -149,6 +149,10 @@
     padding: 14px 0 4px 3.9em;
     color: var(--fg-faint);
     font-size: var(--text-sm);
+  }
+  /* Other videos are not the record's sides, so they start a list of their own. */
+  .heading.strays {
+    padding-top: var(--space-block);
   }
   .row button {
     display: grid;
