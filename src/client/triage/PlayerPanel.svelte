@@ -288,10 +288,12 @@
     opacity: 0.6;
     pointer-events: none;
   }
+  /* The keys are help, not playback state, so they keep apart from the seek bar. */
   .keys {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 18px;
+    margin-top: 8px;
     color: var(--fg-muted);
     font-size: var(--text-sm);
   }
