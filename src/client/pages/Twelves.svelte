@@ -495,7 +495,7 @@
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: end;
-    gap: 16px 32px;
+    gap: 24px 32px;
     padding-bottom: 14px;
     border-bottom: 1px solid var(--rule);
   }
@@ -511,7 +511,7 @@
   .shelves {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 22px;
+    gap: 8px 22px;
   }
   .shelves label {
     display: inline-flex;
