@@ -661,10 +661,14 @@
     justify-content: space-between;
     gap: 10px 28px;
     padding: 12px 16px;
-    margin-top: 12px;
+    margin-block: var(--space-item) 20px;
     border: 1px dashed var(--rule);
     color: var(--fg-muted);
     font-size: var(--text-sm);
+  }
+  /* A notice sits apart from the records below it, closer to the next notice. */
+  .handoff:has(+ .handoff) {
+    margin-bottom: 0;
   }
   .handoff p {
     max-width: 90ch;
