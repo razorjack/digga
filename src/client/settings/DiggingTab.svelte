@@ -164,21 +164,27 @@
       <fieldset class="field">
         <legend class="name">Skip</legend>
         <div class="skips">
-          <label class="check">
-            <input type="checkbox" aria-describedby="{id}-videos-hint" bind:checked={draft.filters.skipWithoutVideos} />
-            releases without videos
-          </label>
-          <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
-          <label class="check">
-            <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
-            records opened before
-          </label>
-          <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
-          <label class="check">
-            <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />
-            tunes heard before
-          </label>
-          <span class="hint" id="{id}-heard-hint">When a record starts and when moving on; any track can still be picked.</span>
+          <div class="skip">
+            <label class="check">
+              <input type="checkbox" aria-describedby="{id}-videos-hint" bind:checked={draft.filters.skipWithoutVideos} />
+              releases without videos
+            </label>
+            <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
+          </div>
+          <div class="skip">
+            <label class="check">
+              <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
+              records opened before
+            </label>
+            <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
+          </div>
+          <div class="skip">
+            <label class="check">
+              <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />
+              tunes heard before
+            </label>
+            <span class="hint" id="{id}-heard-hint">When a record starts and when moving on; any track can still be picked.</span>
+          </div>
         </div>
       </fieldset>
       {#if draft.universe.styles.length > 1}
@@ -292,13 +298,14 @@
   }
   .skips {
     display: grid;
-    row-gap: 2px;
+    gap: var(--space-item);
   }
-  .skips .hint {
-    margin: 0 0 8px 26px;
+  .skip {
+    display: grid;
+    gap: var(--space-hint);
   }
-  .skips .hint:last-child {
-    margin-bottom: 0;
+  .skip .hint {
+    margin-left: 26px;
   }
   .option label {
     cursor: pointer;
