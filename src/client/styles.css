@@ -38,6 +38,17 @@
   --text-3xl: 40px;
   --text-4xl: 64px;
 
+  /*
+   * Vertical space by level. Each level is clearly larger than the one inside it, so the space
+   * between two things tells whether they belong together.
+   */
+  --space-hint: 4px; /* a control and its hint */
+  --space-item: 12px; /* items in a list, paragraphs of one block */
+  --space-field: 22px; /* fields of a form */
+  --space-heading: 24px; /* a heading and the content it introduces */
+  --space-block: 32px; /* blocks of a section */
+  --space-section: 36px; /* a section's padding, on each side of its rule */
+
   --radius: 2px;
 }
 

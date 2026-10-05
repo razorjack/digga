@@ -1,10 +1,8 @@
 /* The Settings page's sections, fields and buttons, which its tab components share. */
 
 .settings section {
-  display: grid;
-  gap: 14px;
   max-width: 940px;
-  padding: 36px 0;
+  padding: var(--space-section) 0;
   border-top: 1px solid var(--rule-soft);
 }
 /* A tab's first section, also inside its form, needs no rule above it. */
@@ -13,13 +11,26 @@
   padding-top: 0;
   border-top: 0;
 }
-.settings h2 {
-  margin-bottom: 4px;
+/* A section is a heading and blocks; lines that belong together share a block. */
+.settings section > * + * {
+  margin-top: var(--space-block);
 }
-/* A section's one-line introduction belongs to its heading. */
-.settings h2 + .hint,
-.settings h2 + .quiet {
-  margin-top: -8px;
+.settings section > :is(h2, header) + * {
+  margin-top: var(--space-heading);
+}
+.settings .block {
+  display: grid;
+  gap: var(--space-item);
+}
+/* A section's heading with its introduction. */
+.settings section > header {
+  display: grid;
+  gap: 6px;
+}
+.settings section > header p {
+  max-width: 80ch;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
 }
 .settings b {
   color: var(--fg);
@@ -63,7 +74,7 @@
 
 .settings .fields {
   display: grid;
-  gap: 22px;
+  gap: var(--space-field);
 }
 /* Baselines line a field's name up with the first line of its control, whatever its height. */
 .settings .field {
@@ -71,7 +82,7 @@
   grid-template-columns: 9em minmax(0, 1fr);
   align-items: baseline;
   column-gap: 20px;
-  row-gap: 4px;
+  row-gap: var(--space-hint);
 }
 .settings .field > .hint,
 .settings .field > .token-status {

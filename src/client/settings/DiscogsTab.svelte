@@ -100,15 +100,15 @@
 
 <form id={formId} {onsubmit}>
   <section aria-labelledby="{id}-discogs-title">
-    <h2 id="{id}-discogs-title">Discogs</h2>
-    <div class="api-use">
+    <header>
+      <h2 id="{id}-discogs-title">Discogs</h2>
       <p>
         Digga reads the catalogue from the dump. The token is used only for what you do: imports,
         <Key label="A" size="sm" /> and <Key label="C" size="sm" /> wants, <Key label="P" size="sm" /> prices, and
         this page.
       </p>
       <RequestList />
-    </div>
+    </header>
     <div class="fields">
       <div class="field">
         <label class="name" for="{id}-username">Username</label>
@@ -225,11 +225,13 @@
 <form id="{id}-token-form" onsubmit={submitToken}></form>
 
 <section class="jobs" aria-labelledby="{id}-imports-title">
-  <h2 id="{id}-imports-title">Imports</h2>
-  <p class="quiet">Seed verdicts from your Discogs collection, wantlist and Maybe list, and from browser history.</p>
-  {#if settings.sandbox}
-    <p class="hint">In the sandbox, only the Maybe list import keeps what it reads in this tab.</p>
-  {/if}
+  <header>
+    <h2 id="{id}-imports-title">Imports</h2>
+    <p>Seed verdicts from your Discogs collection, wantlist and Maybe list, and from browser history.</p>
+    {#if settings.sandbox}
+      <p>In the sandbox, only the Maybe list import keeps what it reads in this tab.</p>
+    {/if}
+  </header>
   <div class="job">
     <div class="inline wrap">
       <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
@@ -278,15 +280,6 @@
 </section>
 
 <style>
-  .api-use {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-width: 46em;
-    margin-bottom: 18px;
-    color: var(--fg-muted);
-    font-size: var(--text-sm);
-  }
   .token {
     width: 26em;
   }

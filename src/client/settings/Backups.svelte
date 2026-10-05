@@ -62,35 +62,37 @@
         {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at once.
       </p>
     {/if}
-    <table class="backups">
-      <caption class="visually-hidden">The newest backup of each kind</caption>
-      <thead>
-        <tr>
-          <th scope="col"><span class="visually-hidden">Backup</span></th>
-          <th scope="col">Latest</th>
-          <th scope="col">Size</th>
-          <th scope="col">Keeps</th>
-        </tr>
-      </thead>
-      <tbody>
-        {@render dailyRow("Your decisions", backups.decisions.backups[0], backups.decisions.kept)}
-        {@render dailyRow("The database", backups.backups[0], backups.kept)}
-        <tr>
-          <th scope="row">Checkpoints</th>
-          {#if latestCheckpoint}
-            <td>
-              {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time>{:else}{latestCheckpoint.day}{/if}
-            </td>
-            <td>{formatBytes(latestCheckpoint.bytes)}</td>
-          {:else}
-            <td>none yet</td>
-            <td></td>
-          {/if}
-          <td>last {backups.checkpoints.kept}</td>
-        </tr>
-      </tbody>
-    </table>
-    <p class="hint">In <code>{backups.directory}</code>.</p>
+    <div class="block">
+      <table class="backups">
+        <caption class="visually-hidden">The newest backup of each kind</caption>
+        <thead>
+          <tr>
+            <th scope="col"><span class="visually-hidden">Backup</span></th>
+            <th scope="col">Latest</th>
+            <th scope="col">Size</th>
+            <th scope="col">Keeps</th>
+          </tr>
+        </thead>
+        <tbody>
+          {@render dailyRow("Your decisions", backups.decisions.backups[0], backups.decisions.kept)}
+          {@render dailyRow("The database", backups.backups[0], backups.kept)}
+          <tr>
+            <th scope="row">Checkpoints</th>
+            {#if latestCheckpoint}
+              <td>
+                {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time>{:else}{latestCheckpoint.day}{/if}
+              </td>
+              <td>{formatBytes(latestCheckpoint.bytes)}</td>
+            {:else}
+              <td>none yet</td>
+              <td></td>
+            {/if}
+            <td>last {backups.checkpoints.kept}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="hint">In <code>{backups.directory}</code>.</p>
+    </div>
   {/if}
   <div class="inline">
     <button type="button" class="secondary" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>
@@ -120,15 +122,17 @@
 
 <section aria-labelledby="{id}-exports-title">
   <h2 id="{id}-exports-title">Exports</h2>
-  <p>
-    What is saved, to download:
-    <a href={api.exportUrl("decisions.json")} download>verdicts and track marks (JSON)</a>,
-    <a href={api.exportUrl("verdicts.csv")} download>verdicts (CSV)</a>,
-    <a href={api.exportUrl("track-marks.csv")} download>track marks (CSV)</a>.
-  </p>
-  {#if settings.sandbox}
-    <p class="hint">The sandbox verdicts in this tab are not saved, so they are not in them.</p>
-  {/if}
+  <div class="block">
+    <p>
+      What is saved, to download:
+      <a href={api.exportUrl("decisions.json")} download>verdicts and track marks (JSON)</a>,
+      <a href={api.exportUrl("verdicts.csv")} download>verdicts (CSV)</a>,
+      <a href={api.exportUrl("track-marks.csv")} download>track marks (CSV)</a>.
+    </p>
+    {#if settings.sandbox}
+      <p class="hint">The sandbox verdicts in this tab are not saved, so they are not in them.</p>
+    {/if}
+  </div>
 </section>
 
 <style>

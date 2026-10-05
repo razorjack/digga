@@ -85,44 +85,48 @@
   <h2 id="{id}-library-title">Library</h2>
   {#if stats.value}
     {@const summary = stats.value}
-    <ul class="counts" aria-label="The library">
-      <li><b>{formatCount(summary.universe.releases)}</b> releases</li>
-      <li><b>{formatCount(summary.universe.keys)}</b> records</li>
-      <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
-      <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
-      <li><b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard</li>
-    </ul>
-    <ul class="counts small" aria-label="Your decisions">
-      <li><b>{formatCount(summary.verdicts.accepted)}</b> want</li>
-      <li><b>{formatCount(summary.verdicts.candidate)}</b> grail</li>
-      <li><b>{formatCount(summary.verdicts.maybe)}</b> maybe</li>
-      <li><b>{formatCount(summary.verdicts.rejected)}</b> skip</li>
-      <li><b>{formatCount(summary.verdicts.snoozed)}</b> snooze</li>
-      <li><b>{formatCount(summary.verdicts.no_audio)}</b> no audio</li>
-      <li><b>{formatCount(summary.verdicts.seen)}</b> seen</li>
-      <li><b>{formatCount(summary.discogs.wantlist)}</b> on the Discogs wantlist</li>
-      <li><b>{formatCount(summary.discogs.collection)}</b> owned</li>
-    </ul>
-    <p class="quiet">
-      {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No dump loaded yet.{/if}
-      {#if summary.dump.lastLoad}
-        {@const load = summary.dump.lastLoad}
-        {@const missing = missingReleasesNote(load.missing)}
-        The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
-        added {formatCount(load.added)} {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
-        {#if load.toDig > 0}
-          {formatCount(load.toDig)} records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
+    <div class="block">
+      <ul class="counts" aria-label="The library">
+        <li><b>{formatCount(summary.universe.releases)}</b> releases</li>
+        <li><b>{formatCount(summary.universe.keys)}</b> records</li>
+        <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
+        <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
+        <li><b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard</li>
+      </ul>
+      <ul class="counts small" aria-label="Your decisions">
+        <li><b>{formatCount(summary.verdicts.accepted)}</b> want</li>
+        <li><b>{formatCount(summary.verdicts.candidate)}</b> grail</li>
+        <li><b>{formatCount(summary.verdicts.maybe)}</b> maybe</li>
+        <li><b>{formatCount(summary.verdicts.rejected)}</b> skip</li>
+        <li><b>{formatCount(summary.verdicts.snoozed)}</b> snooze</li>
+        <li><b>{formatCount(summary.verdicts.no_audio)}</b> no audio</li>
+        <li><b>{formatCount(summary.verdicts.seen)}</b> seen</li>
+        <li><b>{formatCount(summary.discogs.wantlist)}</b> on the Discogs wantlist</li>
+        <li><b>{formatCount(summary.discogs.collection)}</b> owned</li>
+      </ul>
+      <p class="quiet">
+        {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No dump loaded yet.{/if}
+        {#if summary.dump.lastLoad}
+          {@const load = summary.dump.lastLoad}
+          {@const missing = missingReleasesNote(load.missing)}
+          The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
+          added {formatCount(load.added)} {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
+          {#if load.toDig > 0}
+            {formatCount(load.toDig)} records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
+          {/if}
+          {#if missing}{missing}{/if}
         {/if}
-        {#if missing}{missing}{/if}
-      {/if}
-    </p>
+      </p>
+    </div>
   {/if}
 </section>
 
 <form id={formId} {onsubmit}>
   <section>
-    <h2>Universe</h2>
-    <p class="hint">What the dump loader keeps. Changes apply to the next dump load.</p>
+    <header>
+      <h2>Universe</h2>
+      <p>What the dump loader keeps. Changes apply to the next dump load.</p>
+    </header>
     <div class="fields">
       <div class="field">
         <label class="name" for="{id}-universe-styles">Styles</label>
@@ -174,37 +178,41 @@
 </form>
 
 <section aria-labelledby="{id}-dump-title">
-  <h2 id="{id}-dump-title">Dump</h2>
-  <p class="quiet">
-    Discogs publishes every release once a month, over 10 GB compressed. Update downloads the newest
-    dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
-  </p>
-  <div class="inline wrap">
-    <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
-      Update from the newest dump
-    </button>
-    <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
-      Download only
-    </button>
+  <header>
+    <h2 id="{id}-dump-title">Dump</h2>
+    <p>
+      Discogs publishes every release once a month, over 10 GB compressed. Update downloads the newest
+      dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
+    </p>
+  </header>
+  <div class="block">
+    <div class="inline wrap">
+      <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
+        Update from the newest dump
+      </button>
+      <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
+        Download only
+      </button>
+    </div>
+    {#if dumpFiles.error}
+      <p class="quiet">The dumps folder did not load: {dumpFiles.error}.</p>
+    {:else if dumpFiles.value && dumpFiles.newest}
+      {@const newest = dumpFiles.newest}
+      <ul class="dumps" aria-label="Dumps in the folder">
+        {#each dumpFiles.value.files as file (file.name)}
+          <li>
+            <span>{file.name}</span>
+            <span class="quiet">{formatBytes(file.bytes)}, {dumpUse(file, newest, stats.value?.dump.date ?? null)}</span>
+            <button type="button" class="link" disabled={dumpJobRunning || deletingDump} onclick={() => void deleteDump(file)}>
+              Delete<span class="visually-hidden"> {file.name}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {:else if dumpFiles.value}
+      <p class="quiet">No dump downloaded yet.</p>
+    {/if}
   </div>
-  {#if dumpFiles.error}
-    <p class="quiet">The dumps folder did not load: {dumpFiles.error}.</p>
-  {:else if dumpFiles.value && dumpFiles.newest}
-    {@const newest = dumpFiles.newest}
-    <ul class="dumps" aria-label="Dumps in the folder">
-      {#each dumpFiles.value.files as file (file.name)}
-        <li>
-          <span>{file.name}</span>
-          <span class="quiet">{formatBytes(file.bytes)}, {dumpUse(file, newest, stats.value?.dump.date ?? null)}</span>
-          <button type="button" class="link" disabled={dumpJobRunning || deletingDump} onclick={() => void deleteDump(file)}>
-            Delete<span class="visually-hidden"> {file.name}</span>
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {:else if dumpFiles.value}
-    <p class="quiet">No dump downloaded yet.</p>
-  {/if}
   <div class="inline wrap">
     <input class="file" list="{id}-dump-files" bind:value={dumpFile} placeholder="file name or absolute path" aria-label="Dump file" />
     <datalist id="{id}-dump-files">

@@ -78,75 +78,83 @@
   bind:this={modeEl}
 >
   <h2 id="{id}-sandbox-title">Sandbox</h2>
-  {#if settings.sandbox}
-    <p>
-      <b>On.</b> Verdicts, notes, track marks and heard tunes stay in this browser tab until it reloads,
-      and nothing is sent to Discogs. Settings and jobs are saved as usual.
-    </p>
-    <p class="quiet">
-      Turn it off to dig for real: every verdict is saved, and <Key label="A" size="sm" /> adds the release to
-      your Discogs wantlist{#if !discogs.tokenProblem && discogs.account?.tokenUsername} ({discogs.account.tokenUsername}){/if}.
-      What you did in the sandbox is dropped.
-    </p>
-    {#if discogs.tokenProblem}
-      <p class="problem">
-        Before you do: {discogs.tokenProblem}. Verdicts are saved either way, but wants will not reach the Discogs
-        wantlist.
+  <div class="block">
+    {#if settings.sandbox}
+      <p>
+        <b>On.</b> Verdicts, notes, track marks and heard tunes stay in this browser tab until it reloads,
+        and nothing is sent to Discogs. Settings and jobs are saved as usual.
       </p>
+      <p class="quiet">
+        Turn it off to dig for real: every verdict is saved, and <Key label="A" size="sm" /> adds the release to
+        your Discogs wantlist{#if !discogs.tokenProblem && discogs.account?.tokenUsername} ({discogs.account.tokenUsername}){/if}.
+        What you did in the sandbox is dropped.
+      </p>
+      {#if discogs.tokenProblem}
+        <p class="problem">
+          Before you do: {discogs.tokenProblem}. Verdicts are saved either way, but wants will not reach the Discogs
+          wantlist.
+        </p>
+      {/if}
+      <div class="inline">
+        <button
+          type="button"
+          class="primary"
+          bind:this={modeButton}
+          disabled={switching}
+          onclick={() => void setSandbox(false)}
+        >
+          {switching ? "Switching…" : "Turn off the sandbox"}
+        </button>
+      </div>
+    {:else}
+      <p>
+        <b>Off.</b> Verdicts are saved, and <Key label="A" size="sm" /> adds the release to your Discogs wantlist;
+        <Key label="Z" size="sm" /> right after takes it off again.
+      </p>
+      <p class="quiet">The sandbox keeps verdicts in this tab only, for trying the flow without consequences.</p>
+      <div class="inline">
+        <button
+          type="button"
+          class="secondary"
+          bind:this={modeButton}
+          disabled={switching}
+          onclick={() => void setSandbox(true)}
+        >
+          {switching ? "Switching…" : "Back to the sandbox"}
+        </button>
+      </div>
     {/if}
-    <div class="inline">
-      <button
-        type="button"
-        class="primary"
-        bind:this={modeButton}
-        disabled={switching}
-        onclick={() => void setSandbox(false)}
-      >
-        {switching ? "Switching…" : "Turn off the sandbox"}
-      </button>
-    </div>
-  {:else}
-    <p>
-      <b>Off.</b> Verdicts are saved, and <Key label="A" size="sm" /> adds the release to your Discogs wantlist;
-      <Key label="Z" size="sm" /> right after takes it off again.
-    </p>
-    <p class="quiet">The sandbox keeps verdicts in this tab only, for trying the flow without consequences.</p>
-    <div class="inline">
-      <button
-        type="button"
-        class="secondary"
-        bind:this={modeButton}
-        disabled={switching}
-        onclick={() => void setSandbox(true)}
-      >
-        {switching ? "Switching…" : "Back to the sandbox"}
-      </button>
-    </div>
-  {/if}
+  </div>
 </section>
 
 <section>
   <h2 id="{id}-appearance">Appearance</h2>
-  <fieldset class="inline" aria-labelledby="{id}-appearance" aria-describedby="{id}-appearance-hint">
-    {#each COLOR_SCHEMES as scheme (scheme)}
-      <label class="check">
-        <input
-          type="radio"
-          name="color-scheme"
-          value={scheme}
-          bind:group={colorScheme}
-          onchange={() => void saveColorScheme()}
-        />
-        {COLOR_SCHEME_LABEL[scheme]}
-      </label>
-    {/each}
-  </fieldset>
-  <p class="hint" id="{id}-appearance-hint">
-    System follows the light or dark setting of your computer. A change applies at once.
-  </p>
+  <div class="appearance">
+    <fieldset class="inline" aria-labelledby="{id}-appearance" aria-describedby="{id}-appearance-hint">
+      {#each COLOR_SCHEMES as scheme (scheme)}
+        <label class="check">
+          <input
+            type="radio"
+            name="color-scheme"
+            value={scheme}
+            bind:group={colorScheme}
+            onchange={() => void saveColorScheme()}
+          />
+          {COLOR_SCHEME_LABEL[scheme]}
+        </label>
+      {/each}
+    </fieldset>
+    <p class="hint" id="{id}-appearance-hint">
+      System follows the light or dark setting of your computer. A change applies at once.
+    </p>
+  </div>
 </section>
 
 <style>
+  .appearance {
+    display: grid;
+    gap: var(--space-hint);
+  }
   .mode p {
     max-width: 72ch;
   }

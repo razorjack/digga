@@ -63,8 +63,10 @@
 
 <form id={formId} {onsubmit}>
   <section>
-    <h2>What to dig</h2>
-    <p class="hint">They narrow the loaded releases; the queue follows as soon as you save.</p>
+    <header>
+      <h2>What to dig</h2>
+      <p>They narrow the loaded releases; the queue follows as soon as you save.</p>
+    </header>
     <div class="fields">
       <fieldset class="field">
         <legend class="name">Years</legend>
