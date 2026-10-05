@@ -88,6 +88,10 @@
 .settings .field > .token-status {
   grid-column: 2;
 }
+/* A name that wraps to a second line takes the hint's row, so the hint stays under its control. */
+.settings .field:has(> .hint) > .name {
+  grid-row: span 2;
+}
 /* Text fields hold short lists and names, so they stop well before the column's edge. */
 .settings .field > input,
 .settings .field > select,
