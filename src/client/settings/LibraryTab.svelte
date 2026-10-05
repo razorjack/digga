@@ -200,55 +200,64 @@
       dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
     </p>
   </header>
-  <div class="block">
-    <div class="inline wrap">
-      <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
-        Update from the newest dump
-      </button>
-      <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
-        Download only
-      </button>
+  <div class="fields">
+    <fieldset class="field">
+      <legend class="name">From Discogs</legend>
+      <div class="inline wrap">
+        <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
+          Update from the newest dump
+        </button>
+        <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
+          Download only
+        </button>
+      </div>
+    </fieldset>
+    <div class="field">
+      <span class="name">Downloaded</span>
+      {#if dumpFiles.error}
+        <p class="quiet">The dumps folder did not load: {dumpFiles.error}.</p>
+      {:else if dumpFiles.value && dumpFiles.newest}
+        {@const newest = dumpFiles.newest}
+        <ul class="dumps" aria-label="Dumps in the folder">
+          {#each dumpFiles.value.files as file (file.name)}
+            <li>
+              <span>{file.name}</span>
+              <span class="quiet">{formatBytes(file.bytes)}, {dumpUse(file, newest, stats.value?.dump.date ?? null)}</span>
+              <button type="button" class="link" disabled={dumpJobRunning || deletingDump} onclick={() => void deleteDump(file)}>
+                Delete<span class="visually-hidden"> {file.name}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else if dumpFiles.value}
+        <p class="quiet">None yet.</p>
+      {/if}
     </div>
-    {#if dumpFiles.error}
-      <p class="quiet">The dumps folder did not load: {dumpFiles.error}.</p>
-    {:else if dumpFiles.value && dumpFiles.newest}
-      {@const newest = dumpFiles.newest}
-      <ul class="dumps" aria-label="Dumps in the folder">
-        {#each dumpFiles.value.files as file (file.name)}
-          <li>
-            <span>{file.name}</span>
-            <span class="quiet">{formatBytes(file.bytes)}, {dumpUse(file, newest, stats.value?.dump.date ?? null)}</span>
-            <button type="button" class="link" disabled={dumpJobRunning || deletingDump} onclick={() => void deleteDump(file)}>
-              Delete<span class="visually-hidden"> {file.name}</span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {:else if dumpFiles.value}
-      <p class="quiet">No dump downloaded yet.</p>
-    {/if}
+    <fieldset class="field">
+      <legend class="name">From a file</legend>
+      <div class="inline wrap">
+        <input class="file" list="{id}-dump-files" bind:value={dumpFile} placeholder="file name or absolute path" aria-label="Dump file" />
+        <datalist id="{id}-dump-files">
+          {#each dumpFiles.value?.files ?? [] as file (file.name)}
+            <option value={file.name}>{formatBytes(file.bytes)}</option>
+          {/each}
+        </datalist>
+        <input
+          type="number"
+          min="1"
+          placeholder="limit"
+          aria-label="Limit"
+          value={dumpLimit ?? ""}
+          oninput={(event) => (dumpLimit = parseInteger(event.currentTarget.value))}
+        />
+        <label class="check"><input type="checkbox" bind:checked={dumpDryRun} /> dry run</label>
+        <button type="button" class="secondary" disabled={dumpJobRunning || dumpFile.trim() === ""} onclick={loadDump}>
+          Load
+        </button>
+      </div>
+    </fieldset>
+    <JobList jobs={dumpJobs} error={jobs.error} oncancel={cancelJob} />
   </div>
-  <div class="inline wrap">
-    <input class="file" list="{id}-dump-files" bind:value={dumpFile} placeholder="file name or absolute path" aria-label="Dump file" />
-    <datalist id="{id}-dump-files">
-      {#each dumpFiles.value?.files ?? [] as file (file.name)}
-        <option value={file.name}>{formatBytes(file.bytes)}</option>
-      {/each}
-    </datalist>
-    <input
-      type="number"
-      min="1"
-      placeholder="limit"
-      aria-label="Limit"
-      value={dumpLimit ?? ""}
-      oninput={(event) => (dumpLimit = parseInteger(event.currentTarget.value))}
-    />
-    <label class="check"><input type="checkbox" bind:checked={dumpDryRun} /> dry run</label>
-    <button type="button" class="secondary" disabled={dumpJobRunning || dumpFile.trim() === ""} onclick={loadDump}>
-      Load
-    </button>
-  </div>
-  <JobList jobs={dumpJobs} error={jobs.error} oncancel={cancelJob} />
   <details>
     <summary>How updates, downloads and loads work</summary>
     <p>
