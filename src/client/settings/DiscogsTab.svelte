@@ -232,44 +232,50 @@
       <p>In the sandbox, only the Maybe list import keeps what it reads in this tab.</p>
     {/if}
   </header>
-  <div class="job">
-    <div class="inline wrap">
-      <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
-      <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
-      <select bind:value={historyBrowser} aria-label="Browser">
-        {#each BROWSERS as browser (browser)}<option value={browser}>{browser}</option>{/each}
-      </select>
-      <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("history", { browser: historyBrowser }))}>
-        History
-      </button>
-      <button
-        type="button"
-        class="secondary"
-        disabled={(settings.value?.discogs.maybeListId ?? null) === null}
-        onclick={() => startJob(() => api.startImport("list"))}
-      >
-        Maybe list
-      </button>
-    </div>
+  <div class="fields">
+    <fieldset class="field">
+      <legend class="name">Your Discogs</legend>
+      <div class="inline wrap">
+        <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
+        <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
+        <select bind:value={historyBrowser} aria-label="Browser">
+          {#each BROWSERS as browser (browser)}<option value={browser}>{browser}</option>{/each}
+        </select>
+        <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("history", { browser: historyBrowser }))}>
+          History
+        </button>
+        <button
+          type="button"
+          class="secondary"
+          disabled={(settings.value?.discogs.maybeListId ?? null) === null}
+          onclick={() => startJob(() => api.startImport("list"))}
+        >
+          Maybe list
+        </button>
+      </div>
+    </fieldset>
+    <form onsubmit={readSellerShop}>
+      <fieldset class="field">
+        <legend class="name">Seller shop</legend>
+        <div class="inline wrap">
+          <input
+            bind:value={sellerUsername}
+            placeholder="username"
+            aria-label="Seller's Discogs username"
+            aria-describedby="{id}-seller-hint"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+          <button type="submit" class="secondary" disabled={sellerUsername.trim() === ""}>Read shop</button>
+        </div>
+        <span class="hint" id="{id}-seller-hint">
+          What a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just that.
+        </span>
+      </fieldset>
+    </form>
+    <JobList jobs={importJobs} error={jobs.error} oncancel={cancelJob} />
   </div>
-  <form class="job" onsubmit={readSellerShop}>
-    <p>
-      <b>Seller shop</b>: what a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just
-      that.
-    </p>
-    <div class="inline wrap">
-      <input
-        bind:value={sellerUsername}
-        placeholder="username"
-        aria-label="Seller's Discogs username"
-        autocomplete="off"
-        spellcheck="false"
-        required
-      />
-      <button type="submit" class="secondary" disabled={sellerUsername.trim() === ""}>Read shop</button>
-    </div>
-  </form>
-  <JobList jobs={importJobs} error={jobs.error} oncancel={cancelJob} />
   <details>
     <summary>How imports run</summary>
     <p>
@@ -282,12 +288,5 @@
 <style>
   .token {
     width: 26em;
-  }
-  .job {
-    display: grid;
-    gap: 8px;
-  }
-  .job p {
-    color: var(--fg-muted);
   }
 </style>
