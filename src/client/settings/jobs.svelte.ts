@@ -1,19 +1,19 @@
 import type { Job } from "../../shared/types.ts";
-import { api, type AppApi } from "../api.ts";
+import { api, type Api } from "../api.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
 export class SettingsJobs {
   items = $state.raw<Job[]>([]);
   error = $state<string | null>(null);
   running = $derived(this.items.some((job) => job.status === "running" || job.status === "queued"));
-  #api: AppApi;
+  #api: Api;
   #refreshStats: () => Promise<void>;
   #timer: ReturnType<typeof setTimeout> | null = null;
   #version = 0;
   #closed = false;
   #loaded = false;
 
-  constructor(client: AppApi = api, refreshStats: () => Promise<void> = () => stats.refresh()) {
+  constructor(client: Api = api, refreshStats: () => Promise<void> = () => stats.refresh()) {
     this.#api = client;
     this.#refreshStats = refreshStats;
   }
@@ -22,20 +22,19 @@ export class SettingsJobs {
     if (this.#closed) return;
     if (this.#timer) clearTimeout(this.#timer);
     const version = ++this.#version;
-    const generation = this.#api.generation;
     const before = this.#loaded ? this.items : null;
     try {
       const response = await this.#api.getJobs();
-      if (!this.#current(version, generation)) return;
+      if (!this.#current(version)) return;
       this.items = response.jobs;
       this.error = null;
       // What a job imported or loaded shows in the counts, also when it ended between two reads.
       if (before && someJobEnded(before, this.items)) void this.#refreshStats();
       this.#loaded = true;
     } catch (error) {
-      if (this.#current(version, generation)) this.error = errorMessage(error);
+      if (this.#current(version)) this.error = errorMessage(error);
     } finally {
-      if (this.#current(version, generation) && this.running) {
+      if (this.#current(version) && this.running) {
         this.#timer = setTimeout(() => void this.load(), 1000);
       }
     }
@@ -51,8 +50,8 @@ export class SettingsJobs {
     if (this.#timer) clearTimeout(this.#timer);
   }
 
-  #current(version: number, generation: number): boolean {
-    return !this.#closed && version === this.#version && generation === this.#api.generation;
+  #current(version: number): boolean {
+    return !this.#closed && version === this.#version;
   }
 }
 

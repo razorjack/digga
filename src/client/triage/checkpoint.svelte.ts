@@ -4,7 +4,7 @@ import type {
   SessionInput,
   SessionResolution,
 } from "../../shared/digging-session.ts";
-import type { AppApi } from "../api.ts";
+import type { Api } from "../api.ts";
 import type { TriagePlayer } from "../player/triage-player.svelte.ts";
 import { errorMessage } from "../stores.svelte.ts";
 import type { TriageSession } from "./session.svelte.ts";
@@ -25,7 +25,7 @@ type SessionIdentity = Pick<SessionInput, "id" | "startedAt">;
 
 /**
  * Saves where the Triage session is, so a later visit can resume there, and offers to resume the
- * latest saved session. Only live mode saves; the sandbox has no sessions.
+ * latest saved session.
  */
 export class SessionCheckpoint {
   /** The saved session the page offers to resume, until the listener chooses. */
@@ -34,7 +34,7 @@ export class SessionCheckpoint {
   /** A failed save or how the resume went, for the page's status line. Saves succeed silently. */
   message = $state("");
 
-  #api: AppApi;
+  #api: Api;
   #session: SessionStateAccess;
   #player: PlayerStateAccess;
   #settings: SettingsAccess;
@@ -42,8 +42,8 @@ export class SessionCheckpoint {
   #identity: SessionIdentity | null = null;
   /** Bumped by open(), startFresh() and destroy(); an answer meant for an older one is dropped. */
   #generation = 0;
-  /** The api generation open() last ran in; saves stop when the mode changes. */
-  #modeGeneration = -1;
+  /** open() has run: the page's first queue start offers the saved session, later ones do not. */
+  #opened = false;
   #saving = false;
   /** The state last saved, serialized, so an unchanged session is not saved again. */
   #lastState = "";
@@ -51,7 +51,7 @@ export class SessionCheckpoint {
   #showingSaveError = false;
 
   constructor(
-    api: AppApi,
+    api: Api,
     session: SessionStateAccess,
     player: PlayerStateAccess,
     settings: SettingsAccess,
@@ -75,21 +75,20 @@ export class SessionCheckpoint {
   }
 
   /**
-   * Runs after each queue (re)start. The first start in an api mode offers the latest saved
-   * session; a restart after a settings change in the same mode starts a new session.
+   * Runs after each queue (re)start. The first start offers the latest saved session; a restart
+   * after a settings change starts a new session.
    */
   async open(): Promise<void> {
-    const sameMode = this.#modeGeneration === this.#api.generation;
-    this.#modeGeneration = this.#api.generation;
+    const restarted = this.#opened;
+    this.#opened = true;
     const generation = this.#reset();
-    if (this.#api.mode === "sandbox") return;
-    if (sameMode) {
+    if (restarted) {
       this.startFresh();
       return;
     }
 
     try {
-      const saved = await this.#api.pinned().getLatestSession();
+      const saved = await this.#api.getLatestSession();
       if (generation !== this.#generation) return;
       this.pending = saved;
       if (!saved) this.startFresh();
@@ -113,10 +112,9 @@ export class SessionCheckpoint {
     if (serialized === this.#lastState) return;
 
     const generation = this.#generation;
-    const client = this.#api.pinned();
     this.#saving = true;
     try {
-      await client.putSession({ ...identity, state });
+      await this.#api.putSession({ ...identity, state });
       if (generation !== this.#generation) return;
       this.#lastState = serialized;
       if (this.#showingSaveError) this.#showMessage("");
@@ -135,14 +133,12 @@ export class SessionCheckpoint {
     const config = this.#settings.value;
     if (!saved || !config || this.restoring) return;
     const generation = this.#generation;
-    const isCurrent = () =>
-      generation === this.#generation && this.#api.generation === this.#modeGeneration;
-    const client = this.#api.pinned();
+    const isCurrent = () => generation === this.#generation;
     this.restoring = true;
     this.#player.pauseForResume();
 
     try {
-      const resolved = await client.resolveSession(saved.id);
+      const resolved = await this.#api.resolveSession(saved.id);
       if (!isCurrent()) return;
       await this.#settings.save(withSessionSettings(config, saved));
       if (!isCurrent()) return;
@@ -188,11 +184,10 @@ export class SessionCheckpoint {
     this.#player.sessionId = session.id;
   }
 
-  /** A chosen session in live mode, with the queue ready and no other save or resume running. */
+  /** A chosen session, with the queue ready and no other save or resume running. */
   #canSave(): boolean {
     if (this.pending || this.restoring || this.#saving) return false;
-    if (this.#session.status !== "ready") return false;
-    return this.#api.mode === "live" && this.#api.generation === this.#modeGeneration;
+    return this.#session.status === "ready";
   }
 
   /** The saved playback position applies only when its record is the first one resumed. */

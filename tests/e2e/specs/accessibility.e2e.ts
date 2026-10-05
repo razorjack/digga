@@ -130,7 +130,7 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
         ["library", [settings.library, settings.dumpSection]],
         ["discogs", [settings.discogs, settings.imports]],
         ["backups", [settings.backups, settings.exports]],
-        ["general", [settings.sandbox]],
+        ["general", [settings.appearance]],
       ];
       for (const [tab, shown] of regions) {
         await settings.showTab(tab);
@@ -309,7 +309,6 @@ test.describe("with the September dump listed", () => {
       fakes.dumps.release();
       await settings.waitForJob(update, "done");
       await expect(header.announcement).toHaveText(/^The catalogue is in: /);
-      await settings.switchSandbox("on");
 
       const inserted = await regions.insertedWithText();
       for (const text of [
@@ -317,7 +316,7 @@ test.describe("with the September dump listed", () => {
         "M needs your Discogs Maybe list",
         "Note saved.",
         "The catalogue is in",
-        "Back in the sandbox",
+        "Update from the newest dump started.",
       ])
         expect(inserted).not.toContainEqual(expect.stringContaining(text));
     },
@@ -397,24 +396,17 @@ test.describe("the crate", () => {
   );
 });
 
-test.describe("a narrow window in the sandbox", () => {
-  test.use({ diggaOptions: { sandbox: true } });
+test(
+  "A11Y-06 a narrow window hides the header's ETA from sight only",
+  { tag: ["@A11Y-06", "@P2"] },
+  async ({ app }) => {
+    const header = new HeaderPage(app);
+    await app.open();
+    await expect(header.root.getByText("ETA after a few verdicts")).toBeVisible();
+    await app.page.setViewportSize({ width: 1100, height: 1000 });
 
-  test(
-    "A11Y-06 the header hides the sandbox's explanation and the ETA from sight only",
-    { tag: ["@A11Y-06", "@P2"] },
-    async ({ app }) => {
-      const header = new HeaderPage(app);
-      await app.open();
-      await expect(header.root.getByText("ETA after a few verdicts")).toBeVisible();
-      await app.page.setViewportSize({ width: 1100, height: 1000 });
-
-      const explanation = header.sandbox.getByText("verdicts are not saved", { exact: true });
-      const eta = header.root.getByText("ETA after a few verdicts", { exact: true });
-      for (const hidden of [explanation, eta])
-        await expect.poll(async () => (await hidden.boundingBox())?.width).toBe(1);
-      await expect(header.sandbox).toHaveAccessibleName(/verdicts are not saved/);
-      await expect(header.root).toMatchAriaSnapshot("- paragraph: ETA after a few verdicts");
-    },
-  );
-});
+    const eta = header.root.getByText("ETA after a few verdicts", { exact: true });
+    await expect.poll(async () => (await eta.boundingBox())?.width).toBe(1);
+    await expect(header.root).toMatchAriaSnapshot("- paragraph: ETA after a few verdicts");
+  },
+);

@@ -7,9 +7,6 @@ import type { TrackMark } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { HeaderPage } from "./header.ts";
 
-/** Past the sandbox's simulated 350 ms round trip of a wantlist push, for runFor(). */
-export const PAST_SANDBOX_PUSH_MS = 1000;
-
 /** The slip's last word on a push to the Discogs wantlist, whichever way it went. */
 const PUSH_ENDED = /Added to your Discogs wantlist\.|Saved, but not on the Discogs wantlist\./;
 
@@ -271,14 +268,6 @@ export class TriagePage {
     await this.app.page.keyboard.up(verdictKey(status));
   }
 
-  /** The sandbox sends no verdict request: returns once the record has changed and the slip settled. */
-  async judgeInSandbox(status: TriageStatus): Promise<void> {
-    const key = await this.currentKey();
-    await this.app.page.keyboard.press(verdictKey(status));
-    await expect(this.record).not.toHaveAttribute("data-triage-key", key);
-    await expect(this.lastAction).not.toHaveAttribute("aria-busy", "true");
-  }
-
   /**
    * A or C with time flowing: returns once the server has answered the push, which it does after
    * its call to Discogs, and the slip shows how the push ended.
@@ -456,13 +445,6 @@ export class TriagePage {
     expect(response.ok(), "POST /api/track-verdicts").toBe(true);
     await response.finished();
     return response.request().postDataJSON() as TrackVerdictInput;
-  }
-
-  /** The sandbox keeps the mark in the tab: returns once the track shows it. */
-  async markTrackInSandbox(mark: TrackMark, position: string): Promise<void> {
-    await expect(this.playerStatus("playing")).toBeVisible();
-    await this.app.page.keyboard.press(trackMarkKey(mark));
-    await expect(this.trackMark(position, mark)).toBeVisible();
   }
 
   /** X: once the filters are saved and the queue has reloaded without the label. */

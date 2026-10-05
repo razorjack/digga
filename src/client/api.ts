@@ -3,7 +3,6 @@ import {
   type BackupsResponse,
   type DeleteVerdictResponse,
   type DiscogsAccountResponse,
-  type DiscogsListResponse,
   type DiscogsListsResponse,
   type DiscogsProfileResponse,
   type DumpLoadJobInput,
@@ -36,7 +35,6 @@ import { formatWait } from "../shared/display.ts";
 import type { StyleCensus } from "../shared/style-census.ts";
 import { scopeParam } from "../shared/scope.ts";
 import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
-import { createSandboxApi } from "./sandbox.ts";
 
 /**
  * The one transport seam of the frontend. Every endpoint is a method here, and this
@@ -44,11 +42,9 @@ import { createSandboxApi } from "./sandbox.ts";
  * can replace createHttpApi() without touching any page.
  */
 export interface Api {
-  /** "sandbox" when writes are faked in memory by createSandboxApi(), "live" when they reach the server. */
-  readonly mode: "live" | "sandbox";
   /** The digging session saved last, to offer resuming it; null when there is none. */
   getLatestSession(): Promise<SavedSession | null>;
-  /** Saves where the digging session is; the sandbox saves nothing. */
+  /** Saves where the digging session is. */
   putSession(input: SessionInput): Promise<{ saved: boolean }>;
   /** The records a saved session pointed at, as the catalogue and verdicts have them now. */
   resolveSession(id: string): Promise<SessionResolution>;
@@ -99,8 +95,6 @@ export interface Api {
   /** Forgets the Discogs account's collection, wantlist and Maybe list, so another can be used. */
   forgetDiscogsData(): Promise<ForgetDiscogsDataResponse>;
   getDiscogsLists(): Promise<DiscogsListsResponse>;
-  /** Reads a Discogs list and maps its entries to triage keys; writes nothing. */
-  getDiscogsList(id: number): Promise<DiscogsListResponse>;
   getBackups(): Promise<BackupsResponse>;
   /** Writes today's backups and a checkpoint now; answers the backups with them. */
   backupNow(): Promise<BackupsResponse>;
@@ -141,14 +135,11 @@ export interface Timeouts {
    * when the rate limit runs out and backs off on 429, so an answer can take minutes.
    */
   discogsMs: number;
-  /** Reading a Discogs list, which looks up every entry outside the library, a second apart. */
-  listMs: number;
 }
 
 export const DEFAULT_TIMEOUTS: Timeouts = {
   localMs: 30_000,
   discogsMs: 5 * 60_000,
-  listMs: 15 * 60_000,
 };
 
 function queryString(params: Record<string, string | number | boolean | undefined>): string {
@@ -164,9 +155,7 @@ function queryString(params: Record<string, string | number | boolean | undefine
 export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIMEOUTS): Api {
   const call = httpCaller(baseUrl, timeouts.localMs);
   const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
-  const callList = httpCaller(baseUrl, timeouts.listMs);
   return {
-    mode: "live",
     getLatestSession: () => call("GET", "/sessions/latest"),
     putSession: (input) => call("PUT", "/sessions/current", input),
     resolveSession: (id) => call("GET", `/sessions/${encodeURIComponent(id)}/resume`),
@@ -216,7 +205,6 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     setDiscogsToken: (token) => callDiscogs("PUT", "/discogs/token", { token }),
     forgetDiscogsData: () => call("DELETE", "/discogs/data"),
     getDiscogsLists: () => callDiscogs("GET", "/discogs/lists"),
-    getDiscogsList: (id) => callList("GET", `/discogs/lists/${id}`),
     getBackups: () => call("GET", "/backups"),
     backupNow: () => call("POST", "/backups"),
     getSetup: () => call("GET", "/setup"),
@@ -227,86 +215,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
   };
 }
 
-/** The app's Api: the server's own, or a sandbox around it that fakes the digging writes. */
-export interface AppApi extends Api {
-  /** Switches modes; every switch into the sandbox starts an empty one. */
-  setSandbox(on: boolean): void;
-  /** The implementation in use now. A write sent through it stays in that mode after a switch. */
-  pinned(): Api;
-  /** Bumped by every switch, so state built in the previous mode can be dropped. */
-  readonly generation: number;
-}
-
-// One forwarding line per Api method: a declarative table that splitting would only scatter.
-// eslint-disable-next-line max-lines-per-function
-export function createAppApi(
-  http: Api,
-  makeSandbox: (inner: Api) => Api = createSandboxApi,
-): AppApi {
-  let current = makeSandbox(http);
-  let generation = 0;
-  return {
-    get mode() {
-      return current.mode;
-    },
-    get generation() {
-      return generation;
-    },
-    setSandbox(on) {
-      if ((current.mode === "sandbox") === on) return;
-      current = on ? makeSandbox(http) : http;
-      generation += 1;
-    },
-    pinned: () => current,
-    getLatestSession: () => current.getLatestSession(),
-    putSession: (input) => current.putSession(input),
-    resolveSession: (id) => current.resolveSession(id),
-    getQueue: (query) => current.getQueue(query),
-    searchScopes: (text) => current.searchScopes(text),
-    getRelease: (id) => current.getRelease(id),
-    enrichRelease: (id) => current.enrichRelease(id),
-    attachVideo: (releaseId, url) => current.attachVideo(releaseId, url),
-    putReleaseNote: (id, notes) => current.putReleaseNote(id, notes),
-    postVerdict: (input) => current.postVerdict(input),
-    deleteVerdict: (key, expected) => current.deleteVerdict(key, expected),
-    postTrackVerdict: (input) => current.postTrackVerdict(input),
-    postListenLog: (input) => current.postListenLog(input),
-    getTwelves: (query) => current.getTwelves(query),
-    getTrackMarks: () => current.getTrackMarks(),
-    getStats: (query) => current.getStats(query),
-    getSettings: () => current.getSettings(),
-    putSettings: (config) => current.putSettings(config),
-    startDumpDownload: () => current.startDumpDownload(),
-    startDumpLoad: (input) => current.startDumpLoad(input),
-    startDumpUpdate: () => current.startDumpUpdate(),
-    getDumps: () => current.getDumps(),
-    deleteDump: (name) => current.deleteDump(name),
-    startImport: (kind, input) => current.startImport(kind, input),
-    getJobs: () => current.getJobs(),
-    getJob: (id) => current.getJob(id),
-    cancelJob: (id) => current.cancelJob(id),
-    pushToWantlist: (releaseId) => current.pushToWantlist(releaseId),
-    removeFromWantlist: (releaseId) => current.removeFromWantlist(releaseId),
-    getDiscogsAccount: () => current.getDiscogsAccount(),
-    setDiscogsToken: (token) => current.setDiscogsToken(token),
-    forgetDiscogsData: () => current.forgetDiscogsData(),
-    getDiscogsLists: () => current.getDiscogsLists(),
-    getDiscogsList: (id) => current.getDiscogsList(id),
-    getBackups: () => current.getBackups(),
-    backupNow: () => current.backupNow(),
-    getSetup: () => current.getSetup(),
-    getStyles: () => current.getStyles(),
-    getDiscogsProfile: () => current.getDiscogsProfile(),
-    forgetFirstLoad: () => current.forgetFirstLoad(),
-    exportUrl: (file) => current.exportUrl(file),
-  };
-}
-
-/**
- * Starts in the sandbox, so nothing is written before the config is read; the settings store
- * then switches to the mode `sandbox` in digga.config.json asks for.
- */
-export const api: AppApi = createAppApi(createHttpApi());
+export const api: Api = createHttpApi();
 
 function httpCaller(baseUrl: string, timeoutMs: number) {
   return async <T>(method: string, path: string, body?: unknown): Promise<T> => {

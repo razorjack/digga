@@ -35,12 +35,8 @@ export const TAB_JOBS = {
 /** How many of its jobs a tab lists, newest first. */
 const RECENT_JOBS = 5;
 
-/**
- * The tab `#/settings/<anchor>` opens: a tab's name, or `sandbox`, which General holds and
- * highlights. Anything else opens Digging.
- */
+/** The tab `#/settings/<anchor>` opens: a tab's name; anything else opens Digging. */
 export function settingsTab(anchor: string | null): SettingsTab {
-  if (anchor === "sandbox") return "general";
   return SETTINGS_TABS.find((tab) => tab === anchor) ?? "digging";
 }
 

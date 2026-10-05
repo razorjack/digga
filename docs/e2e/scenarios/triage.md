@@ -1,9 +1,9 @@
-# Triage [`small`, sandbox off unless stated]
+# Triage [`small`]
 
 Read this when working on triage coverage. Follow the [E2E rules](../../E2E_TESTING.md#rules-for-agents-writing-e2e-tests)
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
-`small` has no Discogs account, so a live `A` or `C` there pushes at once and the server
+`small` has no Discogs account, so an `A` or `C` there pushes at once and the server
 answers `400` ("Set your Discogs username in Settings first"). Tests on `small` judge without
 them; scenarios with pushes use `small-account` with a saved token.
 
@@ -136,8 +136,8 @@ Priority: **P2**.
 
 Given: `small-account`.
 
-Saving `e2e-token-other` keeps the username `dj`, and Settings' sandbox section warns before going
-live; a push then fails: the fake answers `403`, the page gets `502` (declared)
+Saving `e2e-token-other` keeps the username `dj`, and Settings' token status shows the mismatch as
+a problem; a push then fails: the fake answers `403`, the page gets `502` (declared)
 
 ## TRI-17
 
@@ -190,7 +190,7 @@ A scope dug to the end: "Nothing is left to dig from the label …", "go round",
 Priority: **P1**.
 
 `P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, the rating,
-"checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`; works in the sandbox
+"checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`
 
 ## TRI-24
 
@@ -236,10 +236,9 @@ here."; `embed="false"` videos show "no embed" and are never loaded
 
 Priority: **P2**.
 
-Live: `D`, then a link pasted on Twelves' No audio shelf deletes the verdict (export), the record
+`D`, then a link pasted on Twelves' No audio shelf deletes the verdict (export), the record
 leaves the shelf, and Triage, shown again with `T`, offers it without a reload, after the record on
-screen when it sorts earlier (TRI-44). Sandbox: with a saved `D` (given live), a pasted link leaves
-the saved verdict in the export (decision 74)
+screen when it sorts earlier (TRI-44)
 
 ## TRI-30
 
@@ -271,7 +270,7 @@ The release detail request fails once (`route` abort): "The tracklist did not lo
 
 Priority: **P1**.
 
-`queue.limit: 5`: digging past the batch loads the next one without a gap, in live and sandbox mode
+`queue.limit: 5`: digging past the batch loads the next one without a gap
 
 ## TRI-35
 

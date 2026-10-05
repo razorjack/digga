@@ -1,4 +1,3 @@
-import { STATUS_COPY } from "../../../src/client/keymap.ts";
 import { endOfQueueHeadline } from "../../../src/client/triage/end-of-queue.ts";
 import type { DecisionsExport, QueueItem, QueueResponse, Stats } from "../../../src/shared/api.ts";
 import { formatCount, formatPrice } from "../../../src/shared/display.ts";
@@ -264,28 +263,6 @@ test.describe("with a queue batch of five", () => {
 
       const queueRequests = app.apiRequests().filter((request) => request === "GET /api/queue");
       expect(queueRequests.length).toBeGreaterThan(1);
-    },
-  );
-});
-
-test.describe("in the sandbox, with a queue batch of five", () => {
-  test.use({ diggaOptions: { sandbox: true, config: { queue: { limit: 5 } } } });
-
-  test(
-    "TRI-34 in the sandbox, digging past the first batch finds the next record waiting",
-    { tag: ["@TRI-34", "@P1"] },
-    async ({ app }) => {
-      const triage = new TriagePage(app);
-      const queue = await queueAhead(app);
-      await app.open();
-
-      for (const [index, record] of queue.slice(0, 7).entries()) {
-        await expectBuffered(triage, record, queue[index + 1]!);
-        await triage.judgeInSandbox("rejected");
-        await expect(triage.lastAction).toContainText(STATUS_COPY.rejected);
-      }
-
-      expect(app.apiRequests()).not.toContain("POST /api/verdicts");
     },
   );
 });

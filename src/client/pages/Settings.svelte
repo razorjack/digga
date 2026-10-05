@@ -45,7 +45,6 @@
   /** The save bar shows only with something to say: a problem, a message or unsaved changes. */
   const idle = $derived(problems.length === 0 && flash === null && !dirty);
   const tab = $derived(settingsTab(getAnchor()));
-  const highlighted = $derived(getAnchor() === "sandbox");
   /** Derived, so saves that keep the username do not fetch the lists again. */
   const discogsUsername = $derived(saved?.discogs.username ?? "");
 
@@ -60,7 +59,6 @@
 
   $effect(() => {
     void settings.version;
-    void settings.sandbox;
     untrack(() => void jobState.load());
   });
 
@@ -119,11 +117,7 @@
     try {
       const job = await start();
       loadStatus.follow(job);
-      showFlash(
-        settings.sandbox && job.type === "import_list"
-          ? "Reading your Discogs Maybe list; its maybes stay in this tab (sandbox)."
-          : `${JOB_LABEL[job.type]} started.`,
-      );
+      showFlash(`${JOB_LABEL[job.type]} started.`);
       await jobState.load();
     } catch (error) {
       showFlash(`Did not start: ${errorMessage(error)}`);
@@ -203,7 +197,7 @@
         {:else if tab === "backups"}
           <Backups />
         {:else}
-          <GeneralTab bind:draft {discogs} {highlighted} {showFlash} />
+          <GeneralTab bind:draft {showFlash} />
         {/if}
         {#if !hasSettingsForm(tab)}
           <!-- Unsaved changes from another tab still save from this one, through this empty form. -->

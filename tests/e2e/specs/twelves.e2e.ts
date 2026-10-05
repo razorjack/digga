@@ -7,7 +7,6 @@ import {
 } from "../../../src/client/twelves/model.ts";
 import type { DecisionsExport, QueueResponse } from "../../../src/shared/api.ts";
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
-import { rejudgedSentence } from "../../../src/client/twelves/model.ts";
 import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
 import { formatCount } from "../../../src/shared/display.ts";
 import { youtubeSearchUrl, youtubeWatchUrl } from "../../../src/shared/youtube.ts";
@@ -29,8 +28,7 @@ import {
 import { bulkVerdicts, datedVerdicts, decisionsBackup } from "../fixtures/decisions.ts";
 import { TriagePage } from "../pages/triage.ts";
 import { HeaderPage } from "../pages/header.ts";
-import { SettingsPage } from "../pages/settings.ts";
-import { judgeKey, TwelvesPage } from "../pages/twelves.ts";
+import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
@@ -458,48 +456,3 @@ test.describe("with a verdict restored for a release no dump has", () => {
     },
   );
 });
-
-test(
-  "TWL-18 the shelf mounts again in the mode the settings name, live as the page opens and in the sandbox once switched",
-  { tag: ["@TWL-18", "@P2"] },
-  async ({ app }) => {
-    const twelves = new TwelvesPage(app);
-    const header = new HeaderPage(app);
-    const settings = new SettingsPage(app);
-    const key = triageKeyOf(FIRST_RECORD);
-    const name = `${FIRST_RECORD.artists.join(", ")} – ${FIRST_RECORD.title}`;
-    await app.given.verdicts(datedVerdicts([{ release: FIRST_RECORD, status: "snoozed" }]));
-
-    // The app starts in the sandbox until the settings say otherwise, and the shelf opened at once
-    // with it; the stamp goes as the settings arrive, in the update that mounts the shelf again.
-    await twelves.open();
-    await expect(header.sandbox).toBeHidden();
-    await expect(twelves.root.getByText("Loading…", { exact: true })).toBeHidden();
-    expect(await twelves.selectedKey()).toBe(key);
-    await twelves.rejudge("maybe");
-    expect(await exportedStatus(app, key)).toBe("maybe");
-
-    await header.goTo("settings");
-    await settings.switchSandbox("on");
-    await header.goTo("twelves");
-    await expect(twelves.root.getByText("Loading…", { exact: true })).toBeHidden();
-    await app.page.keyboard.press("z");
-    await expect(twelves.messages).toHaveText("Nothing to undo.");
-    expect(await twelves.selectedKey()).toBe(key);
-    const savesBefore = verdictSaves(app);
-    await app.page.keyboard.press(judgeKey("snoozed"));
-    await expect(twelves.messages).toHaveText(`${rejudgedSentence(name, "snoozed")} Z undoes it.`);
-    await expect(twelves.stamp(twelves.record(key), "snoozed")).toBeVisible();
-    expect(verdictSaves(app)).toBe(savesBefore);
-    expect(await exportedStatus(app, key)).toBe("maybe");
-  },
-);
-
-function verdictSaves(app: DiggaApp): number {
-  return app.apiRequests().filter((request) => request === "POST /api/verdicts").length;
-}
-
-async function exportedStatus(app: DiggaApp, key: string): Promise<string | undefined> {
-  const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
-  return exported.verdicts.find((verdict) => verdict.key === key)?.status;
-}

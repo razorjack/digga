@@ -107,8 +107,7 @@ YouTube or Discogs themselves, and pixel comparisons (optional, see [the impleme
 ## What E2E owns and what vitest keeps
 
 The vitest suite is broad: queue SQL, filters and scopes (`tests/queue.test.ts`,
-`tests/server.test.ts`), the triage session with a fake api (`tests/session.test.ts`), the sandbox
-over the real HTTP API (`tests/sandbox.test.ts`), the player's playlist rules
+`tests/server.test.ts`), the triage session with a fake api (`tests/session.test.ts`), the player's playlist rules
 (`tests/triage-player.test.ts`), Twelves sorting, filtering and paging (`tests/twelves.test.ts`),
 the Discogs transport's rate limiting (`tests/discogs-client.test.ts`) and reading a growing dump
 (`tests/growing-dump.test.ts`). E2E does not repeat those combinations. It checks that the pieces
@@ -118,7 +117,6 @@ are wired together, with one representative case per behaviour:
 | ------------------------------------------------------------- | -------------------------- |
 | Queue order, filters, scopes, representative pressing         | vitest                     |
 | Undo order, push chain, rounds, notes in the session          | vitest                     |
-| Sandbox overlay rules, `409` refusals                         | vitest                     |
 | Playlist choice, heard skipping, start offsets                | vitest                     |
 | Twelves sort, filter and paging combinations                  | vitest                     |
 | Discogs rate limit gap, `429` backoff, quota pause            | vitest                     |

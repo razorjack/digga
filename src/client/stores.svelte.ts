@@ -53,8 +53,6 @@ class SettingsStore {
   loading = $state(false);
   /** Increments on every save but a color scheme change, so the triage queue knows to reload. */
   version = $state(0);
-  /** True until the config says otherwise, like the api, so nothing is saved before it is known. */
-  sandbox = $derived(this.value?.sandbox ?? true);
   #colorSchemeWrites: Promise<unknown> = Promise.resolve();
   #read: Promise<void> | null = null;
 
@@ -75,7 +73,7 @@ class SettingsStore {
 
   async #readSettings(): Promise<void> {
     try {
-      this.#apply(await api.getSettings());
+      this.value = await api.getSettings();
       this.error = null;
     } catch (error) {
       this.error = errorMessage(error);
@@ -84,7 +82,7 @@ class SettingsStore {
 
   async save(next: Config): Promise<Config> {
     const saved = await api.putSettings(next);
-    this.#apply(saved);
+    this.value = saved;
     this.version += 1;
     return saved;
   }
@@ -105,19 +103,8 @@ class SettingsStore {
       ...$state.snapshot(this.value),
       appearance: { colorScheme },
     });
-    this.#apply(saved);
+    this.value = saved;
     return saved;
-  }
-
-  /** Switches the api before anything reacts to the new settings, e.g. by restarting the queue. */
-  #apply(config: Config): void {
-    const generation = api.generation;
-    api.setSandbox(config.sandbox);
-    if (api.generation !== generation) {
-      stats.session = 0;
-      void stats.refresh();
-    }
-    this.value = config;
   }
 }
 

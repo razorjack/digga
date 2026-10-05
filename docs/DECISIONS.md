@@ -976,3 +976,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      records in the sandbox before the setup's "Start digging". It protected five verdicts that `Z`
      and Twelves' re-judging already make recoverable, and it was the sandbox's last use in the
      first run. The setup now offers only "Start digging".
+150. **Sandbox mode is gone.** It was added so the UI could be tuned without database writes
+     (decision 27); a throwaway library in `DIGGA_DATA_DIR` covers that now and exercises the real
+     write paths, as the E2E suite does. The setup already turned it off (decision 110), and `Z`
+     and Twelves' re-judging make any verdict recoverable. It also cost a second
+     implementation of every digging write in the client and a sandbox rule in every feature
+     that writes. Every verdict, track mark, note, listen and wantlist push is now written for
+     real from the first one. This supersedes decisions 27, 50, 52, 53, 54 and 55, and the
+     sandbox parts of 110. `GET /api/discogs/lists/:id`, which existed only for the sandbox's
+     Maybe list import, went with it. A config that still has `sandbox` keeps loading, since the
+     schema strips the unknown key, and loses it on the next save.

@@ -28,7 +28,7 @@ beforeEach(async () => {
   const paths = resolvePaths({ dataDir: tmp, distDir: path.join(tmp, "dist") });
   paths.dbFile = ":memory:";
   server = createServer({
-    config: { ...DEFAULT_CONFIG, sandbox: false },
+    config: DEFAULT_CONFIG,
     paths,
     secrets: testSecrets(),
     logger: silentLogger,
@@ -74,10 +74,9 @@ async function waitForJob(id: string): Promise<Job> {
 
 describe("HTTP API", () => {
   it.each(["1001garbage", "1001.5", "0", "-1", "9007199254740992"])(
-    "rejects malformed ID %s across release, list and wantlist routes",
+    "rejects malformed ID %s across release and wantlist routes",
     async (id) => {
       expect((await get(`/api/releases/${id}`)).status).toBe(400);
-      expect((await get(`/api/discogs/lists/${id}`)).status).toBe(400);
       expect((await send("POST", `/api/discogs/wantlist/${id}`, {})).status).toBe(400);
       expect((await send("DELETE", `/api/discogs/wantlist/${id}`)).status).toBe(400);
     },
@@ -397,7 +396,7 @@ describe("HTTP API", () => {
     expect((await send("PUT", "/api/settings", { server: { port: -1 } })).status).toBe(400);
   });
 
-  it("preserves active settings and sandbox protection when saving fails", async () => {
+  it("preserves the active settings when saving fails", async () => {
     await send("PUT", "/api/settings", DEFAULT_CONFIG);
     const configFile = path.join(tmp, "digga.config.json");
     fs.rmSync(configFile);
@@ -405,22 +404,12 @@ describe("HTTP API", () => {
 
     const response = await send("PUT", "/api/settings", {
       ...DEFAULT_CONFIG,
-      sandbox: false,
       discogs: { ...DEFAULT_CONFIG.discogs, username: "changed" },
     });
 
     expect(response.status).toBe(500);
     expect(server.getConfig()).toEqual(DEFAULT_CONFIG);
     expect((await get("/api/settings")).body).toEqual(DEFAULT_CONFIG);
-    expect(
-      (
-        await send("POST", "/api/verdicts", {
-          key: "m:501",
-          status: "accepted",
-          releaseId: 1001,
-        })
-      ).status,
-    ).toBe(409);
   });
 
   it("runs jobs and reports them", async () => {

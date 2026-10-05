@@ -1,6 +1,6 @@
 import { expectedVerdict, type MarkedTrack, type TwelvesItem } from "../../shared/api.ts";
 import type { Verdict, VerdictStatus } from "../../shared/types.ts";
-import { api as appApi, type Api, type AppApi, isConflict } from "../api.ts";
+import { api as appApi, type Api, isConflict } from "../api.ts";
 import { waitForJob } from "../jobs.ts";
 import { formatCount } from "../../shared/display.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
@@ -36,17 +36,13 @@ type UndoEntry =
 
 type WantlistChange = Extract<UndoEntry, { kind: "verdict" }>["wantlist"];
 export class TwelvesShelf {
-  #app: AppApi;
   #client: Api;
-  #generation: number;
   #closed = new AbortController();
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
   #loadVersion = 0;
 
-  constructor(api: AppApi = appApi) {
-    this.#app = api;
-    this.#client = api.pinned();
-    this.#generation = api.generation;
+  constructor(api: Api = appApi) {
+    this.#client = api;
   }
 
   destroy(): void {
@@ -55,7 +51,7 @@ export class TwelvesShelf {
   }
 
   #current(): boolean {
-    return !this.#closed.signal.aborted && this.#app.generation === this.#generation;
+    return !this.#closed.signal.aborted;
   }
 
   items = $state.raw<TwelvesItem[]>([]);

@@ -6,7 +6,6 @@ import type {
   JobsResponse,
   Stats,
 } from "../../../src/shared/api.ts";
-import type { Config } from "../../../src/shared/config.ts";
 import { formatBytes, formatCount } from "../../../src/shared/display.ts";
 import {
   DOWNLOAD_RETRIED_ERROR,
@@ -38,7 +37,6 @@ test.describe("with the clock", () => {
       test.slow();
       const point = fakes.dumps.checkpoint("600-to-dig");
       fakes.dumps.holdAt(point.name);
-      expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(true);
       const setup = new SetupPage(app);
       const triage = new TriagePage(app);
 
@@ -48,7 +46,6 @@ test.describe("with the clock", () => {
       await setup.continueFromDiscogs(["collection", "wantlist"]);
       await setup.keepSuggestedStyles(["Drum n Bass"]);
       await setup.fillCrate();
-      expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);
 
       await setup.waitForRecordsToDig(point.recordsToDig);
       await setup.startDigging();
@@ -211,8 +208,6 @@ test(
 
     await app.page.keyboard.press("Enter");
     await expect(header.link("triage")).toHaveAttribute("aria-current", "page");
-    await expect(header.sandbox).toBeHidden();
-    expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);
 
     await header.loadIndicator.click();
     await setup.startDigging();

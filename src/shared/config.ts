@@ -63,11 +63,6 @@ export const FiltersSchema = z.object({
 });
 
 export const ConfigSchema = z.object({
-  /**
-   * The UI keeps verdicts, track marks and listens in memory and sends nothing to Discogs.
-   * On by default, so a first run cannot change anything by accident.
-   */
-  sandbox: z.boolean().default(true),
   server: z
     .object({
       host: z.enum(LOOPBACK_HOSTS).default("127.0.0.1"),

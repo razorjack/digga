@@ -3,7 +3,7 @@ import { SessionInputSchema } from "../../shared/digging-session.ts";
 import { getSession, latestSession, saveSession } from "../db/digging-sessions.ts";
 import { resolveSession } from "../queue/resume.ts";
 import type { AppContext } from "../context.ts";
-import { parseJson, refuseInSandbox } from "./request.ts";
+import { parseJson } from "./request.ts";
 
 /** Saved digging sessions: where Triage was, so a later visit can resume there. */
 export function registerSessionRoutes(api: Hono, context: AppContext): void {
@@ -13,8 +13,6 @@ export function registerSessionRoutes(api: Hono, context: AppContext): void {
 }
 
 async function saveCurrentSession(request: Context, context: AppContext) {
-  const refused = refuseInSandbox(request, context);
-  if (refused) return refused;
   const input = await parseJson(request, SessionInputSchema);
   if (!input.ok) return input.response;
   saveSession(context.db, input.data, context.getConfig());

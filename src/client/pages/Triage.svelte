@@ -71,7 +71,6 @@
     session.current ? (session.detailErrors.get(session.current.id) ?? null) : null,
   );
 
-  let apiGeneration = api.generation;
   /** Bumped by each queue restart; only the latest one opens the session checkpoint. */
   let restartGeneration = 0;
   const settingsLoaded = $derived(settings.value !== null);
@@ -87,12 +86,8 @@
       const config = settings.value;
       if (!config) return;
       // A resume saves the session's settings and reloads the queue itself.
-      if (checkpoint.restoring && api.generation === apiGeneration) return;
+      if (checkpoint.restoring) return;
       const generation = ++restartGeneration;
-      if (api.generation !== apiGeneration) {
-        apiGeneration = api.generation;
-        player.forgetHeard();
-      }
       void session.start(config.queue.limit).then(() => {
         if (generation === restartGeneration) void checkpoint.open();
       });
@@ -510,7 +505,6 @@
         next={session.next}
         nextVideos={session.nextDetail?.videos.length ?? null}
         nextReady={player.nextReady}
-        sandbox={settings.sandbox}
         inRound={session.round !== null}
         busy={session.slipBusy}
       />

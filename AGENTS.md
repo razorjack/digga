@@ -15,11 +15,9 @@ that change without reloading data.
 
 - **Now (v1):** a Node process bound to 127.0.0.1:3456 serving a Svelte app, opened in a browser at
   `http://localhost:3456` (YouTube refuses some embeds on IP-address origins).
-- **Sandbox mode:** `sandbox` in `digga.config.json`, on by default and switched in Settings (the
-  header's sandbox stamp links there). While it is on, the UI fakes the digging writes in memory
-  (`src/client/sandbox.ts`): verdicts, track marks, listens, wantlist pushes and the Maybe list
-  import. Settings and the other jobs are real. The server refuses those writes with `409` too.
-  Never turn the owner's sandbox off (or edit their config) to test; use a throwaway data dir.
+- **Real writes:** every verdict, track mark, note, listen and wantlist push is saved from the
+  first one; `Z` undoes a mistake and Twelves re-judges a record. Never test against the owner's
+  library (or edit their config); use a throwaway data dir.
 - **Library:** the database, backups, `digga.config.json` and the saved token live in the per-user
   app folder (`~/Library/Application Support/Digga` on macOS), dumps in the OS cache folder
   (`~/Library/Caches/Digga/dumps`). Every `digga` command opens that real library unless
@@ -116,7 +114,7 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
                        queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
-src/client/            Svelte 5 app: api.ts (the transport seam), sandbox.ts (fake writes), router.svelte.ts
+src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css
                        (tokens), components/ (Key, Stamp, Flash, HelpOverlay, LoadIndicator), setup/ (the first run),
@@ -199,8 +197,6 @@ to TypeScript, Svelte scripts and templates, and tests when writing or changing 
   module boundary warrants moving them. Put the workflow before its implementation helpers.
 - Separate pure transformations from HTTP, SQLite, filesystem and player I/O. Keep SQL and row
   conversion in the database/query modules, HTTP parsing in routes, and transport in `api.ts`.
-  Share domain policy between live and sandbox implementations through pure functions when the
-  policy is the same; keep their different storage behavior explicit.
 - Parse and validate at the boundary, then pass valid domain values inward. A type assertion is
   not validation. Preserve known types through helpers: a generic job runner should retain its
   result type instead of returning `unknown` and making every caller cast it back. Use a
@@ -227,13 +223,13 @@ to TypeScript, Svelte scripts and templates, and tests when writing or changing 
 - Keep `$derived` calculations pure and `$effect` bodies focused on one synchronization task.
   Templates should display prepared values and call named actions; avoid nested decisions and
   substantial data manipulation inside markup.
-- Make asynchronous ownership explicit. Capture the API mode before queueing writes, reject stale
-  completions after a session or mode change, and keep related writes in their required order.
+- Make asynchronous ownership explicit. Reject stale completions after a session ends or is
+  replaced, and keep related writes in their required order.
   Extract helpers without moving these checks away from the operations they protect.
 - Make success, failure and cleanup paths visible. Publish saved state after persistence succeeds;
   optimistic updates need an explicit recovery path. Close owned resources in `finally`, and keep
-  timer/listener cleanup with their lifecycle. Preserve transaction boundaries, cancellation and
-  sandbox behavior when simplifying code.
+  timer/listener cleanup with their lifecycle. Preserve transaction boundaries and cancellation
+  when simplifying code.
 
 ### Canonical orchestration shape
 

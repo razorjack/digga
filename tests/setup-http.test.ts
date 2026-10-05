@@ -192,7 +192,6 @@ describe("changing the picks during the first load", () => {
     // As a load that never finished leaves them.
     db.prepare("UPDATE dump_loads SET finished_at = NULL WHERE id = ?").run(load.load!.id);
     db.prepare("DELETE FROM meta WHERE key = 'dump_loaded_at'").run();
-    await send("PUT", "/api/settings", { ...server.getConfig(), sandbox: false });
     await send("POST", "/api/verdicts", { key: "m:501", status: "rejected" });
 
     // 1001 and 1002 are the two pressings of m:501, which has a verdict now.

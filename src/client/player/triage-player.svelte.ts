@@ -11,7 +11,7 @@ import {
 } from "../../shared/playlist.ts";
 import type { PlaybackPosition } from "../../shared/replay.ts";
 import { tuneSnapshot } from "../../shared/track-identity.ts";
-import type { Api, AppApi } from "../api.ts";
+import type { Api } from "../api.ts";
 import { bookmarkedEntry } from "./bookmark.ts";
 import { Deck, type DeckListener } from "./deck.ts";
 import type { PlayerStatus } from "./status.ts";
@@ -26,8 +26,6 @@ const TICK_MS = 250;
 const BLOCKED_AFTER_MS = 3500;
 
 interface Listen {
-  /** The api of the mode the tune was heard in; a sandbox listen never reaches the server. */
-  client: Api;
   /** Saved with each post; `startSeconds` moves to where the next post's playback starts. */
   context: ListenContext;
   releaseId: number;
@@ -78,7 +76,7 @@ export class TriagePlayer {
    */
   readonly heardKeys = new SvelteSet<string>();
 
-  #api: AppApi;
+  #api: Api;
   #fraction: () => number;
   #skipHeard: () => boolean;
   #decks: Deck[] = [];
@@ -107,7 +105,7 @@ export class TriagePlayer {
   /** A session is being resumed: nothing starts until the listener presses play. */
   #resumePaused = false;
 
-  constructor(api: AppApi, settings: PlayerSettings) {
+  constructor(api: Api, settings: PlayerSettings) {
     this.#api = api;
     this.#fraction = settings.startAtFraction;
     this.#skipHeard = settings.skipHeard ?? (() => true);
@@ -122,11 +120,6 @@ export class TriagePlayer {
     if (id === this.#sessionId) return;
     this.#sessionId = id;
     this.#restartListen();
-  }
-
-  /** Forgets the tunes heard this session, e.g. those heard in a sandbox that was left. */
-  forgetHeard(): void {
-    this.heardKeys.clear();
   }
 
   get entry(): PlaylistEntry | null {
@@ -221,7 +214,7 @@ export class TriagePlayer {
     this.#suspended = on;
     if (!on) return;
     this.#activeDeck()?.pause();
-    // Settings may switch the sandbox while the page is hidden; log what was heard until now.
+    // The page may stay hidden until it closes; log what was heard until now.
     if (this.#listen) this.#restartListen();
   }
 
@@ -566,7 +559,6 @@ export class TriagePlayer {
 
   #beginListen(releaseId: number, entry: PlaylistEntry): void {
     this.#listen = {
-      client: this.#api.pinned(),
       context: this.#listenContext(entry),
       releaseId,
       position: entry.track?.position ?? null,
@@ -613,7 +605,7 @@ export class TriagePlayer {
   }
 
   #postListen(listen: Listen, play: { seconds: number; heard: boolean }): void {
-    listen.client
+    this.#api
       .postListenLog({
         releaseId: listen.releaseId,
         position: listen.position,

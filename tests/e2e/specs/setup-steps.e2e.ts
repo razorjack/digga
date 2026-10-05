@@ -316,7 +316,6 @@ test(
     await setup.fillCrate();
 
     const config = await app.api.get<Config>("/api/settings");
-    expect(config.sandbox).toBe(false);
     expect(config.universe).toMatchObject({ styles: ["Drum n Bass"], loadYears: [1990, 2010] });
     expect(config.filters).toMatchObject({
       styles: null,

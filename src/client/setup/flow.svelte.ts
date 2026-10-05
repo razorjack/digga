@@ -388,7 +388,6 @@ function awaitsRetriedDownload(load: Job): boolean {
 }
 
 export interface SettingsChange {
-  sandbox?: boolean;
   username?: string;
   currency?: string;
   picks?: Picks;
@@ -397,12 +396,10 @@ export interface SettingsChange {
 /** The config after a setup step: the account's name or currency, or the picks, dug for real. */
 export function withChange(config: Config, change: SettingsChange): Config {
   const next = structuredClone(config);
-  if (change.sandbox !== undefined) next.sandbox = change.sandbox;
   if (change.username) next.discogs.username = change.username;
   if (change.currency) next.discogs.currency = change.currency;
   if (!change.picks) return next;
   const { styles, span, loadYears, vinylOnly } = change.picks;
-  next.sandbox = false;
   next.setup.picksConfirmed = true;
   next.universe.styles = styles;
   next.universe.loadYears = loadYears;

@@ -208,26 +208,6 @@ test.describe("with a Discogs account and the clock", () => {
   );
 });
 
-test.describe("in the sandbox", () => {
-  test.use({ diggaOptions: { sandbox: true } });
-
-  test(
-    "TRI-23 in the sandbox, P still asks Discogs and shows the market",
-    { tag: ["@TRI-23", "@P1"] },
-    async ({ app, fakes }) => {
-      const triage = new TriagePage(app);
-      await app.open();
-
-      await triage.askMarket();
-
-      await expect(triage.market).toContainText(`${MARKET.numForSale} for sale`);
-      expect(fakes.requests("GET /releases/:id")).toEqual([
-        expect.objectContaining({ params: { id: String(FIRST_RECORD.id) } }),
-      ]);
-    },
-  );
-});
-
 test(
   "TRI-25 O opens the release on discogs.com and S a YouTube search for its artist and title",
   { tag: ["@TRI-25", "@P1"] },

@@ -30,12 +30,9 @@ published only after success.
 
 Per-test state goes on top, through documented paths only:
 
-- **Config.** `empty` has no config, so the first start creates it from the schema defaults with
-  the sandbox on, as for a real new user. For the loaded templates the host writes
-  `digga.config.json` from `DEFAULT_CONFIG` with the test's overrides, `sandbox: false` unless the
-  test asks for the sandbox, since the setup turns it off and live mode is the path most digging
-  takes. A test that needs live given state and then the sandbox turns the sandbox on in
-  Settings, as SET-20 does. `diggaOptions.labels` digs only the labels it names: the config leaves every other label
+- **Config.** `empty` has no config, so the first start creates it from the schema defaults, as
+  for a real new user. For the loaded templates the host writes
+  `digga.config.json` from `DEFAULT_CONFIG` with the test's overrides. `diggaOptions.labels` digs only the labels it names: the config leaves every other label
   of the small catalogue out (`filters.excludeLabels`), as `X` would, so a test reaches the
   records it is about without digging past others. `diggaOptions.config` changes any other
   setting, section by section (`{ queue: { limit: 5 } }`), typed against `Config`; the host
@@ -50,9 +47,7 @@ Per-test state goes on top, through documented paths only:
   precedence as the CLI's. A test asks for it with `diggaOptions.environmentToken`, which the
   fixture passes to the server only when it starts with `e2e-` (SET-09).
 - **Decisions.** `app.given` writes verdicts, track marks and listens through the app's own
-  `/api` before the page opens. The server refuses digging writes while the sandbox is on, so
-  `given` writes with the sandbox off and switches it on afterwards when the test asks for it.
-  Available helpers: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
+  `/api` before the page opens. Available helpers: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
   test can date its snoozes in order, `given.verdicts()` for several, and `given.trackMark()`.
   `datedVerdicts()` in `fixtures/decisions.ts` dates a list of verdicts a day apart, the first one
   newest, so Twelves' newest-first order is the list's order whatever the clock says.

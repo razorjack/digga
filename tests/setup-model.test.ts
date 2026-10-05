@@ -160,7 +160,6 @@ describe("the config the setup writes", () => {
       },
     });
 
-    expect(config.sandbox).toBe(false);
     expect(config.universe).toMatchObject({
       styles: ["Jungle", "Drum n Bass"],
       loadYears: [1991, 2000],
@@ -171,13 +170,12 @@ describe("the config the setup writes", () => {
       yearTo: 1997,
       formats: [],
     });
-    expect(DEFAULT_CONFIG.sandbox).toBe(true);
+    expect(DEFAULT_CONFIG.universe.loadYears).not.toEqual([1991, 2000]);
   });
 
-  it("keeps the account's name and currency, and a practice round's sandbox", () => {
-    const config = withChange(DEFAULT_CONFIG, { username: "dj", currency: "GBP", sandbox: true });
+  it("keeps the account's name and currency", () => {
+    const config = withChange(DEFAULT_CONFIG, { username: "dj", currency: "GBP" });
     expect(config.discogs).toMatchObject({ username: "dj", currency: "GBP" });
-    expect(config.sandbox).toBe(true);
   });
 });
 

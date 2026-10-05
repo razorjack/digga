@@ -33,12 +33,8 @@ after each close the body has focus
 
 ## SHELL-05
 
-Priority: **P1**.
-
-With the sandbox on, the header stamp links to `#/settings/sandbox`, which highlights the Sandbox
-section and focuses the switch. The section is then the page's current location
-(`aria-current="location"`), which also draws the highlight (a background and an inset bar), and
-has no `aria-current` on `#/settings`
+Retired: the header's sandbox stamp and `#/settings/sandbox` were removed with sandbox mode
+(decision 150 in `docs/DECISIONS.md`).
 
 ## SHELL-06
 
@@ -79,12 +75,12 @@ history)
 Priority: **P2**.
 
 At 840 px wide the Triage columns are stacked (980 px and below): the player's column starts below
-the record's. The header may wrap (860 px and below): with the sandbox stamp and a session count,
+the record's. The header may wrap (860 px and below): with a session count,
 each of its items is whole inside the window and none overlaps another, on one row or two. Every
 control stays reachable: the verdict bar's buttons are whole in the window, uncovered and keyed,
 and Tab brings each control in the tab order into the window. Fonts differ by platform, so the
 test compares boxes with each other, never with pixel values; at 840 px the header's default
-items fit on one row on macOS, and with the stamp and the count they take two
+items fit on one row on macOS, and with the count they may take two
 
 ## SHELL-12
 

@@ -53,9 +53,6 @@ that response and its completed body, and waits for the slip to stop being busy.
 `playerStatus()` matches exact copy within the Player region, because "Nothing playing"
 also contains "playing".
 
-`judge()` is for live mode. In the sandbox no request is sent, so `judgeInSandbox()` waits for
-the record to change and the slip to settle.
-
 ## Time
 
 `clock` fakes the page's timers, `Date` and `performance.now()`. It controls the browser's
@@ -63,7 +60,6 @@ timers only:
 
 | Browser timer                                                            | Where                                                                                                            |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| 350 ms before a sandbox push completes                                   | `sandbox.ts` (`pushDelayMs`)                                                                                     |
 | 5 s, 30 s and 2 min before a failed push is tried again                  | `triage/session.svelte.ts` (`PUSH_RETRY_DELAYS_MS` in `shared/wantlist.ts`)                                      |
 | 4 s of playback before a listen, 250 ms ticks                            | `player/triage-player.svelte.ts`                                                                                 |
 | 10 s look-again at the end of the queue                                  | `pages/Triage.svelte`                                                                                            |
@@ -88,8 +84,8 @@ Rules:
   navigation is released in the planned Electron host. After `install()` time keeps flowing, so polling runs. A
   test asks for it with `test.use({ diggaOptions: { clock: true } })`; the host installs it on
   every context it opens, a relaunch's too.
-- A test whose action must land inside a browser timer's window, such as a sandbox switch before
-  a sandbox push's 350 ms have passed, pauses the clock before the key press that starts the
+- A test whose action must land inside a browser timer's window, such as an action before a
+  failed push's 5 s retry, pauses the clock before the key press that starts the
   window and keeps it paused until the action has completed. Pausing only around the assertion is
   too late: the window would close in real time while the test acts.
 - `app.clock.pause()` reads the page's `Date.now()` and calls `pauseAt()` 1 s ahead of it.
@@ -147,13 +143,12 @@ synchronise on completed requests and on the state the app sets after them:
   from a paste of other text or into the note field (TRI-26), no listen for a remainder under 1 s
   (TRI-36).
 
-The completion contracts for each page are kept with its scenarios: [triage](scenarios/triage.md#completion-contracts), [persistence](scenarios/persistence.md#completion-contracts), [sandbox](scenarios/sandbox.md#completion-contracts), [settings](scenarios/settings.md#completion-contracts), [twelves](scenarios/twelves.md#completion-contracts), [shell](scenarios/shell.md#completion-contracts), [setup](scenarios/setup.md#completion-contracts).
+The completion contracts for each page are kept with its scenarios: [triage](scenarios/triage.md#completion-contracts), [persistence](scenarios/persistence.md#completion-contracts), [settings](scenarios/settings.md#completion-contracts), [twelves](scenarios/twelves.md#completion-contracts), [shell](scenarios/shell.md#completion-contracts), [setup](scenarios/setup.md#completion-contracts).
 
 ## Determinism
 
-- Viewport 1600 x 1000; the Electron plan uses the same content size. The header hides the sandbox
-  explanation from sight while a dump job runs at 1440 px and below, and it and the ETA at 1180 px
-  and below (`App.svelte`), as `.visually-hidden` does, so accessible names stay the same;
+- Viewport 1600 x 1000; the Electron plan uses the same content size. The header hides the ETA
+  from sight at 1180 px and below (`App.svelte`), as `.visually-hidden` does, so accessible names stay the same;
   responsive checks set their own viewport.
 - `locale: "en-US"`, `timezoneId: "UTC"` in the browser; `TZ=UTC` in the server, so backup file
   names (`localDay()`) and the Twelves day column agree. The `random` strategy's seed is the
@@ -258,9 +253,8 @@ element, and explain that exception in a comment.
 - Settings shows one tab at a time, listed in the "Settings sections" navigation with
   `aria-current="page"` on the current one; `SettingsPage.open(tab)` and `showTab(tab)` go
   there. It names the Library and Dump (Library tab), Discogs and Imports (Discogs tab), Backups
-  and Exports (Backups tab), and Sandbox (General tab) regions with `aria-labelledby`. Discogs is inside the
-  settings form; other form sections stay unnamed. Opened at `#/settings/sandbox`, General shows
-  the Sandbox region with `aria-current="location"`, which also draws its highlight.
+  and Exports (Backups tab) regions with `aria-labelledby`. Discogs is inside the
+  settings form; other form sections stay unnamed.
 - The slips are groups named "Last action" and "Up next", retaining the last action's
   `aria-live`. Groups identify the slips without adding landmarks. The last action is busy
   from a verdict or undo key until the request has answered and the page has acted on it;

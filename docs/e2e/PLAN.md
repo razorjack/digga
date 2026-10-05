@@ -9,7 +9,8 @@ Reconciled against the scenario tags and source on 2026-10-02, at `e1fa6aa` befo
 documentation split, and again after the setup's remaining scenarios and the Accessibility
 family, which completed the Setup and Accessibility families. On 2026-10-03 the remaining P2
 scenarios outside Triage completed the Shell, Sandbox, Twelves, Settings and Persistence families
-([history](HISTORY.md#the-remaining-p2-scenarios-outside-triage-web)). The web host and the web
+([history](HISTORY.md#the-remaining-p2-scenarios-outside-triage-web)); the Sandbox family was
+retired later with sandbox mode (decision 150 in `docs/DECISIONS.md`). The web host and the web
 P0 set are implemented. No current spec uses `test.fail` or `test.fixme`; the one `test.skip` is SETUP-12's
 unreadable folder on Windows or as root, where permissions do not stop Digga. That does not mean
 coverage is complete: the entries below are specified but unimplemented, and the observations

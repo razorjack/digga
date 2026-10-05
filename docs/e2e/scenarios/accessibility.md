@@ -12,7 +12,7 @@ violation, on: Triage (playing, no audio, end of queue), the Keys dialog, the sc
 Twelves shelf, each Settings tab, each setup step, the crate while loading and the finished crate. The region names are asserted directly, since axe reports a dangling
 `aria-labelledby` only as incomplete: Triage's Player region, its "Last action", "Up next" and
 "Verdicts" groups and its two named status regions; each shelf's table; Settings' Library, Dump,
-Discogs, Imports, Backups, Exports and Sandbox regions, each on its tab; each step's region or form, named by its
+Discogs, Imports, Backups and Exports regions, each on its tab; each step's region or form, named by its
 heading, and the crate's "Fill the crate", then "The catalogue is in: …".
 
 Each state is scanned with every rule in the dark scheme the host emulates, then with
@@ -37,9 +37,8 @@ Priority: **P2**.
 Live regions exist before their updates: the slip (which starts with its instructions), the flashes
 and the header status are in the DOM before the text changes. `LiveRegionWatch` records none of a
 snooze on the slip, M's message without a Maybe list in "Triage messages", "Note saved." in
-Twelves, "Back in the sandbox" in Settings' save bar, and the header's "The catalogue is in: …"
-after an update started in Settings (the September dump listed, held at `part-way` until the
-header shows the load); the header's status is in the page, empty, from the start
+Twelves, and the header's "The catalogue is in: …" after an update started in Settings (the
+September dump listed, held at `part-way` until the header shows the load); the header's status is in the page, empty, from the start
 
 ## A11Y-04
 
@@ -59,7 +58,5 @@ button `Enter`, and the crate's Start digging `T Enter`, though its key cap show
 
 Priority: **P2**.
 
-In a window 1,100 px wide, with the sandbox on, the header hides the sandbox's explanation and the
-ETA from sight only: each is 1 px wide, the stamp's link is still named "… verdicts are not saved",
-and the banner's ARIA snapshot still has "ETA after a few verdicts". The same rule hides the
-explanation at 1,440 px while a dump job runs
+In a window 1,100 px wide, the header hides the ETA from sight only: it is 1 px wide, and the
+banner's ARIA snapshot still has "ETA after a few verdicts"

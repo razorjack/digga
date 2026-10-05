@@ -1,6 +1,6 @@
 import { queueItem } from "./helpers/catalog.ts";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { type Api, ApiRequestError, type AppApi, createAppApi } from "../src/client/api.ts";
+import { type Api, ApiRequestError } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
 import { stats } from "../src/client/stores.svelte.ts";
 import type {
@@ -54,7 +54,6 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
     listings: [],
   });
   const http = {
-    mode: "live",
     getQueue: async (query: QueueQuery = {}) => {
       queries.push(query);
       return {
@@ -139,7 +138,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
       };
     },
   } as unknown as Api;
-  const app = createAppApi(http, (inner) => inner);
+  const app: Api = http;
   return { app, http, calls, notes, releaseNotes, verdicts, queries, state };
 }
 
@@ -401,18 +400,6 @@ describe("triage session", () => {
     await session.start(50);
     expect(session.passed.map((i) => i.id)).toEqual([1]);
   });
-
-  it("forgets undo history made in the other mode", async () => {
-    const { session, app, calls } = await started([1, 2]);
-    session.judge("rejected");
-    await wait();
-    app.setSandbox(true);
-    await session.start(50);
-    session.undo();
-    await wait();
-    expect(session.flash).toBe("Nothing to undo.");
-    expect(calls).toEqual(["verdict r:1 rejected"]);
-  });
 });
 
 function deferred<T>() {
@@ -517,32 +504,28 @@ describe("session recovery", () => {
     expect(calls).not.toContain("remove 1");
   });
 
-  it("does not let a failed old-mode write alter a restarted session", async () => {
-    const { session, app, http } = await started([1, 2]);
+  it("does not let a write that fails after destroy() change the session", async () => {
+    const { session, http } = await started([1, 2]);
     const pending = deferred<Verdict>();
     vi.spyOn(http, "postVerdict").mockReturnValueOnce(pending.promise);
     session.judge("accepted");
     await wait();
-    app.setSandbox(true);
-    await session.start(50);
-    pending.reject(new Error("old mode failed"));
+    session.destroy();
+    pending.reject(new Error("too late"));
     await wait();
     expect(session.flash).toBeNull();
-    expect(session.history).toEqual([]);
-    expect(session.upcoming.map((item) => item.id)).toEqual([1, 2]);
+    expect(session.history).toHaveLength(1);
+    expect(session.upcoming.map((item) => item.id)).toEqual([2]);
   });
 
-  it("loads new-mode details while old-mode details are still pending", async () => {
+  it("drops a detail that fails after destroy()", async () => {
     const { app, http } = fakeServer([1]);
     const pending = deferred<ReleaseDetail>();
-    const details = vi.spyOn(http, "getRelease").mockReturnValueOnce(pending.promise);
+    vi.spyOn(http, "getRelease").mockReturnValueOnce(pending.promise);
     const session = new TriageSession(app);
     await session.start(50);
-    app.setSandbox(true);
-    await session.start(50);
-    await until(() => session.details.has(1));
-    expect(details).toHaveBeenCalledTimes(2);
-    pending.reject(new Error("old detail failed"));
+    session.destroy();
+    pending.reject(new Error("too late"));
     await wait();
     expect(session.detailErrors.size).toBe(0);
   });
@@ -550,7 +533,7 @@ describe("session recovery", () => {
 
 describe("reading the queue again", () => {
   /** D on the record on screen, saved, and then a link pasted on it in Twelves. */
-  async function sentBack(session: TriageSession, app: AppApi): Promise<number> {
+  async function sentBack(session: TriageSession, app: Api): Promise<number> {
     const id = session.current!.id;
     session.judge("no_audio");
     await until(() => !session.slipBusy);
@@ -711,29 +694,6 @@ describe("reading the queue again", () => {
     session.undo();
     await until(() => !session.slipBusy);
     expect(calls.at(-1)).toBe("forget r:9");
-  });
-
-  it("offers a record sent back in the sandbox, whose queue leaves out the sandbox's verdicts", async () => {
-    const { http } = fakeServer([1, 2, 3]);
-    const app = createAppApi(http);
-    const session = new TriageSession(app);
-    await session.start(50);
-    expect(app.mode).toBe("sandbox");
-    await sentBack(session, app);
-    expect(ids(session)).toEqual([2, 3]);
-
-    await session.readAgain();
-    expect(ids(session)).toEqual([2, 1, 3]);
-  });
-
-  it("keeps a sandbox verdict out of the queue", async () => {
-    const { http } = fakeServer([1, 2, 3]);
-    const session = new TriageSession(createAppApi(http));
-    await session.start(50);
-    session.judge("rejected");
-    await until(() => !session.slipBusy);
-    await session.readAgain();
-    expect(ids(session)).toEqual([2, 3]);
   });
 });
 

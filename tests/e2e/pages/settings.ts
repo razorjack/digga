@@ -3,17 +3,10 @@ import { SETTINGS_TAB_LABEL, type SettingsTab } from "../../../src/client/settin
 import type { ColorScheme, QueueStrategy } from "../../../src/shared/config.ts";
 import type { Job, JobStatus } from "../../../src/shared/types.ts";
 import type { DiggaApp } from "../support/app.ts";
-import { HeaderPage } from "./header.ts";
 import { isRequest, waitForResponses } from "./triage.ts";
 
 /** What the save bar says once a save and the queue's reload have answered. */
 export const SAVED_COPY = "Saved. The queue has reloaded.";
-
-/** What the page says once the sandbox has switched, by the mode it switched to. */
-const SANDBOX_SWITCHED = {
-  on: "Back in the sandbox: verdicts stay in this tab again.",
-  off: "Sandbox off: verdicts are saved from now on.",
-};
 
 /** The Appearance radios' labels; the component holds them, not a module the tests can import. */
 const COLOR_SCHEME_LABEL: Record<ColorScheme, string> = {
@@ -55,17 +48,6 @@ export class SettingsPage {
 
   tabLink(tab: SettingsTab): Locator {
     return this.tabs.getByRole("link", { name: SETTINGS_TAB_LABEL[tab], exact: true });
-  }
-
-  get sandbox(): Locator {
-    return this.root.getByRole("region", { name: "Sandbox" });
-  }
-
-  /** The Sandbox section's button, which turns the sandbox off or back on. */
-  get sandboxSwitch(): Locator {
-    return this.sandbox.getByRole("button", {
-      name: /^(Turn off the sandbox|Back to the sandbox|Switching…)$/,
-    });
   }
 
   get appearance(): Locator {
@@ -268,29 +250,6 @@ export class SettingsPage {
   /** The same with Cmd+S or Ctrl+S, wherever the focus is. */
   async saveWithShortcut(): Promise<void> {
     await this.#saveBy(() => this.app.page.keyboard.press("ControlOrMeta+s"));
-  }
-
-  /**
-   * The Sandbox section's button, on the General tab. The page saves the mode at once, switches
-   * the api, and the hidden Triage page reads its queue in the new mode; returns once both have
-   * answered, the page says so and the header's sandbox stamp follows.
-   */
-  async switchSandbox(mode: "on" | "off"): Promise<void> {
-    const header = new HeaderPage(this.app);
-    await this.showTab("general");
-    const { first: saved, next: queue } = waitForResponses(
-      this.app.page,
-      (response) => isRequest(response, "PUT", "/api/settings"),
-      (response) => isRequest(response, "GET", "/api/queue"),
-    );
-    const label = mode === "on" ? "Back to the sandbox" : "Turn off the sandbox";
-    await expect(this.sandboxSwitch).toHaveText(label);
-    await this.sandboxSwitch.click();
-    await this.#completed(await saved);
-    await this.#completed(await queue);
-    await expect(this.root.getByText(SANDBOX_SWITCHED[mode], { exact: true })).toBeVisible();
-    if (mode === "on") await expect(header.sandbox).toBeVisible();
-    else await expect(header.sandbox).toBeHidden();
   }
 
   /**

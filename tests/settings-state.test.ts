@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { FilterPreview } from "../src/client/settings/preview.svelte.ts";
 import { SettingsJobs } from "../src/client/settings/jobs.svelte.ts";
 import { DiscogsSettings, usernameAfterTokenSave } from "../src/client/settings/discogs.svelte.ts";
-import { createAppApi, type Api } from "../src/client/api.ts";
+import type { Api } from "../src/client/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { DiscogsAccountResponse, DiscogsListsResponse, Stats } from "../src/shared/api.ts";
 
@@ -60,8 +60,8 @@ describe("Settings request ownership", () => {
       .fn()
       .mockResolvedValueOnce({ jobs: [{ status: "running" }] })
       .mockReturnValue(pending.promise);
-    const http = { mode: "live", getJobs } as unknown as Api;
-    const jobs = new SettingsJobs(createAppApi(http, (inner) => inner));
+    const http = { getJobs } as unknown as Api;
+    const jobs = new SettingsJobs(http);
     await jobs.load();
     await vi.advanceTimersByTimeAsync(5000);
     expect(getJobs).toHaveBeenCalledTimes(2);
@@ -82,12 +82,9 @@ describe("Settings request ownership", () => {
       .mockResolvedValueOnce({ jobs: [job("3", "running"), job("2", "done"), job("1", "done")] })
       .mockResolvedValueOnce({ jobs: [job("3", "failed"), job("2", "done"), job("1", "done")] })
       .mockResolvedValueOnce({ jobs: [job("3", "failed"), job("2", "done"), job("1", "done")] });
-    const http = { mode: "live", getJobs } as unknown as Api;
+    const http = { getJobs } as unknown as Api;
     const refreshStats = vi.fn(async () => {});
-    const jobs = new SettingsJobs(
-      createAppApi(http, (inner) => inner),
-      refreshStats,
-    );
+    const jobs = new SettingsJobs(http, refreshStats);
 
     // The page opens on jobs that ended earlier: nothing new to count.
     await jobs.load();

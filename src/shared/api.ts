@@ -539,26 +539,6 @@ export interface DiscogsListsResponse {
   lists: DiscogsListSummary[];
 }
 
-// GET /api/discogs/lists/:id (read only: nothing is written)
-export interface DiscogsListEntry {
-  type: "release" | "master";
-  discogsId: number;
-  /** Triage key the entry maps to. */
-  key: string;
-  displayTitle: string;
-  comment: string | null;
-  /** The release shown for the entry: from the dump, or built from the API when outside it. */
-  release: QueueItem | null;
-  /** Digga's verdict on the record, and what the Discogs account holds of it already. */
-  verdict: Verdict | null;
-  membership: RecordMembership;
-}
-export interface DiscogsListResponse {
-  id: number;
-  name: string;
-  entries: DiscogsListEntry[];
-}
-
 // GET /api/backups
 export interface BackupSummary {
   /** Local day of the copy, YYYY-MM-DD. */

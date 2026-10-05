@@ -7,9 +7,8 @@ and [authoring guidance](../AUTHORING.md). [Scenario conventions and other famil
 
 Priority: **P0**.
 
-The first run from the default config: the sandbox is on at first (`/api/settings`); fetch, connect
-with `e2e-token-dj`, keep the suggested styles, fill the crate; the config then has the sandbox off;
-with the transfer held at `600-to-dig` and its count shown, "Start digging" opens Triage on a
+The first run from the default config: fetch, connect with `e2e-token-dj`, keep the suggested
+styles, fill the crate; with the transfer held at `600-to-dig` and its count shown, "Start digging" opens Triage on a
 record; the first verdict is in `/api/export/decisions.json`. Triage reads its queue again when it
 is shown (decision 112). A second test pauses the clock before the picks are saved, which keeps
 Triage from looking again at the end of its queue, and opens Triage with `T` at `100-to-dig`: it
@@ -147,8 +146,8 @@ and references "Pick at least one style" after its hint until a style is picked 
 
 Priority: **P1**.
 
-"Fill the crate" saves styles, years, formats and load years, with the sandbox off (read back
-through `/api/settings`), and starts the load
+"Fill the crate" saves styles, years, formats and load years (read back through
+`/api/settings`), and starts the load
 
 ## SETUP-18
 
@@ -179,7 +178,7 @@ once released the imports end `done` and the catalogue is in
 Priority: **P1**.
 
 Held at `100-to-dig`: "Start digging" is disabled and "ready at 500 records" shows; released to
-`600-to-dig`: enabled once its count shows; Enter and the button open Triage with the sandbox off
+`600-to-dig`: enabled once its count shows; Enter and the button open Triage
 (the page; SETUP-01 checks its first record). `T` is also the page key, which works during the load
 whatever the count (`docs/FIRST_RUN.md`)
 

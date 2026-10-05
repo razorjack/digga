@@ -4,7 +4,6 @@
   import HelpOverlay from "./components/HelpOverlay.svelte";
   import Key from "./components/Key.svelte";
   import LoadIndicator from "./components/LoadIndicator.svelte";
-  import Stamp from "./components/Stamp.svelte";
   import {
     GLOBAL_KEYS,
     hasCommandModifier,
@@ -135,7 +134,7 @@
 </svg>
 
 <div class="app">
-  <header class="top" class:busy={loadStatus.job !== null}>
+  <header class="top">
     <a class="wordmark" href="#/triage" aria-label="Digga, triage" onmousedown={keepFocus}>digga</a>
     {#if !setupOnly}
       <nav aria-label="Pages">
@@ -151,18 +150,6 @@
           </a>
         {/each}
       </nav>
-
-      {#if settings.sandbox}
-        <a
-          class="sandbox"
-          href="#/settings/sandbox"
-          title="Verdicts, notes, track marks and heard tunes stay in this tab, and nothing goes to Discogs. Click to change."
-          onmousedown={keepFocus}
-        >
-          <Stamp text="sandbox" tone="accent" size="sm" seed={3} />
-          <span>verdicts are not saved</span>
-        </a>
-      {/if}
 
       {#if loadStatus.job}
         <LoadIndicator href={firstRun ? "#/setup" : "#/settings/library"} />
@@ -195,10 +182,7 @@
       <Triage active={route === "triage"} />
     </div>
     {#if route === "twelves"}
-      <!-- A shelf's history and writes belong to one mode, including while Settings first loads. -->
-      {#key settings.sandbox}
-        <div class="page scroll"><Twelves /></div>
-      {/key}
+      <div class="page scroll"><Twelves /></div>
     {:else if route === "settings"}
       <div class="page scroll"><Settings /></div>
     {:else if route === "setup"}
@@ -253,20 +237,6 @@
     color: var(--fg);
     border-bottom-color: var(--accent-mark);
   }
-  .sandbox {
-    white-space: nowrap;
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--fg-muted);
-    font-size: var(--text-sm);
-    text-decoration: none;
-  }
-  .sandbox:hover span {
-    color: var(--fg);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
   .counter {
     display: flex;
     align-items: baseline;
@@ -310,22 +280,8 @@
   .scroll {
     overflow-y: auto;
   }
-  /*
-   * The load indicator needs the room the sandbox's explanation takes. Narrow windows hide the
-   * explanation and the ETA as .visually-hidden does, so screen readers still have them.
-   */
-  @media (max-width: 1440px) {
-    .busy .sandbox span {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
-  }
+  /* Narrow windows hide the ETA as .visually-hidden does, so screen readers still have it. */
   @media (max-width: 1180px) {
-    .sandbox span,
     .counter .eta {
       position: absolute;
       width: 1px;

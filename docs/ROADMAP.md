@@ -92,13 +92,9 @@ Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with
 ## Known gaps to keep in mind
 
 - Releases a load no longer finds stay in the library and the queue; the load only counts them.
-- The coverage pass and the undated filter read the verdicts saved on the server, so sandbox
-  wants widen neither.
 - A dump download cannot resume: data.discogs.com answers range requests with the whole file.
 - Nothing deletes a dump by itself: Settings says which dumps nothing needs and deletes them on
   request, 10 GB each.
-- Sandbox: after a settings change, the "to go" count still subtracts every sandbox verdict,
-  including ones the new filters exclude.
 - With `skipWithoutVideos`, a release without videos in the dump never reaches Triage, which is
   where enrichment happens, so it comes back only with a newer dump.
 - Twelves loads every shelf in one request and pages only the rendering. 5,000 records take

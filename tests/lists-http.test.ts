@@ -2,14 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { createHttpApi } from "../src/client/api.ts";
-import { createSandboxApi } from "../src/client/sandbox.ts";
 import type { Db } from "../src/server/db/db.ts";
 import { recordMembershipOf } from "../src/server/db/memberships.ts";
 import { getVerdict } from "../src/server/db/verdicts.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
-import type { DiscogsListResponse, DiscogsListsResponse } from "../src/shared/api.ts";
+import type { DiscogsListsResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { Job } from "../src/shared/types.ts";
 import { fixtureDb, silentLogger, testSecrets } from "./helpers.ts";
@@ -44,7 +42,6 @@ const fakeFetch: typeof fetch = async (input) => {
 let tmp: string;
 let db: Db;
 let server: DiggaServer;
-let apiUrl: string;
 
 beforeEach(async () => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-lists-"));
@@ -54,7 +51,6 @@ beforeEach(async () => {
   server = createServer({
     config: {
       ...DEFAULT_CONFIG,
-      sandbox: false,
       discogs: { ...DEFAULT_CONFIG.discogs, username: "dj", maybeListId: 77 },
     },
     paths,
@@ -64,7 +60,7 @@ beforeEach(async () => {
     serveStatic: false,
     fetchImpl: fakeFetch,
   });
-  apiUrl = `${(await server.start(0)).url}/api`;
+  await server.start(0);
 });
 
 afterEach(async () => {
@@ -90,46 +86,12 @@ describe("Discogs lists over HTTP", () => {
     ]);
   });
 
-  it("reads a list as triage keys without writing", async () => {
-    const res = await server.app.request("/api/discogs/lists/77");
-    const body = (await res.json()) as DiscogsListResponse;
-    expect(body.entries.map((e) => [e.key, e.release?.id, e.comment])).toEqual([
-      ["m:501", 1001, null],
-      ["m:506", 1006, "check the flip"],
-    ]);
-    expect(getVerdict(db, "m:506")).toBeNull();
-  });
-
-  it("answers 502 when Discogs refuses", async () => {
-    const res = await server.app.request("/api/discogs/lists/404");
-    expect(res.status).toBe(502);
-  });
-
   it("holds the configured list's records on the Maybe list", async () => {
     const started = await server.app.request("/api/jobs/import/list", { method: "POST" });
     expect(started.status).toBe(202);
     const job = await waitForJob(((await started.json()) as Job).id);
     expect(job).toMatchObject({ type: "import_list", status: "done" });
     expect(recordMembershipOf(db, "m:506").onList).toBe(true);
-    expect(getVerdict(db, "m:506")).toBeNull();
-  });
-
-  it("applies the list in memory in the sandbox", async () => {
-    const sandbox = createSandboxApi(createHttpApi(apiUrl));
-    const before = (await sandbox.getStats()).remaining;
-    const job = await sandbox.startImport("list");
-    let done = job;
-    for (let i = 0; i < 200 && done.status === "running"; i += 1) {
-      await new Promise((r) => setTimeout(r, 10));
-      done = await sandbox.getJob(job.id);
-    }
-    expect(done).toMatchObject({ status: "done", progress: { processed: 2, added: 2 } });
-    const twelves = await sandbox.getTwelves();
-    const listed = twelves.items.filter((item) => item.membership.onList);
-    expect(listed.map((item) => item.key).sort()).toEqual(["m:501", "m:506"]);
-    const stats = await sandbox.getStats();
-    expect(stats.remaining).toBe(before - 2);
-    expect(stats.dug).toBe(0);
     expect(getVerdict(db, "m:506")).toBeNull();
   });
 });

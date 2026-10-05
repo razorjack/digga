@@ -220,7 +220,7 @@
   </div>
 
   {#if !flow.nothingMatches}
-    {#if !settings.sandbox && flow.account?.tokenUsername}
+    {#if flow.account?.tokenUsername}
       <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
     {/if}
 

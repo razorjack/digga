@@ -43,7 +43,7 @@ beforeEach(async () => {
   const paths = resolvePaths({ dataDir: tmp });
   paths.dbFile = ":memory:";
   server = createServer({
-    config: { ...DEFAULT_CONFIG, sandbox: false },
+    config: DEFAULT_CONFIG,
     paths,
     secrets: testSecrets(),
     logger: silentLogger,
@@ -97,23 +97,6 @@ describe("records without audio", () => {
     expect(requeueNoAudio(old)).toEqual([]);
     old.close();
     fs.rmSync(early, { recursive: true, force: true });
-  });
-
-  it("stay marked when a link is pasted in the sandbox", async () => {
-    await markNoAudio();
-    const config = server.getConfig();
-    await server.app.request("/api/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...config, sandbox: true }),
-    });
-    const attached = await post<ReleaseDetail>("/api/releases/1006/videos", {
-      url: "https://youtu.be/gggggggggg1",
-    });
-    expect(attached.status).toBe(200);
-    expect(getVerdict(db, "m:506")?.status).toBe("no_audio");
-    // Out of the sandbox, the next check sends the record back for the new link.
-    expect(requeueNoAudio(db)).toEqual(["m:506"]);
   });
 
   it("attach a pasted link, matched to a track by YouTube's title, and come back", async () => {

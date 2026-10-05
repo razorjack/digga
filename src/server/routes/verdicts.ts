@@ -21,7 +21,7 @@ import {
 import { recordKeyOf } from "../db/verdict-keys.ts";
 import { recordNoAudioVideos } from "../queue/no-audio.ts";
 import type { AppContext } from "../context.ts";
-import { badRequest, parseId, parseJson, parseQuery, refuseInSandbox } from "./request.ts";
+import { badRequest, parseId, parseJson, parseQuery } from "./request.ts";
 
 export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
   api.put("/releases/:id/note", (request) => saveNote(request, context));
@@ -38,8 +38,6 @@ const VERDICT_CHANGED: ApiError = {
 
 async function saveVerdict(request: Context, context: AppContext) {
   const { db } = context;
-  const refused = refuseInSandbox(request, context);
-  if (refused) return refused;
   const body = await parseJson(request, VerdictInputSchema);
   if (!body.ok) return body.response;
   const { expected, ...input } = body.data;
@@ -55,8 +53,6 @@ async function saveVerdict(request: Context, context: AppContext) {
 
 function removeVerdict(request: Context, context: AppContext) {
   const { db } = context;
-  const refused = refuseInSandbox(request, context);
-  if (refused) return refused;
   const expected = parseQuery(request, ExpectedVerdictSchema);
   if (!expected.ok) return expected.response;
   const key = request.req.param("key") ?? "";
@@ -69,8 +65,6 @@ function removeVerdict(request: Context, context: AppContext) {
 
 async function saveTrackMark(request: Context, context: AppContext) {
   const { db } = context;
-  const refused = refuseInSandbox(request, context);
-  if (refused) return refused;
   const body = await parseJson(request, TrackVerdictInputSchema);
   if (!body.ok) return body.response;
   return request.json(setTrackVerdict(db, body.data));
@@ -78,8 +72,6 @@ async function saveTrackMark(request: Context, context: AppContext) {
 
 async function listen(request: Context, context: AppContext) {
   const { db } = context;
-  const refused = refuseInSandbox(request, context);
-  if (refused) return refused;
   const body = await parseJson(request, ListenLogInputSchema);
   if (!body.ok) return body.response;
   const listen = logListen(db, { ...body.data, position: body.data.position ?? null });
@@ -88,8 +80,6 @@ async function listen(request: Context, context: AppContext) {
 }
 
 async function saveNote(request: Context, context: AppContext) {
-  const refused = refuseInSandbox(request, context);
-  if (refused) return refused;
   const id = parseId(request.req.param("id") ?? "");
   if (id === null) return badRequest(request, "Invalid release id");
   if (!getRelease(context.db, id)) return request.json({ error: "Release not found" }, 404);

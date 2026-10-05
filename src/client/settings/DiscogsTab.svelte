@@ -228,9 +228,6 @@
   <header>
     <h2 id="{id}-imports-title">Imports</h2>
     <p>Seed verdicts from your Discogs collection, wantlist and Maybe list, and from browser history.</p>
-    {#if settings.sandbox}
-      <p>In the sandbox, only the Maybe list import keeps what it reads in this tab.</p>
-    {/if}
   </header>
   <div class="fields">
     <fieldset class="field">
@@ -279,8 +276,7 @@
   <details>
     <summary>How imports run</summary>
     <p>
-      Imports run on the server, in the sandbox too, since they set Digga up rather than dig; closing this page does
-      not stop them. A shop is read at about 100 listings a second, at most 10,000. Buying stays on Discogs.
+      Imports run on the server; closing this page does not stop them. A shop is read at about 100 listings a second, at most 10,000. Buying stays on Discogs.
     </p>
   </details>
 </section>

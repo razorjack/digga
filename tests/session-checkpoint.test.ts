@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vite-plus/test";
 import { SessionCheckpoint } from "../src/client/triage/checkpoint.svelte.ts";
-import { createAppApi, type Api } from "../src/client/api.ts";
+import type { Api } from "../src/client/api.ts";
 import type { SessionState } from "../src/shared/digging-session.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 
@@ -15,9 +15,8 @@ function checkpoint() {
     playback: null,
   };
   const putSession = vi.fn().mockResolvedValue({ saved: true });
-  const client = { mode: "live", getLatestSession: async () => null, putSession } as unknown as Api;
-  const api = createAppApi(client);
-  api.setSandbox(false);
+  const getLatestSession = vi.fn().mockResolvedValue(null);
+  const api = { getLatestSession, putSession } as unknown as Api;
   const session = {
     status: "ready" as const,
     checkpoint: () => structuredClone(state),
@@ -33,8 +32,8 @@ function checkpoint() {
   return {
     checkpoint: new SessionCheckpoint(api, session, player, settings),
     putSession,
+    getLatestSession,
     state,
-    api,
     player,
   };
 }
@@ -69,11 +68,13 @@ it("does not publish a stale save after starting a fresh session", async () => {
   expect(test.putSession).toHaveBeenCalledTimes(2);
 });
 
-it("never checkpoints sandbox decisions into the library", async () => {
+it("offers the saved session on the first start only; a restart starts a new session", async () => {
   const test = checkpoint();
-  test.api.setSandbox(true);
   await test.checkpoint.open();
-  await test.checkpoint.save();
-  expect(test.player.sessionId).toBeNull();
-  expect(test.putSession).not.toHaveBeenCalled();
+  const first = test.player.sessionId;
+  expect(first).not.toBeNull();
+  await test.checkpoint.open();
+  expect(test.getLatestSession).toHaveBeenCalledTimes(1);
+  expect(test.player.sessionId).not.toBeNull();
+  expect(test.player.sessionId).not.toBe(first);
 });

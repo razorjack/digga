@@ -69,7 +69,6 @@ function serverWith(secrets: Secrets): DiggaServer {
   return createServer({
     config: {
       ...DEFAULT_CONFIG,
-      sandbox: false,
       discogs: { ...DEFAULT_CONFIG.discogs, username: "dj" },
     },
     paths,
@@ -177,11 +176,10 @@ describe("Discogs wantlist over HTTP", () => {
     expect(none.body).toMatchObject({ hasToken: false, tokenSource: null, tokenUsername: null });
   });
 
-  it("saves the token from Settings, in the sandbox too, and removes it again", async () => {
+  it("saves the token from Settings and removes it again", async () => {
     const envFile = path.join(tmp, ".env");
     await server.stop();
     server = serverWith(createSecrets({ envFile, env: {} }));
-    await send("PUT", "/api/settings", { ...server.getConfig(), sandbox: true });
 
     const saved = await send<DiscogsAccountResponse>("PUT", "/api/discogs/token", {
       token: " abc123 ",
@@ -241,25 +239,5 @@ describe("Discogs wantlist over HTTP", () => {
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/set in the environment/);
     expect(fs.existsSync(envFile)).toBe(false);
-  });
-
-  it("refuses every digging write while the config says sandbox", async () => {
-    const config = server.getConfig();
-    await send("PUT", "/api/settings", { ...config, sandbox: true });
-    const writes: [string, string, unknown][] = [
-      ["POST", "/api/verdicts", { key: "m:501", status: "accepted", releaseId: 1001 }],
-      ["DELETE", "/api/verdicts/m:501", undefined],
-      ["POST", "/api/track-verdicts", { releaseId: 1001, position: "A1", mark: "keep" }],
-      ["POST", "/api/listen-log", { releaseId: 1001, videoId: "x", seconds: 5 }],
-      ["POST", "/api/discogs/wantlist/1001", {}],
-      ["DELETE", "/api/discogs/wantlist/1001", undefined],
-      ["POST", "/api/jobs/import/list", { listId: 77 }],
-    ];
-    for (const [method, url, body] of writes)
-      expect([url, (await send(method, url, body)).status]).toEqual([url, 409]);
-    expect(calls).toEqual([]);
-    const count = (t: string) =>
-      (db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
-    expect([count("verdicts"), count("track_verdicts"), count("listen_log")]).toEqual([0, 0, 0]);
   });
 });

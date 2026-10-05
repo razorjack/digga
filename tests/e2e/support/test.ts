@@ -33,13 +33,11 @@ const LISTED_DUMPS: Record<"bulk" | "september", () => DumpFile> = {
 
 /** Settings a test changes, section by section, on top of the template's config. */
 export type ConfigOverride = {
-  [Section in Exclude<keyof Config, "sandbox">]?: Partial<Config[Section]>;
+  [Section in keyof Config]?: Partial<Config[Section]>;
 };
 
 export interface DiggaOptions {
   template: TemplateName;
-  /** Ignored for `empty`, which starts with the schema defaults, the sandbox on. */
-  sandbox: boolean;
   /** Written into the copied config before the server starts; ignored for `empty`. */
   config: ConfigOverride;
   /**
@@ -75,7 +73,6 @@ export interface DiggaOptions {
 
 const DEFAULT_OPTIONS: DiggaOptions = {
   template: "small",
-  sandbox: false,
   config: {},
   labels: null,
   savedToken: null,
@@ -97,9 +94,9 @@ interface TestFixtures {
   testFolder: string;
   app: WebApp;
   /**
-   * Another library in the test's folder, copied from a template with the default test config, the
-   * sandbox off. `app.cli(args, { library })` prepares it and `app.relaunch({ library })` moves
-   * the app to it (PER-02).
+   * Another library in the test's folder, copied from a template with the default test config.
+   * `app.cli(args, { library })` prepares it and `app.relaunch({ library })` moves the app to it
+   * (PER-02).
    */
   newLibrary: (template: TemplateName) => Promise<DiggaLibrary>;
 }
@@ -219,11 +216,11 @@ function checkedToken(token: string | null): string | undefined {
 }
 
 /**
- * The test's settings on top of the template's config: the sandbox, the sections it changes and
- * the labels it digs. The schema parses the result, so a value the app would refuse fails here.
+ * The test's settings on top of the template's config: the sections it changes and the labels it
+ * digs. The schema parses the result, so a value the app would refuse fails here.
  */
 function testConfig(config: Config, options: DiggaOptions): Config {
-  const merged: Record<string, unknown> = { ...config, sandbox: options.sandbox };
+  const merged: Record<string, unknown> = { ...config };
   for (const [section, values] of Object.entries(options.config))
     merged[section] = { ...config[section as keyof ConfigOverride], ...values };
   const parsed = ConfigSchema.parse(merged);

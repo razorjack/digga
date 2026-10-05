@@ -35,22 +35,12 @@ keeps the browser's `Host`, so the dev server's page counts as the app's own.
 
 `src/client/api.ts` defines the `Api` interface and its HTTP implementation. Every request has a
 timeout that covers the body too (`DEFAULT_TIMEOUTS`): 30 s for what the server answers from its
-database, 5 min for requests that wait on a Discogs call, 15 min for reading a Discogs list. The
-exported `api`
-is an `AppApi` facade (`createAppApi`) over one of two implementations: the HTTP api, or
-`createSandboxApi(http)` from `src/client/sandbox.ts`, which keeps the digging writes (verdicts,
-track marks, listens, wantlist pushes and removals, the Maybe list import) in memory and overlays
-them on later reads. Settings and the other jobs pass through. The facade starts in the sandbox;
-the settings store calls `api.setSandbox(config.sandbox)` whenever it loads or saves settings,
-before anything reacts to them. Every switch bumps `api.generation`, which tells the triage session
-to drop its undo history and details, and every switch into the sandbox starts an empty one. The
-session sends each write through `api.pinned()`, the implementation of the moment, so a write
-queued before a switch cannot land in the other mode. The server checks the same setting and
-answers `409` to digging writes while `sandbox` is on.
+database and 5 min for requests that wait on a Discogs call. The exported `api` is
+`createHttpApi()`.
 
 - `src/client/triage/session.svelte.ts` holds the queue buffer, prefetches release details,
   applies verdicts optimistically, keeps the undo history and passes, and serialises writes so
-  an undo never overtakes its verdict. When the Triage page is shown again it reads the queue
+  an undo never overtakes its verdict. Answers that arrive after `destroy()` are dropped. When the Triage page is shown again it reads the queue
   again and orders the records after the one on screen as the server does (decision 112). `P` has the server fetch the record on screen from
   Discogs (`POST /api/releases/:id/enrich`) and shows its market data; the record keeps the
   videos it is playing until it comes up again.
@@ -59,7 +49,7 @@ answers `409` to digging writes while `sandbox` is on.
   one preloading the track `J` moves to), picks tracks with `src/shared/playlist.ts`, and logs
   listens.
 - `src/client/stores.svelte.ts` holds app-wide state: stats for the counter, settings (with a
-  version that restarts the queue on save, and the api mode switch), the help overlay flag, and
+  version that restarts the queue on save), the help overlay flag, and
   the snoozed records Twelves hands to Triage for a round.
 - Pages: `Triage.svelte` (always mounted, hidden when another page is shown), `Twelves.svelte`,
   `Settings.svelte`, `Setup.svelte`. The keymap and its help text are in `keymap.ts`.
@@ -112,8 +102,7 @@ player would have something to play.
 Records with nothing to play have a way back. `D` stores `no_audio` together with the video ids
 the player had for the release (`no_audio_videos`, from `releaseVideos()`); a dump load, an
 enrich or a pasted link that brings a video outside that list deletes the verdict, so the record
-is in the queue again, while videos that were there and refused to play keep it out. In the
-sandbox a pasted link does not delete a saved verdict; the next dump load or enrich does. A YouTube link pasted in Triage, or on a record in
+is in the queue again, while videos that were there and refused to play keep it out. A YouTube link pasted in Triage, or on a record in
 Twelves, is stored in `user_videos` through `POST /api/releases/:id/videos`, matched to a track
 by the title YouTube's oEmbed endpoint gives (`src/server/youtube.ts`, no API key), and played at
 once; the player rebuilds the open release's playlist when its videos change.
@@ -213,8 +202,7 @@ attached videos are added, the latter also for releases the library has not load
 wait for.
 
 `GET /api/export/decisions.json`, `verdicts.csv` and `track-marks.csv` download every saved
-verdict and track mark with the release they belong to (`src/server/export.ts`). They read the
-database, so sandbox verdicts, which live in the browser tab, are not in them.
+verdict and track mark with the release they belong to (`src/server/export.ts`).
 
 ## Discogs API
 
@@ -234,8 +222,7 @@ are on the Discogs wantlist.
 `src/shared/config.ts`. It is per-user and lives in the library folder; the first run creates it
 from the schema defaults, which the committed `digga.config.example.json` shows.
 `PUT /api/settings` validates and rewrites the file. Besides the
-Discogs account, universe, filters, order and player, it holds `sandbox` (default `true`, so a
-first run changes nothing by accident), `filters.skipWithoutVideos` (default `false`), which
+Discogs account, universe, filters, order and player, it holds `filters.skipWithoutVideos` (default `false`), which
 drops releases without an embeddable video from the queue and its counts, and
 `setup.picksConfirmed` (default `false`), which the setup's step 3 sets when it writes the styles,
 years and formats, so the setup starts from them and not from the defaults when it returns.

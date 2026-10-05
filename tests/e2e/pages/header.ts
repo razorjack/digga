@@ -9,7 +9,7 @@ export function page(route: Route): { label: string; key: string } {
   return destination;
 }
 
-/** The app's header: the page links with their keys, the sandbox stamp and the counts. */
+/** The app's header: the page links with their keys and the counts. */
 export class HeaderPage {
   readonly app: DiggaApp;
 
@@ -23,11 +23,6 @@ export class HeaderPage {
 
   get pages(): Locator {
     return this.root.getByRole("navigation", { name: "Pages" });
-  }
-
-  /** Shown while the sandbox is on; it links to the switch in Settings. */
-  get sandbox(): Locator {
-    return this.root.getByRole("link", { name: /sandbox/i });
   }
 
   /** "loading 41%" while a load runs, "fetching" while only a download does. */

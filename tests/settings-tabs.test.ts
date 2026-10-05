@@ -24,10 +24,6 @@ describe("the Settings tab an address opens", () => {
     expect(settingsTab("general")).toBe("general");
   });
 
-  it("opens General for the header's sandbox link", () => {
-    expect(settingsTab("sandbox")).toBe("general");
-  });
-
   it("opens Digging without a tab or with an unknown one", () => {
     expect(settingsTab(null)).toBe("digging");
     expect(settingsTab("jobs")).toBe("digging");
@@ -72,9 +68,8 @@ describe("the tabs with unsaved changes", () => {
     expect(unsavedTabs(draft, DEFAULT_CONFIG)).toEqual(["digging", "library", "discogs"]);
   });
 
-  it("leaves out the settings General saves at once", () => {
+  it("leaves out the color scheme, which General saves at once", () => {
     const draft = structuredClone(DEFAULT_CONFIG);
-    draft.sandbox = !draft.sandbox;
     draft.appearance.colorScheme = "dark";
     expect(unsavedTabs(draft, DEFAULT_CONFIG)).toEqual([]);
   });

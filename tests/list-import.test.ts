@@ -4,7 +4,7 @@ import { getRelease } from "../src/server/db/releases.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import type { DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsList, DiscogsRelease } from "../src/server/discogs/types.ts";
-import { importList, listEntriesForApi, resolveListEntries } from "../src/server/importers/list.ts";
+import { importList, resolveListEntries } from "../src/server/importers/list.ts";
 import { fixtureDb, silentLogger } from "./helpers.ts";
 
 const release = (id: number, masterId: number | null, title: string): DiscogsRelease => ({
@@ -72,9 +72,6 @@ describe("Discogs Maybe list import", () => {
       ["release", 9999, "r:9999", 9999, false],
     ]);
     expect(calls).toEqual(["release 9001", "master 9600", "release 9601", "release 9999"]);
-    const api = listEntriesForApi(db, entries);
-    expect(api[1]).toMatchObject({ comment: "check the flip", release: { id: 1006 } });
-    expect(api[2]!.release).toMatchObject({ id: 9001, catno: "LBL 9", country: "UK" });
     expect(getRelease(db, 9001)).toBeNull();
     db.close();
   });

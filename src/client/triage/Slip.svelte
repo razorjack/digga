@@ -11,7 +11,6 @@
     next,
     nextVideos,
     nextReady,
-    sandbox,
     inRound,
     busy,
   }: {
@@ -20,7 +19,6 @@
     /** Videos the next record plays, other pressings' included; null until its details load. */
     nextVideos: number | null;
     nextReady: boolean;
-    sandbox: boolean;
     /** The slip's release is the last of a snoozed round, so the queue comes next. */
     inRound: boolean;
     /** The slip's write has not been answered yet; it can still come back as not saved. */
@@ -71,7 +69,7 @@
           {:else if slip.kind === "verdict" && slip.push === "retrying"}
             Not on your Discogs wantlist yet; trying again in {formatWait(slip.retryInMs ?? 0)}.
           {:else if slip.kind === "verdict" && slip.push === "done"}
-            {sandbox ? "Added to your wantlist (sandbox: nothing sent)." : "Added to your Discogs wantlist."}
+            Added to your Discogs wantlist.
           {:else if slip.kind === "verdict" && slip.push === "failed"}
             Saved, but not on the Discogs wantlist.
           {:else if slip.kind === "verdict" && slip.status === "maybe"}
@@ -85,7 +83,7 @@
           {:else if slip.kind === "undo"}
             {undoneText(slip.undone)}
           {:else}
-            {sandbox ? "Sandbox: nothing was saved." : "Saved."}
+            Saved.
           {/if}
         </p>
       </div>

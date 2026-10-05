@@ -139,7 +139,7 @@ the supported setup paths. `apiRequests()` includes all launches in the test.
 
 **A second library.** A test has one app, and one library unless it asks for another: the
 `newLibrary(template)` fixture copies a template into the test's folder with the default test
-config (sandbox off) and returns its `DiggaLibrary`. `app.cli(args, { library })` runs a command
+config and returns its `DiggaLibrary`. `app.cli(args, { library })` runs a command
 on it, and `app.relaunch({ library })` stops the app and starts it on that library, which
 `app.library` then names; the fake home, the working directory and the fakes stay. A library is
 prepared before the relaunch, as the README says a restore is done with the server stopped. PER-02

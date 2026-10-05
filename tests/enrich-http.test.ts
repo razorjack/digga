@@ -54,7 +54,7 @@ afterEach(async () => {
 });
 
 describe("enriching one release over HTTP", () => {
-  it("stores and returns the release's market data and videos, in the sandbox too", async () => {
+  it("stores and returns the release's market data and videos", async () => {
     const response = await server.app.request("/api/releases/1001/enrich", { method: "POST" });
     expect(response.status).toBe(200);
     const detail = (await response.json()) as ReleaseDetail;

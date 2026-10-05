@@ -276,5 +276,5 @@ restore and not offered for resuming; it never blocks restoring the decisions. S
 cursors, not history: saving or restoring one deletes those beyond the newest 20 that nobody
 touched in 90 days.
 The client saves changed positions every five seconds and when leaving Triage or changing tab
-visibility. Sandbox sessions stay unsaved. This is best-effort persistence, with no durable client
+visibility. This is best-effort persistence, with no durable client
 write queue; the undo stack does not survive a reload.

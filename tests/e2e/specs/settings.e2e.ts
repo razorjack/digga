@@ -490,12 +490,10 @@ test(
 );
 
 test(
-  "SET-20 the three exports download the saved verdicts and marks, without the sandbox's",
+  "SET-20 the three exports download the saved verdicts and marks",
   { tag: ["@SET-20", "@P1"] },
   async ({ app }) => {
     const settings = new SettingsPage(app);
-    const triage = new TriagePage(app);
-    const header = new HeaderPage(app);
     const [grail] = FIRST_RECORD.tracks;
     const saved = [
       { key: triageKeyOf(FIRST_RECORD), status: "candidate", releaseId: FIRST_RECORD.id },
@@ -507,19 +505,7 @@ test(
       position: grail!.position,
       mark: "candidate",
     });
-    await settings.open("general");
-    await settings.sandbox.getByRole("button", { name: "Back to the sandbox" }).click();
-    await expect(
-      settings.sandbox.getByRole("button", { name: "Turn off the sandbox" }),
-    ).toBeVisible();
-    await header.goTo("triage");
-    const sandboxKey = await triage.currentKey();
-    await triage.judgeInSandbox("accepted");
-    await header.goTo("settings");
-    await settings.showTab("backups");
-    await expect(settings.exports).toContainText(
-      "The sandbox verdicts in this tab are not saved, so they are not in them.",
-    );
+    await settings.open("backups");
 
     const json = await app.expectDownload(() =>
       settings.exports.getByRole("link", { name: "verdicts and track marks (JSON)" }).click(),
@@ -551,7 +537,6 @@ test(
       expect.arrayContaining(saved.map(({ key, status }) => [key, status])),
     );
     expect(verdictRows).toHaveLength(saved.length);
-    expect(verdictRows.map((row) => row[0])).not.toContain(sandboxKey);
 
     expect(marksCsv.name).toMatch(/^digga-\d{4}-\d{2}-\d{2}-track-marks\.csv$/);
     expect(csvRows(marksCsv.path).map((row) => row.slice(0, 2))).toEqual([

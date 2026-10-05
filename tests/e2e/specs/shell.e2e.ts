@@ -124,34 +124,6 @@ test(
   },
 );
 
-test.describe("in the sandbox", () => {
-  test.use({ diggaOptions: { sandbox: true } });
-
-  test(
-    "SHELL-05 the header's sandbox stamp links to the Sandbox setting, which is highlighted and focused",
-    { tag: ["@SHELL-05", "@P1"] },
-    async ({ app }) => {
-      const header = new HeaderPage(app);
-      const settings = new SettingsPage(app);
-      await app.open();
-
-      await expect(header.sandbox).toHaveAttribute("href", "#/settings/sandbox");
-      await header.sandbox.click();
-
-      await expect(app.page).toHaveURL(`${app.origin}/#/settings/sandbox`);
-      await expect(settings.sandboxSwitch).toBeFocused();
-      await expect(settings.sandboxSwitch).toHaveText("Turn off the sandbox");
-      await expect(settings.sandbox).toBeInViewport();
-      // The section is the page's current location, which also draws its highlight.
-      await expect(settings.sandbox).toHaveAttribute("aria-current", "location");
-
-      await header.goTo("settings");
-      await settings.showTab("general");
-      await expect(settings.sandbox).not.toHaveAttribute("aria-current");
-    },
-  );
-});
-
 test(
   "SHELL-07 with the queue and the stats unreachable, the header and Triage say so, and Enter loads the queue once they answer",
   { tag: ["@SHELL-07", "@P1"] },
@@ -365,10 +337,7 @@ test.describe("on a first run", () => {
   );
 });
 
-test.describe("in an 840 px window, in the sandbox", () => {
-  // The sandbox's stamp and a session count fill the header's row.
-  test.use({ diggaOptions: { sandbox: true } });
-
+test.describe("in an 840 px window", () => {
   test(
     "SHELL-11 Triage's columns stack, the header wraps, and every control stays reachable",
     { tag: ["@SHELL-11", "@P2"] },
@@ -377,7 +346,7 @@ test.describe("in an 840 px window, in the sandbox", () => {
       const header = new HeaderPage(app);
       await app.page.setViewportSize({ width: 840, height: 1000 });
       await app.open();
-      await triage.judgeInSandbox("rejected");
+      await triage.judge("rejected");
       await expect(header.root).toContainText("+1 this session");
       await expect(triage.tracklist).toBeVisible();
 
@@ -437,12 +406,11 @@ interface Box {
   height: number;
 }
 
-/** What the header shows, by name: the wordmark, each page link, the sandbox stamp and each count. */
+/** What the header shows, by name: the wordmark, each page link and each count. */
 function headerItems(header: HeaderPage): Map<string, Locator> {
   const items = new Map([["wordmark", header.root.getByRole("link", { name: "Digga, triage" })]]);
   for (const destination of ROUTES)
     items.set(`${destination.label} link`, header.link(destination.route));
-  items.set("sandbox stamp", header.sandbox);
   for (const count of ["dug", "to go", "this session"])
     items.set(`"${count}"`, header.root.getByText(new RegExp(`${count}$`)));
   return items;

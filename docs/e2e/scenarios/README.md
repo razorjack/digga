@@ -10,7 +10,7 @@ of a particular run. New scenarios get new IDs; keep existing IDs when moving do
 | Shell and navigation      | [SHELL](shell.md)        | `shell.e2e.ts`                                                                          |
 | First run                 | [SETUP](setup.md)        | `setup.e2e.ts`, `setup-steps.e2e.ts`, `setup-discogs.e2e.ts`                            |
 | Triage                    | [TRI](triage.md)         | `triage.e2e.ts`, `triage-player.e2e.ts`, `triage-queue.e2e.ts`, `triage-discogs.e2e.ts` |
-| Sandbox                   | [SBX](sandbox.md)        | `sandbox.e2e.ts`                                                                        |
+| Sandbox                   | [SBX](sandbox.md)        | Retired; no current spec                                                                |
 | Twelves                   | [TWL](twelves.md)        | `twelves.e2e.ts`, `twelves-discogs.e2e.ts`                                              |
 | Settings                  | [SET](settings.md)       | `settings.e2e.ts`, `settings-discogs.e2e.ts`                                            |
 | Persistence and lifecycle | [PER](persistence.md)    | `persistence.e2e.ts`                                                                    |

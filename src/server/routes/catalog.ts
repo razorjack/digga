@@ -91,8 +91,7 @@ async function attachVideoRoute(request: Context, context: AppContext) {
   if (videoId === null) return badRequest(request, "That is not a YouTube video link");
   const release = getRelease(db, id);
   if (!release) return request.json({ error: "Release not found" } satisfies ApiError, 404);
-  const requeue = !context.getConfig().sandbox;
-  await attachVideo({ db, lookupTitle: context.lookupVideoTitle }, release, { videoId, requeue });
+  await attachVideo({ db, lookupTitle: context.lookupVideoTitle }, release, videoId);
   return request.json(buildReleaseDetail(db, id));
 }
 

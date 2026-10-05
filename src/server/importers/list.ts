@@ -1,15 +1,12 @@
-import type { DiscogsListEntry, QueueItem } from "../../shared/api.ts";
-import { formatSummary } from "../../shared/formats.ts";
 import { masterKey, releaseKey } from "../../shared/triage-key.ts";
 import type { ImportProgress } from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
-import { markMissingMemberships, recordMembership, recordMembershipOf } from "../db/memberships.ts";
+import { markMissingMemberships, recordMembership } from "../db/memberships.ts";
 import { getRelease, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
-import { getVerdict } from "../db/verdicts.ts";
 import type { DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsListItem, DiscogsRelease } from "../discogs/types.ts";
 import type { Logger } from "../logger.ts";
-import { queueItemForRelease, representativeForKey } from "../queue/query.ts";
+import { representativeForKey } from "../queue/query.ts";
 import { basicInformationToWrite } from "./seeds.ts";
 
 export interface ListImportDeps {
@@ -55,32 +52,6 @@ export function releaseToWrite(release: DiscogsRelease): ReleaseWrite {
     styles: release.styles,
   });
   return { ...write, country: release.country && release.country !== "" ? release.country : null };
-}
-
-export function queueItemFromWrite(release: ReleaseWrite): QueueItem {
-  return {
-    id: release.id,
-    triageKey: release.triageKey,
-    masterId: release.masterId,
-    title: release.title,
-    artistDisplay: release.artistDisplay,
-    labelId: release.labels[0]?.id ?? null,
-    labelName: release.labelName,
-    catno: release.catno,
-    year: release.year,
-    country: release.country,
-    formatSummary: formatSummary(release.formats),
-    styles: release.styles,
-    videoCount: 0,
-    communityWant: null,
-    communityHave: null,
-    ratingAverage: null,
-    ratingCount: null,
-    numForSale: null,
-    lowestPrice: null,
-    currency: null,
-    enrichedAt: null,
-  };
 }
 
 /**
@@ -140,29 +111,6 @@ async function resolveListItem(
   const main = await deps.discogs.getRelease(master.main_release, currency);
   const stub = releaseToWrite({ ...main, master_id: item.id });
   return { key, releaseId: stub.id, stub };
-}
-
-function listEntryRelease(db: Db, entry: ResolvedListEntry): QueueItem | null {
-  if (entry.stub) return queueItemFromWrite(entry.stub);
-  if (entry.releaseId !== null) return queueItemForRelease(db, entry.releaseId);
-  return null;
-}
-
-/**
- * The read-only view of a list: entries with the release to show, and what the library knows
- * about each record, so the sandbox can tell which would leave the queue.
- */
-export function listEntriesForApi(db: Db, entries: ResolvedListEntry[]): DiscogsListEntry[] {
-  return entries.map((entry) => ({
-    type: entry.type,
-    discogsId: entry.discogsId,
-    key: entry.key,
-    displayTitle: entry.displayTitle,
-    comment: entry.comment,
-    release: listEntryRelease(db, entry),
-    verdict: getVerdict(db, entry.key),
-    membership: recordMembershipOf(db, entry.key),
-  }));
 }
 
 /**

@@ -74,14 +74,6 @@ export function discogsErrorMessage(error: DiscogsApiError): string {
     return `Discogs answered ${error.status}: check the Discogs token in Settings and that it belongs to your Discogs username`;
   return `Discogs answered ${error.status}`;
 }
-const SANDBOX_REFUSAL = {
-  error:
-    "Sandbox mode is on, so the server saves no verdicts and sends nothing to Discogs. Turn it off in Settings.",
-};
-// Refuse on the server too, in case a client missed the mode switch.
-export function refuseInSandbox(request: Context, context: AppContext): Response | null {
-  return context.getConfig().sandbox ? request.json(SANDBOX_REFUSAL, 409) : null;
-}
 /**
  * The account a wantlist change goes to, which the library's Discogs data then comes from; a
  * response instead when the change cannot go there.

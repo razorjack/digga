@@ -181,9 +181,8 @@ state exists, and an empty library gets no backup
 
 Priority: **P1**.
 
-Exports, with given verdicts and a track mark and a verdict in the sandbox: the three links download
-(completed, via `expectDownload`) JSON and CSV with the saved verdicts and marks, and without the
-sandbox verdict
+Exports, with given verdicts and a track mark: the three links download (completed, via
+`expectDownload`) JSON and CSV with the saved verdicts and marks
 
 ## SET-21
 
@@ -205,11 +204,8 @@ its note after "Update from the newest dump" loads September, where the release 
   for; Cancel once the cancel and the `GET /api/jobs` after it have answered; Delete once
   `DELETE /api/dumps/:name` has answered with the folder's new listing and the row has gone.
 
-- Settings' sandbox switch (`switchSandbox()`) ends once `PUT /api/settings` and the
-  `GET /api/queue` that the hidden Triage page sends in the new mode have answered, the page says
-  it switched, and the header's sandbox stamp shows or has gone. An Appearance radio
-  (`chooseColorScheme()`) ends once its `PUT /api/settings` has answered and the root element
-  carries the scheme in `data-color-scheme`.
+- An Appearance radio (`chooseColorScheme()`) ends once its `PUT /api/settings` has answered and
+  the root element carries the scheme in `data-color-scheme`.
 
 - Settings' Delete asks with `window.confirm()`, and Playwright dismisses a dialog no listener
   handles. `deleteDump()` registers a `once("dialog")` listener before the click, which records

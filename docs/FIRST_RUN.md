@@ -99,8 +99,7 @@ pace either way.
   covers a new library, a first load that was interrupted and a deleted database. A library that
   has finished a load, however it was started, never sees it.
 - It lives at `#/setup`, outside the page keys. Until the load starts, the header holds only the
-  wordmark and the step list; the sandbox stamp and page links appear once there is something to
-  dig.
+  wordmark and the step list; the page links appear once there is something to dig.
 - Once the load has started, or a load that stopped has left records to dig, `T`, `W` and `,`
   work again, and `#/setup` shows the loading screen until the load finishes. After that `#/setup` goes to Triage; monthly updates stay in Settings.
 - Nothing is chosen twice. Styles, years and formats go to `digga.config.json` when step 3 is
@@ -338,10 +337,8 @@ Shows the load, and lets the user start digging as soon as there is enough to di
 
 ### Digging for real
 
-The config's `sandbox` is on by default, so a first run cannot change anything by accident. For
-someone who has just set Digga up, though, a sandbox means an evening of digging lost on reload,
-so the setup turns the sandbox off. **Start digging** digs for real. With a token, the line above
-it reads "A want goes on your Discogs wantlist when you press A. Z takes it off again."
+**Start digging** digs for real: verdicts are kept from the first one. With a token, the line
+above it reads "A want goes on your Discogs wantlist when you press A. Z takes it off again."
 
 ## Digging during the load
 
@@ -516,7 +513,7 @@ Confirmed by the owner on 2026-09-30.
 1. **Load window:** the dug years plus three on each side, changeable in the disclosure.
 2. **Sandbox:** the setup turns it off, with the practice round as the opt-in way to try things.
    The schema default stays on, for configs created by the CLI. The practice round was removed
-   later (decision 149 in `DECISIONS.md`).
+   later (decision 149 in `DECISIONS.md`), and the sandbox after it (decision 150).
 3. **Shipped census:** a generated JSON file in the repo, regenerated for releases.
 4. **Reading during the download** is part of the first version: steps 1 to 3 of the build order.
 5. **"Start digging" threshold:** 500 records to dig.

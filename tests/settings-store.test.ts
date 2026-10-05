@@ -1,18 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { AppApi } from "../src/client/api.ts";
+import type { Api } from "../src/client/api.ts";
 import { settings } from "../src/client/stores.svelte.ts";
 import { DEFAULT_CONFIG, type ColorScheme, type Config } from "../src/shared/config.ts";
 
 const fake = vi.hoisted(() => ({
   api: {
-    generation: 0,
-    setSandbox: () => {},
     getSettings: async () => ({}) as Config,
     putSettings: async (config: Config) => config,
   },
 }));
 
-vi.mock("../src/client/api.ts", () => ({ api: fake.api as unknown as AppApi }));
+vi.mock("../src/client/api.ts", () => ({ api: fake.api as unknown as Api }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

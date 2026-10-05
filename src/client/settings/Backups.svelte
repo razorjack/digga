@@ -3,7 +3,7 @@
   import type { BackupSummary, BackupsResponse } from "../../shared/api.ts";
   import { formatAge, formatBytes, formatDay } from "../../shared/display.ts";
   import { api } from "../api.ts";
-  import { errorMessage, settings } from "../stores.svelte.ts";
+  import { errorMessage } from "../stores.svelte.ts";
   import { checkpointTime } from "./backups.ts";
 
   const id = $props.id();
@@ -122,17 +122,12 @@
 
 <section aria-labelledby="{id}-exports-title">
   <h2 id="{id}-exports-title">Exports</h2>
-  <div class="block">
-    <p>
-      What is saved, to download:
-      <a href={api.exportUrl("decisions.json")} download>verdicts and track marks (JSON)</a>,
-      <a href={api.exportUrl("verdicts.csv")} download>verdicts (CSV)</a>,
-      <a href={api.exportUrl("track-marks.csv")} download>track marks (CSV)</a>.
-    </p>
-    {#if settings.sandbox}
-      <p class="hint">The sandbox verdicts in this tab are not saved, so they are not in them.</p>
-    {/if}
-  </div>
+  <p>
+    What is saved, to download:
+    <a href={api.exportUrl("decisions.json")} download>verdicts and track marks (JSON)</a>,
+    <a href={api.exportUrl("verdicts.csv")} download>verdicts (CSV)</a>,
+    <a href={api.exportUrl("track-marks.csv")} download>track marks (CSV)</a>.
+  </p>
 </section>
 
 <style>

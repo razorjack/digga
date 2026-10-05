@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Deck, DeckListener } from "../src/client/player/deck.ts";
-import { createAppApi, type Api } from "../src/client/api.ts";
+import type { Api } from "../src/client/api.ts";
 import { TriagePlayer } from "../src/client/player/triage-player.svelte.ts";
 import { PlayerState } from "../src/client/player/youtube.ts";
 import type { ReleaseDetail } from "../src/shared/api.ts";
@@ -94,13 +94,8 @@ function deckLoad(videoId: string, mode: string) {
 }
 
 async function setup() {
-  const http = { mode: "live", postListenLog: vi.fn(async () => ({})) } as unknown as Api;
-  const player = new TriagePlayer(
-    createAppApi(http, (inner) => inner),
-    {
-      startAtFraction: () => 0.5,
-    },
-  );
+  const http = { postListenLog: vi.fn(async () => ({})) } as unknown as Api;
+  const player = new TriagePlayer(http, { startAtFraction: () => 0.5 });
   players.push(player);
   player.show(detail(1), detail(2));
   await player.mount([{}, {}, {}] as Parameters<TriagePlayer["mount"]>[0]);

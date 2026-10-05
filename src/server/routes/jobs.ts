@@ -16,7 +16,7 @@ import {
   startImport,
 } from "../jobs/start.ts";
 import type { AppContext } from "../context.ts";
-import { badRequest, parseJson, refuseInSandbox } from "./request.ts";
+import { badRequest, parseJson } from "./request.ts";
 
 export function registerJobsRoutes(api: Hono, context: AppContext): void {
   api.post("/jobs/dump-download", (request) => dumpDownloadJob(request, context));
@@ -51,10 +51,6 @@ async function importJob(request: Context, context: AppContext) {
     return badRequest(request, `Unknown import kind; expected one of ${IMPORT_KINDS.join(", ")}`);
   const body = await parseJson(request, ImportJobInputSchema);
   if (!body.ok) return body.response;
-  if (kind === "list") {
-    const refused = refuseInSandbox(request, context);
-    if (refused) return refused;
-  }
   const job = startImport(context, kind, body.data);
   return request.json(job, 202);
 }
@@ -63,7 +59,6 @@ function dumps(request: Context, context: AppContext) {
   return request.json(dumpsResponse(context));
 }
 
-/** Setup rather than digging, so the sandbox does not refuse it. */
 function deleteDump(request: Context, context: AppContext) {
   refuseWhileDumpJobRuns(context);
   const name = request.req.param("name") ?? "";

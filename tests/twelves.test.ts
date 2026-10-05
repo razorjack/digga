@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { ApiRequestError, createAppApi, type Api } from "../src/client/api.ts";
+import { ApiRequestError, type Api } from "../src/client/api.ts";
 import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
 import {
   compareNullable,
@@ -54,11 +54,10 @@ afterEach(() => {
   for (const shelf of shelves.splice(0)) shelf.destroy();
 });
 
-async function setup(sandboxMode = false) {
+async function setup() {
   let item = record(1);
   const calls: string[] = [];
   const http = {
-    mode: "live",
     getTwelves: vi.fn(async () => ({ items: [item] })),
     getTrackMarks: vi.fn(async () => ({ items: [] })),
     postVerdict: vi.fn(async (input: VerdictInput): Promise<Verdict> => {
@@ -75,23 +74,10 @@ async function setup(sandboxMode = false) {
       item = { ...item, membership: { ...item.membership, onWantlist: false } };
     }),
   };
-  const sandboxWrites = {
-    postVerdict: vi.fn(async (input: VerdictInput): Promise<Verdict> => ({
-      ...item.verdict,
-      ...input,
-    })),
-    pushToWantlist: vi.fn(async () => ({ releaseId: 1, ok: true })),
-  };
-  const app = createAppApi(http as unknown as Api, (inner) => ({
-    ...inner,
-    ...sandboxWrites,
-    mode: "sandbox",
-  }));
-  app.setSandbox(sandboxMode);
-  const shelf = new TwelvesShelf(app);
+  const shelf = new TwelvesShelf(http as unknown as Api);
   shelves.push(shelf);
   await shelf.load();
-  return { shelf, http, app, calls, sandboxWrites };
+  return { shelf, http, calls };
 }
 
 describe("Twelves changes", () => {
@@ -181,29 +167,6 @@ describe("Twelves changes", () => {
     await shelf.changes;
     expect(shelf.items[0]?.verdict?.status).toBe("snoozed");
     expect(shelf.error).toBe("reload failed");
-  });
-
-  it("pins queued writes to their original API mode", async () => {
-    const { shelf, app, http, sandboxWrites } = await setup();
-    shelf.rejudge(shelf.items[0]!, "accepted");
-    app.setSandbox(true);
-    await shelf.changes;
-    expect(http.postVerdict).toHaveBeenCalledTimes(1);
-    expect(http.pushToWantlist).toHaveBeenCalledTimes(1);
-    expect(sandboxWrites.postVerdict).not.toHaveBeenCalled();
-    expect(sandboxWrites.pushToWantlist).not.toHaveBeenCalled();
-    expect(shelf.flash).toBeNull();
-  });
-
-  it("never sends queued sandbox writes to the live API after switching modes", async () => {
-    const { shelf, app, http, sandboxWrites } = await setup(true);
-    shelf.rejudge(shelf.items[0]!, "accepted");
-    app.setSandbox(false);
-    await shelf.changes;
-    expect(sandboxWrites.postVerdict).toHaveBeenCalledTimes(1);
-    expect(sandboxWrites.pushToWantlist).toHaveBeenCalledTimes(1);
-    expect(http.postVerdict).not.toHaveBeenCalled();
-    expect(http.pushToWantlist).not.toHaveBeenCalled();
   });
 });
 
@@ -347,11 +310,10 @@ describe("pages", () => {
   it("lets J cross into the next page and the arrows turn whole pages", async () => {
     const items = Array.from({ length: PAGE_SIZE * 2 + 1 }, (_, index) => record(index + 1));
     const http = {
-      mode: "live",
       getTwelves: async () => ({ items }),
       getTrackMarks: async () => ({ items: [] }),
     };
-    const shelf = new TwelvesShelf(createAppApi(http as unknown as Api, (inner) => inner));
+    const shelf = new TwelvesShelf(http as unknown as Api);
     shelves.push(shelf);
     await shelf.load();
     shelf.selectedKey = items[PAGE_SIZE - 1]!.key;

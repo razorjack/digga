@@ -13,15 +13,13 @@ export interface AttachVideoDeps {
 
 /**
  * Attaches a YouTube video the user found to a release, matched to a track by the title YouTube
- * gives. With `requeue`, a record marked no_audio goes back to the queue with it; the sandbox
- * leaves saved verdicts alone, and the next dump load or enrich sends the record back.
+ * gives. A record marked no_audio goes back to the queue with it.
  */
 export async function attachVideo(
   deps: AttachVideoDeps,
   release: ReleaseRecord,
-  link: { videoId: string; requeue: boolean },
+  videoId: string,
 ): Promise<void> {
-  const { videoId } = link;
   const src = youtubeWatchUrl(videoId);
   const title = await deps.lookupTitle(videoId);
   const tracks = getTracks(deps.db, release.id).map((track) => ({
@@ -32,5 +30,5 @@ export async function attachVideo(
   const [video] = prepareVideos(tracks, [{ src, title, durationSeconds: null, embeddable: true }]);
   const matchedPosition = video?.matchedPosition ?? null;
   addUserVideo(deps.db, release.id, { videoId, src, title, matchedPosition });
-  if (link.requeue) requeueNoAudio(deps.db, [release.triageKey]);
+  requeueNoAudio(deps.db, [release.triageKey]);
 }

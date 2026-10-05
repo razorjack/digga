@@ -28,7 +28,6 @@ describe("config schema", () => {
       excludeDescriptions: [],
     });
     expect(DEFAULT_CONFIG.queue.strategy).toBe("label_sweep");
-    expect(DEFAULT_CONFIG.sandbox).toBe(true);
     expect(DEFAULT_CONFIG.appearance.colorScheme).toBe("system");
   });
 

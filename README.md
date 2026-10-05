@@ -57,7 +57,7 @@ note of its own.
 
 ![Twelves: the shelves, then records with their stamps: a grail with its note and price, a snoozed record, and records from the Discogs wantlist and collection](docs/assets/screenshots/twelves.webp)
 
-With sandbox mode off and your Discogs account configured, `A` and `C` add a record to your Discogs
+With your Discogs account configured, `A` and `C` add a record to your Discogs
 wantlist, with the tracks you marked and your note as the want's note. A grail stays a grail in
 Digga. Undo reverses the addition. If you use a Discogs Maybe list, select it in Settings to
 enable `M`. Digga records maybes locally; adding them to the Discogs list is manual.
@@ -83,12 +83,9 @@ Digga runs on your computer and opens in a browser. The catalogue and saved list
 live in a local SQLite database. Playback uses YouTube, and account imports, fresh release data,
 and wantlist updates use Discogs, so those features need an internet connection.
 
-**Sandbox mode** keeps verdicts, notes, track marks, and listens in the current browser tab, and
-Digga does not change your Discogs wantlist; they are discarded when you leave that mode. The
-setup turns it off. Settings switches it, and
-setup jobs, including dump loading and collection, wantlist, and history imports, write local
-data in either mode. A Discogs token is needed for wantlist updates, but your catalogue and
-verdicts remain local.
+Verdicts, notes, track marks, and listens are saved from the first one. `Z` undoes the last
+verdict, and takes a want back off your Discogs wantlist; Twelves lets you judge a record again.
+A Discogs token is needed for wantlist updates, but your catalogue and verdicts remain local.
 
 ## Run Digga
 
@@ -133,7 +130,7 @@ A new library opens the setup, which takes about 20 minutes, most of it waiting:
 
 ![The setup's Fill the crate step: the download and the read, the releases kept so far and the records to dig, the years filling in, and Start digging](docs/assets/screenshots/setup-crate.webp)
 
-The setup turns sandbox mode off, so your verdicts are kept from the first one.
+Start digging digs for real, so your verdicts are kept from the first one.
 
 ### Where Digga keeps things
 
@@ -295,9 +292,8 @@ same way. Without a database copy:
    applies.
 
 Both backups live on the same disk as the library. To survive a lost disk, copy the decisions
-files somewhere else, such as a cloud drive. Decisions made in sandbox mode are never saved, so
-no backup has them. Settings also exports your verdicts and track marks as JSON or CSV, with
-artist, title and label, for reading outside Digga.
+files somewhere else, such as a cloud drive. Settings also exports your verdicts and track marks
+as JSON or CSV, with artist, title and label, for reading outside Digga.
 
 ## Development
 

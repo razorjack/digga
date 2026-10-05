@@ -33,8 +33,7 @@ or Alt. Holding a key down never repeats a verdict.
 
 `P` asks Discogs once for the record on screen and shows the answer with its age ("checked 3
 days ago"); pressing it again refreshes it. Digga asks for nothing ahead, so the records you skip
-cost Discogs no requests. It works in the sandbox too, since the answer is catalogue data and not
-a decision.
+cost Discogs no requests.
 
 ## Triage: verdicts (one per release, undoable)
 
@@ -179,4 +178,4 @@ local decisions; imported owned/wantlist records retain their existing protectio
 On reopening Digga, Resume session restores the saved digging filters, player settings, scope,
 passes, and position. Playback waits for Space. Start fresh keeps the current queue instead.
 Records decided or filtered out since the checkpoint stay out of the resumed normal queue. Replay
-rounds can still include decided records. Account settings and sandbox mode are not restored by Resume.
+rounds can still include decided records. Account settings are not restored by Resume.

@@ -55,7 +55,7 @@ that reads as a music streaming app. Ergonomics win every tie.
 - **Settings** (`#/settings/<tab>`): five tabs. Digging holds the filters, the order and the
   player defaults; Library the counts, the universe (styles, load years) and the dump jobs;
   Discogs the account, the imports and the seller shop; Backups the backups and exports; General
-  the sandbox and the appearance. Each tab lists its own recent jobs with progress.
+  the appearance. Each tab lists its own recent jobs with progress.
 
 ## The design as built (session 2)
 
@@ -74,8 +74,7 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
   Mono (87.5% width) for everything else. Sizes run 10 / 11 / 12.5 / 14 / 17 / 22 / 30 / 40 /
   64 px.
-- **Triage layout:** top bar (wordmark, pages with keys, the sandbox stamp linking to the
-  setting, dug / to go / ETA / session count); left column with the catalogue-number stamp, label, artist, title, facts,
+- **Triage layout:** top bar (wordmark, pages with keys, dug / to go / ETA / session count); left column with the catalogue-number stamp, label, artist, title, facts,
   market line, other versions and the scrolling tracklist; right column with the player, the
   now-playing line and progress bar (the start point is marked), player keys, the slip with the
   last verdict and "up next"; a verdict bar pinned to the bottom with filled key caps for
@@ -98,12 +97,9 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   tab's sections beside it. Digging, Library and Discogs each render the part of the settings
   form they hold. A sticky save bar appears at the bottom only with a problem, a message or
   unsaved changes, and saves all of them from any tab; a tab with unsaved fields carries a small
-  flyer dot. The Sandbox
-  section, first under General, switches at once, outside the save bar; arriving from the header
-  stamp opens General and highlights it with the same sleeve and flyer bar.
+  flyer dot.
 
 ## What exists already
 
 The API contracts in `src/shared/api.ts` show the data available to the UI. `src/client/api.ts`
-is the only way pages talk to the server; in sandbox mode it goes through
-`src/client/sandbox.ts`, which wraps the HTTP API.
+is the only way pages talk to the server.

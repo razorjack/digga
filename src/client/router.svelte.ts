@@ -4,7 +4,7 @@ import { type Route, ROUTES } from "./routes.ts";
 
 interface HashLocation {
   route: Route;
-  /** A part of the page to point at: `#/settings/sandbox` highlights the sandbox setting. */
+  /** A part of the page to point at, such as the tab in `#/settings/library`. */
   anchor: string | null;
 }
 
