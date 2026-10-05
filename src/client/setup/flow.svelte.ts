@@ -9,7 +9,7 @@ import type { StyleCensus } from "../../shared/style-census.ts";
 import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
-import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
+import { errorMessage, settings, stats } from "../stores.svelte.ts";
 import {
   checksumRetryNote,
   DIG_THRESHOLD,
@@ -228,17 +228,6 @@ export class SetupFlow {
       void stats.refresh();
       this.goTo("sound");
     });
-  }
-
-  /** Five records in the sandbox before digging for real; Triage ends the round. */
-  async practice(): Promise<boolean> {
-    let started = false;
-    await this.#act(async () => {
-      await this.#saveSettings({ sandbox: true });
-      ui.practice = { judged: 0 };
-      started = true;
-    });
-    return started;
   }
 
   async deleteDump(): Promise<void> {

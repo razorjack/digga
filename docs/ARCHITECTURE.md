@@ -72,8 +72,7 @@ answers `409` to digging writes while `sandbox` is on.
   sends a library without a finished load to `#/setup` unless its first load runs, and until
   the load starts the header keeps only the wordmark and the page keys stay quiet. While a load
   runs, the triage session's `lookAgain()` asks the server again at the end of the queue every
-  10 seconds, and once more when the load ends. A practice round (`ui.practice`) digs five
-  records in the sandbox and then turns it off.
+  10 seconds, and once more when the load ends.
 - Twelves loads every shelf in one request and filters, sorts and counts in the browser
   (`twelves/model.ts`), so counts, "add all" and rounds of snoozed records cover the whole shelf.
   It renders the 500 records around the selection (`pageAround`); `J` and `K` cross pages and

@@ -9,8 +9,7 @@ Priority: **P1**.
 
 axe finds no serious or critical violation, and no `landmark-unique` or `page-has-heading-one`
 violation, on: Triage (playing, no audio, end of queue), the Keys dialog, the scope picker, each
-Twelves shelf, each Settings tab, each setup step, the crate while loading, the finished crate and the
-practice card. The region names are asserted directly, since axe reports a dangling
+Twelves shelf, each Settings tab, each setup step, the crate while loading and the finished crate. The region names are asserted directly, since axe reports a dangling
 `aria-labelledby` only as incomplete: Triage's Player region, its "Last action", "Up next" and
 "Verdicts" groups and its two named status regions; each shelf's table; Settings' Library, Dump,
 Discogs, Imports, Backups, Exports and Sandbox regions, each on its tab; each step's region or form, named by its

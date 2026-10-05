@@ -304,7 +304,7 @@ Shows the load, and lets the user start digging as soon as there is enough to di
 
   Just pulled   UDFRLP04   Stakka And Skynet - Clockwork   2001
 
-  [ Start digging  T ]    Practice on five records first
+  [ Start digging  T ]
 
   Keys while you dig:  Space listen   R skip   A want   C grail   N next   Z undo   ? all
 ```
@@ -336,19 +336,12 @@ Shows the load, and lets the user start digging as soon as there is enough to di
   those with the user's data as stubs), and returns to step 3 with the picks as they were
   confirmed. The download continues.
 
-### Real or practice
+### Digging for real
 
 The config's `sandbox` is on by default, so a first run cannot change anything by accident. For
-someone who has just set Digga up, though, a sandbox means an evening of digging lost on reload.
-The recommendation: the setup turns the sandbox off, and the two buttons make the choice
-explicit.
-
-- **Start digging** digs for real. With a token, the line above it reads "A want goes on your
-  Discogs wantlist when you press A. Z takes it off again."
-- **Practice on five records first** turns the sandbox on and opens Triage with a strip like the
-  one for a round of snoozed records: "Practice · 2 of 5 · nothing is saved · Esc ends it". After
-  the fifth verdict, a card: "That's digging. Your practice verdicts are gone and those five
-  records come round again." Enter turns the sandbox off and starts the queue.
+someone who has just set Digga up, though, a sandbox means an evening of digging lost on reload,
+so the setup turns the sandbox off. **Start digging** digs for real. With a token, the line above
+it reads "A want goes on your Discogs wantlist when you press A. Z takes it off again."
 
 ## Digging during the load
 
@@ -510,7 +503,7 @@ The flow is the same web page. The shell adds:
    indicator and digging during the load. Early digging already works here, eight minutes in
    instead of two.
 3. **Reading a dump while it downloads**, for the setup and for "Update from the newest dump".
-4. **Practice round**, the style picker in Settings, and the Electron parts with the shell.
+4. **The style picker in Settings**, and the Electron parts with the shell.
 
 Tests: the census tally and estimate, suggestions from imported releases, reading a growing file
 (finished, failed and cancelled downloads, over a fixture written in chunks), the session asking
@@ -522,7 +515,8 @@ Confirmed by the owner on 2026-09-30.
 
 1. **Load window:** the dug years plus three on each side, changeable in the disclosure.
 2. **Sandbox:** the setup turns it off, with the practice round as the opt-in way to try things.
-   The schema default stays on, for configs created by the CLI.
+   The schema default stays on, for configs created by the CLI. The practice round was removed
+   later (decision 149 in `DECISIONS.md`).
 3. **Shipped census:** a generated JSON file in the repo, regenerated for releases.
 4. **Reading during the download** is part of the first version: steps 1 to 3 of the build order.
 5. **"Start digging" threshold:** 500 records to dig.

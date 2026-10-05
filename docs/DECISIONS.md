@@ -972,3 +972,7 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      on the highlighted Sandbox section. The draft lives in the page, so changes on one tab stay
      unsaved while another is shown, and the save bar saves all of them. Each tab lists the
      newest five of its own jobs in place of the separate jobs panel.
+149. **The practice round is gone.** "Practice on five records first" (decision 110) dug five
+     records in the sandbox before the setup's "Start digging". It protected five verdicts that `Z`
+     and Twelves' re-judging already make recoverable, and it was the sandbox's last use in the
+     first run. The setup now offers only "Start digging".

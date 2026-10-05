@@ -72,10 +72,6 @@
     return `${Math.floor(readFraction * 100)}%${left ? ` · ${left}` : ""}`;
   }
 
-  async function practice(): Promise<void> {
-    if (await flow.practice()) navigate("triage");
-  }
-
   /** The catalogue number, as on the record; Discogs writes "none" when there is none. */
   function stampOf(release: KeptRelease): string | null {
     const catno = release.catno?.trim() ?? "";
@@ -211,11 +207,6 @@
         <Action primary keys="T" shortcuts="T Enter" onclick={startDigging} disabled={!flow.canDig}>
           Start digging
         </Action>
-        {#if flow.canDig}
-          <button type="button" class="link" onclick={() => void practice()} disabled={flow.busy}>
-            Practice on five records first
-          </button>
-        {/if}
         {#if !flow.canDig && !stopped}
           <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
         {/if}

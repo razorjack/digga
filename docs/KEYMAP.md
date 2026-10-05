@@ -136,8 +136,6 @@ the crate. In "Find a style", `Enter` picks the first match. On the load's scree
 starts digging once 500 records wait. The page keys stay quiet until the load starts, or until a
 load that stopped has left records to dig.
 
-In a practice round, `Esc` ends it; after the fifth verdict, `Enter` digs for real.
-
 ## Settings
 
 `Cmd+S` / `Ctrl+S` saves. Fields are reached with Tab. Page keys keep working while a checkbox,

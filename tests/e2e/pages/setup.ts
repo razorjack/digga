@@ -469,18 +469,6 @@ export class SetupPage {
     await expect(new HeaderPage(this.app).link("triage")).toHaveAttribute("aria-current", "page");
   }
 
-  /**
-   * "Practice on five records first": returns once the sandbox is on and Triage shows the
-   * practice's banner.
-   */
-  async practice(): Promise<void> {
-    const saved = this.#response("PUT", "/api/settings");
-    await this.root.getByRole("button", { name: "Practice on five records first" }).click();
-    await answered(saved);
-    await expect(new HeaderPage(this.app).link("triage")).toHaveAttribute("aria-current", "page");
-    await expect(this.root.getByText(/^Practice: /)).toBeVisible();
-  }
-
   #response(method: string, path: string): Promise<Response> {
     return this.app.page.waitForResponse((response) => isRequest(response, method, path));
   }

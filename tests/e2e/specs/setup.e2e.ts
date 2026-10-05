@@ -15,7 +15,6 @@ import {
 } from "../../../src/shared/types.ts";
 import { DIG_THRESHOLD } from "../../../src/client/setup/model.ts";
 import { BULK } from "../fixtures/catalogue.ts";
-import { PracticeCard } from "../pages/dialogs.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage } from "../pages/setup.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
@@ -445,61 +444,6 @@ test(
     expect(await jobStatuses(app, "dump_load")).toEqual(["done", "done"]);
   },
 );
-
-test(
-  "SETUP-22 a practice round of five records in the sandbox ends with the card, then digs them for real",
-  { tag: ["@SETUP-22", "@P1"] },
-  async ({ app }) => {
-    test.slow();
-    const triage = new TriagePage(app);
-    const card = new PracticeCard(app);
-    const setup = await fillTheCrate(app);
-    await setup.waitForCatalogue();
-
-    await setup.practice();
-    await expect(triage.banner).toContainText("Practice: 1 of 5.");
-    const practised: string[] = [];
-    for (let index = 0; index < 5; index += 1) {
-      await expect(triage.banner).toContainText(`Practice: ${index + 1} of 5.`);
-      practised.push(await triage.currentKey());
-      await triage.judgeInSandbox("rejected");
-    }
-    await expect(card.root).toBeVisible();
-    await expect(card.root).toContainText("those records come round again");
-
-    await card.digForReal();
-    expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);
-    await expect(new HeaderPage(app).sandbox).toBeHidden();
-    await expect(triage.banner).toBeHidden();
-    const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
-    expect(exported.verdicts).toEqual([]);
-    for (const key of practised) {
-      expect(await triage.currentKey()).toBe(key);
-      await triage.pass();
-    }
-  },
-);
-
-test("SETUP-22 Esc ends a practice round early", { tag: ["@SETUP-22", "@P1"] }, async ({ app }) => {
-  test.slow();
-  const triage = new TriagePage(app);
-  const card = new PracticeCard(app);
-  const setup = await fillTheCrate(app);
-  await setup.waitForCatalogue();
-
-  await setup.practice();
-  const first = await triage.currentKey();
-  await triage.judgeInSandbox("rejected");
-  await expect(triage.banner).toContainText("Practice: 2 of 5.");
-  await app.page.keyboard.press("Escape");
-  await expect(card.root).toBeVisible();
-
-  await card.digForReal();
-  expect((await app.api.get<Config>("/api/settings")).sandbox).toBe(false);
-  expect(await triage.currentKey()).toBe(first);
-  const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
-  expect(exported.verdicts).toEqual([]);
-});
 
 test(
   "SETUP-23 the finished load: READY TO DIG, the heading that names the crate, one announcement, and Delete it",

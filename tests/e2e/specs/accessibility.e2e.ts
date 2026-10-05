@@ -16,7 +16,7 @@ import {
   WITHOUT_VIDEOS,
 } from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
-import { KeysDialog, PracticeCard } from "../pages/dialogs.ts";
+import { KeysDialog } from "../pages/dialogs.ts";
 import { HeaderPage, page } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { SetupPage, type SetupStep, stepTitle } from "../pages/setup.ts";
@@ -144,15 +144,13 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
     test.use({ diggaOptions: { template: "empty", listedDump: "bulk" } });
 
     test(
-      "A11Y-01 each setup step, the crate while it loads and once it is in, and the practice card",
+      "A11Y-01 each setup step, the crate while it loads and once it is in",
       { tag: ["@A11Y-01", "@P1"] },
       async ({ app, fakes }) => {
         test.slow();
         const point = fakes.dumps.checkpoint("100-to-dig");
         fakes.dumps.holdAt(point.name);
         const setup = new SetupPage(app);
-        const triage = new TriagePage(app);
-        const card = new PracticeCard(app);
 
         await app.open();
         await expect(setup.button("Fetch the catalogue")).toBeEnabled();
@@ -185,11 +183,6 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
           }),
         ).toBeVisible();
         await expectAccessible(app.page, "the crate once the catalogue is in");
-
-        await setup.practice();
-        for (let index = 0; index < 5; index += 1) await triage.judgeInSandbox("rejected");
-        await expect(card.root).toBeVisible();
-        await expectAccessible(app.page, "the practice card");
       },
     );
   });

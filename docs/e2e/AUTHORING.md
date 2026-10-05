@@ -22,7 +22,7 @@ Never: CSS classes, element structure, `nth-child`, generated ids, or `waitForTi
 that holds an element with `aria-current="true"` (`TriagePage.currentTrack`), and Twelves'
 selected row is the row with `aria-current="true"` (`TwelvesPage.selected`); Twelves' rows are
 found by `data-triage-key`, and the Tracks shelf's by `data-release-id` and `data-position`. The banner above
-the desk during a practice round, a round of snoozed records or a scope has no role, so
+the desk during a round of snoozed records or a scope has no role, so
 `TriagePage.banner` finds it by its opening words; the market line is the only `status` in the record's header (`TriagePage.market`).
 
 Copy assertions import the app's own copy (`STATUS_COPY`, `VERDICT_KEYS` and `TRACK_MARK_KEYS`
@@ -275,7 +275,7 @@ element, and explain that exception in a comment.
   distinguishes it from the listening-year field named "to".
 - `aria-keyshortcuts` identifies key-bound controls. Verdict buttons get values from
   `keymap.ts`; other controls declare theirs in the component.
-- Setup IDs (`token`, `style-search`, `practice-done-title`) are currently unique. If a component
+- Setup IDs (`token`, `style-search`) are currently unique. If a component
   mounts twice, use `$props.id()`; tests do not locate controls by generated or structural IDs.
 
 Invalid fields expose `aria-invalid` and reference their error after their hint through

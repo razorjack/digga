@@ -115,11 +115,9 @@ export class TriagePage {
     );
   }
 
-  /** The strip above the desk while a practice round, a round of snoozed records or a scope runs. */
+  /** The strip above the desk while a round of snoozed records or a scope runs. */
   get banner(): Locator {
-    return this.root.getByText(
-      /^(Practice: |Digging|Hearing snoozed records again|Replaying Twelves)/,
-    );
+    return this.root.getByText(/^(Digging|Hearing snoozed records again|Replaying Twelves)/);
   }
 
   /** F's dialog: the record's labels and artists, the last load's records, and a search. */

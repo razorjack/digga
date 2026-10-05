@@ -185,13 +185,7 @@ whatever the count (`docs/FIRST_RUN.md`)
 
 ## SETUP-22
 
-Priority: **P1**.
-
-Practice round, from the finished crate's "Practice on five records first": the sandbox is on and
-the banner counts "1 of 5" up to "5 of 5"; after five verdicts the card "That's digging." opens;
-its Enter turns the sandbox off (`/api/settings`, the header's stamp goes) and the five records come
-round again in their order; `/api/export/decisions.json` holds none of them. Esc after one verdict
-ends it early with the same card, and the first record comes round again
+Retired: the practice round was removed (decision 149 in `docs/DECISIONS.md`).
 
 ## SETUP-23
 
@@ -310,10 +304,7 @@ A load that finishes with fewer than 500 records to dig enables "Start digging":
   `PUT /api/settings` and `POST /api/jobs/dump-load` have answered and the crate shows. "Fill the
   crate" with no style picked sends nothing and ends once the search field has `aria-invalid`. A
   year ends once Tab has left its field, which commits it (`change`), and the field shows it.
-- "Practice on five records first" ends once `PUT /api/settings` has answered and Triage shows the
-  practice's banner. The practice card (`PracticeCard` in `pages/dialogs.ts`) ends its Enter once
-  the `PUT /api/settings` that turns the sandbox off and the `GET /api/queue` after it have
-  answered and the card has closed. "Pick up" ends once `POST /api/jobs/dump-download` and
+- "Pick up" ends once `POST /api/jobs/dump-download` and
   `POST /api/jobs/dump-load` have answered and the button has gone. "Start without it" ends once `POST /api/jobs/dump-load` has
   answered and the notice has gone. The finished load ends once
   the crate's `h1` reads "The catalogue is in: …" (`waitForCatalogue()`).

@@ -85,7 +85,7 @@ and wantlist updates use Discogs, so those features need an internet connection.
 
 **Sandbox mode** keeps verdicts, notes, track marks, and listens in the current browser tab, and
 Digga does not change your Discogs wantlist; they are discarded when you leave that mode. The
-setup turns it off, and its practice round uses it for five records. Settings switches it, and
+setup turns it off. Settings switches it, and
 setup jobs, including dump loading and collection, wantlist, and history imports, write local
 data in either mode. A Discogs token is needed for wantlist updates, but your catalogue and
 verdicts remain local.
@@ -133,8 +133,7 @@ A new library opens the setup, which takes about 20 minutes, most of it waiting:
 
 ![The setup's Fill the crate step: the download and the read, the releases kept so far and the records to dig, the years filling in, and Start digging](docs/assets/screenshots/setup-crate.webp)
 
-The setup turns sandbox mode off, so your verdicts are kept from the first one. "Practice on five
-records first" digs five records in the sandbox before that.
+The setup turns sandbox mode off, so your verdicts are kept from the first one.
 
 ### Where Digga keeps things
 
