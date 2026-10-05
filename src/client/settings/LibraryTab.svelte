@@ -85,39 +85,54 @@
   <h2 id="{id}-library-title">Library</h2>
   {#if stats.value}
     {@const summary = stats.value}
-    <div class="block">
-      <ul class="counts" aria-label="The library">
-        <li><b>{formatCount(summary.universe.releases)}</b> releases</li>
-        <li><b>{formatCount(summary.universe.keys)}</b> records</li>
-        <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
-        <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
-        <li><b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard</li>
-      </ul>
-      <ul class="counts small" aria-label="Your decisions">
-        <li><b>{formatCount(summary.verdicts.accepted)}</b> want</li>
-        <li><b>{formatCount(summary.verdicts.candidate)}</b> grail</li>
-        <li><b>{formatCount(summary.verdicts.maybe)}</b> maybe</li>
-        <li><b>{formatCount(summary.verdicts.rejected)}</b> skip</li>
-        <li><b>{formatCount(summary.verdicts.snoozed)}</b> snooze</li>
-        <li><b>{formatCount(summary.verdicts.no_audio)}</b> no audio</li>
-        <li><b>{formatCount(summary.verdicts.seen)}</b> seen</li>
-        <li><b>{formatCount(summary.discogs.wantlist)}</b> on the Discogs wantlist</li>
-        <li><b>{formatCount(summary.discogs.collection)}</b> owned</li>
-      </ul>
-      <p class="quiet">
-        {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No dump loaded yet.{/if}
-        {#if summary.dump.lastLoad}
-          {@const load = summary.dump.lastLoad}
-          {@const missing = missingReleasesNote(load.missing)}
-          The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
-          added {formatCount(load.added)} {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
-          {#if load.toDig > 0}
-            {formatCount(load.toDig)} records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
-          {/if}
-          {#if missing}{missing}{/if}
-        {/if}
-      </p>
-    </div>
+    <dl class="fields summary">
+      <div class="field">
+        <dt class="name" id="{id}-catalogue">Catalogue</dt>
+        <dd>
+          <ul class="counts" aria-labelledby="{id}-catalogue">
+            <li><b>{formatCount(summary.universe.releases)}</b> releases</li>
+            <li><b>{formatCount(summary.universe.keys)}</b> records</li>
+            <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
+            <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
+            <li><b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard</li>
+          </ul>
+        </dd>
+      </div>
+      <div class="field">
+        <dt class="name" id="{id}-decisions">Decisions</dt>
+        <dd>
+          <ul class="counts small" aria-labelledby="{id}-decisions">
+            <li><b>{formatCount(summary.verdicts.accepted)}</b> want</li>
+            <li><b>{formatCount(summary.verdicts.candidate)}</b> grail</li>
+            <li><b>{formatCount(summary.verdicts.maybe)}</b> maybe</li>
+            <li><b>{formatCount(summary.verdicts.rejected)}</b> skip</li>
+            <li><b>{formatCount(summary.verdicts.snoozed)}</b> snooze</li>
+            <li><b>{formatCount(summary.verdicts.no_audio)}</b> no audio</li>
+            <li><b>{formatCount(summary.verdicts.seen)}</b> seen</li>
+            <li><b>{formatCount(summary.discogs.wantlist)}</b> on the Discogs wantlist</li>
+            <li><b>{formatCount(summary.discogs.collection)}</b> owned</li>
+          </ul>
+        </dd>
+      </div>
+      <div class="field">
+        <dt class="name">Dump</dt>
+        <dd>
+          <p class="quiet">
+            {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No dump loaded yet.{/if}
+            {#if summary.dump.lastLoad}
+              {@const load = summary.dump.lastLoad}
+              {@const missing = missingReleasesNote(load.missing)}
+              The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
+              added {formatCount(load.added)} {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
+              {#if load.toDig > 0}
+                {formatCount(load.toDig)} records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
+              {/if}
+              {#if missing}{missing}{/if}
+            {/if}
+          </p>
+        </dd>
+      </div>
+    </dl>
   {/if}
 </section>
 
@@ -248,6 +263,13 @@
 </section>
 
 <style>
+  /* The section spaces the list from its heading; only the browser's other margins go. */
+  .summary {
+    margin-bottom: 0;
+  }
+  .summary dd {
+    margin: 0;
+  }
   .counts {
     display: flex;
     flex-wrap: wrap;
