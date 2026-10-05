@@ -33,99 +33,114 @@
 </script>
 
 <header class="facts" data-release-id={item.id} data-triage-key={item.triageKey}>
-  <div class="label-line">
-    <Stamp text={catno} seed={item.id} size="lg" />
-    <p class="label">
-      {item.labelName ?? "Unknown label"}
-      {#if otherLabels.length > 0}<span class="also">with {otherLabels.join(", ")}</span>{/if}
-    </p>
-  </div>
-
-  <h1 class="artist">{item.artistDisplay || "Unknown artist"}</h1>
-  <p class="title">{item.title}</p>
-
-  <dl class="meta">
-    <div>
-      <dt class="visually-hidden">Year and country</dt>
-      <dd>
-        <span class="strong">{item.year ?? "year unknown"}</span>
-        {item.country ?? "country unknown"}
-      </dd>
-    </div>
-    <div>
-      <dt class="visually-hidden">Format</dt>
-      <dd>{item.formatSummary || "format unknown"}</dd>
-    </div>
-    <div>
-      <dt class="visually-hidden">Styles</dt>
-      <dd>{[...item.styles, ...genres].join(", ")}</dd>
-    </div>
-  </dl>
-
-  <div class="market">
-    <!-- Keyed by record, so the next record's line is not announced; the answer to P is. -->
-    {#key item.id}
-      <p role="status" aria-busy={pricing}>
-        {#if enrichedAt !== null}
-          <span>
-            {#if item.lowestPrice !== null}
-              <span class="strong">{formatPrice(item.lowestPrice, item.currency)}</span> lowest,
-              {formatCount(item.numForSale ?? 0)} for sale
-            {:else}
-              none for sale
-            {/if}
-          </span>
-          <span>
-            <span class="strong">{formatCount(item.communityWant ?? 0)}</span> want
-            <span class="strong">{formatCount(item.communityHave ?? 0)}</span> have
-          </span>
-          <span>
-            {#if item.ratingAverage !== null && item.ratingCount}
-              <span class="strong">{item.ratingAverage.toFixed(2)}</span> of 5 from
-              {formatCount(item.ratingCount)}
-              {item.ratingCount === 1 ? "rating" : "ratings"}
-            {:else}
-              not rated
-            {/if}
-          </span>
-        {/if}
-        {#if pricing}
-          <span class="quiet">asking Discogs…</span>
-        {:else if enrichedAt !== null}
-          <span class="quiet">checked <time datetime={enrichedAt}>{formatAge(enrichedAt)}</time></span>
-        {:else}
-          <span class="quiet">no price or have/want yet</span>
-        {/if}
+  <div class="identity">
+    <div class="label-line">
+      <Stamp text={catno} seed={item.id} size="lg" />
+      <p class="label">
+        {item.labelName ?? "Unknown label"}
+        {#if otherLabels.length > 0}<span class="also">with {otherLabels.join(", ")}</span>{/if}
       </p>
-    {/key}
-    <button
-      type="button"
-      tabindex="-1"
-      aria-keyshortcuts="P"
-      disabled={pricing}
-      onmousedown={keepFocus}
-      onclick={onprice}
-    >
-      <Key label="P" size="sm" aria-hidden="true" />
-      {enrichedAt === null ? "ask Discogs" : "ask again"}
-    </button>
+    </div>
+
+    <h1 class="artist">{item.artistDisplay || "Unknown artist"}</h1>
+    <p class="title">{item.title}</p>
   </div>
 
-  {#if siblings.length > 0}
-    <p class="versions">
-      {siblings.length === 1 ? "1 other version" : `${siblings.length} other versions`} on this master:
-      {siblings
-        .slice(0, 3)
-        .map((s) => [s.year, s.country, s.formatSummary.split(" (")[0]].filter(Boolean).join(" "))
-        .join("; ")}{siblings.length > 3 ? "; …" : ""}
-    </p>
-  {/if}
+  <div class="details">
+    <dl class="meta">
+      <div>
+        <dt class="visually-hidden">Year and country</dt>
+        <dd>
+          <span class="strong">{item.year ?? "year unknown"}</span>
+          {item.country ?? "country unknown"}
+        </dd>
+      </div>
+      <div>
+        <dt class="visually-hidden">Format</dt>
+        <dd>{item.formatSummary || "format unknown"}</dd>
+      </div>
+      <div>
+        <dt class="visually-hidden">Styles</dt>
+        <dd>{[...item.styles, ...genres].join(", ")}</dd>
+      </div>
+    </dl>
+
+    <div class="market">
+      <!-- Keyed by record, so the next record's line is not announced; the answer to P is. -->
+      {#key item.id}
+        <p role="status" aria-busy={pricing}>
+          {#if enrichedAt !== null}
+            <span>
+              {#if item.lowestPrice !== null}
+                <span class="strong">{formatPrice(item.lowestPrice, item.currency)}</span> lowest,
+                {formatCount(item.numForSale ?? 0)} for sale
+              {:else}
+                none for sale
+              {/if}
+            </span>
+            <span>
+              <span class="strong">{formatCount(item.communityWant ?? 0)}</span> want
+              <span class="strong">{formatCount(item.communityHave ?? 0)}</span> have
+            </span>
+            <span>
+              {#if item.ratingAverage !== null && item.ratingCount}
+                <span class="strong">{item.ratingAverage.toFixed(2)}</span> of 5 from
+                {formatCount(item.ratingCount)}
+                {item.ratingCount === 1 ? "rating" : "ratings"}
+              {:else}
+                not rated
+              {/if}
+            </span>
+          {/if}
+          {#if pricing}
+            <span class="quiet">asking Discogs…</span>
+          {:else if enrichedAt !== null}
+            <span class="quiet">checked <time datetime={enrichedAt}>{formatAge(enrichedAt)}</time></span>
+          {:else}
+            <span class="quiet">no price or have/want yet</span>
+          {/if}
+        </p>
+      {/key}
+      <button
+        type="button"
+        tabindex="-1"
+        aria-keyshortcuts="P"
+        disabled={pricing}
+        onmousedown={keepFocus}
+        onclick={onprice}
+      >
+        <Key label="P" size="sm" aria-hidden="true" />
+        {enrichedAt === null ? "ask Discogs" : "ask again"}
+      </button>
+    </div>
+
+    {#if siblings.length > 0}
+      <p class="versions">
+        {siblings.length === 1 ? "1 other version" : `${siblings.length} other versions`} on this master:
+        {siblings
+          .slice(0, 3)
+          .map((s) => [s.year, s.country, s.formatSummary.split(" (")[0]].filter(Boolean).join(" "))
+          .join("; ")}{siblings.length > 3 ? "; …" : ""}
+      </p>
+    {/if}
+  </div>
 </header>
 
 <style>
+  /* Who and what first; the facts, the market and the other versions read as one group below. */
   .facts {
     display: grid;
+    gap: var(--space-heading);
+    min-width: 0;
+  }
+  .identity {
+    display: grid;
     gap: 10px;
+    min-width: 0;
+  }
+  .details {
+    display: grid;
+    gap: 6px;
     min-width: 0;
   }
   .label-line {
@@ -176,7 +191,7 @@
     flex-wrap: wrap;
     column-gap: 28px;
     row-gap: 2px;
-    margin: 6px 0 0;
+    margin: 0;
     color: var(--fg-muted);
   }
   .meta dd {
