@@ -214,38 +214,43 @@
   </section>
 
   <section>
-    <h2 id="{id}-order">Order</h2>
-    <fieldset class="options" aria-labelledby="{id}-order">
-      {#each QUEUE_STRATEGIES as strategy (strategy)}
-        <div class="option">
-          <input
-            type="radio"
-            id="{id}-{strategy}"
-            name="strategy"
-            value={strategy}
-            aria-describedby="{id}-{strategy}-hint"
-            bind:group={draft.queue.strategy}
-          />
-          <label for="{id}-{strategy}">{STRATEGY_COPY[strategy].label}</label>
-          <span class="hint" id="{id}-{strategy}-hint">
-            {STRATEGY_COPY[strategy].hint}
-          </span>
+    <h2>Queue</h2>
+    <div class="fields">
+      <fieldset class="field">
+        <legend class="name">Order</legend>
+        <div class="options">
+          {#each QUEUE_STRATEGIES as strategy (strategy)}
+            <div class="option">
+              <input
+                type="radio"
+                id="{id}-{strategy}"
+                name="strategy"
+                value={strategy}
+                aria-describedby="{id}-{strategy}-hint"
+                bind:group={draft.queue.strategy}
+              />
+              <label for="{id}-{strategy}">{STRATEGY_COPY[strategy].label}</label>
+              <span class="hint" id="{id}-{strategy}-hint">
+                {STRATEGY_COPY[strategy].hint}
+              </span>
+            </div>
+          {/each}
         </div>
-      {/each}
-    </fieldset>
-    <div class="field narrow">
-      <label class="name" for="{id}-batch">Batch</label>
-      <input
-        type="number"
-        id="{id}-batch"
-        min="1"
-        max="5000"
-        aria-describedby="{id}-batch-hint {id}-batch-problem"
-        bind:value={draft.queue.limit}
-        {@attach reportProblem(issues, "queue.limit")}
-      />
-      <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
-      <span class="hint problem" id="{id}-batch-problem" hidden={!batchProblem}>{batchProblem}</span>
+      </fieldset>
+      <div class="field narrow">
+        <label class="name" for="{id}-batch">Batch</label>
+        <input
+          type="number"
+          id="{id}-batch"
+          min="1"
+          max="5000"
+          aria-describedby="{id}-batch-hint {id}-batch-problem"
+          bind:value={draft.queue.limit}
+          {@attach reportProblem(issues, "queue.limit")}
+        />
+        <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
+        <span class="hint problem" id="{id}-batch-problem" hidden={!batchProblem}>{batchProblem}</span>
+      </div>
     </div>
   </section>
 
