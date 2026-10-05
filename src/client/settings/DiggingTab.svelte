@@ -303,9 +303,12 @@
   .option label {
     cursor: pointer;
   }
+  /* The outcome of every filter above, so it stands apart from the last of them. */
   .preview {
     display: block;
-    min-height: 1.45em;
+    min-height: calc(1.45em + var(--space-item) + 1px);
+    padding-top: var(--space-item);
+    border-top: 1px dashed var(--rule);
     color: var(--fg-muted);
   }
 </style>
