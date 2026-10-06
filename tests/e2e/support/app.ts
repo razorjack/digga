@@ -194,6 +194,11 @@ export class FakeYouTubeHandle {
       code,
     ] as const);
   }
+
+  /** Keeps playback with sound unstarted from now on, as a browser that blocks autoplay does. */
+  async blockSound(): Promise<void> {
+    await this.#page().evaluate(() => window.__fakeYouTube!.blockSound());
+  }
 }
 
 /**
