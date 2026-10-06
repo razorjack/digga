@@ -1,5 +1,6 @@
 import { endOfQueueHeadline } from "../../../src/client/triage/end-of-queue.ts";
 import type { DecisionsExport, QueueItem, QueueResponse, Stats } from "../../../src/shared/api.ts";
+import type { Config } from "../../../src/shared/config.ts";
 import { formatCount, formatPrice } from "../../../src/shared/display.ts";
 import { youtubeWatchUrl } from "../../../src/shared/youtube.ts";
 import {
@@ -14,6 +15,8 @@ import {
   SHOPKEEPER,
   TEMPEST_AUDIO,
   triageKeyOf,
+  UNDATED_ON_WANTED_LABEL,
+  WHITE_LABEL,
   WITHOUT_VIDEOS,
   YOUTUBE_ONLY,
 } from "../fixtures/catalogue.ts";
@@ -224,6 +227,51 @@ test.describe("with filters that match nothing", () => {
     },
   );
 });
+
+test.describe("digging White Label, the label of a want no dump has", () => {
+  test.use({ diggaOptions: { labels: [WHITE_LABEL.name] } });
+
+  test(
+    "TRI-38 an undated record on a label nobody wants stays out of the queue under the default filters",
+    { tag: ["@TRI-38", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      await expectDefaultUndatedFilters(app);
+      await app.open();
+
+      await expect(triage.root.getByText("Your filters match no records.")).toBeVisible();
+      await expect(triage.record).toHaveCount(0);
+    },
+  );
+});
+
+test.describe("digging White Label with the Discogs account that wants a release on it", () => {
+  test.use({ diggaOptions: { template: "small-account", labels: [WHITE_LABEL.name] } });
+
+  test(
+    "TRI-38 an undated record on a wanted label reaches the queue under the default filters",
+    { tag: ["@TRI-38", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      await expectDefaultUndatedFilters(app);
+      await app.open();
+
+      await expect(triage.record).toHaveAttribute(
+        "data-release-id",
+        String(UNDATED_ON_WANTED_LABEL.id),
+      );
+      await expect(triage.record.getByText("year unknown", { exact: true })).toBeVisible();
+      await triage.judge("rejected");
+      await expect(triage.root.getByText("all dug", { exact: true })).toBeVisible();
+    },
+  );
+});
+
+/** Undated records are out, apart from those on the labels and artists the library wants. */
+async function expectDefaultUndatedFilters(app: DiggaApp): Promise<void> {
+  const { filters } = await app.api.get<Config>("/api/settings");
+  expect(filters).toMatchObject({ includeUnknownYear: false, includeUnknownYearOnCoverage: true });
+}
 
 test(
   "TRI-33 a tracklist that did not load says so, and Enter loads it",

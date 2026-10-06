@@ -12,9 +12,12 @@ import {
   type FixtureRelease,
   GROUNDWORK,
   ONLY_VIDEO_REFUSED,
+  POOLED_MAIN,
+  POOLED_REPRESS,
   SAME_TUNE_ELSEWHERE,
   SECOND_RECORD,
   TRACK_RUN,
+  TRANSIT_AUDIO,
   WITHOUT_VIDEOS,
   YOUTUBE_ONLY,
 } from "../fixtures/catalogue.ts";
@@ -451,6 +454,39 @@ test.describe("digging a tune that another release repeats, with the clock", () 
       expect(detail.tracks.find((track) => track.position === elsewhere.position)?.heard).toBe(
         true,
       );
+    },
+  );
+});
+
+test.describe("digging a master whose repress has the only video, without videoless releases", () => {
+  test.use({
+    diggaOptions: {
+      labels: [TRANSIT_AUDIO.name],
+      config: { filters: { skipWithoutVideos: true } },
+    },
+  });
+
+  test(
+    "TRI-37 a main release without a video plays its repress's video on its own track, which takes the mark",
+    { tag: ["@TRI-37", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const [tune, withoutVideo] = POOLED_MAIN.tracks;
+      const pooled = POOLED_REPRESS.videos[0]!;
+      await app.open();
+
+      // The record passes the filter for releases without videos on its repress's video.
+      await expect(triage.record).toHaveAttribute("data-release-id", String(POOLED_MAIN.id));
+      await triage.startListening();
+      expect(await app.youtube.audible()).toBe(pooled.id);
+      await expect(triage.currentTrack).toHaveAttribute("data-position", tune!.position);
+      await expect(triage.track(withoutVideo!.position)).toContainText("no video");
+      expect(await triage.markTrack("keep")).toMatchObject({
+        releaseId: POOLED_MAIN.id,
+        position: tune!.position,
+        videoId: pooled.id,
+        mark: "keep",
+      });
     },
   );
 });

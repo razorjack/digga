@@ -290,16 +290,23 @@ is posted on leaving, a shorter remainder is not; returning keeps the record and
 
 Priority: **P2**.
 
-Pooled videos: the main release without video plays the repress's video at its own position
-(decision 72)
+Given: `labels: Transit Audio`, releases without videos skipped.
+
+Pooled videos (decision 72): the main release, which has no video, passes the filter on its
+repress's video and plays that video on its own track, A, where the repress has it at A1; a keep
+mark goes on the main release's track with that video
 
 ## TRI-38
 
 Priority: **P2**.
 
-Undated records on a wanted label reach the queue under the default filters (decision 91)
-[`small-account`]. The catalogue puts them in a default style, since `small` is loaded before the
-account's wants are imported
+Given: `labels: White Label`, the label of dj's want that no dump has.
+
+Undated records on a wanted label reach the queue under the default filters (decision 91): on
+`small-account` Triage shows the undated record ("year unknown"), and its verdict ends the queue;
+on `small`, which wants nothing, the label has nothing to dig ("Your filters match no records.").
+The catalogue puts the record in a default style, since `small` is loaded before the account's
+wants are imported
 
 ## TRI-39
 
