@@ -22,6 +22,8 @@ export interface CreateServerOptions {
   logger: Logger;
   /** Injected database (tests). When omitted the server opens paths.dbFile. */
   db?: Db;
+  /** What the library lock calls this process, for another process's refusal; "the Digga server" by default. */
+  libraryHolder?: string;
   /** Serve dist/ for non-API routes. Default true. */
   serveStatic?: boolean;
   /** Persist PUT /api/settings to paths.configFile. Default true. */
@@ -48,8 +50,8 @@ export interface DiggaServer {
 }
 
 /**
- * The whole backend as a function. The CLI's `serve` command calls it; Electron's
- * main process will call it too and open a BrowserWindow at the returned URL.
+ * The whole backend as a function. The CLI's `serve` command calls it, and so does the Electron
+ * app's main process, which opens a BrowserWindow at the returned URL.
  */
 export function createServer(options: CreateServerOptions): DiggaServer {
   let config = options.config;
@@ -106,7 +108,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
 function openLibrary(options: CreateServerOptions): { db: Db; lock: LibraryLock | null } {
   if (options.db) return { db: options.db, lock: null };
   if (options.paths.dbFile === ":memory:") return { db: openDb(":memory:"), lock: null };
-  const lock = lockLibrary(options.paths.lockFile, "the Digga server");
+  const lock = lockLibrary(options.paths.lockFile, options.libraryHolder ?? "the Digga server");
   try {
     return { db: openDb(options.paths.dbFile), lock };
   } catch (error) {

@@ -83,6 +83,23 @@ describe("the library lock", () => {
     expect(fs.existsSync(paths.lockFile)).toBe(false);
   });
 
+  it("names the holder the server was given, such as the Electron app", async () => {
+    const paths = resolvePaths({ dataDir: tmp });
+    const app = createServer({
+      config: DEFAULT_CONFIG,
+      paths,
+      secrets: testSecrets(),
+      logger: silentLogger,
+      serveStatic: false,
+      libraryHolder: "the Digga app",
+    });
+
+    expect(() => lockLibrary(paths.lockFile, "digga restore")).toThrow(
+      `in use by the Digga app (process ${process.pid}`,
+    );
+    await app.stop();
+  });
+
   it("lets go of the library when the server cannot open it", () => {
     const paths = resolvePaths({ dataDir: tmp });
     const newer = openDb(paths.dbFile);

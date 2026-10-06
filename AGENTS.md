@@ -113,7 +113,8 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        history, list, seller, seeds)
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
                        queue/ (query, scopes, detail, twelves, coverage)
-src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts
+src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
+                       environment.ts (what the environment and a .env set)
 src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css

@@ -1,43 +1,21 @@
-import fs from "node:fs";
-import path from "node:path";
 import { loadConfig } from "../server/config-file.ts";
 import { type Db, openDb } from "../server/db/db.ts";
 import { createDiscogsClient } from "../server/discogs/client.ts";
 import { lockLibrary } from "../server/library-lock.ts";
-import { createLogger, type LogLevel } from "../server/logger.ts";
+import { createLogger } from "../server/logger.ts";
 import { resolvePaths } from "../server/paths.ts";
 import { createSecrets } from "../server/secrets.ts";
+import { readLaunchEnvironment } from "./environment.ts";
 
 export type Runtime = ReturnType<typeof boot>;
 
 export function boot() {
-  loadDotEnv();
-  const paths = resolvePaths({
-    dataDir: fromEnvironment("DIGGA_DATA_DIR"),
-    dumpsDir: fromEnvironment("DIGGA_DUMPS_DIR"),
-    configFile: fromEnvironment("DIGGA_CONFIG_FILE"),
-  });
+  const environment = readLaunchEnvironment();
+  const paths = resolvePaths(environment.paths);
   const config = loadConfig(paths.configFile);
   const secrets = createSecrets({ envFile: paths.secretsFile });
-  const level = (process.env.DIGGA_LOG_LEVEL as LogLevel | undefined) ?? "info";
-  const logger = createLogger({ level });
-  // Stand-ins for data.discogs.com, the Discogs API and YouTube's oEmbed, for rehearsals and the
-  // end-to-end tests (tools/dev/fake-services.ts).
-  const dataDumpsUrl = fromEnvironment("DIGGA_DUMPS_URL");
-  const discogsApiUrl = fromEnvironment("DIGGA_DISCOGS_API_URL");
-  const youtubeOembedUrl = fromEnvironment("DIGGA_YOUTUBE_OEMBED_URL");
-  return { paths, config, secrets, logger, dataDumpsUrl, discogsApiUrl, youtubeOembedUrl };
-}
-
-/** A .env in the folder digga runs from adds to the environment; variables already set win. */
-function loadDotEnv(): void {
-  const file = path.join(process.cwd(), ".env");
-  if (fs.existsSync(file)) process.loadEnvFile(file);
-}
-
-function fromEnvironment(name: string): string | undefined {
-  const value = process.env[name]?.trim();
-  return value ? value : undefined;
+  const logger = createLogger({ level: environment.logLevel });
+  return { paths, config, secrets, logger, ...environment.services };
 }
 
 export function discogsFor(runtime: Runtime) {
