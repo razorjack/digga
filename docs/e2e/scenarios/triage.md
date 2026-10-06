@@ -183,7 +183,12 @@ and it opens again empty
 
 Priority: **P2**.
 
-A scope dug to the end: "Nothing is left to dig from the label …", "go round", and Esc back
+Given: `labels: Rollers Archive, Tempest Audio`.
+
+A scope dug to the end with one of its records passed: "Nothing is left to dig from the label …"
+and "go round the 1 you passed", which brings the record back under the scope's banner; Esc returns
+to the whole queue, which starts from that record again, since a pass belongs to the queue it was
+made in
 
 ## TRI-23
 
@@ -236,9 +241,11 @@ here."; `embed="false"` videos show "no embed" and are never loaded
 
 Priority: **P2**.
 
+Given: `labels: Echo Chamber`.
+
 `D`, then a link pasted on Twelves' No audio shelf deletes the verdict (export), the record
-leaves the shelf, and Triage, shown again with `T`, offers it without a reload, after the record on
-screen when it sorts earlier (TRI-44)
+leaves the shelf, and Triage, shown again with `T`, offers it without a reload (the header still
+counts the session's verdict), after the record on screen when it sorts earlier (TRI-44)
 
 ## TRI-30
 
@@ -251,8 +258,9 @@ verdict replaces a snooze, `N` leaves it, Esc returns
 
 Priority: **P2**.
 
-No releases loaded (a finished load that kept nothing): "No releases loaded yet." and the settings
-button
+No releases loaded: a fresh library (`newLibrary("empty")`), where `digga dump load` of a dump
+without releases finishes having kept nothing, then `relaunch({ library })`: "No releases loaded
+yet." and the settings button (`,`), which opens Settings on the Library tab
 
 ## TRI-32
 
@@ -276,8 +284,12 @@ Priority: **P1**.
 
 Priority: **P2**.
 
-A settings save restarts the queue and keeps the `F` scope; a color scheme change keeps the record
-on screen
+Given: `labels: Rollers Archive, Tempest Audio`.
+
+In the label's `F` scope, a settings save (the seek step, on the Digging tab, through the save bar)
+restarts the queue: its `GET /api/queue` carries the scope, and Triage shows the scope's record
+under its banner. An Appearance radio on the General tab, which saves at once without the save bar,
+restarts nothing: the record on screen stays, and the only queue read after it is `T`'s
 
 ## TRI-36
 

@@ -21,7 +21,9 @@ import {
   YOUTUBE_ONLY,
 } from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
+import { buildDump, writeDump } from "../fixtures/dump.ts";
 import { HeaderPage } from "../pages/header.ts";
+import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
@@ -203,6 +205,77 @@ test.describe("digging a compilation's label, then another", () => {
       await expect(triage.record).toHaveAttribute("data-release-id", String(MAIN_PRESSING.id));
     },
   );
+
+  test(
+    "TRI-22 a scope dug to the end says so, goes round the records passed in it, and Esc returns to the whole queue",
+    { tag: ["@TRI-22", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const label = ROLLERS_ARCHIVE.name;
+      const nothingLeft = triage.root.getByText(`Nothing is left to dig from the label ${label}.`);
+      await app.open();
+      await triage.openScopePicker();
+      await triage.digScope();
+
+      const passed = await triage.currentKey();
+      await triage.pass();
+      await triage.judge("rejected");
+      await expect(nothingLeft).toBeVisible();
+      await expect(triage.goRoundButton).toHaveAccessibleName("go round the 1 you passed");
+
+      await triage.goRound();
+      await expect(triage.record).toHaveAttribute("data-triage-key", passed);
+      await expect(triage.banner).toHaveText(
+        `Digging the label ${label}: 1 left under your filters.`,
+      );
+      await triage.pass();
+      await expect(nothingLeft).toBeVisible();
+      await triage.leaveScope();
+      // The pass belonged to the scope; the whole queue starts again from its first record.
+      await expect(triage.record).toHaveAttribute("data-triage-key", passed);
+      await expect(triage.upNext).toContainText(MAIN_PRESSING.title);
+    },
+  );
+
+  test(
+    "TRI-35 a settings save restarts the queue in the F scope; a color scheme change keeps the record on screen",
+    { tag: ["@TRI-35", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const settings = new SettingsPage(app);
+      const header = new HeaderPage(app);
+      const banner = `Digging the label ${ROLLERS_ARCHIVE.name}: 1 left under your filters.`;
+      await app.open();
+      await triage.openScopePicker();
+      await triage.digScope();
+      await triage.judge("rejected");
+      const onScreen = await triage.currentKey();
+
+      await header.goTo("settings");
+      await expect(settings.tabLink("digging")).toHaveAttribute("aria-current", "page");
+      const restarted = app.page.waitForResponse(
+        (response) =>
+          isRequest(response, "GET", "/api/queue") &&
+          new URL(response.url()).searchParams.get("scope") === `label:${ROLLERS_ARCHIVE.id}`,
+      );
+      await settings.change(settings.seekStep, "15");
+      await settings.save();
+      expect((await restarted).ok()).toBe(true);
+      await triage.showAgain();
+      await expect(triage.banner).toHaveText(banner);
+      await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
+
+      await header.goTo("settings");
+      const queueReads = () => app.apiRequests().filter((request) => request === "GET /api/queue");
+      const readsBefore = queueReads().length;
+      await settings.chooseColorScheme("light");
+      await triage.showAgain();
+      // Requests leave in order, so a restart after the scheme's save would come before T's read.
+      expect(queueReads()).toHaveLength(readsBefore + 1);
+      await expect(triage.banner).toHaveText(banner);
+      await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
+    },
+  );
 });
 
 test.describe("with filters that match nothing", () => {
@@ -227,6 +300,30 @@ test.describe("with filters that match nothing", () => {
     },
   );
 });
+
+test(
+  "TRI-31 a library whose finished load kept nothing says no releases are loaded and offers settings",
+  { tag: ["@TRI-31", "@P2"] },
+  async ({ app, newLibrary }) => {
+    const triage = new TriagePage(app);
+    const library = await newLibrary("empty");
+    // A dump without releases: the load finishes, as one does whose picks match nothing.
+    const dump = writeDump(library.dumpsDir, buildDump({ date: "2026-08-01", releases: [] }));
+    const load = await app.cli(["dump", "load", dump], { library });
+    expect(load.code, load.stderr).toBe(0);
+    await app.relaunch({ library });
+    await app.open();
+
+    await expect(
+      triage.root.getByRole("heading", { name: "No releases loaded yet." }),
+    ).toBeVisible();
+    await expect(triage.record).toHaveCount(0);
+    const toSettings = triage.root.getByRole("button", { name: "settings", exact: true });
+    await expect(toSettings).toHaveAttribute("aria-keyshortcuts", ",");
+    await toSettings.click();
+    await expect(new SettingsPage(app).tabLink("library")).toHaveAttribute("aria-current", "page");
+  },
+);
 
 test.describe("digging White Label, the label of a want no dump has", () => {
   test.use({ diggaOptions: { labels: [WHITE_LABEL.name] } });
@@ -357,6 +454,32 @@ test.describe("digging Echo Chamber", () => {
       await triage.showAgain();
 
       await expectSentBackNext(triage, await triage.currentKey());
+    },
+  );
+
+  test(
+    "TRI-29 a link pasted on the No audio shelf deletes the D verdict, and Triage offers the record again without a reload",
+    { tag: ["@TRI-29", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const twelves = new TwelvesPage(app);
+      const header = new HeaderPage(app);
+      await app.open();
+      await triage.pass();
+      expect(await triage.currentKey()).toBe(sentBack);
+      await triage.judge("no_audio");
+      await expect(header.root).toContainText("+1 this session");
+
+      await header.goTo("twelves");
+      await attachLinkOnNoAudioShelf(app);
+      await expect(twelves.record(sentBack)).toHaveCount(0);
+      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+      expect(exported.verdicts.map((verdict) => verdict.key)).not.toContain(sentBack);
+
+      await triage.showAgain();
+      await expect(triage.upNext).toContainText(sentBackName);
+      // A reload would have started the session's count again.
+      await expect(header.root).toContainText("+1 this session");
     },
   );
 
