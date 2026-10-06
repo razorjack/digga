@@ -426,7 +426,9 @@ test.describe("with the September dump in the folder", () => {
       const september = smallDump("september");
       const statsBefore = await app.api.get<Stats>("/api/stats");
       await settings.open("library");
-      expect(await settings.dumpFileOptions()).toEqual([september.name, smallDump("july").name]);
+      await expect
+        .poll(() => settings.dumpFileOptions())
+        .toEqual([september.name, smallDump("july").name]);
 
       await settings.dumpFile.fill(september.name);
       await settings.dumpSection.getByRole("spinbutton", { name: "Limit" }).fill("2");
