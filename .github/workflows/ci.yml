@@ -23,6 +23,10 @@ jobs:
     runs-on: ubuntu-24.04
     # A run takes about 5 minutes.
     timeout-minutes: 20
+    # Nothing here starts Electron. Older electron packages download their binary on install unless
+    # this is set; 44 downloads it on first launch instead, which CI never reaches.
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
