@@ -90,7 +90,8 @@ describe("daily backups", () => {
         /^the daily decisions backup failed: .*; the daily database backup failed: .*; the decisions checkpoint failed: /,
       );
     fs.rmSync(paths.backupsDir);
-    await expect.poll(() => backups.failure()).toBeNull();
+    // A check that succeeds copies the database, which can outlast poll's 1 s on a busy machine.
+    await expect.poll(() => backups.failure(), { timeout: 5000 }).toBeNull();
     await backups.stop();
   });
 });
