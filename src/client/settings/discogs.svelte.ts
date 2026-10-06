@@ -101,6 +101,18 @@ export function usernameAfterTokenSave(
   return account.username;
 }
 
+/**
+ * Where Settings keeps the token, for the hint under the field. A token saved as text says so: the
+ * browser version saves it that way, and so does the app where the system cannot encrypt it.
+ */
+export function tokenStorageText(account: DiscogsAccountResponse | null): string {
+  const source = "From discogs.com/settings/developers";
+  if (account?.tokenSource !== "saved")
+    return `${source}; saved in secrets.env beside the database.`;
+  const form = account.tokenEncrypted ? "encrypted" : "unencrypted";
+  return `${source}; saved ${form} in secrets.env beside the database.`;
+}
+
 function accountProblem(account: DiscogsAccountResponse | null): string | null {
   if (!account) return null;
   if (!account.hasToken) return "no Discogs token is set";

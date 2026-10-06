@@ -492,6 +492,8 @@ export interface DiscogsAccountResponse {
   username: string;
   hasToken: boolean;
   tokenSource: TokenSource;
+  /** Whether a saved token is stored encrypted; the browser version saves it as text in secrets.env. */
+  tokenEncrypted: boolean;
   /** The account the token belongs to; null without a token or when Discogs could not be asked. */
   tokenUsername: string | null;
   error: string | null;

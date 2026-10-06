@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { FilterPreview } from "../src/client/settings/preview.svelte.ts";
 import { SettingsJobs } from "../src/client/settings/jobs.svelte.ts";
-import { DiscogsSettings, usernameAfterTokenSave } from "../src/client/settings/discogs.svelte.ts";
+import {
+  DiscogsSettings,
+  tokenStorageText,
+  usernameAfterTokenSave,
+} from "../src/client/settings/discogs.svelte.ts";
 import type { Api } from "../src/client/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { DiscogsAccountResponse, DiscogsListsResponse, Stats } from "../src/shared/api.ts";
@@ -123,6 +127,7 @@ describe("Settings request ownership", () => {
       username: "dj",
       hasToken: false,
       tokenSource: null,
+      tokenEncrypted: false,
       tokenUsername: null,
       error: null,
       dataAccount: null,
@@ -157,6 +162,7 @@ describe("the Username field after a token save", () => {
     username,
     hasToken: true,
     tokenSource: "saved",
+    tokenEncrypted: false,
     tokenUsername: "dj",
     error: null,
     dataAccount: null,
@@ -173,5 +179,33 @@ describe("the Username field after a token save", () => {
 
   it("keeps the saved username, which the server does not replace", () => {
     expect(usernameAfterTokenSave("dj", "dj", account("dj"))).toBe("dj");
+  });
+});
+
+describe("the hint on where the token is kept", () => {
+  const account = (fields: Partial<DiscogsAccountResponse>): DiscogsAccountResponse => ({
+    username: "dj",
+    hasToken: true,
+    tokenSource: "saved",
+    tokenEncrypted: false,
+    tokenUsername: "dj",
+    error: null,
+    dataAccount: null,
+    ...fields,
+  });
+
+  it("says whether a saved token is encrypted", () => {
+    expect(tokenStorageText(account({ tokenEncrypted: true }))).toBe(
+      "From discogs.com/settings/developers; saved encrypted in secrets.env beside the database.",
+    );
+    expect(tokenStorageText(account({}))).toBe(
+      "From discogs.com/settings/developers; saved unencrypted in secrets.env beside the database.",
+    );
+    expect(tokenStorageText(account({ hasToken: false, tokenSource: null }))).toBe(
+      "From discogs.com/settings/developers; saved in secrets.env beside the database.",
+    );
+    expect(tokenStorageText(null)).toBe(
+      "From discogs.com/settings/developers; saved in secrets.env beside the database.",
+    );
   });
 });

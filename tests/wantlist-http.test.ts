@@ -167,6 +167,7 @@ describe("Discogs wantlist over HTTP", () => {
       username: "dj",
       hasToken: true,
       tokenSource: "saved",
+      tokenEncrypted: false,
       tokenUsername: "dj",
       error: null,
       dataAccount: null,

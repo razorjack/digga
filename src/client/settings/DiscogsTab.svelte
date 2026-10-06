@@ -7,7 +7,7 @@
   import Key from "../components/Key.svelte";
   import RequestList from "../setup/RequestList.svelte";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
-  import { type DiscogsSettings, usernameAfterTokenSave } from "./discogs.svelte.ts";
+  import { type DiscogsSettings, tokenStorageText, usernameAfterTokenSave } from "./discogs.svelte.ts";
   import JobList from "./JobList.svelte";
   import type { SettingsJobs } from "./jobs.svelte.ts";
   import { recentJobs, TAB_JOBS } from "./tabs.ts";
@@ -173,7 +173,7 @@
             DISCOGS_TOKEN in the environment, or in the .env digga started with, overrides a saved token; remove it
             there to change the token here.
           {:else}
-            From discogs.com/settings/developers; saved in secrets.env beside the database.
+            {tokenStorageText(discogs.account)}
           {/if}
         </span>
       </div>

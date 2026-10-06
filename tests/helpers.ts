@@ -20,6 +20,7 @@ export function testSecrets(token: () => string | undefined = () => undefined): 
   return {
     getDiscogsToken: token,
     discogsTokenSource: () => (token() ? "saved" : null),
+    discogsTokenEncrypted: () => false,
     setDiscogsToken: () => {
       throw new Error("this test does not save tokens");
     },

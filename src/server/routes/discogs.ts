@@ -78,6 +78,7 @@ function accountResponse(context: AppContext, identity: Identity | null): Discog
     username,
     hasToken: context.getDiscogs().hasToken(),
     tokenSource: context.secrets.discogsTokenSource(),
+    tokenEncrypted: context.secrets.discogsTokenEncrypted(),
     tokenUsername: identity && "username" in identity ? identity.username : null,
     error: identity && "error" in identity ? identity.error : null,
     dataAccount: heldAccount(context.db, username),
