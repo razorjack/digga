@@ -134,10 +134,14 @@ wantlist.", and the message names the record; Twelves marks it
 
 Priority: **P2**.
 
-Given: `small-account`.
+Given: `small` with the username `dj`, which holds no Discogs data, and the clock paused before
+the verdict.
 
-Saving `e2e-token-other` keeps the username `dj`, and Settings' token status shows the mismatch as
-a problem; a push then fails: the fake answers `403`, the page gets `502` (declared)
+Saving `e2e-token-other` says "Token saved.", keeps the username `dj`, and Settings' token status
+shows the mismatch as a problem ("The token belongs to other, not dj."); a push then fails: the fake
+answers each of the four `PUT`s `403`, the page gets `502` (declared), and after the retries the
+message says Discogs answered `403` and to check the token. On `small-account`, which holds `dj`'s
+Discogs data, the server refuses another account's token instead (decision 138, SET-22)
 
 ## TRI-17
 
@@ -201,8 +205,10 @@ Priority: **P1**.
 
 Priority: **P2**.
 
-`P` for a release Discogs no longer has (fake `404`): the flash says Discogs did not return the
-release; the line keeps no market data
+`P` for a release Discogs no longer has (fake `404`): the page gets `502` (declared) and the flash
+says "The price did not load: Discogs did not return the release"; the line keeps no market data,
+and the tracklist and the release's videos stay as the dump had them, since `P` would also have
+replaced the videos
 
 ## TRI-25
 
@@ -342,8 +348,10 @@ seller's pressing on the wantlist (the fake's `PUT` names that release id, not t
 
 Priority: **P2**.
 
-Held `→` (`keyboard.down` repeated) seeks once per repeat, while a held verdict key still judges
-once
+Given: the clock paused.
+
+Held `→` (`keyboard.down` three times) seeks three steps, once per repeat, while a held verdict key
+still judges once
 
 ## TRI-42
 
@@ -357,8 +365,11 @@ Digging ten records sends no request to the fake Discogs; the first comes with `
 
 Priority: **P2**.
 
+Given: the clock paused before `K`.
+
 A video the app loads to play while the page has activation stays unstarted
-(`app.youtube.blockSound()`); after `runFor(3750)` the player reads "waiting for Space"
+(`app.youtube.blockSound()` after Space and `J`, then `K`): the player reads "cueing up" after
+`runFor(3000)` and "waiting for Space" after 750 ms more
 
 ## TRI-44
 

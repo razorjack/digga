@@ -1,11 +1,12 @@
 import { STATUS_COPY } from "../../../src/client/keymap.ts";
-import type { DecisionsExport } from "../../../src/shared/api.ts";
+import type { DecisionsExport, ReleaseDetail } from "../../../src/shared/api.ts";
 import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
 import { formatCount, formatPrice, formatWait } from "../../../src/shared/display.ts";
 import { PUSH_RETRY_DELAYS_MS } from "../../../src/shared/wantlist.ts";
 import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { DJ, FIRST_RECORD } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
+import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import { MARKET } from "../../../tools/dev/fake-services.ts";
@@ -138,6 +139,90 @@ test(
     ]);
   },
 );
+
+test(
+  "TRI-24 P for a release Discogs no longer has says so, and the line and the tracklist stay as they were",
+  { tag: ["@TRI-24", "@P2"] },
+  async ({ app, fakes }) => {
+    const triage = new TriagePage(app);
+    const releaseId = FIRST_RECORD.id;
+    app.expectProblems({ apiErrors: [/^POST \/api\/releases\/\d+\/enrich answered 502$/] });
+    fakes.fail("GET /releases/:id", { status: 404, times: 1 });
+    await app.open();
+    await expect(triage.record).toHaveAttribute("data-release-id", String(releaseId));
+    await expect(triage.market).toHaveText("no price or have/want yet");
+    const before = await app.api.get<ReleaseDetail>(`/api/releases/${releaseId}`);
+
+    const asked = app.page.waitForResponse((response) =>
+      isRequest(response, "POST", `/api/releases/${releaseId}/enrich`),
+    );
+    await app.page.keyboard.press("p");
+    const response = await asked;
+    expect(response.status()).toBe(502);
+    await response.finished();
+
+    await expect(triage.messages).toHaveText(
+      "The price did not load: Discogs did not return the release",
+    );
+    await expect(triage.market).toHaveAttribute("aria-busy", "false");
+    await expect(triage.market).toHaveText("no price or have/want yet");
+    const [playing, withVideo, withoutVideo] = FIRST_RECORD.tracks.map((track) => track.position);
+    await expect(triage.currentTrack).toHaveAttribute("data-position", playing!);
+    await expect(triage.track(withVideo!)).toContainText("has a video");
+    await expect(triage.track(withoutVideo!)).toContainText("no video");
+    const after = await app.api.get<ReleaseDetail>(`/api/releases/${releaseId}`);
+    expect(after.release.snapshot).toEqual(before.release.snapshot);
+    expect(after.videos).toEqual(before.videos);
+    expect(fakes.requests("GET /releases/:id")).toHaveLength(1);
+  },
+);
+
+test.describe("with the username dj and the clock", () => {
+  test.use({ diggaOptions: { config: { discogs: { username: DJ.username } }, clock: true } });
+
+  test(
+    "TRI-16 another account's token keeps the username and reads as a problem; a want then fails at Discogs",
+    { tag: ["@TRI-16", "@P2"] },
+    async ({ app, fakes }) => {
+      const settings = new SettingsPage(app);
+      const triage = new TriagePage(app);
+      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 502$/] });
+      await settings.open("discogs");
+
+      const saved = await settings.saveToken("e2e-token-other");
+      expect(saved.status()).toBe(200);
+      await expect(settings.root.getByText("Token saved.", { exact: true })).toBeVisible();
+      await expect(settings.username).toHaveValue(DJ.username);
+      await expect(settings.token).toHaveAccessibleDescription(
+        /^The token belongs to other, not dj\. /,
+      );
+
+      await new HeaderPage(app).goTo("triage");
+      const releaseId = await triage.record.getAttribute("data-release-id");
+      // Paused, each try waits for runFor(), and the slip names the wait it has armed.
+      await app.clock.pause();
+      await triage.judge("accepted");
+      for (const delayMs of PUSH_RETRY_DELAYS_MS) {
+        await expect(triage.lastAction).toContainText(`trying again in ${formatWait(delayMs)}.`);
+        await app.clock.runFor(delayMs);
+      }
+
+      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
+      await expect(triage.messages).toContainText(
+        "Discogs answered 403: check the Discogs token in Settings and that it belongs to your Discogs username.",
+      );
+      // The first try and one after each wait; the fake refuses other's token on dj's wantlist.
+      const puts = fakes.requests("PUT /users/:user/wants/:id");
+      expect(puts).toHaveLength(PUSH_RETRY_DELAYS_MS.length + 1);
+      for (const put of puts)
+        expect(put).toMatchObject({
+          params: { user: DJ.username, id: releaseId },
+          authenticatedAs: "other",
+        });
+      expect(fakes.wantlists.get(DJ.username)!.has(Number(releaseId))).toBe(false);
+    },
+  );
+});
 
 test.describe("with a Discogs account and the clock", () => {
   test.use({ diggaOptions: { ...ACCOUNT, clock: true } });

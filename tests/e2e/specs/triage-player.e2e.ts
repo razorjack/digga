@@ -152,6 +152,69 @@ test.describe("with the clock", () => {
   );
 
   test(
+    "TRI-41 a held arrow seeks once per repeat, while a held verdict key judges once",
+    { tag: ["@TRI-41", "@P2"] },
+    async ({ app }) => {
+      const { player } = await app.api.get<Config>("/api/settings");
+      const triage = new TriagePage(app);
+      const video = FIRST_RECORD.videos[0]!;
+      const startAt = startSeconds(video.seconds, player.startAtFraction)!;
+      await app.open();
+
+      // Paused, the video's time moves only with the seeks.
+      await app.clock.pause();
+      await triage.startListening();
+      // A key that is down already sends a keydown with repeat set, as a held key does.
+      for (let press = 0; press < 3; press += 1) await app.page.keyboard.down("ArrowRight");
+      await app.page.keyboard.up("ArrowRight");
+      const seeked = startAt + 3 * player.seekStepSeconds;
+      expect(await audibleTime(app)).toBe(seeked);
+      await expectPosition(triage, seeked, video.seconds);
+
+      const held = await triage.currentKey();
+      await triage.holdVerdictKey("rejected");
+      await expect(triage.record).not.toHaveAttribute("data-triage-key", held);
+      // Verdicts are written in order, so one the repeat made would be saved before this one.
+      await triage.judge("rejected");
+      const verdicts = app.apiRequests().filter((request) => request === "POST /api/verdicts");
+      expect(verdicts).toHaveLength(2);
+    },
+  );
+
+  test(
+    "TRI-43 a video loaded to play that the browser keeps silent asks for Space after 3.5 s",
+    { tag: ["@TRI-43", "@P2"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const [first, second] = FIRST_RECORD.tracks;
+      await app.open();
+      await triage.startListening();
+      expect(await triage.nextTrack()).toBe(second!.position);
+
+      // Paused before K, so the 3.5 s count starts from the load K causes.
+      await app.clock.pause();
+      await app.youtube.blockSound();
+      await app.page.keyboard.press("k");
+      await expect(triage.currentTrack).toHaveAttribute("data-position", first!.position);
+      await expect(triage.playerStatus("loading")).toBeVisible();
+      expect(await app.youtube.loads()).toContainEqual(
+        expect.objectContaining({
+          kind: "load",
+          videoId: videoOf(FIRST_RECORD, first!.position).id,
+          muted: false,
+        }),
+      );
+      await app.clock.runFor(3000);
+      await expect(triage.playerStatus("loading")).toBeVisible();
+      await app.clock.runFor(750);
+
+      await expect(triage.playerStatus("needs_gesture")).toBeVisible();
+      expect(await app.youtube.hasActivation()).toBe(true);
+      expect(await app.youtube.audible()).toBeNull();
+    },
+  );
+
+  test(
     "TRI-28 a video YouTube refuses while it plays is skipped with a notice",
     { tag: ["@TRI-28", "@P1"] },
     async ({ app }) => {
