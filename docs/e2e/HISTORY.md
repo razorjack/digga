@@ -1040,6 +1040,80 @@ completes every family but Triage. The work showed:
 - **`verify` has not grown.** The smoke set is still the 14 P0 tests, 11.3 to 11.5 s inside
   `vp run verify` in this session's runs.
 
+### The Triage P2 scenarios and the 2026-10-03 changes (web)
+
+Built on 2026-10-06 from `e55771a` and measured at `f811498`, on the same 10-core Mac with 32 GB
+(macOS 27.0.1), Node 24.18.0 and Playwright 1.63.0 with its Chromium. Nineteen commits: the
+pooled pressings and the undated wanted-label record (`7a86461`); TRI-37 and TRI-38 (`2614971`);
+`app.youtube.blockSound()` (`8db9e12`); TRI-22, TRI-29, TRI-31 and TRI-35 (`a7e8018`); TRI-16,
+TRI-24, TRI-41 and TRI-43 (`4d7339f`); `app.openPage()` (`870e2e4`); PER-10 (`8d616c1`); PER-11
+(`eb6101b`); SET-22 (`dd2a08e`); TWL-24 (`8adc983`); PER-12 (`b9374d5`); SET-23 (`21f276e`); a
+video Discogs lists after the dumps (`a653ea6`); TRI-23 extended (`f96f1aa`); every spec file in
+the scenario table (`95a425d`); waits in SET-18 (`0cd3ff6`) and in Twelves' replay (`f811498`); a
+longer poll in `tests/daily-backups.test.ts` (`cafa96f`); and this record. That completes the
+Triage family, so every specified web scenario has a test. The work showed:
+
+- **The catalogue moved two tests.** The pooled master (`POOLED_MAIN` and `POOLED_REPRESS` on
+  Transit Audio) adds one record to dig on `small`, and its repress, from 2001, represents it, so
+  it also counts from 2000 on. SET-02's preview counts and SET-05's "These filters match 19
+  records" changed by one; nothing else moved. `UNDATED_ON_WANTED_LABEL` is on White Label, which
+  `NOT_IN_ANY_DUMP` now uses, and changed no count, since undated records are left out unless a
+  label is wanted. The later video (`laterVideos` on the first record) moved nothing.
+- **The changes of 2026-10-03, one row each.** Two pages (decision 139): PER-10, an undo and a
+  Twelves change refused with `409` once another page has re-judged the record. The library lock
+  (decision 129): PER-11, `digga restore` refused while the server runs, `stats` and `backup`
+  beside it, and a relaunch after a crash. Forgetting the account (decision 138): SET-22. A want
+  an import finds gone (decision 137): TWL-24. A database copy restored into a fresh library
+  (decision 135): PER-12, next to PER-02. A failed scheduled backup (`c06f2ef`): SET-23, with the
+  `backups` folder read-only; that a later check that succeeds clears the message stays with
+  `tests/daily-backups.test.ts`, since the next check runs 15 minutes later on the server's
+  clock. The videos `P` brings (`18b1193`): TRI-23 now checks that the first record's later video
+  reaches the tracklist and the player.
+- **No product bug, no gap.** Every scenario passed against the code as it was, so no product
+  code changed and no `test.fail` was added. Four observations went to
+  [PLAN](PLAN.md#observations-awaiting-a-decision): a want Discogs refuses for its token is tried
+  three more times (TRI-16), Settings' import row does not count what an import found gone
+  (TWL-24), Back up now leaves a scheduled backup's failure shown (SET-23, probed with a
+  temporary test that was not kept), and `P` plays the video it finds (TRI-23).
+- **Rows corrected.** TRI-16 now starts from `small` with the username `dj`: on `small-account`
+  the server refuses another account's token (decision 138). TRI-22 says what "go round" brings
+  back and where Esc returns; TRI-31 builds its empty library with `newLibrary("empty")` and a
+  dump without releases; TRI-35 follows the tabbed Settings, where the seek step saves through the
+  save bar and the color scheme at once; TRI-38 says what `small` shows; TRI-41 and TRI-43 give
+  the key presses and clock steps; TRI-24 says what a successful `P` would have changed.
+- **Two missing waits, found by the whole-suite burn-in.** SET-18 read the dump file datalist
+  once, before `GET /api/dumps` had filled it, and now polls it. `replaySelected()` pressed Enter
+  before the Tracks shelf had selected its row, while `GET /api/track-marks` was in flight, and
+  now waits for the selection, as `hearAgain()` does. Each failed once in 1,740 runs. Under the
+  same load `vp run verify` failed once in vitest: `tests/daily-backups.test.ts` waited the
+  default 1 s for a check that succeeds, which copies the database; it now waits up to 5 s.
+- **No rehearsal.** The fake Discogs API's release answer now lists `laterVideos`; no manual run of
+  the CLI or the server outside the harness was needed.
+- **Load.** Another session, in a different project, ran CPU-heavy work in parallel through all
+  the measurements below, with one-minute load averages of 40 to 350. The durations are upper
+  bounds.
+- **Durations.** On five workers the 174 tests took 1.9 and 1.7 minutes (114.6 s and 100 s, after
+  `vp build`), against 1.7 minutes for the 156 at `e55771a` and 1.4 minutes
+  for 164 on 2026-10-03, before sandbox mode was removed. The new tests take 1.2 to 9.5 s: TRI-38
+  1.2 s (`small`) and 1.4 s (`small-account`), PER-10 1.3 s (undo) and 1.3 s (Twelves), TRI-29
+  1.6 s, TRI-41 1.8 s, TRI-43 1.8 s, TRI-22 2.0 s, TRI-24 2.1 s, TRI-37 2.2 s, PER-11 2.3 s, PER-12
+  2.4 s, TRI-35 2.5 s, SET-23 2.6 s, TRI-31 3.2 s, SET-22 3.6 s, TWL-24 4.5 s, TRI-16 9.5 s (the
+  token check and four `PUT`s, which the Discogs client spaces 1.1 s apart). Together they take 47 s; TRI-23 takes 2.2 s.
+- **CI estimate.** CI took 3.8 minutes on two workers for 144 tests, where tests ran about 1.4
+  times as long as locally. The 18 new tests should add about 66 s of test time there, about
+  half a minute on two workers; scaled by test count, the whole suite should take about 4.6
+  minutes, within the six-minute budget.
+- **Stable.** Each new or changed spec passed `--repeat-each=10` on 11 workers before its commit
+  (`triage-player.e2e.ts` with `triage-queue.e2e.ts` 250 of 250, `triage-queue.e2e.ts` 180 of
+  180, `triage-discogs.e2e.ts` with `triage-player.e2e.ts` 220 of 220, `triage-discogs.e2e.ts` 90
+  of 90, `persistence.e2e.ts` 80, 90 and 100, `settings-discogs.e2e.ts` 90, `twelves-discogs.e2e.ts`
+  100, `settings.e2e.ts` 130 and 140, both Twelves replay specs 140). The whole suite at
+  `--repeat-each=10` on 11 workers then ran three times: 1,739 of 1,740 in 15.5 minutes (SET-18),
+  1,739 of 1,740 in 12.9 minutes after its fix (TWL-23), and 1,740 of 1,740 in 15.0 minutes
+  after the second.
+- **`verify` has not grown.** The smoke set is the 13 P0 tests, 11.2 to 12.3 s inside
+  `vp run verify` in this session's runs.
+
 ## Original status on 2026-10-02
 
 Status: proposed on 2026-09-30 and revised the same day after two rounds of review. The web spike

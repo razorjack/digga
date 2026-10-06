@@ -282,7 +282,9 @@ the temp folder. `readSetup()` looks for browser history there (`discoverHistory
 to `os.homedir()`), so the setup never sees the developer's Brave or Firefox. History tests place
 fixture databases there with `diggaOptions.browserHistory`, and lock a browser's folder with
 `diggaOptions.unreadableBrowsers`; the fixture gives the permissions back before it deletes the
-folder ([Browser history](FIXTURES.md#browser-history)).
+folder ([Browser history](FIXTURES.md#browser-history)). SET-23 makes the library's `backups`
+folder read-only (mode `555`) inside the test and gives the permission back in `finally`; like
+SETUP-12 it skips on Windows and as root, where the mode stops nothing.
 
 ### Disk space
 

@@ -10,16 +10,17 @@ documentation split, and again after the setup's remaining scenarios and the Acc
 family, which completed the Setup and Accessibility families. On 2026-10-03 the remaining P2
 scenarios outside Triage completed the Shell, Sandbox, Twelves, Settings and Persistence families
 ([history](HISTORY.md#the-remaining-p2-scenarios-outside-triage-web)); the Sandbox family was
-retired later with sandbox mode (decision 150 in `docs/DECISIONS.md`). The web host and the web
-P0 set are implemented. No current spec uses `test.fail` or `test.fixme`; the one `test.skip` is SETUP-12's
-unreadable folder on Windows or as root, where permissions do not stop Digga. That does not mean
-coverage is complete: the entries below are specified but unimplemented, and the observations
-below still need decisions.
+retired later with sandbox mode (decision 150 in `docs/DECISIONS.md`). On 2026-10-06 Triage's
+remaining P2 scenarios completed the last family, and the cross-layer changes of 2026-10-03 got
+their rows ([history](HISTORY.md#the-triage-p2-scenarios-and-the-2026-10-03-changes-web)). The web
+host, the web P0 set and every specified web scenario are implemented. No current spec uses
+`test.fail` or `test.fixme`; the two `test.skip` calls, in SETUP-12 and SET-23, skip on Windows or
+as root, where file permissions do not stop Digga. The observations below still need decisions.
 
 ## Next work
 
-1. Implement every remaining P2 scenario, then review the full suite for consolidation.
-   The owner chose this order on 2026-10-02; do not prune P2 before that review.
+1. Review the full suite for consolidation. The owner chose on 2026-10-02 to implement every P2
+   scenario first and to review after that; do not prune before that review.
 
 A slice is complete when its specified behavior is covered, the affected spec passes
 `--repeat-each=10`, all repository checks pass, and the relevant reference and this plan agree
@@ -27,19 +28,14 @@ with the implementation. A reproduced product gap gets the normal-current-behavi
 `test.fail` treatment described in the [scenario conventions](scenarios/README.md#coverage-states).
 Do not treat an observation as a confirmed gap without checking it.
 
-## Remaining web P2 coverage
+## Remaining web coverage
 
-The links lead to the requirements. Add fixture records or fake endpoints only when the
-scenario needs them; `GET /masters/{id}` is still absent from the fake Discogs API.
-
-| Family                        | Remaining IDs                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| [Triage](scenarios/triage.md) | TRI-16, TRI-22, TRI-24, TRI-29, TRI-31, TRI-35, TRI-37, TRI-38, TRI-41, TRI-43 |
-
-The original catalogue design included pooled-video pressings, undated wanted-label records,
-House releases and additional records in other styles. Check the current
-[catalogue](../../tests/e2e/fixtures/catalogue.ts) before adding them. Its implemented records
-and accounts, not the original target of about 40 records, define today's given state.
+None: every web scenario in the [families](scenarios/README.md) has a tagged test. Add fixture
+records or fake endpoints only when a new scenario needs them; `GET /masters/{id}` is still absent
+from the fake Discogs API. Of the original catalogue design, the pooled-video pressings and the
+undated wanted-label record are in the [catalogue](../../tests/e2e/fixtures/catalogue.ts); House
+releases and records in other styles are not. Its implemented records and accounts, not the
+original target of about 40 records, define today's given state.
 
 ## Observations awaiting a decision
 
