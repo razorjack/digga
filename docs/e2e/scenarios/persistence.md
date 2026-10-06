@@ -67,3 +67,19 @@ Priority: **P1**.
 Pass a record, pause on the next, seek, and let the five-second checkpoint save. Reload and choose
 Resume session. The same upload is cued at the saved second with playback paused. Pass it and go
 round the saved passes; the first record is still there.
+
+## PER-10
+
+Priority: **P2**.
+
+Two pages of the app on one server (`app.openPage()`, decision 139). In the first, Triage snoozes
+the record on screen; in the second, Twelves re-judges it a skip. `Z` in the first then sends
+`DELETE /api/verdicts/:key` with the snooze it expects; the server answers `409` (declared), the
+messages read "Undo failed: The record's verdict changed since this page read it, in another tab or
+by a load; reload to see it", the slip is no longer busy, the record stays off the screen, and the
+export keeps the skip. Again from a given snooze on Twelves' Snoozed shelf in both pages: the second
+re-judges it a skip, and `D` in the first, which still shows the snooze, is refused the same way
+("Not saved: …"); the shelf loads again without the record. Vitest covers the server's comparison
+and each page's handling of a `409` with a fake api (`server.test.ts`, `session.test.ts`,
+`twelves.test.ts`); this row checks that the verdict each page expects survives the query string
+or the JSON body to the server's comparison, and what each page then shows

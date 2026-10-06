@@ -12,8 +12,8 @@ import {
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { isRequest, TriagePage, verdictKey } from "../pages/triage.ts";
-import { TwelvesPage } from "../pages/twelves.ts";
+import { isRequest, TriagePage, verdictKey, waitForResponses } from "../pages/triage.ts";
+import { judgeKey, TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
@@ -236,6 +236,75 @@ test.describe("with a Discogs account and the clock", () => {
       expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([
         expect.objectContaining({ params: { user: "dj", id: releaseId } }),
       ]);
+    },
+  );
+});
+
+test.describe("two pages of the app", () => {
+  /** The server's refusal of a write whose expected verdict another page has replaced. */
+  const CHANGED =
+    "The record's verdict changed since this page read it, in another tab or by a load; reload to see it";
+
+  test(
+    "PER-10 an undo in one page is refused once another page has re-judged the record",
+    { tag: ["@PER-10", "@P2"] },
+    async ({ app }) => {
+      app.expectProblems({ apiErrors: [/^DELETE \/api\/verdicts\/\S+ answered 409$/] });
+      const triage = new TriagePage(app);
+      await app.open();
+      const key = await triage.currentKey();
+      await triage.judge("snoozed");
+
+      const other = await app.openPage();
+      const otherTwelves = new TwelvesPage(other);
+      await otherTwelves.open();
+      await otherTwelves.showShelf("snoozed");
+      expect(await otherTwelves.selectedKey()).toBe(key);
+      await otherTwelves.rejudge("rejected");
+
+      const refused = app.page.waitForResponse((response) =>
+        isRequest(response, "DELETE", `/api/verdicts/${key}`),
+      );
+      await app.page.keyboard.press("z");
+      expect((await refused).status()).toBe(409);
+      await expect(triage.messages).toHaveText(`Undo failed: ${CHANGED}`);
+      await expect(triage.lastAction).not.toHaveAttribute("aria-busy", "true");
+      await expect(triage.record).not.toHaveAttribute("data-triage-key", key);
+      expect(await exportedStatus(app, key)).toBe("rejected");
+    },
+  );
+
+  test(
+    "PER-10 a Twelves change in one page is refused once another page has re-judged the record",
+    { tag: ["@PER-10", "@P2"] },
+    async ({ app }) => {
+      app.expectProblems({ apiErrors: [/^POST \/api\/verdicts answered 409$/] });
+      const key = triageKeyOf(FIRST_RECORD);
+      await app.given.verdicts(datedVerdicts([{ release: FIRST_RECORD, status: "snoozed" }]));
+      const twelves = new TwelvesPage(app);
+      await twelves.open();
+      await twelves.showShelf("snoozed");
+      expect(await twelves.selectedKey()).toBe(key);
+
+      const other = await app.openPage();
+      const otherTwelves = new TwelvesPage(other);
+      await otherTwelves.open();
+      await otherTwelves.showShelf("snoozed");
+      await otherTwelves.rejudge("rejected");
+
+      // This page still shows the snooze, which its change expects the record to have.
+      await expect(twelves.selected).toHaveAttribute("data-triage-key", key);
+      const { first: saved, next: reloaded } = waitForResponses(
+        app.page,
+        (response) => isRequest(response, "POST", "/api/verdicts"),
+        (response) => isRequest(response, "GET", "/api/twelves"),
+      );
+      await app.page.keyboard.press(judgeKey("no_audio"));
+      expect((await saved).status()).toBe(409);
+      await (await reloaded).finished();
+      await expect(twelves.messages).toHaveText(`Not saved: ${CHANGED}`);
+      await expect(twelves.record(key)).toHaveCount(0);
+      expect(await exportedStatus(app, key)).toBe("rejected");
     },
   );
 });
