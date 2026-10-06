@@ -106,13 +106,16 @@ test.describe("with a Discogs account", () => {
 });
 
 test(
-  "TRI-23 P asks Discogs for the market, busy until the answer, then shows it as checked just now",
+  "TRI-23 P asks Discogs for the market, busy until the answer, then shows it as checked just now, and plays a video Discogs has since the dump",
   { tag: ["@TRI-23", "@P1"] },
   async ({ app, fakes }) => {
     const triage = new TriagePage(app);
+    const [pressureDrop, , lowTide] = FIRST_RECORD.tracks.map((track) => track.position);
     const held = fakes.hold("GET /releases/:id");
     await app.open();
     await expect(triage.market).toHaveText("no price or have/want yet");
+    await expect(triage.currentTrack).toHaveAttribute("data-position", pressureDrop!);
+    await expect(triage.track(lowTide!)).toContainText("no video");
 
     const asked = triage.askMarket();
     await held.received;
@@ -137,6 +140,11 @@ test(
         query: { curr_abbr: "EUR" },
       }),
     ]);
+
+    // The player plays a video the open release gains, as it does a pasted one; P is the gesture.
+    await expect(triage.currentTrack).toHaveAttribute("data-position", lowTide!);
+    await expect(triage.playerStatus("playing")).toBeVisible();
+    expect(await app.youtube.audible()).toBe(FIRST_RECORD.laterVideos[0]!.id);
   },
 );
 

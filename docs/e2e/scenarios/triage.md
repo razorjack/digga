@@ -199,7 +199,12 @@ made in
 Priority: **P1**.
 
 `P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, the rating,
-"checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`
+"checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`. Its answer also lists the
+video Discogs has for the first record's track C since the dump (`laterVideos`), and the open
+record takes it: the player, on track A and waiting for Space, moves to C and plays that video, as
+it plays a pasted one, with `P` as the gesture. `tests/session.test.ts` covers which parts of the
+loaded record the answer replaces; this row checks that its videos reach the tracklist and the
+player
 
 ## TRI-24
 
@@ -207,8 +212,8 @@ Priority: **P2**.
 
 `P` for a release Discogs no longer has (fake `404`): the page gets `502` (declared) and the flash
 says "The price did not load: Discogs did not return the release"; the line keeps no market data,
-and the tracklist and the release's videos stay as the dump had them, since `P` would also have
-replaced the videos
+and the tracklist and the release's videos stay as the dump had them, where a `P` that succeeds
+adds the video Discogs has since the dump (TRI-23)
 
 ## TRI-25
 
