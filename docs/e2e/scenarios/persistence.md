@@ -97,3 +97,17 @@ writes before `digga backup` (PER-02). `tests/library-lock.test.ts` covers the l
 second holder refused, a lock of an ended process or an empty one taken over, and a second server
 kept off before it fails the first one's running jobs. This row checks which commands take the
 lock, how the CLI reports a refusal, and a lock that a killed server process really left
+
+## PER-12
+
+Priority: **P2**.
+
+`digga restore` of a database copy (decision 135). Given a snooze with a note and a keep mark,
+`digga backup` writes the day's `digga-YYYY-MM-DD.sqlite` beside the running server; `digga
+restore` of that copy into a fresh `small` library (`newLibrary()`) says it copied that library's
+database first, as `before-restore-YYYY-MM-DD-HHMMSS.sqlite`, and names the copy's schema version.
+After `relaunch({ library })`, Twelves' Snoozed shelf holds the record with its note and the Tracks
+shelf the mark. The test waits for the database copy the server's start writes before `digga
+backup` (PER-02). `tests/restore-copy.test.ts` and `tests/cli.test.ts` cover the checks on the
+copy, the kept database, the stale `-wal` and the migration; this row checks a copy that the
+running server's library gave, restored by the CLI and opened by the next server

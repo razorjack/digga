@@ -113,6 +113,49 @@ test(
 );
 
 test(
+  "PER-12 digga restore of the database copy digga backup wrote brings the library into a fresh one",
+  { tag: ["@PER-12", "@P2"] },
+  async ({ app, newLibrary }) => {
+    const twelves = new TwelvesPage(app);
+    const [kept] = FIRST_RECORD.tracks;
+    const note = "the dub on the B side";
+    await app.given.verdicts(datedVerdicts([{ release: FIRST_RECORD, status: "snoozed" }]));
+    await app.given.note(FIRST_RECORD.id, note);
+    await app.given.trackMark({
+      releaseId: FIRST_RECORD.id,
+      position: kept!.position,
+      mark: "keep",
+    });
+    // The server's start copied the database; digga backup must not write the copy beside it.
+    await expect.poll(async () => (await backups(app)).backups).toHaveLength(1);
+
+    const backup = await app.cli(["backup"]);
+    expect(backup.code, backup.stderr).toBe(0);
+    const copy = /^backup: (\S+digga-\d{4}-\d{2}-\d{2}\.sqlite) /m.exec(backup.stdout)?.[1];
+    expect(copy, backup.stdout).toBeDefined();
+
+    const fresh = await newLibrary("small");
+    const restore = await app.cli(["restore", copy!], { library: fresh });
+    expect(restore.code, restore.stderr).toBe(0);
+    // The fresh library's own database is kept, apart from the daily copies.
+    expect(restore.stdout).toMatch(
+      /^copied the database first: \S+before-restore-\d{4}-\d{2}-\d{2}-\d{6}\.sqlite$/m,
+    );
+    expect(restore.stdout).toMatch(
+      /^restored \S+digga-\d{4}-\d{2}-\d{2}\.sqlite, schema version \d+$/m,
+    );
+    await app.relaunch({ library: fresh });
+    await twelves.open();
+
+    await twelves.showShelf("snoozed");
+    await expect(twelves.records).toHaveCount(1);
+    await expect(twelves.record(triageKeyOf(FIRST_RECORD))).toContainText(note);
+    await twelves.showShelf("tracks");
+    await expect(twelves.track(FIRST_RECORD.id, kept!.position)).toContainText(MARK_COPY.keep);
+  },
+);
+
+test(
   "PER-11 while the server runs, a command that changes the library is refused, stats and backup run beside it, and a crash's lock does not keep the next start out",
   { tag: ["@PER-11", "@P2"] },
   async ({ app }) => {
