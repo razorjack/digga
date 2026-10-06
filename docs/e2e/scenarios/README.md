@@ -4,19 +4,19 @@ Read the family relevant to the task after the [E2E rules](../../E2E_TESTING.md#
 and [AUTHORING](../AUTHORING.md). Each ID is a stable acceptance specification, not a record
 of a particular run. New scenarios get new IDs; keep existing IDs when moving documentation.
 
-| Family                    | Specifications           | Current specs under `tests/e2e/specs/`                                                  |
-| ------------------------- | ------------------------ | --------------------------------------------------------------------------------------- |
-| Guard                     | [GUARD](guard.md)        | `guard.e2e.ts`                                                                          |
-| Shell and navigation      | [SHELL](shell.md)        | `shell.e2e.ts`                                                                          |
-| First run                 | [SETUP](setup.md)        | `setup.e2e.ts`, `setup-steps.e2e.ts`, `setup-discogs.e2e.ts`                            |
-| Triage                    | [TRI](triage.md)         | `triage.e2e.ts`, `triage-player.e2e.ts`, `triage-queue.e2e.ts`, `triage-discogs.e2e.ts` |
-| Sandbox                   | [SBX](sandbox.md)        | Retired; no current spec                                                                |
-| Twelves                   | [TWL](twelves.md)        | `twelves.e2e.ts`, `twelves-discogs.e2e.ts`                                              |
-| Settings                  | [SET](settings.md)       | `settings.e2e.ts`, `settings-discogs.e2e.ts`                                            |
-| Persistence and lifecycle | [PER](persistence.md)    | `persistence.e2e.ts`                                                                    |
-| Accessibility             | [A11Y](accessibility.md) | `accessibility.e2e.ts`                                                                  |
-| Electron                  | [ELEC](electron.md)      | Planned; also read [ELECTRON](../ELECTRON.md)                                           |
-| Real-service contracts    | [CON](contracts.md)      | Planned; manual only, never CI                                                          |
+| Family                    | Specifications           | Current specs under `tests/e2e/specs/`                                                                                                    |
+| ------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Guard                     | [GUARD](guard.md)        | `guard.e2e.ts`                                                                                                                            |
+| Shell and navigation      | [SHELL](shell.md)        | `shell.e2e.ts`                                                                                                                            |
+| First run                 | [SETUP](setup.md)        | `setup.e2e.ts`, `setup-steps.e2e.ts`, `setup-discogs.e2e.ts`                                                                              |
+| Triage                    | [TRI](triage.md)         | `triage.e2e.ts`, `triage-player.e2e.ts`, `triage-queue.e2e.ts`, `triage-discogs.e2e.ts`, `triage-notes.e2e.ts`, `digging-controls.e2e.ts` |
+| Sandbox                   | [SBX](sandbox.md)        | Retired; no current spec                                                                                                                  |
+| Twelves                   | [TWL](twelves.md)        | `twelves.e2e.ts`, `twelves-discogs.e2e.ts`, `twelves-replay.e2e.ts`                                                                       |
+| Settings                  | [SET](settings.md)       | `settings.e2e.ts`, `settings-discogs.e2e.ts`                                                                                              |
+| Persistence and lifecycle | [PER](persistence.md)    | `persistence.e2e.ts`, `resume-session.e2e.ts`                                                                                             |
+| Accessibility             | [A11Y](accessibility.md) | `accessibility.e2e.ts`                                                                                                                    |
+| Electron                  | [ELEC](electron.md)      | Planned; also read [ELECTRON](../ELECTRON.md)                                                                                             |
+| Real-service contracts    | [CON](contracts.md)      | Planned; manual only, never CI                                                                                                            |
 
 ## Priority and target
 
