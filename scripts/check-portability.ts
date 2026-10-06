@@ -6,6 +6,8 @@
  *   - process.cwd() outside src/cli/
  *   - node:* / fs / path (and any Node builtin) imports in src/shared or src/client
  *   - better-sqlite3 imported outside src/server/db/db.ts
+ *   - electron imported outside electron/, so the server stays a function any shell can call
+ * The Electron main process in electron/ is held to the same rules as the server.
  */
 import fs from "node:fs";
 import { builtinModules } from "node:module";
@@ -13,7 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SCAN_ROOTS = ["src", "tools", "scripts"];
+const SCAN_ROOTS = ["src", "tools", "scripts", "electron"];
 const EXTENSIONS = new Set([".ts", ".js", ".mjs", ".cjs", ".svelte"]);
 
 interface Violation {
@@ -129,6 +131,8 @@ function importViolations(file: string, text: string): string[] {
       violations.push(`Node builtin import "${specifier}" in src/shared or src/client`);
     if (specifier === "better-sqlite3" && file !== "src/server/db/db.ts")
       violations.push("better-sqlite3 imported outside src/server/db/db.ts");
+    if (specifier === "electron" && !file.startsWith("electron/"))
+      violations.push("electron imported outside electron/");
   }
   return violations;
 }

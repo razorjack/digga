@@ -24,9 +24,10 @@ that change without reloading data.
   `DIGGA_DATA_DIR` points elsewhere, so experiments set it to a throwaway folder. One process
   owns a library at a time (`digga.lock`): the server and the commands that change it; `stats`
   and `backup` run beside the server.
-- **Later:** an Electron app. Its main process imports `createServer` from `src/server/server.ts`,
-  starts it on a free localhost port, opens a `BrowserWindow` at it, and exposes the CLI jobs as
-  menu items. That must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
+- **Electron, unpackaged:** `vp run electron:dev` runs `electron/main.ts`, which imports
+  `createServer` from `src/server/server.ts`, starts it on a free localhost port and opens a
+  `BrowserWindow` at it, on the same library. Packaging, signing and the Electron E2E host come
+  later and must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
 
 ## Commands
 
@@ -35,6 +36,7 @@ npm install                      # Node >= 22.18 (runs .ts directly, no build st
 vp dev                           # Vite dev server on :5173, proxies /api to :3456
 npm run digga -- serve           # Hono server on 127.0.0.1:3456, open http://localhost:3456 (serves dist/ after vp build)
 npm run digga -- serve --port 0  # pick a free port
+vp run electron:dev              # vp build, then the Electron app on the same library (macOS)
 vp build                         # build the client into dist/
 vp check                         # format + lint + type check (oxfmt, oxlint, tsgolint)
 vp test                          # vitest, tests/**/*.test.ts
@@ -114,7 +116,8 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
                        queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
-                       environment.ts (what the environment and a .env set)
+                       environment.ts (what the environment and a .env set, for the CLI and Electron)
+electron/              the Electron main process: main.ts (server, window, quit), user-agent.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css
@@ -352,14 +355,14 @@ client TypeScript and CSS.
 ## Electron-ready rules (enforced by `vp run check:portability`)
 
 1. **Server is a function.** `createServer({ config, paths, secrets, logger })` returns
-   `{ app, start(port, host), stop() }`. The CLI is one caller; Electron will be another. 127.0.0.1 only.
+   `{ app, start(port, host), stop() }`. The CLI is one caller, `electron/main.ts` another. 127.0.0.1 only.
 2. **One transport seam.** `src/client/api.ts` is the only file in `src/client` that may call `fetch`.
 3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist,
-   by default in the per-user app folder Electron's `userData` names. The CLI passes
-   `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` from the environment or a `.env` in
-   its cwd. No `process.cwd()` outside `src/cli/`.
-4. **One place for secrets.** `src/server/secrets.ts` (`secrets.env` in the library / `DISCOGS_TOKEN`
-   now, `safeStorage` later).
+   by default in the per-user app folder Electron's `userData` names. The CLI and the Electron app
+   pass `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` from the environment or a
+   `.env` in the cwd, read by `src/cli/environment.ts`. No `process.cwd()` outside `src/cli/`.
+4. **One place for secrets.** `src/server/secrets.ts` (`secrets.env` in the library, encrypted with
+   `safeStorage` in the Electron app, or `DISCOGS_TOKEN`).
    No other `process.env` reads outside `paths.ts`, `secrets.ts`, `src/cli/`.
 5. **Jobs are library functions** in `src/server/jobs/` taking `{ db, discogs, logger }`, options and
    `onProgress`; status goes to the `jobs` table through `jobs/runner.ts`.
@@ -372,7 +375,8 @@ client TypeScript and CSS.
 8. **Native modules stay isolated.** Only `db/db.ts` imports `better-sqlite3`; only
    `importers/history.ts` touches browser profile files.
 9. **Logging goes through `src/server/logger.ts`.**
-10. **Enforce it.** `scripts/check-portability.ts` fails the build on violations of 2, 3, 4, 7, 8.
+10. **Enforce it.** `scripts/check-portability.ts` fails the build on violations of 2, 3, 4, 7, 8,
+    scans `electron/` with the server's rules, and refuses an `electron` import outside it.
 
 ## Where to go next
 

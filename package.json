@@ -5,12 +5,14 @@
   "description": "Local-first app for exhaustively digging Discogs vinyl by ear.",
   "license": "MIT",
   "type": "module",
+  "main": "electron/main.ts",
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",
     "preview": "vp preview",
     "digga": "node src/cli/digga.ts",
     "serve": "node src/cli/digga.ts serve",
+    "electron:dev": "vp build && electron .",
     "check:portability": "node scripts/check-portability.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
     "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",
@@ -33,6 +35,7 @@
     "@tsconfig/svelte": "^5.0.8",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.13.3",
+    "electron": "^44.5.1",
     "svelte": "^5.57.0",
     "svelte-check": "^4.7.6",
     "typescript": "~6.0.2",
@@ -51,5 +54,6 @@
   },
   "engines": {
     "node": ">=22.18"
-  }
+  },
+  "productName": "Digga"
 }

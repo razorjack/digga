@@ -986,3 +986,46 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      sandbox parts of 110. `GET /api/discogs/lists/:id`, which existed only for the sandbox's
      Maybe list import, went with it. A config that still has `sandbox` keeps loading, since the
      schema strips the unknown key, and loses it on the next save.
+151. **The Electron app reads the environment through the CLI's code.** `src/cli/environment.ts`
+     adds a `.env` from the working directory and reads `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`,
+     `DIGGA_CONFIG_FILE`, `DIGGA_LOG_LEVEL` and the three service URLs, for the CLI and for
+     `electron/main.ts` alike, so the app opens the same library with the same services and the
+     portability rules need no new file that may read `process.env`. `DIGGA_LOG_LEVEL` is
+     validated now: an unknown level stops the start, where it used to log everything. The
+     server takes the library lock under the name `createServer` is given, "the Digga app" in
+     Electron, so a CLI command the app keeps off the library names it.
+152. **The app encrypts the saved token in `secrets.env`.** `createSecrets` takes an optional
+     `SecretEncryption`, and Electron passes `safeStorage` (the Keychain, DPAPI, a Linux keyring).
+     The encrypted token is `DISCOGS_TOKEN_ENCRYPTED` in the library's `secrets.env`, so the token
+     stays with its library (decision 138) instead of moving to userData, which `DIGGA_DATA_DIR`
+     does not move. `DISCOGS_TOKEN` in the environment still wins. A token the browser version
+     saved as text keeps working and is encrypted when it is saved again; each save replaces both
+     forms, so a token saved in the browser version replaces the encrypted one. Where
+     `safeStorage` cannot encrypt (Linux without a keyring) the owner chose to save the token as
+     text in `secrets.env` instead of refusing it, and Settings says "saved unencrypted" for any
+     token stored as text, in the browser version too, since it is true there. The CLI cannot
+     decrypt what the app encrypted, so after a save in the app the CLI's imports need
+     `DISCOGS_TOKEN`. A token that cannot be decrypted counts as none, and Settings asks for one.
+153. **better-sqlite3 needs no separate build for Electron.** Version 13 is a Node-API addon
+     (`NAPI_VERSION=10`) with prebuilt binaries, and Node-API is ABI-stable across Node and
+     Electron. Electron 44.5.1 (Node 24.21.0, Node-API 10) loads the repository's
+     `prebuilds/darwin-arm64.node` in the main process and in a worker, so there is no
+     `@electron/rebuild`, no `nativeBinding` path and no second install, and the CLI, vitest and
+     the web suite keep the binary they use. Packaging still has to check the binary on each
+     platform it ships; the prebuilds cover darwin, linux, linuxmusl and win32 on x64 and arm64.
+154. **Electron runs the TypeScript sources as Node does.** Electron 44's Node 24.21 strips types
+     from the main entry (`electron/main.ts`, an ES module), from the `src/` modules it imports and
+     from the dump-load worker, which `new Worker(new URL("./dump-load-worker.ts", ...))` starts.
+     The unpackaged app needs no build beyond `vp build` for the client. Whether a packaged app
+     can load `.ts` files from an asar archive is a packaging question (ELECTRON_PLAN, "Build").
+155. **Chromium's files stay out of the library.** The library is in Electron's userData folder by
+     default, so Chromium's caches and profile files would sit beside `digga.sqlite`. The app
+     moves `sessionData` to `userData/Chromium`. The log, `digga.log`, stays in userData as
+     planned, and an unpackaged run also prints it to the terminal. The client uses no web
+     storage, so that folder holds nothing of the user's.
+156. **The app quits after the server stops, and a second one is refused.** `before-quit` waits
+     for `server.stop()`, so running jobs end cancelled, a backup being written finishes and the
+     database closes, and then quits. SIGTERM goes the same way, since Chromium handles it as a
+     quit. Closing the window quits on every platform, macOS included: an app without a window
+     would hold the library with nothing to show. A second start meets the library lock (decision 129) and shows a dialog naming the holder; Electron's single-instance lock is not used,
+     since it covers one userData folder and not the library.

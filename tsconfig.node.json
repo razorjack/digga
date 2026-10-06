@@ -25,6 +25,7 @@
     "src/cli/**/*.ts",
     "tools/**/*.ts",
     "scripts/**/*.ts",
+    "electron/**/*.ts",
     "tests/**/*.ts"
   ],
   "exclude": ["tests/e2e/**"]
