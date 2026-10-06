@@ -105,6 +105,12 @@ export class WebApp implements DiggaApp {
     await this.page.goto(`${this.origin}/${hash}`);
   }
 
+  /** A page in the same context, so the guard, the fake player, the clock and the log cover it. */
+  async openPage(): Promise<DiggaApp> {
+    const page = await this.context.newPage();
+    return new OtherPage(this, page, new PageClock(() => page, this.#options.clock));
+  }
+
   async relaunch(options: { crash?: boolean; library?: DiggaLibrary } = {}): Promise<void> {
     await this.#stop(options);
     if (options.library) this.#environment = { ...this.#environment, library: options.library };
@@ -143,14 +149,7 @@ export class WebApp implements DiggaApp {
   }
 
   async paste(text: string): Promise<void> {
-    await this.page.evaluate((pasted) => {
-      const data = new DataTransfer();
-      data.setData("text/plain", pasted);
-      const target = document.activeElement ?? document.body;
-      target.dispatchEvent(
-        new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
-      );
-    }, text);
+    await pasteInto(this.page, text);
   }
 
   /**
@@ -183,20 +182,16 @@ export class WebApp implements DiggaApp {
     }
   }
 
-  /**
-   * Arms the download event before the action; saveAs() resolves only once the download has
-   * completed and the file is written, and a failed download has no file to save.
-   */
   async expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }> {
-    const started = this.page.waitForEvent("download");
-    // An action that fails leaves the wait to time out unobserved.
-    started.catch(() => {});
-    await action();
-    const download = await started;
-    const name = download.suggestedFilename();
-    const file = path.join(this.#options.outputDir, "downloads", name);
-    await download.saveAs(file);
-    return { name, path: file };
+    return this.expectDownloadFrom(this.page, action);
+  }
+
+  /** expectDownload() for one of the app's other pages. */
+  async expectDownloadFrom(
+    page: Page,
+    action: () => Promise<void>,
+  ): Promise<{ name: string; path: string }> {
+    return downloadFrom(page, path.join(this.#options.outputDir, "downloads"), action);
   }
 
   async abortRequests(
@@ -273,4 +268,115 @@ export class WebApp implements DiggaApp {
       throw error;
     }
   }
+}
+
+/**
+ * Another page of the app's current launch (openPage()): its own page, player and clock, and the
+ * app's server, library and problem log. The app relaunches and restarts, not this page.
+ */
+class OtherPage implements DiggaApp {
+  readonly page: Page;
+  readonly youtube: FakeYouTubeHandle;
+  readonly clock: PageClock;
+  readonly #app: WebApp;
+
+  constructor(app: WebApp, page: Page, clock: PageClock) {
+    this.#app = app;
+    this.page = page;
+    this.youtube = new FakeYouTubeHandle(() => page);
+    this.clock = clock;
+  }
+
+  get origin(): string {
+    return this.#app.origin;
+  }
+
+  get library(): DiggaLibrary {
+    return this.#app.library;
+  }
+
+  get api(): AppApiClient {
+    return this.#app.api;
+  }
+
+  get given(): Given {
+    return this.#app.given;
+  }
+
+  async open(hash = "#/triage"): Promise<void> {
+    await this.page.goto(`${this.origin}/${hash}`);
+  }
+
+  openPage(): Promise<DiggaApp> {
+    return this.#app.openPage();
+  }
+
+  relaunch(): Promise<void> {
+    throw new Error("relaunch the app, not one of its other pages");
+  }
+
+  restartServer(): Promise<void> {
+    throw new Error("restart the app's server, not one of its other pages");
+  }
+
+  cli(args: string[], options?: { library?: DiggaLibrary }): Promise<DiggaRun> {
+    return this.#app.cli(args, options);
+  }
+
+  paste(text: string): Promise<void> {
+    return pasteInto(this.page, text);
+  }
+
+  /** The context's route and page event catch a window opened from any of its pages. */
+  expectExternalOpen(action: () => Promise<void>): Promise<string> {
+    return this.#app.expectExternalOpen(action);
+  }
+
+  expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }> {
+    return this.#app.expectDownloadFrom(this.page, action);
+  }
+
+  apiRequests(): string[] {
+    return this.#app.apiRequests();
+  }
+
+  abortRequests(match: RequestMatch, options?: { times?: number }): Promise<AbortedRequests> {
+    return this.#app.abortRequests(match, options);
+  }
+
+  expectProblems(problems: ExpectedProblems): void {
+    this.#app.expectProblems(problems);
+  }
+}
+
+/** Dispatches a paste event carrying the text at the page's focused element. */
+async function pasteInto(page: Page, text: string): Promise<void> {
+  await page.evaluate((pasted) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", pasted);
+    const target = document.activeElement ?? document.body;
+    target.dispatchEvent(
+      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  }, text);
+}
+
+/**
+ * Arms the page's download event before the action; saveAs() resolves only once the download has
+ * completed and the file is written, and a failed download has no file to save.
+ */
+async function downloadFrom(
+  page: Page,
+  folder: string,
+  action: () => Promise<void>,
+): Promise<{ name: string; path: string }> {
+  const started = page.waitForEvent("download");
+  // An action that fails leaves the wait to time out unobserved.
+  started.catch(() => {});
+  await action();
+  const download = await started;
+  const name = download.suggestedFilename();
+  const file = path.join(folder, name);
+  await download.saveAs(file);
+  return { name, path: file };
 }

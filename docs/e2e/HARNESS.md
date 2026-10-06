@@ -146,6 +146,14 @@ prepared before the relaunch, as the README says a restore is done with the serv
 restores the decisions backup `digga backup` wrote into a fresh `small` library this way. The
 test's folder, with every library in it, is deleted after the app has stopped.
 
+**Another page.** `app.openPage()` opens a second page of the app on the same server, blank until
+its `open()`: in the web host a new page in the same browser context, as a second tab; the planned
+Electron host would open a second window. It returns a `DiggaApp` for that page, so page objects
+built on it act there, with its own fake player and clock handles, while the server, library, API,
+given state and problem log are the app's. The context's guard, routes, init scripts and
+collectors cover it. `relaunch()` closes it, and it cannot relaunch the app or restart the server
+itself (PER-10).
+
 **Web host.** It prepares the library, config and fake home, spawns the server, prepares a
 browser context (below) and opens the page. `cli()` runs through `spawnDigga()` with the test's
 environment and resolves on exit, with a `null` code when a signal ended it. Console, page-error

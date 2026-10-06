@@ -33,6 +33,11 @@ export interface DiggaApp {
   /** Opens a hash route such as "#/twelves"; defaults to "#/triage". */
   open(hash?: string): Promise<void>;
   /**
+   * Another page of the app on the same server, as a second tab or window, blank until its
+   * open(). What it returns acts on that page; `page` stays the first one. A relaunch closes it.
+   */
+  openPage(): Promise<DiggaApp>;
+  /**
    * Stops the whole app and starts it again on the same library, or on the one given, prepared
    * as at the first launch, with a new page that is blank until open(). Given state is not
    * applied again.
