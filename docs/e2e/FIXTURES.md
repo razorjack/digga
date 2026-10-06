@@ -86,18 +86,31 @@ masters, artists, tracks, videos and accounts. Its `FixtureRelease` type and nam
 are the examples to follow. The dump builder, fake Discogs API and fake YouTube player read
 this module, so their identities, titles and durations agree.
 
-The August `SMALL` dump has 20 releases. Names such as `FIRST_RECORD`, `TRACK_RUN` and
+The August `SMALL` dump has 23 releases, 19 records to dig under the default filters on
+`small`. Names such as `FIRST_RECORD`, `TRACK_RUN` and
 `SAME_TUNE_ELSEWHERE` describe the role of a record, and source comments name its scenarios.
 Records needed by later scenarios use labels that sort after the original records; use
 `diggaOptions.labels` to reach them without changing the earlier queue. The catalogue covers
 label sweeps, shared tunes, compilations, missing and refused videos, embedding disabled in
-the dump, track navigation, self-released labels, seller pressings and out-of-range years.
-Add the remaining planned cases with the [scenarios that need them](PLAN.md#remaining-web-p2-coverage).
+the dump, track navigation, self-released labels, seller pressings, out-of-range years, a main
+release that plays its repress's video and an undated record on a wanted label. Add other cases
+with the scenarios that need them. A record added to `SMALL` changes the counts that SET-02 and
+SET-05 read; one that `small` digs also changes the end of its label sweep.
 
 `THIRD_RECORD`, `IN_COLLECTION`, `ON_WANTLIST` and `EVENT_HORIZON` are in `SMALL`.
 `NOT_IN_ANY_DUMP` is the account's wanted release missing from every dump. A verdict given for
 `ON_WANTLIST` is already on the wantlist because the imported seed establishes that state;
 a verdict given only through `/api/verdicts` does not establish Discogs membership.
+
+`POOLED_MAIN` and `POOLED_REPRESS` are one master on Transit Audio, after Tempest Audio: the main
+release has no video, and the repress has one of the same tune at another position (TRI-37).
+`UNDATED_ON_WANTED_LABEL` has no year and is on White Label, the label of `NOT_IN_ANY_DUMP`.
+Undated records are out of the queue by default unless the library wants their label or artist,
+so it is a record to dig on `small-account`, last in its label sweep, and on no `small` library
+(TRI-38). The fake gives the artists of `basic_information` the ids 1, 2 and so on, while the
+dump builder numbers artists in order of appearance, so an imported stub such as
+`NOT_IN_ANY_DUMP` makes artist 1, Nautic Unit, a coverage artist on `small-account`. Nautic Unit
+has no undated record, and TRI-38's record reaches the queue through its label.
 
 The monthly dumps have distinct roles:
 

@@ -109,6 +109,13 @@ export const ROLLERS_ARCHIVE = { id: 110, name: "Rollers Archive" };
 export const TEMPEST_AUDIO = { id: 120, name: "Tempest Audio" };
 /** The label of the releases the September dump adds (SET-17). */
 export const UPFRONT_AUDIO = { id: 130, name: "Upfront Audio" };
+/** The label of a master whose main release has no video and whose repress has one (TRI-37). */
+export const TRANSIT_AUDIO = { id: 140, name: "Transit Audio" };
+/**
+ * The label of dj's want that no dump has, and of an undated record that only a library holding
+ * that want lets into the queue (TRI-38).
+ */
+export const WHITE_LABEL = { id: 90, name: "White Label" };
 
 const DNB = ["Drum n Bass", "Techstep"];
 
@@ -377,6 +384,55 @@ export const SHOP_PRESSING = release({
 });
 
 /**
+ * The main release of a master, without a video: it plays the video of its repress, at its own
+ * track's position (TRI-37, decision 72).
+ */
+export const POOLED_MAIN = release({
+  id: 2301,
+  master: { id: 960, main: true },
+  artists: ["Overcast"],
+  title: "Undercurrent",
+  label: { ...TRANSIT_AUDIO, catno: "TRN 001" },
+  year: 1999,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "Undercurrent", "6:35"), track("B", "Haze", "6:10")],
+  videos: [],
+});
+
+/** The repress, whose video of the same tune sits at another position, A1. */
+export const POOLED_REPRESS = release({
+  id: 2302,
+  master: { id: 960, main: false },
+  artists: ["Overcast"],
+  title: "Undercurrent",
+  label: { ...TRANSIT_AUDIO, catno: "TRN 001R" },
+  year: 2001,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A1", "Undercurrent", "6:35"), track("A2", "Haze", "6:10")],
+  videos: [video("overcastund", "Overcast - Undercurrent", 395)],
+});
+
+/**
+ * A release without a year on the label of dj's want that no dump has. Undated records are out of
+ * the queue by default, unless they are on a label or by an artist the library wants (TRI-38,
+ * decision 91), so it is to dig on `small-account` and on no `small` library. It is in a style the
+ * templates load: `small` is loaded before the account's wants are imported.
+ */
+export const UNDATED_ON_WANTED_LABEL = release({
+  id: 2401,
+  artists: ["Dusk Patrol"],
+  title: "No Date Given",
+  label: { ...WHITE_LABEL, catno: "WL 2" },
+  year: null,
+  country: "UK",
+  styles: DNB,
+  tracks: [track("A", "No Date Given", "6:25")],
+  videos: [video("duskpatroln", "Dusk Patrol - No Date Given", 385)],
+});
+
+/**
  * The small catalogue as the August dump has it, which the templates load, in id order as in a
  * Discogs dump. Labels sort alphabetically, so the default
  * label sweep digs them in this order; Cold Storage's records are the account's collection and
@@ -446,14 +502,17 @@ export const SMALL: FixtureRelease[] = [
   PULSAR_REMIXES,
   MAIN_PRESSING,
   SHOP_PRESSING,
+  POOLED_MAIN,
+  POOLED_REPRESS,
+  UNDATED_ON_WANTED_LABEL,
 ];
 
 /** The release the September dump no longer has; the library keeps it (SET-17). */
 export const DROPPED_IN_SEPTEMBER = 1902;
 
 /**
- * The releases the September dump adds, on a label that sorts after every other, each a record to
- * dig under the default filters (SET-17).
+ * The releases the September dump adds, on a label that sorts after every other with a record to
+ * dig on `small`, each a record to dig under the default filters (SET-17).
  */
 export const SEPTEMBER_ADDITIONS: FixtureRelease[] = [
   release({
@@ -535,7 +594,7 @@ export const NOT_IN_ANY_DUMP = release({
   id: 9001,
   artists: ["Ghost Signal"],
   title: "Lost Press",
-  label: { id: 90, name: "White Label", catno: "WL 1" },
+  label: { ...WHITE_LABEL, catno: "WL 1" },
   year: 2000,
   country: "UK",
   styles: DNB,

@@ -96,17 +96,17 @@ test(
       releaseId: judged.id,
     });
     await settings.open();
-    await expect(settings.preview).toHaveText("These filters match 18 records, 17 still to dig.");
+    await expect(settings.preview).toHaveText("These filters match 19 records, 18 still to dig.");
 
     await settings.fromYear.fill("2000");
 
-    await expect(settings.preview).toHaveText("These filters match 14 records, 13 still to dig.");
+    await expect(settings.preview).toHaveText("These filters match 15 records, 14 still to dig.");
     await expect(settings.root.getByText("Unsaved changes.", { exact: true })).toBeVisible();
     await settings.showTab("library");
     await expect(settings.libraryCount("match your saved filters")).toHaveText(
-      "18 match your saved filters",
+      "19 match your saved filters",
     );
-    await expect(settings.libraryCount("still to dig")).toHaveText("17 still to dig");
+    await expect(settings.libraryCount("still to dig")).toHaveText("18 still to dig");
     expect((await app.api.get<Config>("/api/settings")).filters.yearFrom).toBe(1998);
     expect(app.apiRequests()).not.toContain("PUT /api/settings");
   },
@@ -192,7 +192,7 @@ test.describe("with Neurofunk in the universe beside Drum n Bass", () => {
       await settings.open();
       await expect(settings.styleFilter("Drum n Bass")).toBeChecked();
       await expect(settings.styleFilter("Neurofunk")).toBeChecked();
-      await expect(settings.preview).toHaveText(/^These filters match 18 records/);
+      await expect(settings.preview).toHaveText(/^These filters match 19 records/);
 
       await settings.styleFilter("Drum n Bass").uncheck();
       // Of the small dump's records, only the second carries Neurofunk.
