@@ -341,7 +341,9 @@ export class TwelvesPage {
     await expect(this.messages).toHaveText(/^Undone/);
   }
 
+  /** Enter on the selected row: returns once Triage replays its record under the round's banner. */
   async replaySelected(releaseId: number): Promise<void> {
+    await expect(this.selected).toHaveCount(1);
     await this.app.page.keyboard.press("Enter");
     const triage = new TriagePage(this.app);
     await expect(triage.banner).toContainText("Replaying Twelves");
