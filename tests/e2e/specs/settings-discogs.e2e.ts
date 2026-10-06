@@ -1,4 +1,9 @@
-import type { DecisionsExport, DiscogsAccountResponse } from "../../../src/shared/api.ts";
+import { SHELVES } from "../../../src/client/twelves/model.ts";
+import type {
+  DecisionsExport,
+  DiscogsAccountResponse,
+  QueueResponse,
+} from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
 import { formatPrice } from "../../../src/shared/display.ts";
 import type { Job } from "../../../src/shared/types.ts";
@@ -6,7 +11,9 @@ import { MARKET } from "../../../tools/dev/fake-services.ts";
 import {
   DJ,
   EVENT_HORIZON,
+  IN_COLLECTION,
   MAYBE_LIST,
+  ON_WANTLIST,
   PUBLIC_LIST,
   SHOPKEEPER,
   THIRD_RECORD,
@@ -17,6 +24,7 @@ import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
+import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
 
 // Settings and Discogs: the token, the requests a visit costs, the Maybe list and the import
@@ -166,6 +174,55 @@ test.describe("with a Discogs account", () => {
       await expect(settings.listsButton).toHaveText("Reload lists");
       await expect(settings.maybeList).toHaveValue(String(MAYBE_LIST.id));
       await expect(settings.maybeList.getByRole("option")).toHaveCount(3);
+    },
+  );
+
+  test(
+    "SET-22 Settings forgets the Discogs account's data, after which the library holds none of it and takes another account",
+    { tag: ["@SET-22", "@P2"] },
+    async ({ app }) => {
+      app.expectProblems({ apiErrors: [/^PUT \/api\/discogs\/token answered 409$/] });
+      const settings = new SettingsPage(app);
+      const twelves = new TwelvesPage(app);
+      // Owned and on the wantlist, the account's records are out of the queue.
+      const held = [triageKeyOf(IN_COLLECTION), triageKeyOf(ON_WANTLIST)];
+      const queuedBefore = await keysInQueue(app);
+      for (const key of held) expect(queuedBefore).not.toContain(key);
+      await settings.open("discogs");
+      await expect(settings.username).toHaveAccessibleDescription(
+        /The library holds dj's collection, wantlist and Maybe list; forget them to use another account\./,
+      );
+
+      const refused = await settings.saveToken("e2e-token-other");
+      expect(refused.status()).toBe(409);
+      await expect(settings.token).toHaveAccessibleDescription(
+        /^Not saved: This library holds the Discogs collection and wantlist of dj; forget them in Settings before using other\. /,
+      );
+
+      expect(await settings.forgetDiscogsData()).toBe(
+        "confirm: Forget the collection, wantlist and Maybe list of dj in Digga? Verdicts, notes and marks stay, and Discogs keeps the account as it is.",
+      );
+      // The collection, and the wantlist with its release no dump has.
+      await expect(
+        settings.root.getByText("Forgot 3 Discogs items of dj.", { exact: true }),
+      ).toBeVisible();
+      await expect(settings.discogs.getByRole("button", { name: "Forget them" })).toHaveCount(0);
+      expect(await app.api.get<DiscogsAccountResponse>("/api/discogs/account")).toMatchObject({
+        username: DJ.username,
+        dataAccount: null,
+      });
+      expect(await keysInQueue(app)).toEqual(expect.arrayContaining(held));
+
+      const saved = await settings.saveToken("e2e-token-other");
+      expect(saved.status()).toBe(200);
+      await expect(settings.token).toHaveAccessibleDescription(
+        /^The token belongs to other, not dj\. /,
+      );
+      await twelves.open();
+      for (const shelf of ["wantlist", "collection"] as const)
+        await expect(twelves.shelfOption(shelf)).toHaveAccessibleName(
+          `${SHELVES.find((candidate) => candidate.id === shelf)!.label} 0`,
+        );
     },
   );
 });
@@ -346,3 +403,10 @@ test.describe("with an account, a token and Brave's history", () => {
     },
   );
 });
+
+/** Every record to dig under the saved filters, by triage key. */
+async function keysInQueue(app: DiggaApp): Promise<string[]> {
+  return (await app.api.get<QueueResponse>("/api/queue?limit=100")).items.map(
+    (item) => item.triageKey,
+  );
+}

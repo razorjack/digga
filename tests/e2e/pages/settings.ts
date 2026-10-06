@@ -348,6 +348,24 @@ export class SettingsPage {
     return message;
   }
 
+  /**
+   * The Username field's "Forget them", the confirmation accepted; returns the confirmation's
+   * message once the server has forgotten the account's data and the page says how much.
+   */
+  async forgetDiscogsData(): Promise<string> {
+    const asked = Promise.withResolvers<string>();
+    this.app.page.once("dialog", async (dialog) => {
+      asked.resolve(`${dialog.type()}: ${dialog.message()}`);
+      await dialog.accept();
+    });
+    const forgotten = this.#response("DELETE", "/api/discogs/data");
+    await this.discogs.getByRole("button", { name: "Forget them" }).click();
+    const message = await asked.promise;
+    await this.#completed(await forgotten);
+    await expect(this.root.getByText(/^Forgot [\d,]+ Discogs items of /)).toBeVisible();
+    return message;
+  }
+
   /** The save is a PUT; the hidden Triage page then reloads its queue, after which the bar says so. */
   async #saveBy(action: () => Promise<void>): Promise<void> {
     const { first: settings, next: queue } = waitForResponses(

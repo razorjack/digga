@@ -194,6 +194,22 @@ A snoozed record with a note, whose release has no master in August, is on the S
 its note after "Update from the newest dump" loads September, where the release is on a master;
 `/api/releases/:id` gives the verdict under the master's key
 
+## SET-22
+
+Priority: **P2**.
+
+Given: `small-account` with a saved token.
+
+A library holds one Discogs account's data (decision 138). The Username field's description says
+the library holds `dj`'s collection, wantlist and Maybe list; `e2e-token-other` is not saved (`409`,
+declared, "Not saved: This library holds the Discogs collection and wantlist of dj; forget them in
+Settings before using other."). "Forget them", its confirmation accepted, forgets 3 items ("Forgot
+3 Discogs items of dj."); then `/api/discogs/account` names no data account, the collected and
+wanted records are back in the queue, `e2e-token-other` saves and reads as another account's,
+and Twelves' Discogs wantlist and Owned shelves count 0. `tests/wantlist-http.test.ts` covers the
+routes' refusals and `DELETE /api/discogs/data`; this row checks the Settings flow and what the
+queue and Twelves read after it
+
 ## Completion contracts
 
 - Settings' actions end the same way (`pages/settings.ts`). Save, by button or `ControlOrMeta+S`,
@@ -209,4 +225,6 @@ its note after "Update from the newest dump" loads September, where the release 
 
 - Settings' Delete asks with `window.confirm()`, and Playwright dismisses a dialog no listener
   handles. `deleteDump()` registers a `once("dialog")` listener before the click, which records
-  the dialog's type and message and accepts or dismisses as the test says.
+  the dialog's type and message and accepts or dismisses as the test says. "Forget them"
+  (`forgetDiscogsData()`) asks the same way; it ends once `DELETE /api/discogs/data` has answered
+  and the page says how many items it forgot.
