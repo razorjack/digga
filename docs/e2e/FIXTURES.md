@@ -127,6 +127,10 @@ tracks can credit their own artists; the builder writes Various as Discogs artis
 Digga does not offer as an artist to dig. All releases use `MARKET` in the fake; per-release
 prices can be added when a scenario needs to compare them.
 
+A release's `laterVideos` stand for videos added on Discogs after the dumps: the fake's
+`GET /releases/:id`, which `P` asks, lists them after the dump's, and no dump has them. The first
+record has one, for its track C (TRI-23).
+
 `YOUTUBE_ONLY` supplies videos that no release lists: one matches the first record's unlinked
 track, one matches no track, and one matches the release without videos. Video IDs have
 YouTube's 11-character shape (`[\w-]{11}`), checked by `deck.ts`; prefixes `e150` and `e100`

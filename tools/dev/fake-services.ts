@@ -651,7 +651,7 @@ function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
     lowest_price: MARKET.lowestPrice,
     num_for_sale: MARKET.numForSale,
     community: { have: MARKET.have, want: MARKET.want, rating: MARKET.rating },
-    videos: fixture.videos.map((video) => ({
+    videos: [...fixture.videos, ...fixture.laterVideos].map((video) => ({
       uri: `https://www.youtube.com/watch?v=${video.id}`,
       title: video.title,
       duration: video.seconds,

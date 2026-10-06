@@ -34,6 +34,8 @@ export interface FixtureRelease {
   styles: string[];
   tracks: FixtureTrack[];
   videos: FixtureVideo[];
+  /** Videos added on Discogs after the dumps: only its release answer (`P`) lists them. */
+  laterVideos: FixtureVideo[];
 }
 
 export interface FixtureAccount {
@@ -86,8 +88,10 @@ function video(
   return { id, title, seconds, embed: options.embed ?? true };
 }
 
-function release(fields: Omit<FixtureRelease, "master"> & Partial<FixtureRelease>): FixtureRelease {
-  return { master: null, ...fields };
+function release(
+  fields: Omit<FixtureRelease, "master" | "laterVideos"> & Partial<FixtureRelease>,
+): FixtureRelease {
+  return { master: null, laterVideos: [], ...fields };
 }
 
 const AXIS_PLATE = { id: 30, name: "Axis Plate" };
@@ -121,7 +125,8 @@ const DNB = ["Drum n Bass", "Techstep"];
 
 /**
  * The first record in label-sweep order. Track C has no video, so the tracklist shows each video
- * state, and a pasted link to that tune finds its track (TRI-01, TRI-26).
+ * state, and a pasted link to that tune finds its track (TRI-01, TRI-26); Discogs has one since the
+ * dumps, which `P` brings (TRI-23).
  */
 export const FIRST_RECORD = release({
   id: 1101,
@@ -141,6 +146,7 @@ export const FIRST_RECORD = release({
     video("nauticpress", "Nautic Unit - Pressure Drop", 400),
     video("nauticunder", "Nautic Unit - Undertow", 365),
   ],
+  laterVideos: [video("nauticlowtd", "Nautic Unit - Low Tide", 390)],
 });
 
 /** The second record in label-sweep order. */
@@ -698,7 +704,7 @@ export function releaseById(id: number): FixtureRelease | undefined {
 /** The fake YouTube player's titles and durations, by video id. */
 export function videoCatalogue(): Record<string, { title: string; seconds: number }> {
   const videos: Record<string, { title: string; seconds: number }> = {};
-  const listed = ALL_RELEASES.flatMap((fixture) => fixture.videos);
+  const listed = ALL_RELEASES.flatMap((fixture) => [...fixture.videos, ...fixture.laterVideos]);
   for (const entry of [...listed, ...Object.values(YOUTUBE_ONLY)])
     videos[entry.id] = { title: entry.title, seconds: entry.seconds };
   return videos;
