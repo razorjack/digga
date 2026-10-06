@@ -210,6 +210,20 @@ and Twelves' Discogs wantlist and Owned shelves count 0. `tests/wantlist-http.te
 routes' refusals and `DELETE /api/discogs/data`; this row checks the Settings flow and what the
 queue and Twelves read after it
 
+## SET-23
+
+Priority: **P2**.
+
+A failed scheduled backup shows in Settings. With a verdict given after the first start's check, the
+library's `backups` folder loses its write permission (POSIX, not as root, given back in cleanup,
+as SETUP-12 does with its browser folder), and `relaunch()`: the start's check finds the day's
+database copy and cannot write the decisions backup or the checkpoint, `/api/backups` reports the
+failure, and the Backups tab reads "A scheduled backup failed just now: the daily decisions backup
+failed: EACCES…; the decisions checkpoint failed: EACCES…. Digga tries again every fifteen
+minutes; Back up now tries at once." That a later check that succeeds clears it stays with
+`tests/daily-backups.test.ts`: the next scheduled check runs 15 minutes later on the server's
+clock, which a test cannot move, and a relaunch starts without the failure in any case
+
 ## Completion contracts
 
 - Settings' actions end the same way (`pages/settings.ts`). Save, by button or `ControlOrMeta+S`,

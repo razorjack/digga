@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import type { Locator } from "@playwright/test";
 import type {
   BackupsResponse,
@@ -488,6 +489,50 @@ test(
     ]);
   },
 );
+
+test(
+  "SET-23 a scheduled backup that fails shows in Settings",
+  { tag: ["@SET-23", "@P2"] },
+  async ({ app }) => {
+    test.skip(
+      process.platform === "win32" || process.getuid?.() === 0,
+      "taking a folder's write permission stops only a POSIX user who is not root",
+    );
+    const settings = new SettingsPage(app);
+    // The first start checks before the verdict exists; its checkpoint is the check's last write.
+    await expect.poll(async () => (await backups(app)).checkpoints.backups).toHaveLength(1);
+    expect((await backups(app)).failure).toBeNull();
+    await app.given.verdict({
+      key: triageKeyOf(FIRST_RECORD),
+      status: "snoozed",
+      releaseId: FIRST_RECORD.id,
+    });
+
+    const unprotect = writeProtect(path.join(app.library.dataDir, "backups"));
+    try {
+      // The start's check finds the day's database copy and cannot write the rest.
+      await app.relaunch();
+      await expect.poll(async () => (await backups(app)).failure).not.toBeNull();
+      await settings.open("backups");
+
+      await expect(settings.backups.getByText(/^A scheduled backup failed /)).toHaveText(
+        /^A scheduled backup failed just now:\s+the daily decisions backup failed: .*EACCES.*; the decisions checkpoint failed: .*EACCES.*\. Digga tries again every fifteen minutes; Back up now tries at once\.$/,
+      );
+    } finally {
+      unprotect();
+    }
+  },
+);
+
+/**
+ * Leaves the folder readable but takes the permission to write in it, as a read-only disk would;
+ * returns the function that gives it back, which must run before the test's folder is deleted.
+ */
+function writeProtect(folder: string): () => void {
+  const { mode } = fs.statSync(folder);
+  fs.chmodSync(folder, 0o555);
+  return () => fs.chmodSync(folder, mode);
+}
 
 test(
   "SET-20 the three exports download the saved verdicts and marks",
