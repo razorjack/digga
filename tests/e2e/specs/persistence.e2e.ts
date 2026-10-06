@@ -112,6 +112,42 @@ test(
   },
 );
 
+test(
+  "PER-11 while the server runs, a command that changes the library is refused, stats and backup run beside it, and a crash's lock does not keep the next start out",
+  { tag: ["@PER-11", "@P2"] },
+  async ({ app }) => {
+    await app.given.verdicts(datedVerdicts([{ release: FIRST_RECORD, status: "snoozed" }]));
+    // The server's start copied the database; digga backup must not write the copy beside it.
+    await expect.poll(async () => (await backups(app)).backups).toHaveLength(1);
+
+    const stats = await app.cli(["stats"]);
+    expect(stats.code, stats.stderr).toBe(0);
+    expect(stats.stdout).toMatch(/^verdicts: .*snoozed=1/m);
+    const backup = await app.cli(["backup"]);
+    expect(backup.code, backup.stderr).toBe(0);
+    const file = /^backup: (\S+decisions-\d{4}-\d{2}-\d{2}\.json\.gz) /m.exec(backup.stdout)?.[1];
+    expect(file, backup.stdout).toBeDefined();
+
+    const holder = await refusedRestore(app, file!);
+    await app.relaunch({ crash: true });
+    // The crashed server's lock is left behind; the new server took it over.
+    const nextHolder = await refusedRestore(app, file!);
+    expect(nextHolder).not.toBe(holder);
+    expect(await exportedStatus(app, triageKeyOf(FIRST_RECORD))).toBe("snoozed");
+  },
+);
+
+/** Runs `digga restore`, which the server's lock refuses; returns the process the lock names. */
+async function refusedRestore(app: DiggaApp, file: string): Promise<string> {
+  const restore = await app.cli(["restore", file]);
+  expect(restore.code).toBe(1);
+  const refusal =
+    /^digga: The library is in use by the Digga server \(process (\d+), since \S+\)\. Stop it first\.$/m;
+  const holder = refusal.exec(restore.stderr)?.[1];
+  expect(holder, restore.stderr).toBeDefined();
+  return holder!;
+}
+
 test.describe("with an account to import", () => {
   test.use({
     diggaOptions: { config: { discogs: { username: DJ.username } }, savedToken: "e2e-token-dj" },

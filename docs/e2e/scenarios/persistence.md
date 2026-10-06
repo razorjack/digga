@@ -83,3 +83,17 @@ re-judges it a skip, and `D` in the first, which still shows the snooze, is refu
 and each page's handling of a `409` with a fake api (`server.test.ts`, `session.test.ts`,
 `twelves.test.ts`); this row checks that the verdict each page expects survives the query string
 or the JSON body to the server's comparison, and what each page then shows
+
+## PER-11
+
+Priority: **P2**.
+
+One process owns a library (decision 129). While the server runs, `digga stats` and `digga backup`
+run beside it and exit 0, and `digga restore` of the decisions backup just written exits 1 with
+"digga: The library is in use by the Digga server (process N, since …). Stop it first."; after
+`relaunch({ crash: true })`, which leaves the lock file behind, the next server starts, and the
+same refusal names its process instead. The test waits for the database copy the server's start
+writes before `digga backup` (PER-02). `tests/library-lock.test.ts` covers the lock itself: a
+second holder refused, a lock of an ended process or an empty one taken over, and a second server
+kept off before it fails the first one's running jobs. This row checks which commands take the
+lock, how the CLI reports a refusal, and a lock that a killed server process really left
