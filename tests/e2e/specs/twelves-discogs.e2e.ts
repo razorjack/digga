@@ -1,4 +1,5 @@
-import type { DecisionsExport } from "../../../src/shared/api.ts";
+import type { DecisionsExport, QueueResponse } from "../../../src/shared/api.ts";
+import type { Job } from "../../../src/shared/types.ts";
 import { rejudgedSentence } from "../../../src/client/twelves/model.ts";
 import {
   DJ,
@@ -13,6 +14,7 @@ import {
   triageKeyOf,
 } from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
+import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, waitForResponses } from "../pages/triage.ts";
 import { judgeKey, TwelvesPage } from "../pages/twelves.ts";
 import { expect, test } from "../support/test.ts";
@@ -257,6 +259,43 @@ test.describe("with a Discogs account", () => {
       expect(exported.verdicts).toContainEqual(
         expect.objectContaining({ key, status: "snoozed", decidedAt: snooze!.decidedAt }),
       );
+    },
+  );
+
+  test(
+    "TWL-24 a want the Discogs wantlist no longer lists leaves Twelves' shelves after the next wantlist import",
+    { tag: ["@TWL-24", "@P2"] },
+    async ({ app, fakes }) => {
+      const twelves = new TwelvesPage(app);
+      const settings = new SettingsPage(app);
+      const key = triageKeyOf(ON_WANTLIST);
+      await app.given.verdicts(datedVerdicts([{ release: ON_WANTLIST, status: "accepted" }]));
+      await twelves.open();
+      await twelves.showShelf("accepted");
+      await expect(twelves.record(key)).not.toContainText(NOT_ON_WANTLIST);
+      // Taken off the wantlist on discogs.com, outside Digga.
+      fakes.wantlists.get(DJ.username)!.delete(ON_WANTLIST.id);
+
+      await settings.open("discogs");
+      const job = await settings.startJob(
+        settings.imports.getByRole("button", { name: "Wantlist" }),
+      );
+      await settings.waitForJob(job, "done");
+      expect((await app.api.get<Job>(`/api/jobs/${job}`)).progress).toMatchObject({ removed: 1 });
+
+      // The hunt has ended: the want is on no shelf and not offered for the wantlist again.
+      await twelves.open();
+      for (const shelf of ["all", "accepted", "wantlist"] as const) {
+        await twelves.showShelf(shelf);
+        await expect(twelves.record(key)).toHaveCount(0);
+      }
+      // The decision stays, so the record is still dug.
+      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
+      expect(exported.verdicts).toContainEqual(
+        expect.objectContaining({ key, status: "accepted" }),
+      );
+      const queue = await app.api.get<QueueResponse>("/api/queue?limit=100");
+      expect(queue.items.map((item) => item.triageKey)).not.toContain(key);
     },
   );
 });
