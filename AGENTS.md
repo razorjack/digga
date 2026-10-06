@@ -117,7 +117,8 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
                        environment.ts (what the environment and a .env set, for the CLI and Electron)
-electron/              the Electron main process: main.ts (server, window, quit), user-agent.ts
+electron/              the Electron main process: main.ts (server, quit), window.ts (window, links, downloads,
+                       permissions), links.ts, menu.ts, user-agent.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css

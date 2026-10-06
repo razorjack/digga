@@ -1029,3 +1029,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      quit. Closing the window quits on every platform, macOS included: an app without a window
      would hold the library with nothing to show. A second start meets the library lock (decision 129) and shows a dialog naming the holder; Electron's single-instance lock is not used,
      since it covers one userData folder and not the library.
+157. **The window keeps to the app's pages, and the menu opens Settings for the jobs.** The window
+     runs with context isolation and Chromium's sandbox, without Node and without a preload: the
+     renderer is the browser client and reaches the server over HTTP. `window.open` and links
+     that leave the app's origin go to `shell.openExternal` when they are http(s), and nowhere
+     otherwise; navigation away from the origin is refused. A download asks where to save it,
+     starting in Downloads. Every permission request is denied, YouTube's fullscreen included,
+     since nothing in Digga needs one. The menu has the standard roles, Edit among them for copy
+     and paste in text fields, Settings… (⌘,) in macOS's application menu, and a Library menu
+     whose items, Update the Catalogue…, Import from Discogs… and Back Up…, open the Settings tab
+     that starts the job instead of starting it. The tab shows the job's progress, Cancel and
+     result; a job the main process started would be unknown to the page, which learns of the
+     jobs it starts (decision 115). The tab's "From a file" field takes an absolute path, so the
+     planned file dialog for dumps is not needed.

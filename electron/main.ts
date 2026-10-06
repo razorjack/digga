@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, nativeTheme, safeStorage, session } from "electron";
+import { app, BrowserWindow, dialog, Menu, nativeTheme, safeStorage, session } from "electron";
 import path from "node:path";
 import { readLaunchEnvironment } from "../src/cli/environment.ts";
 import { loadConfig } from "../src/server/config-file.ts";
@@ -13,7 +13,9 @@ import {
 import { resolvePaths } from "../src/server/paths.ts";
 import { createSecrets, type SecretEncryption } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
+import { menuTemplate } from "./menu.ts";
 import { chromeUserAgent } from "./user-agent.ts";
+import { openWindow, secureSession } from "./window.ts";
 
 /**
  * The Electron app: the server the CLI's `serve` starts, on a free port, in a window. The
@@ -55,7 +57,11 @@ async function startDigga(): Promise<void> {
 
   nativeTheme.themeSource = config.appearance.colorScheme;
   session.defaultSession.setUserAgent(chromeUserAgent(session.defaultSession.getUserAgent()));
-  await openWindow(browserUrl);
+  secureSession(session.defaultSession, logger);
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(menuTemplate({ show: showRoute }, process.platform)),
+  );
+  await openWindow(browserUrl, logger);
 }
 
 /** The log in userData; an unpackaged run, started from a terminal, prints it there too. */
@@ -95,20 +101,10 @@ function stopServerBeforeQuit(server: DiggaServer, logger: Logger): void {
   });
 }
 
-async function openWindow(url: string): Promise<void> {
-  const window = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    title: "Digga",
-    webPreferences: {
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      autoplayPolicy: "no-user-gesture-required",
-    },
-  });
-  // localhost, not 127.0.0.1: YouTube refuses some embeds on IP-address origins.
-  await window.loadURL(url);
+/** Goes to a page of the app, as following one of its links would. */
+function showRoute(route: string): void {
+  const window = BrowserWindow.getAllWindows()[0];
+  void window?.webContents.executeJavaScript(`location.hash = ${JSON.stringify(route)}`);
 }
 
 async function showStartupError(error: unknown): Promise<void> {
