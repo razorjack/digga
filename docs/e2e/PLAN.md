@@ -84,10 +84,15 @@ Triage's stale queue and Twelves' re-judging copy, remain in history only.
 
 ## Electron
 
-First run the throwaway spike described in [ELECTRON](ELECTRON.md#startup-order), outside the
-product: test the guard in the main process and a worker, held first navigation, context routes,
-init scripts, clock, resolver rule, safeStorage round trip on each OS, relaunch, and packaged
-`-r` behavior. Record results in HISTORY before settling the host design.
+First run the spike described in [ELECTRON](ELECTRON.md#startup-order) against the product's
+main process, `electron/main.ts`, which exists now (unpackaged, `vp run electron:dev`), instead
+of a throwaway one: test the guard in the main process and a worker, held first navigation,
+context routes, init scripts, clock, resolver rule, safeStorage round trip on each OS, relaunch,
+and packaged `-r` behavior. Record results in HISTORY before settling the host design. The
+[2026-10-06 rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) already
+covers on macOS: the guard through `NODE_OPTIONS` in the main process and a worker, a `-r`
+preload that a worker does not inherit, the resolver rule, a mock-keychain save, relaunch and
+read, and stubs of `shell.openExternal` and `dialog.showMessageBox` from a `-r` preload.
 
 Then implement the host, preload and product integration with the
 [Electron packaging work](../ELECTRON_PLAN.md), run the shared suite and
@@ -95,8 +100,8 @@ Then implement the host, preload and product integration with the
 candidate, and add `e2e:electron`. Run on macOS, Windows and Linux; Linux needs `xvfb-run`.
 The fully fused artifact gets only the isolated launch and health check described in ELECTRON.
 
-Decide the behavior when `safeStorage` cannot encrypt: refuse to save the token, or allow the
-plain-text store explicitly. The test host's basic store is not the product decision.
+Where `safeStorage` cannot encrypt, the product saves the token as text and Settings says so
+(decision 152); the scenarios for that state follow from it.
 
 ## Maintaining the plan
 

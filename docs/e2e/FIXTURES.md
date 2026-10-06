@@ -410,3 +410,11 @@ word splitting of a variable containing assignments. A fake service by itself do
 Digga's paths or its other network requests. The
 [earlier rehearsal incident](HISTORY.md#the-setups-steps-1-to-3-p1-slice-web) records why these
 checks and the guard are required.
+
+The Electron app takes the same environment. Start the Electron binary directly with the app's
+folder, a `--user-data-dir` in the temp folder (userData holds the log and Chromium's files, and
+by default it is the real library folder), `--use-mock-keychain --password-store=basic`, and the
+resolver switch from [HARNESS](HARNESS.md#the-network-and-filesystem-guard), which covers the
+renderer; `NODE_OPTIONS` loads the guard in the main process and its workers. A `-r` preload can
+stub `shell.openExternal` so no browser opens. The
+[Electron rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) shows the commands.

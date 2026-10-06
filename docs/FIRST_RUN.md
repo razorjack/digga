@@ -489,7 +489,7 @@ The flow is the same web page. The shell adds:
   sleeping laptop does not break the download.
 - Quitting during the download or load asks first, since the download starts over.
 - "Use a dump file I have" in step 1, with a file dialog.
-- The token in `safeStorage`, as `docs/ELECTRON_PLAN.md` plans.
+- The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 
 ## Build order
 

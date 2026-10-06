@@ -86,8 +86,11 @@ Decisions 105 to 111; the design is `docs/FIRST_RUN.md`.
 
 ## Session 7: Electron shell
 
-Per `docs/ELECTRON_PLAN.md`: main process imports `createServer`, packaging with electron-builder,
-`@electron/rebuild` for `better-sqlite3`, menu items for jobs, signing and notarization.
+Per `docs/ELECTRON_PLAN.md`. Done on 2026-10-06: the main process in `electron/` runs the server
+on a free port in a window, on the same library, unpackaged on macOS (`vp run electron:dev`),
+with the token in `safeStorage`, the menu, and the window kept to the app's pages; better-sqlite3's
+Node-API prebuilds need no rebuild. Left: packaging with electron-builder, signing and
+notarization, the setup's Electron parts, and the Electron E2E host (ELECTRON_PLAN, "What is left").
 
 ## Known gaps to keep in mind
 

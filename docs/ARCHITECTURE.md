@@ -20,7 +20,7 @@ browser  --HTTP-->  src/client/api.ts  --/api/*-->  src/server/app.ts (Hono)  --
 
 `createServer()` in `src/server/server.ts` wires config, paths, secrets, logger, the database, the
 job runner and the Discogs client into `createApp()`, and exposes `start(port, host)` / `stop()`.
-The CLI's `serve` command calls it; an Electron main process will call the same function.
+The CLI's `serve` command calls it, and so does the Electron main process, `electron/main.ts`.
 
 The server answers this computer only. It listens on a loopback address (`server.host` accepts
 `127.0.0.1`, `::1` or `localhost`, and the listener refuses anything else), and
@@ -231,12 +231,13 @@ years and formats, so the setup starts from them and not from the defaults when 
 saved token, temp files) defaults to the per-user app folder, named as Electron names `userData`
 (`~/Library/Application Support/Digga`, `%APPDATA%\Digga`, `~/.config/Digga`), so the packaged
 app opens the same library. Dumps default to the OS cache folder, which backups skip and the OS may
-clear; a dump can be downloaded again. The CLI reads `.env` from its working directory into the
-environment (variables already set win) and passes `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and
-`DIGGA_CONFIG_FILE` to `resolvePaths()`; a library placed with `DIGGA_DATA_DIR` keeps its dumps
+clear; a dump can be downloaded again. The CLI and the Electron app read `.env` from the working
+directory into the environment (variables already set win) through `src/cli/environment.ts` and
+pass `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` to `resolvePaths()`; a library placed with `DIGGA_DATA_DIR` keeps its dumps
 inside it. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `secrets.env` in
 the library; Settings saves the token there through `PUT /api/discogs/token`, unless the
-environment sets it. The route asks Discogs whose token it is first: it keeps the previous token
+environment sets it. The Electron app passes `safeStorage` as the encryption, which stores it as
+`DISCOGS_TOKEN_ENCRYPTED`; without one, or where the system cannot encrypt, it is saved as text. The route asks Discogs whose token it is first: it keeps the previous token
 when Discogs refuses the new one or when it belongs to another account than the one whose data
 the library holds (`meta.discogs_account`), and a library without a Discogs username takes the
 token's.

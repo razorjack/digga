@@ -16,6 +16,8 @@ Search by scenario ID, error or date, or start with:
 - [Gap fixes on 2026-10-02](#closing-the-gaps-web).
 - [The setup's remaining scenarios and the Accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web).
 - [CI on GitHub Actions](#ci-on-github-actions): Linux findings, workers and durations.
+- [The Electron main process](#the-electron-main-process-electron-unpackaged): the rehearsal of
+  the unpackaged app, workers and the guard.
 - Original planning records: [product changes](#product-changes-the-harness-needs),
   [running plan](#original-running-plan), [runner choice](#runner-choice-on-2026-09-30),
   [markup audit](#markup-audit-recorded-through-2026-10-02),
@@ -1113,6 +1115,90 @@ Triage family, so every specified web scenario has a test. The work showed:
   after the second.
 - **`verify` has not grown.** The smoke set is the 13 P0 tests, 11.2 to 12.3 s inside
   `vp run verify` in this session's runs.
+
+### The Electron main process (Electron, unpackaged)
+
+Rehearsed by hand on 2026-10-06 at `7a8c266`, on the same Mac, with Node 24.18.0 for the tools,
+Electron 44.5.1 (Chromium 152, Node 24.21.0, Node-API 10) and Playwright 1.63.0's
+`chromium.connectOverCDP()` to read the window. No spec changed. This is evidence for the
+Electron spike in [PLAN](PLAN.md#electron), not the spike itself.
+
+- **Spikes first,** in scratch folders under `/tmp`, outside the repository: an ES module
+  `main.ts` importing `src/server/db/db.ts`, and a `.ts` worker doing the same. Electron stripped
+  the types in both, and the repository's better-sqlite3 prebuild opened databases in both
+  (decisions 153 and 154). With `productName` "Digga" the app's name was Digga and userData
+  `~/Library/Application Support/Digga`. A `-r` preload ran before the main entry.
+- **The guard and workers.** `NODE_OPTIONS=--import=tests/e2e/support/guard.ts` loaded in
+  Electron's main process and refused `example.com:80`. A worker started from a file inherited it,
+  in Electron and in Node; an `eval` worker did not, in either. The guard loaded by a `-r` preload
+  was not inherited by a file worker, so the Electron host's preload must wrap `Worker`
+  ([ELECTRON](ELECTRON.md#startup-order)). Before this was understood, two spike runs' `eval`
+  workers opened TCP connections to `example.com:80`; no request went to Discogs,
+  data.discogs.com or YouTube.
+- **One spike ran without `--user-data-dir`.** With `productName` "Digga", Electron's userData was
+  the owner's library folder for that run, about 20 s with its slow exit, and Chromium may have
+  written its profile files there. No Digga code ran in it and no database was opened; the folder was not inspected,
+  since that needs the owner's permission. Every later run passed `--user-data-dir` in its temp
+  folder, and the app now keeps Chromium's files in `userData/Chromium` (decision 155).
+- **Quitting takes long in minimal apps.** A spike app that only opened a hidden window took 20 s
+  to exit after `quit` (35 s with `--disable-gpu`), and Digga, after Playwright's
+  `browser.close()` over CDP had closed its window, had stopped its server but not exited 20 s
+  later, when it was killed. Digga's own quits below took 1 to 2 s. SIGTERM never
+  reached a Node `process.on("SIGTERM")` handler: Chromium handles it as a quit, which runs
+  `before-quit`, so the main process has no signal handlers.
+- **Setup.** The fakes standalone, on a dump of the bulk catalogue
+  (`writeDump(folder, bulkDump())`, 81,198 bytes, 1,500 releases) named
+  `discogs_20260901_releases.xml.gz`, with an allowlisted environment:
+  `env -i PATH=<node's folder>:/usr/bin:/bin HOME=<root>/home node tools/dev/fake-services.ts <dump> --port 4567 --mbps 0.002`.
+  The app started from a script that passes every variable as its own `env -i` argument and
+  prints them, with the command line, before the start:
+  `PATH`, `HOME=<root>/home`, `TMPDIR=<root>/tmp/`, `LANG=en_US.UTF-8`, `TZ=UTC`,
+  `DIGGA_DATA_DIR=<root>/library`, `DIGGA_DUMPS_DIR=<root>/dumps`,
+  `DIGGA_CONFIG_FILE=<root>/config/digga.config.json`,
+  `DIGGA_DUMPS_URL=http://127.0.0.1:4567/dumps/`,
+  `DIGGA_DISCOGS_API_URL=http://127.0.0.1:4567/discogs`,
+  `DIGGA_YOUTUBE_OEMBED_URL=http://127.0.0.1:4567/youtube/oembed`, `DIGGA_LOG_LEVEL=debug`,
+  `NODE_OPTIONS=--import=<repo>/tests/e2e/support/guard.ts` and `DIGGA_E2E_ALLOWED_PORT=4567`;
+  then `<repo>/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron -r <tools>/preload.cjs <repo> --user-data-dir=<root>/user-data --use-mock-keychain --password-store=basic "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1" --remote-debugging-port=9333`,
+  from `<root>/cwd`, which has no `.env`. `<root>` was `mktemp -d /tmp/digga-rehearsal.XXXX`. The
+  `-r` preload replaced `shell.openExternal` with a line on stdout, and, for the second start,
+  `dialog.showMessageBox` too. The scripts stayed in `/tmp`, apart from the data.
+- **The window.** The setup's first step opened at `http://localhost:<port>/#/setup/catalogue`,
+  titled "Fetch the catalogue – Digga setup", with a Chrome user agent naming neither Electron
+  nor Digga. The log was in `<root>/user-data/digga.log`, Chromium's files in
+  `<root>/user-data/Chromium`, and the library held only `digga.sqlite`, `backups/`,
+  `secrets.env` and, while running, `digga.lock`.
+- **The token.** `e2e-token-dj`, typed into the setup's Discogs step, saved as
+  `DISCOGS_TOKEN_ENCRYPTED=djEw...` (`v10`, Chromium's format, under the mock keychain) in a
+  `0600` `secrets.env` without the token's text, and `GET /api/discogs/account` answered
+  `tokenSource: "saved"`, `tokenEncrypted: true`, `tokenUsername: "dj"`. After a relaunch the same
+  request answered the same, so the token was read back and the fake Discogs accepted it.
+- **The worker.** "Fill the crate" loaded the dump through the dump-load worker: its
+  `[dump-load-worker]` lines reached the terminal, the job ended `done` with 1,500 releases
+  upserted in 0.23 s, and `GET /api/stats` counted 1,500.
+- **The lock.** With a slower newer dump (`discogs_20261001_releases.xml.gz` at 0.0002 MiB/s) a
+  download and a load following it were running when a second app started on the same library
+  and userData. It showed "Another Digga is using the library." with "The library is in use by
+  the Digga app (process 68382, since 2026-10-06T18:12:26.742Z). Stop it first.", quit, and left
+  the first app's jobs and `digga.lock` as they were.
+- **Quitting during the jobs.** Closing the window logged "stopping: cancelled 2 running job(s),
+  waiting for them", then "stopped" 0.25 s later, removed `digga.lock`, and the process exited.
+  After a relaunch `GET /api/jobs` listed both jobs as `cancelled`, not interrupted. The runner's
+  log line for a cancelled job reads "failed: Cancelled" while the job is stored as `cancelled`.
+  SIGTERM to the relaunched app also stopped the server and exited within 2 s.
+- **Links and permissions.** `window.open("https://www.discogs.com/release/1201", "_blank",
+"noopener,noreferrer")`, as the client's `openExternal()` calls it, a `target="_blank"` link,
+  and `location.href = "https://example.com/elsewhere"` each logged "opening ... in the browser"
+  and reached the stubbed `shell.openExternal`; the page stayed where it was. Chromium refused
+  `window.open("file:///etc/hosts")` before the handler. `Notification.requestPermission()`
+  answered `denied`.
+- **Colour scheme.** With `appearance.colorScheme: "dark"` in the config, the relaunched page
+  matched `prefers-color-scheme: dark` once Playwright's default light emulation was cleared with
+  `page.emulateMedia({ colorScheme: null })`.
+- **Not rehearsed.** The native menu (unit tests cover its template; CDP cannot click it), a
+  download through the save dialog, SIGINT, the real Keychain, a lock dialog on screen (it was
+  stubbed), and YouTube playback, which needs real videos. The guard refused nothing during the
+  app runs, and the fakes reported no problem.
 
 ## Original status on 2026-10-02
 

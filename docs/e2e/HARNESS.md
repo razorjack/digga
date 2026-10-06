@@ -222,7 +222,7 @@ The harness supplies all three URLs from its fake services before starting any p
   passed as `DISCOGS_TOKEN` (the "token from the environment" state, where Settings disables the
   field and the route answers `409`).
 - The fake fails any request with a token that does not start with `e2e-`.
-- The Electron plan uses `safeStorage`; see [Electron](ELECTRON.md#launch-and-release-builds) for keychains in CI.
+- The Electron app uses `safeStorage`; see [Electron](ELECTRON.md#launch-and-release-builds) for keychains in CI.
 
 ### The network and filesystem guard
 
@@ -238,7 +238,7 @@ overlap on purpose.
    recognised by a truthy `path`, and `net.connect()` passes its normalised arguments as an
    array. CLI processes load it with `NODE_OPTIONS=--import=<guard>`, and their worker threads
    inherit it. The dump-load worker makes no requests. Electron needs the separate
-   [preload guard](ELECTRON.md#startup-order), including a check that workers inherit it.
+   [preload guard](ELECTRON.md#startup-order), which workers do not inherit from a `-r` preload.
 2. **Context routes.** The base route lets through the app's exact origin, and the same port on
    `127.0.0.1`, where SHELL-06 opens the app to see its warning, and aborts everything else,
    recording the URL; the fixture fails a test that has aborts it did not declare. In

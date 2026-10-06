@@ -18,11 +18,11 @@ spike before building the host, harness preload and Electron-only scenarios.
 - **Main-process stubs.** Installed by the preload before the app's first line:
   `shell.openExternal`, `dialog.showMessageBox`, `dialog.showOpenDialog`, and spies on
   `setProgressBar` and `Notification`, recording calls for the test.
-- **Native module ABI.** `@electron/rebuild` rebuilds `better-sqlite3` for Electron's ABI. If that
-  happens in the repository's `node_modules`, the CLI, vitest and the web E2E host, all on Node's
-  ABI, break. Rebuild only inside the packaged app's staging folder (electron-builder does this),
-  and give the unpackaged test run its own install. The fakes run in the Playwright worker and
-  need no native module.
+- **Native module ABI.** `better-sqlite3` 13 is a Node-API addon, and Electron loads the
+  repository's prebuild in the main process and in workers without a rebuild (decision 153 in
+  `DECISIONS.md`), so the unpackaged test run uses the repository's install. A rebuild in the
+  repository's `node_modules` would still break the CLI, vitest and the web E2E host, so packaging
+  must not run one there. The fakes run in the Playwright worker and need no native module.
 - **Fuses.** `_electron.launch()` starts Electron with inspector arguments to attach to it, so a
   build with the `EnableNodeCliInspectArguments` fuse off cannot be launched by Playwright at
   all. The suite runs on an inspectable variant of each release candidate that differs only in
@@ -59,8 +59,8 @@ stops tracing and takes the failure screenshot itself.
 
 ## Startup order
 
-- **Electron.** In the plan (`docs/ELECTRON_PLAN.md`), the main process starts the server and
-  loads the window as soon as the app is ready. The host launches it with a harness preload,
+- **Electron.** `electron/main.ts` starts the server and loads the window as soon as the app is
+  ready (`docs/ELECTRON_PLAN.md`). The host launches it with a harness preload,
   `-r tests/e2e/support/electron-preload.cjs` before the main entry, which runs in the main
   process before the app's first line:
   - it installs the socket guard, so all main-process code is guarded, `loadConfig()` included;
@@ -86,25 +86,29 @@ stops tracing and takes the failure screenshot itself.
   `electron.net`.
 
 Playwright removes `NODE_OPTIONS` from Electron launches, so the preload installs the Node
-socket guard itself. Check whether a worker started by the main process inherits the preload;
-if not, wrap `worker_threads.Worker` to load the guard first. Apply Chromium's resolver switch
+socket guard itself. A worker started from a file inherits a guard loaded with
+`NODE_OPTIONS=--import`, but not one a `-r` preload loaded (measured on 2026-10-06 with Electron
+44, [HISTORY](HISTORY.md#the-electron-main-process-electron-unpackaged)), so the preload wraps
+`worker_threads.Worker` to load the guard first. Apply Chromium's resolver switch
 from [HARNESS](HARNESS.md#the-network-and-filesystem-guard) to cover preconnects and
 `electron.net`, which the Node socket patch does not cover.
 
 ## Product integration requirements
 
-The main process must honor `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`, `DIGGA_CONFIG_FILE` and
-all three fake-service URL settings. Its `Secrets` implementation must give `DISCOGS_TOKEN`
-precedence over `safeStorage`, as the CLI does. Handle `window.open` through
-`setWindowOpenHandler` and `shell.openExternal`, downloads through `will-download`, and
-wait for `server.stop()` before quitting so jobs become cancelled and the database closes.
-The product plan's illustrative `before-quit` handler needs that awaited shutdown.
+`electron/main.ts` meets these, as built on 2026-10-06: it honors `DIGGA_DATA_DIR`,
+`DIGGA_DUMPS_DIR`, `DIGGA_CONFIG_FILE` and all three fake-service URL settings through the CLI's
+`src/cli/environment.ts`; its secrets give `DISCOGS_TOKEN` precedence over `safeStorage`, as the
+CLI does; `window.open` goes through `setWindowOpenHandler` and `shell.openExternal`, downloads
+through `will-download`; and `before-quit` waits for `server.stop()`, so jobs become cancelled
+and the database closes. A change must keep them.
 
-Rebuilding `better-sqlite3` must not replace the repository's Node build. The preload must
-keep following the app's navigation method; a change from `loadURL()` to `loadFile()` needs
+No rebuild may replace the repository's `better-sqlite3`. The preload must keep following the
+app's navigation method, `loadURL()` in `electron/window.ts`; a change to `loadFile()` needs
 corresponding interception, which ELEC-13 checks. Playwright's Electron support is experimental;
 validate these assumptions in the [spike](PLAN.md#electron) before implementing the host.
 
-The decision for a machine without working encryption is still open: refuse to save a token,
-or explicitly allow the plain-text store. ELEC-03 requires a real unlocked keychain; ordinary
-runs use the mock-keychain settings above.
+Where `safeStorage` cannot encrypt, the owner chose the plain-text store: the token is saved as
+text in `secrets.env`, and Settings says "saved unencrypted" (decision 152). Under the basic
+store on Linux, without `setUsePlainTextEncryption(true)`, the app therefore saves the token as
+text (untested). ELEC-03 requires a real unlocked keychain; ordinary runs use the
+mock-keychain settings above.

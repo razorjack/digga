@@ -8,8 +8,8 @@ import { rematchVideos } from "./video-matches.ts";
 
 /**
  * The only module that imports better-sqlite3. Everything else receives a Db.
- * Electron needs @electron/rebuild for this native module; keeping the import
- * here means that is the only place to adapt.
+ * Its Node-API prebuilds load in Electron too, so the app needs no rebuild; keeping the import
+ * here keeps any later change to how the addon loads in one place.
  */
 export type Db = BetterSqlite3.Database;
 export type Statement<Params extends unknown[] | Record<string, unknown> = unknown[]> =

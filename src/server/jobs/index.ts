@@ -1,6 +1,6 @@
 /**
  * The jobs, as plain async library functions taking explicit dependencies.
- * The CLI wraps them, the HTTP routes wrap them, an Electron menu will wrap them.
+ * The CLI and the HTTP routes wrap them; the Electron menu opens the Settings tab that starts them.
  */
 export { downloadDump } from "./dump-download.ts";
 export { dumpLoad } from "./dump-load.ts";

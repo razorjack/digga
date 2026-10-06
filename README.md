@@ -106,6 +106,17 @@ Keep the server running and open **[http://localhost:3456](http://localhost:3456
 `localhost`: some YouTube videos refuse to play when the page is opened at `127.0.0.1`. On later
 runs, `npm run serve` is enough. Rebuild after updating the frontend.
 
+On macOS, Digga can also run in a window of its own, on the same library:
+
+```sh
+npm run electron:dev
+```
+
+This builds the frontend, starts the server on a free port and opens the window; quitting the
+app stops the server. One Digga uses a library at a time, so stop `npm run serve` first. The app is
+not packaged yet, so it runs from the repository. A terminal inside another Electron app may set
+`ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window; unset it there.
+
 ### 2. Follow the setup
 
 A new library opens the setup, which takes about 20 minutes, most of it waiting:
@@ -165,7 +176,11 @@ pauses when Discogs says the limit is nearly used, and waits as long as Discogs 
 too many. Nothing runs in the background. Digga never changes your collection or lists, and never
 reads orders or messages. A Discogs token cannot be limited to some actions, so Digga saves it
 only on this computer, in `secrets.env` in the library folder (or reads `DISCOGS_TOKEN` from the
-environment), and sends it only to api.discogs.com. You can revoke it on discogs.com at any time.
+environment), and sends it only to api.discogs.com. The window encrypts it there with the system's
+keychain when there is one; otherwise, and in the browser version, it is saved as text, and
+Settings says so. The command
+line cannot read a token the window encrypted, so its imports then need `DISCOGS_TOKEN`. You can
+revoke the token on discogs.com at any time.
 
 ### Settings and the config file
 
@@ -319,7 +334,8 @@ This runs formatting, lint, type checks, tests, the portability checks, and Svel
 frontend uses Svelte 5; the server uses Hono and SQLite. Node runs the server's TypeScript sources
 directly.
 
-Digga currently runs as a local server and browser app. Electron packaging is planned.
+Digga runs as a local server and browser app, and unpackaged in an Electron window
+(`npm run electron:dev`, `electron/`). Packaging is planned.
 
 - [Architecture](docs/ARCHITECTURE.md) and [data model](docs/DATA_MODEL.md)
 - [Discogs and YouTube integration notes](docs/DISCOGS_NOTES.md)
