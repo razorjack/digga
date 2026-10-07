@@ -18,6 +18,8 @@ Search by scenario ID, error or date, or start with:
 - [CI on GitHub Actions](#ci-on-github-actions): Linux findings, workers and durations.
 - [The Electron main process](#the-electron-main-process-electron-unpackaged): the rehearsal of
   the unpackaged app, workers and the guard.
+- [The Electron spike](#the-electron-spike-electron-unpackaged): the held start and navigation, the
+  preload's guard in workers, quitting and userData.
 - Original planning records: [product changes](#product-changes-the-harness-needs),
   [running plan](#original-running-plan), [runner choice](#runner-choice-on-2026-09-30),
   [markup audit](#markup-audit-recorded-through-2026-10-02),
@@ -1199,6 +1201,77 @@ Electron spike in [PLAN](PLAN.md#electron), not the spike itself.
   download through the save dialog, SIGINT, the real Keychain, a lock dialog on screen (it was
   stubbed), and YouTube playback, which needs real videos. The guard refused nothing during the
   app runs, and the fakes reported no problem.
+
+### The Electron spike (Electron, unpackaged)
+
+Run on 2026-10-07 at `cb3774f` with the harness preload committed with this entry, on the same 10-core
+Mac (macOS 27.0.1, a 3024 x 1964 display, 1512 x 982 points), Node 24.18.0, Electron 44.5.1 and
+Playwright 1.63.0's `_electron.launch()`, against `electron/main.ts` unpackaged. One-minute load
+averages were 2.6 to 4.7 during the spike runs; another project shares the machine, and the load
+rose to 18 during the later suite runs. This answers the questions [PLAN](PLAN.md#electron) left
+after the [rehearsal](#the-electron-main-process-electron-unpackaged), except the packaged `-r`
+behaviour and the other operating systems.
+
+- **Isolation of the runs.** Every Electron start went through a scratch launcher outside the
+  repository (`/tmp/digga-spike-tools/launch.ts`), which refused to start unless the root was a
+  `mktemp -d /tmp/digga-spike.XXXXXX` folder, `--user-data-dir`, `HOME`, `TMPDIR` and every `DIGGA_*`
+  path lay under it and the three `DIGGA_*_URL`s named the fakes, and which printed the whole
+  environment (built from nothing: `PATH=/usr/bin:/bin`, `HOME`, `TMPDIR`, `LANG`, `TZ`, the
+  `DIGGA_*` paths and URLs, `DIGGA_LOG_LEVEL=debug`, `DIGGA_E2E_ALLOWED_PORT`,
+  `DIGGA_E2E_TEMP_ROOT`, `DIGGA_E2E_DOWNLOADS_DIR`) and the command line before the start. The
+  fakes ran in the script's process (`FakeServices.start()`). No run used the owner's environment
+  or library, and the fakes reported no violation.
+- **Playwright's command line.** `_electron.launch()` runs
+  `Electron -r <playwright>/loader.js --inspect=0 --remote-debugging-port=0 <args>`; with
+  `-r tests/e2e/support/electron-preload.cjs <repo> --user-data-dir=…` as `<args>`, both preloads
+  ran, Playwright's first, and the app path was the repository. Playwright's loader holds Electron's
+  `ready` until it has attached, and Playwright deletes `NODE_OPTIONS` from the environment it is
+  given.
+- **The held first navigation.** Wrapping `BrowserWindow.prototype.loadURL` in the preload held
+  the first call: the server was listening, the held URL was `http://localhost:<port>`, the fakes
+  had logged no request, and Playwright reported no window. After `release()` the page loaded at
+  `#/setup/catalogue`, titled "Fetch the catalogue – Digga setup", about 0.15 s later.
+- **The context must be ready before the window exists.** With the window created and its first
+  navigation held, `context.route()` (from `guardContext()`) did not return, and the run stopped
+  there until it was killed: Playwright waits for the window's first navigation before it routes
+  its requests. `firstWindow()` likewise waits for a navigation, so the page object exists only
+  after the release. Installed right after `_electron.launch()`, before the app created its window,
+  the routes, the fake YouTube init script (`window.__fakeYouTube` was an object in the page) and
+  `context.clock.install()` were all in place at the release, and the clock then ran 60 s
+  through `runFor()`. That order held by 150 ms of timing alone, so the preload also holds the
+  app's `whenReady()` until the host has prepared the context.
+- **The page's settings.** `locale`, `timezoneId` and `colorScheme` given to `_electron.launch()`
+  reached the page (`en-US`, `UTC`, dark). `reducedMotion` is not a launch option, and Chromium's
+  `--force-prefers-reduced-motion` switch had no effect; `page.emulateMedia({ reducedMotion })`
+  after `firstWindow()` worked. `setContentSize(1600, 1000)` gave 1600 x 917: macOS keeps the
+  window within the 1512 x 949 work area. `page.setViewportSize()` then gave 1600 x 1000. The
+  user agent was Chrome's (`… Chrome/152.0.7977.130 Safari/537.36`).
+- **The guard in the main process and in workers.** The preload's guard refused a main-process
+  `fetch()` to a loopback port the spike owned ("digga-e2e guard: refused a connection to
+  127.0.0.1:<port>"). Replacing `worker_threads.Worker` with a subclass that adds the guard's
+  `--import` to each worker's `execArgv`, then calling `syncBuiltinESMExports()`, gave the ES
+  module binding the subclass (`Worker.name` was `GuardedWorker`), and a file worker's connection
+  to the forbidden port was refused while one to the fakes connected. The forbidden listener saw
+  no connection. The context's routes refused a page `fetch()` to the forbidden port.
+- **Relaunch on the same library.** A token saved through `PUT /api/discogs/token` under the mock
+  keychain was `DISCOGS_TOKEN_ENCRYPTED=djEw…` in `secrets.env`; after a quit and a second launch
+  on the same library and userData, `GET /api/discogs/account` answered `tokenSource: "saved"`,
+  `tokenEncrypted: true` and `tokenUsername: "dj"`.
+- **Quitting.** `app.quit()` through `evaluate()` ran `before-quit`: the server logged "stopped"
+  86 ms and 107 ms after the call, and the process exited after 232 ms and 235 ms. No kill was
+  needed. The rehearsal's 20 s exits came after `browser.close()` over CDP.
+- **userData and the preload's refusal.** With `--user-data-dir`, `userData` was that folder,
+  `sessionData` its `Chromium` folder (decision 155) and `crashDumps` its `Crashpad` folder. On
+  macOS `HOME` and `TMPDIR` moved neither `appData`, `home`, `downloads` nor `temp`, which stayed
+  the owner's (`~/Library/Application Support`, `~`, `~/Downloads`, `/var/folders/…/T/`); the
+  spike did not open or list them. Started with `--user-data-dir` in a second mktemp folder outside
+  `DIGGA_E2E_TEMP_ROOT`, the preload printed "digga-e2e preload: refused to start: userData … is
+  not inside the test's folder" and Electron exited with 78 after 133 ms. Electron had created the
+  userData folder before the preload ran; it was empty. In the first suite run the check refused
+  every launch: Electron reports userData as `/private/var/folders/…`, the test's folder is under
+  `/var/folders/…`, so the preload compares real paths.
+- **Not covered.** The packaged app's `-r` behaviour (no packaged build exists), Windows and
+  Linux, the real keychain, and `safeStorage` under the basic store on Linux.
 
 ## Original status on 2026-10-02
 

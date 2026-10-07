@@ -84,21 +84,20 @@ Triage's stale queue and Twelves' re-judging copy, remain in history only.
 
 ## Electron
 
-First run the spike described in [ELECTRON](ELECTRON.md#startup-order) against the product's
-main process, `electron/main.ts`, which exists now (unpackaged, `vp run electron:dev`), instead
-of a throwaway one: test the guard in the main process and a worker, held first navigation,
-context routes, init scripts, clock, resolver rule, safeStorage round trip on each OS, relaunch,
-and packaged `-r` behavior. Record results in HISTORY before settling the host design. The
-[2026-10-06 rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) already
-covers on macOS: the guard through `NODE_OPTIONS` in the main process and a worker, a `-r`
-preload that a worker does not inherit, the resolver rule, a mock-keychain save, relaunch and
-read, and stubs of `shell.openExternal` and `dialog.showMessageBox` from a `-r` preload.
+The [spike](HISTORY.md#the-electron-spike-electron-unpackaged) ran on 2026-10-07 against the
+product's main process, `electron/main.ts`, unpackaged, with the harness preload
+`tests/e2e/support/electron-preload.cjs`. With the
+[2026-10-06 rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) it settled on
+macOS: the guard in the main process and in workers (the preload wraps `Worker`), the held start
+and first navigation, the context's routes, init scripts and clock installed before the window
+exists, the resolver rule, a mock-keychain save, relaunch and read, the stubs, and quitting
+through `app.quit()`. Packaged `-r` behaviour waits for packaging: no packaged build exists yet.
 
-Then implement the host, preload and product integration with the
-[Electron packaging work](../ELECTRON_PLAN.md), run the shared suite and
-[ELEC-01 through ELEC-13](scenarios/electron.md) on the unpackaged app and inspectable release
-candidate, and add `e2e:electron`. Run on macOS, Windows and Linux; Linux needs `xvfb-run`.
-The fully fused artifact gets only the isolated launch and health check described in ELECTRON.
+Next, implement the host on the preload, run the shared suite and
+[ELEC-01 through ELEC-13](scenarios/electron.md) on the unpackaged app, and add `e2e:electron`.
+Later, with the [Electron packaging work](../ELECTRON_PLAN.md), run them on the inspectable release
+candidate, on macOS, Windows and Linux; Linux needs `xvfb-run`. The fully fused artifact gets only
+the isolated launch and health check described in [ELECTRON](ELECTRON.md).
 
 Where `safeStorage` cannot encrypt, the product saves the token as text and Settings says so
 (decision 152); the scenarios for that state follow from it.
