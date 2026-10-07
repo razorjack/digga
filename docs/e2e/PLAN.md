@@ -13,13 +13,16 @@ scenarios outside Triage completed the Shell, Sandbox, Twelves, Settings and Per
 retired later with sandbox mode (decision 150 in `docs/DECISIONS.md`). On 2026-10-06 Triage's
 remaining P2 scenarios completed the last family, and the cross-layer changes of 2026-10-03 got
 their rows ([history](HISTORY.md#the-triage-p2-scenarios-and-the-2026-10-03-changes-web)). The web
-host, the web P0 set and every specified web scenario are implemented. No current spec uses
+host, the web P0 set and every specified web scenario are implemented. On 2026-10-07 the Electron
+host ran the shared suite on the unpackaged app, with the Electron scenarios it can meet
+([Electron](#electron)). No current spec uses
 `test.fail` or `test.fixme`; the two `test.skip` calls, in SETUP-12 and SET-23, skip on Windows or
 as root, where file permissions do not stop Digga. The observations below still need decisions.
 
 ## Next work
 
-1. Review the full suite for consolidation. The owner chose on 2026-10-02 to implement every P2
+1. The owner's ×10 burn-in of the Electron configuration on a quiet machine ([Electron](#electron)).
+2. Review the full suite for consolidation. The owner chose on 2026-10-02 to implement every P2
    scenario first and to review after that; do not prune before that review.
 
 A slice is complete when its specified behavior is covered, the affected spec passes
@@ -84,20 +87,39 @@ Triage's stale queue and Twelves' re-judging copy, remain in history only.
 
 ## Electron
 
-The [spike](HISTORY.md#the-electron-spike-electron-unpackaged) ran on 2026-10-07 against the
-product's main process, `electron/main.ts`, unpackaged, with the harness preload
-`tests/e2e/support/electron-preload.cjs`. With the
-[2026-10-06 rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) it settled on
-macOS: the guard in the main process and in workers (the preload wraps `Worker`), the held start
-and first navigation, the context's routes, init scripts and clock installed before the window
-exists, the resolver rule, a mock-keychain save, relaunch and read, the stubs, and quitting
-through `app.quit()`. Packaged `-r` behaviour waits for packaging: no packaged build exists yet.
+The [Electron host](ELECTRON.md) runs the shared suite and the Electron-only scenarios on the
+unpackaged app on macOS (`vp run e2e:electron`), built on 2026-10-07 after the
+[spike](HISTORY.md#the-electron-spike-electron-unpackaged). 167 of the 174 shared tests run on
+Electron; the seven `@web` tests and their reasons are in [ELECTRON](ELECTRON.md#the-shared-suite-on-electron).
+ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10, ELEC-11 and ELEC-13 are implemented, and
+GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
 
-Next, implement the host on the preload, run the shared suite and
-[ELEC-01 through ELEC-13](scenarios/electron.md) on the unpackaged app, and add `e2e:electron`.
-Later, with the [Electron packaging work](../ELECTRON_PLAN.md), run them on the inspectable release
-candidate, on macOS, Windows and Linux; Linux needs `xvfb-run`. The fully fused artifact gets only
-the isolated launch and health check described in [ELECTRON](ELECTRON.md).
+Waiting, with what each waits for:
+
+| Work                                                        | Waits for                                                                                                                                                           |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ELEC-03, the token in a real keychain                       | an `executablePath` build from packaging, launched without the mock-keychain switches on a runner with an unlocked keychain                                         |
+| ELEC-07, asking before quitting during a download           | the setup's Electron part that asks first ([FIRST_RUN](../FIRST_RUN.md#electron)); today `before-quit` stops the server without asking                              |
+| ELEC-08, Dock progress, notification and `powerSaveBlocker` | the setup's Electron parts; the preload already records `setProgressBar` and notifications                                                                          |
+| ELEC-09, "Use a dump file I have" with a file dialog        | the setup's file dialog; the preload already stubs `showOpenDialog`. Settings' "From a file" takes a path instead (decision 157)                                    |
+| ELEC-12, the Full Disk Access dialog                        | the packaged app, which needs Full Disk Access to read Brave's history, and the dialog for `HistoryAccessError` ([ELECTRON_PLAN](../ELECTRON_PLAN.md#what-is-left)) |
+| Packaged `-r` behaviour                                     | a packaged, inspectable release candidate; if Electron ignores `-r` there, the `DIGGA_E2E_HOLD` hook in [ELECTRON](ELECTRON.md#startup-order)                       |
+| The suite on the release candidate, Windows and Linux       | packaging; Linux needs `xvfb-run` and a check of `safeStorage` under the basic store                                                                                |
+| The fused artifact's launch and health check                | packaging ([ELECTRON](ELECTRON.md#product-integration-requirements))                                                                                                |
+
+No `test.fail` stands for these: they are features not built yet, not gaps in built ones.
+Running Electron in CI is not planned.
+
+**A ×10 burn-in for the owner.** The whole Electron configuration passed once and at
+`--repeat-each=3` on a loaded machine. Run the ×10 burn-in on a quiet machine:
+
+```sh
+vp build
+npx playwright test --config tests/e2e/playwright.electron.config.ts --repeat-each=10 --workers 4
+```
+
+That is 1,780 tests, about 22 minutes on four workers at the measured rate. Record the outcome in
+HISTORY with the revision, load and duration.
 
 Where `safeStorage` cannot encrypt, the product saves the token as text and Settings says so
 (decision 152); the scenarios for that state follow from it.

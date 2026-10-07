@@ -20,6 +20,8 @@ Search by scenario ID, error or date, or start with:
   the unpackaged app, workers and the guard.
 - [The Electron spike](#the-electron-spike-electron-unpackaged): the held start and navigation, the
   preload's guard in workers, quitting and userData.
+- [The Electron host and its scenarios](#the-electron-host-and-its-scenarios-electron-unpackaged):
+  the shared suite and the ELEC scenarios on the unpackaged app, with durations per host.
 - Original planning records: [product changes](#product-changes-the-harness-needs),
   [running plan](#original-running-plan), [runner choice](#runner-choice-on-2026-09-30),
   [markup audit](#markup-audit-recorded-through-2026-10-02),
@@ -1272,6 +1274,76 @@ behaviour and the other operating systems.
   `/var/folders/…`, so the preload compares real paths.
 - **Not covered.** The packaged app's `-r` behaviour (no packaged build exists), Windows and
   Linux, the real keychain, and `safeStorage` under the basic store on Linux.
+
+### The Electron host and its scenarios (Electron, unpackaged)
+
+Built and measured on 2026-10-07, on the same 10-core Mac with 32 GB (macOS 27.0.1, a 1512 x 982
+point display), Node 24.18.0, Electron 44.5.1 and Playwright 1.63.0 with its Chromium; the final
+runs were at `e6dfa5d`. Four commits: the preload and the spike (`8d34628`), the host, its
+configuration and GUARD-03 (`eb62deb`), the shared suite on Electron (`ad7b0e7`), and ELEC-01,
+ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10, ELEC-11 and ELEC-13 (`e6dfa5d`). Another project
+shared the machine; the one-minute load averages are given with each run, and durations compare
+only within this session.
+
+- **The first run on Electron.** 155 of 170 tests passed at once (4 workers, 122 s, load 3.2 to
+  18.0). The 15 failures were the host's, and none was a product bug:
+  - six A11Y-01 tests: `AxeBuilder.analyze()` opens a page in the context to finish its scan, which
+    Electron refuses (`Target.createTarget: Not supported`); `support/axe.ts` uses axe's legacy
+    mode for a context without a browser;
+  - PER-02, PER-12 and TRI-31, which relaunch on a second library: the host's library check read the
+    first `library:` line of `digga.log`, which keeps every launch's lines; it reads the last;
+  - PER-03's graceful relaunch: the host quit the app while the page still polled `/api/jobs`,
+    whose request failed ("net::ERR_FAILED"). The web host closes its context before it stops the
+    server; the Electron host now blanks the page first;
+  - SET-16 and SET-22, which answer a `confirm()`: Electron shows a page's dialog through
+    `dialog.showMessageBox`, which the preload's stub answered at once with OK, so a dismissed
+    delete went ahead and Playwright's `dialog.dismiss()` found no dialog. The stub leaves a
+    dialog that carries an abort signal (a page's) unanswered, and Playwright's answer reaches it
+    over CDP, as in a browser;
+  - PER-11: the library lock names "the Digga app" in Electron (decision 151), where the test
+    expected "the Digga server"; it takes the name from the `host` fixture now, and its row says
+    so;
+  - PER-10's two tests: `openPage()`, a second window the app never opens; tagged `@web`.
+- **Web only.** Seven of the 174 shared tests are `@web`, each with its reason in the spec: PER-05
+  (`restartServer()`), PER-10 (two, `openPage()`), SHELL-06 (the app always opens `localhost`),
+  SHELL-10 (two; the window keeps history but offers no Back or Forward), and GUARD-02 (a Chromium
+  context of its own, without the app). SHELL-10's row said "Electron if the window keeps
+  history"; it now gives the reason.
+- **Rows corrected.** ELEC-02 said userData holds the token file; the token is in the library's
+  `secrets.env` (decision 152). ELEC-06 said menu items start jobs; they open the Settings tab that
+  starts each job (decision 157). ELEC-01, ELEC-04, ELEC-05, ELEC-10, ELEC-11 and ELEC-13 now say
+  what their tests observe.
+- **Writes outside the test's folder.** During a test the app's processes held open for writing,
+  outside the test's folder, only a file in the real temp folder (`/var/folders/…/T/.com.github.Electron.*`)
+  and macOS's Metal shader cache for the Electron binary (`/var/folders/…/C/com.github.Electron.helper/`),
+  both outside the home folder, where every userData lies. ELEC-02 checks that through `lsof`;
+  it cannot see a file written and closed before.
+- **Quitting.** Over a whole run (183 quits, load 6.0 to 13.5), the server logged "stopped" a median
+  90 ms after `app.quit()` (95th percentile 134 ms, at most 306 ms) and the process exited a median
+  261 ms after it (95th percentile 338 ms, at most 909 ms). The host never needed to kill an app.
+  No Electron or helper process was left after the runs, crash relaunches included.
+- **No product bug, no gap, no product change.** Nothing in `src/` or `electron/` changed, so
+  DECISIONS has no new entry.
+- **Burn-ins before the commits,** on the working tree that became the four commits:
+  `guard.e2e.ts` 20 of 20 on the web project (5 workers) and 30 of 30 on Electron (4 workers),
+  load 2.3 to 4.4; `persistence.e2e.ts`, `shell.e2e.ts` and `accessibility.e2e.ts` 360 of 360 on
+  the web project in 191 s (5 workers, load 4.0 to 13.7) and 300 of 300 on Electron in 239 s
+  (4 workers, load 13.7 to 15.7); `electron.e2e.ts` 90 of 90 on Electron in 46 s (4 workers,
+  load 14.8 to 18.4).
+- **Final runs at `e6dfa5d`,** after `vp build`:
+  - `npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 4`: 178 of 178
+    (167 shared, GUARD-03's two and the ELEC scenarios' nine) in 133 s, load 12.6 to 29.1. Tests
+    took a median 2.0 s (90th percentile 6.2 s, at most 16.1 s, A11Y-01's setup steps); the ELEC
+    tests 1.0 to 1.3 s, ELEC-06 5.1 s, GUARD-03 0.15 s.
+  - The same with `--repeat-each=3`: 534 of 534 in 397 s, load 29.1 to 24.4.
+  - `vp run e2e` (web, 5 workers): 174 of 174 in 94 s with the build, load 24.4 to 13.4; tests
+    took a median 1.5 s (90th percentile 5.9 s, at most 17.0 s).
+  - `vp run verify` passed before each commit, and on each commit's own content, exported from the
+    index into a scratch folder.
+- **Workers.** Four for Electron throughout: each test runs a whole app with its GPU, network and
+  renderer processes, and four kept every page answering at loads up to 29. The load stayed far
+  below the 150 expected, so a ×10 burn-in on a quiet machine is left to the owner
+  ([PLAN](PLAN.md#electron)).
 
 ## Original status on 2026-10-02
 
