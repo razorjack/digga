@@ -52,9 +52,11 @@ guarded(
   },
 );
 
+// Web only: it checks the browser guard in a Chromium context of its own, without the app; the
+// Electron app's context gets the same guard, and ELEC-13 checks it there.
 guarded(
   "GUARD-02 the browser reaches only the allowed origin: no other port, redirect or WebSocket",
-  { tag: ["@GUARD-02", "@P0"] },
+  { tag: ["@GUARD-02", "@P0", "@web"] },
   async ({ browser, forbidden }) => {
     const allowed = await redirectingServer(forbidden.port);
     const log = emptyGuardLog();

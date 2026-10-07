@@ -164,6 +164,23 @@ axe finishes a scan in a blank page it opens in the context, which Electron cann
 (`Target.createTarget: Not supported`). `support/axe.ts` uses axe's legacy mode for a context
 without a browser, Electron's, which also scans the fake player's frames.
 
+## The shared suite on Electron
+
+Every shared test runs on Electron unless it is tagged `@web`, and each `@web` test says why in
+a comment. On 2026-10-07 the web project had 174 tests and the Electron project ran 167 of
+them. The seven `@web` tests cannot apply to the app:
+
+| Test                 | Why it is web only                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| PER-05               | `restartServer()`: the app's server runs in its main process and cannot restart alone                           |
+| PER-10 (two tests)   | `openPage()`: the app opens one window                                                                          |
+| SHELL-06             | the app always opens `localhost`, and its window has no address bar to open `127.0.0.1`                         |
+| SHELL-10 (two tests) | the window keeps history, but neither its menus nor its keys offer Back or Forward                              |
+| GUARD-02             | it checks the browser guard in a Chromium context of its own, without the app; ELEC-13 checks the app's context |
+
+PER-11 runs on both: the library lock names "the Digga server" on the web and "the Digga app"
+on Electron (decision 151), so the test takes the name from the `host` fixture.
+
 ## Quitting
 
 The host blanks the page first, as the web host closes its context first, so none of the page's

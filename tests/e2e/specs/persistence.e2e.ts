@@ -15,7 +15,7 @@ import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, TriagePage, verdictKey, waitForResponses } from "../pages/triage.ts";
 import { judgeKey, TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
-import { expect, test } from "../support/test.ts";
+import { expect, type HostName, test } from "../support/test.ts";
 
 const COLLECTION_PAGE = "GET /users/:user/collection/folders/0/releases";
 
@@ -155,10 +155,16 @@ test(
   },
 );
 
+/** The name the library lock gives each host's server (decision 151). */
+const LIBRARY_HOLDER: Record<HostName, string> = {
+  web: "the Digga server",
+  electron: "the Digga app",
+};
+
 test(
   "PER-11 while the server runs, a command that changes the library is refused, stats and backup run beside it, and a crash's lock does not keep the next start out",
   { tag: ["@PER-11", "@P2"] },
-  async ({ app }) => {
+  async ({ app, host }) => {
     await app.given.verdicts(datedVerdicts([{ release: FIRST_RECORD, status: "snoozed" }]));
     // The server's start copied the database; digga backup must not write the copy beside it.
     await expect.poll(async () => (await backups(app)).backups).toHaveLength(1);
@@ -171,21 +177,23 @@ test(
     const file = /^backup: (\S+decisions-\d{4}-\d{2}-\d{2}\.json\.gz) /m.exec(backup.stdout)?.[1];
     expect(file, backup.stdout).toBeDefined();
 
-    const holder = await refusedRestore(app, file!);
+    const holder = await refusedRestore(app, file!, LIBRARY_HOLDER[host]);
     await app.relaunch({ crash: true });
     // The crashed server's lock is left behind; the new server took it over.
-    const nextHolder = await refusedRestore(app, file!);
+    const nextHolder = await refusedRestore(app, file!, LIBRARY_HOLDER[host]);
     expect(nextHolder).not.toBe(holder);
     expect(await exportedStatus(app, triageKeyOf(FIRST_RECORD))).toBe("snoozed");
   },
 );
 
 /** Runs `digga restore`, which the server's lock refuses; returns the process the lock names. */
-async function refusedRestore(app: DiggaApp, file: string): Promise<string> {
+async function refusedRestore(app: DiggaApp, file: string, holderName: string): Promise<string> {
   const restore = await app.cli(["restore", file]);
   expect(restore.code).toBe(1);
-  const refusal =
-    /^digga: The library is in use by the Digga server \(process (\d+), since \S+\)\. Stop it first\.$/m;
+  const refusal = new RegExp(
+    `^digga: The library is in use by ${holderName} \\(process (\\d+), since \\S+\\)\\. Stop it first\\.$`,
+    "m",
+  );
   const holder = refusal.exec(restore.stderr)?.[1];
   expect(holder, restore.stderr).toBeDefined();
   return holder!;
@@ -246,6 +254,8 @@ test.describe("with an account to import", () => {
   );
 });
 
+// Web only: restartServer() stops the CLI's server alone, and the Electron app's server runs in its
+// main process, which quits with the window.
 test(
   "PER-05 after restartServer() the open page keeps its session without a reload, and the next verdict is saved",
   { tag: ["@PER-05", "@P1", "@web"] },
@@ -319,6 +329,7 @@ test.describe("with a Discogs account and the clock", () => {
   );
 });
 
+// Web only: two pages of the app are two tabs of a browser, and the Electron app opens one window.
 test.describe("two pages of the app", () => {
   /** The server's refusal of a write whose expected verdict another page has replaced. */
   const CHANGED =
@@ -326,7 +337,7 @@ test.describe("two pages of the app", () => {
 
   test(
     "PER-10 an undo in one page is refused once another page has re-judged the record",
-    { tag: ["@PER-10", "@P2"] },
+    { tag: ["@PER-10", "@P2", "@web"] },
     async ({ app }) => {
       app.expectProblems({ apiErrors: [/^DELETE \/api\/verdicts\/\S+ answered 409$/] });
       const triage = new TriagePage(app);
@@ -355,7 +366,7 @@ test.describe("two pages of the app", () => {
 
   test(
     "PER-10 a Twelves change in one page is refused once another page has re-judged the record",
-    { tag: ["@PER-10", "@P2"] },
+    { tag: ["@PER-10", "@P2", "@web"] },
     async ({ app }) => {
       app.expectProblems({ apiErrors: [/^POST \/api\/verdicts answered 409$/] });
       const key = triageKeyOf(FIRST_RECORD);

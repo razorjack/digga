@@ -49,7 +49,7 @@ Priority: **P1**.
 
 `restartServer()` in the middle of a session, once the verdict's stats refresh has answered: the
 open page keeps its record, slip and session count without a reload, and the next verdict is saved
-(**web**)
+(**web**: the Electron app's server runs in its main process and cannot restart alone)
 
 ## Completion contracts
 
@@ -82,7 +82,8 @@ re-judges it a skip, and `D` in the first, which still shows the snooze, is refu
 ("Not saved: …"); the shelf loads again without the record. Vitest covers the server's comparison
 and each page's handling of a `409` with a fake api (`server.test.ts`, `session.test.ts`,
 `twelves.test.ts`); this row checks that the verdict each page expects survives the query string
-or the JSON body to the server's comparison, and what each page then shows
+or the JSON body to the server's comparison, and what each page then shows (**web**: the Electron
+app opens one window)
 
 ## PER-11
 
@@ -90,7 +91,8 @@ Priority: **P2**.
 
 One process owns a library (decision 129). While the server runs, `digga stats` and `digga backup`
 run beside it and exit 0, and `digga restore` of the decisions backup just written exits 1 with
-"digga: The library is in use by the Digga server (process N, since …). Stop it first."; after
+"digga: The library is in use by the Digga server (process N, since …). Stop it first.", which
+names "the Digga app" instead on Electron, whose process holds the lock (decision 151); after
 `relaunch({ crash: true })`, which leaves the lock file behind, the next server starts, and the
 same refusal names its process instead. The test waits for the database copy the server's start
 writes before `digga backup` (PER-02). `tests/library-lock.test.ts` covers the lock itself: a

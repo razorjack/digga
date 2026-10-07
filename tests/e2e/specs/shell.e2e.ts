@@ -253,6 +253,7 @@ test(
   },
 );
 
+// Web only: a browser can be pointed at 127.0.0.1, and the Electron app always opens localhost.
 test(
   "SHELL-06 opened on 127.0.0.1, the page warns and links to the same page on localhost",
   { tag: ["@SHELL-06", "@P2", "@web"] },
@@ -287,6 +288,7 @@ test("SHELL-08 an unknown hash opens Triage", { tag: ["@SHELL-08", "@P2"] }, asy
   await expect(app.page).toHaveTitle(`${page("triage").label} – Digga`);
 });
 
+// Web only: the Electron window has no Back or Forward control, in its menus or on its keys.
 test(
   "SHELL-10 the browser's Back and Forward move between the pages",
   { tag: ["@SHELL-10", "@P2", "@web"] },
@@ -315,6 +317,7 @@ test(
 test.describe("on a first run", () => {
   test.use({ diggaOptions: { template: "empty", listedDump: "bulk" } });
 
+  // Web only, as above.
   test(
     "SHELL-10 the browser's Back and Forward move between the setup's steps",
     { tag: ["@SHELL-10", "@P2", "@web"] },

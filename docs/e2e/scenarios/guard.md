@@ -17,6 +17,8 @@ Priority: **P0**.
 
 A context prepared for a small server the test owns: a request to another loopback port, a redirect
 from the allowed origin to it, and a WebSocket to it all fail, and that port's listener saw nothing
+(**web**: it uses a Chromium context of its own, without the app; ELEC-13 checks the Electron app's
+context)
 
 ## GUARD-03
 

@@ -40,7 +40,8 @@ Retired: the header's sandbox stamp and `#/settings/sandbox` were removed with s
 
 Priority: **P2**.
 
-Opened on `127.0.0.1`, the page shows the warning with the `localhost` link (**web**)
+Opened on `127.0.0.1`, the page shows the warning with the `localhost` link (**web**: the
+Electron app always opens `localhost`, and its window has no address bar)
 
 ## SHELL-07
 
@@ -67,8 +68,8 @@ computed `color-scheme`), survive a reload, and do not restart the Triage queue
 
 Priority: **P2**.
 
-Browser Back and Forward move between pages and setup steps (**web**; Electron if the window keeps
-history)
+Browser Back and Forward move between pages and setup steps (**web**: the Electron window keeps
+history, but neither its menus nor its keys offer Back or Forward)
 
 ## SHELL-11
 
