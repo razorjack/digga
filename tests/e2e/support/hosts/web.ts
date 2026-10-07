@@ -1,7 +1,23 @@
 import path from "node:path";
-import type { Browser, BrowserContext, BrowserContextOptions, Page, Route } from "@playwright/test";
+import type {
+  Browser,
+  BrowserContext,
+  BrowserContextOptions,
+  Page,
+  Route,
+  TestInfo,
+} from "@playwright/test";
 import { videoCatalogue } from "../../fixtures/catalogue.ts";
-import { AppApiClient, type DiggaApp, FakeYouTubeHandle, Given, PageClock } from "../app.ts";
+import {
+  AppApiClient,
+  type DiggaApp,
+  type DiggaHost,
+  FakeYouTubeHandle,
+  Given,
+  PAGE_SETTINGS,
+  PageClock,
+  pasteText,
+} from "../app.ts";
 import { guardContext } from "../browser-guard.ts";
 import { BrowserLog, type ExpectedProblems } from "../browser-log.ts";
 import { type AbortedRequests, abortRequests, type RequestMatch } from "../fault-routes.ts";
@@ -15,15 +31,8 @@ import {
   startDiggaServer,
 } from "../spawn.ts";
 
-/** The same window for every test: the header's breakpoints change accessible names. */
-export const CONTEXT_OPTIONS: BrowserContextOptions = {
-  viewport: { width: 1600, height: 1000 },
-  locale: "en-US",
-  timezoneId: "UTC",
-  colorScheme: "dark",
-  reducedMotion: "reduce",
-  serviceWorkers: "block",
-};
+/** No Digga page registers a service worker; one would bypass the context's routes. */
+export const CONTEXT_OPTIONS: BrowserContextOptions = { ...PAGE_SETTINGS, serviceWorkers: "block" };
 
 export interface WebAppOptions {
   browser: Browser;
@@ -48,7 +57,7 @@ interface Launch {
  * The browser app: the CLI's server in its own process, and a prepared Chromium context. A
  * relaunch replaces both; the library, the problem log and the list of servers stay.
  */
-export class WebApp implements DiggaApp {
+export class WebApp implements DiggaHost {
   readonly given: Given;
   readonly youtube: FakeYouTubeHandle;
   readonly clock: PageClock;
@@ -149,7 +158,7 @@ export class WebApp implements DiggaApp {
   }
 
   async paste(text: string): Promise<void> {
-    await pasteInto(this.page, text);
+    await pasteText(this.page, text);
   }
 
   /**
@@ -212,12 +221,17 @@ export class WebApp implements DiggaApp {
     this.log.expect(problems);
   }
 
-  /** Stops what is running; a relaunch that failed has left nothing. */
+  async undeclaredProblems(): Promise<string[]> {
+    return this.log.undeclared();
+  }
+
+  /** The runner's trace and screenshot options reach the contexts this host creates. */
+  async attachFailureArtifacts(_testInfo: TestInfo): Promise<void> {}
+
   async close(): Promise<void> {
     if (this.#launch) await this.#stop({});
   }
 
-  /** False after a relaunch that failed, when there is no page to read. */
   get running(): boolean {
     return this.#launch !== null;
   }
@@ -258,7 +272,8 @@ export class WebApp implements DiggaApp {
   async #preparePage(origin: string): Promise<{ context: BrowserContext; page: Page }> {
     const context = await this.#options.browser.newContext(CONTEXT_OPTIONS);
     try {
-      await guardContext(context, origin, this.log.guard);
+      const guard = await guardContext(context, this.log.guard);
+      guard.allowOrigin(origin);
       await context.addInitScript(fakeYouTubeScript(videoCatalogue()));
       if (this.#options.clock) await context.clock.install();
       this.log.watch(context);
@@ -324,7 +339,7 @@ class OtherPage implements DiggaApp {
   }
 
   paste(text: string): Promise<void> {
-    return pasteInto(this.page, text);
+    return pasteText(this.page, text);
   }
 
   /** The context's route and page event catch a window opened from any of its pages. */
@@ -347,18 +362,6 @@ class OtherPage implements DiggaApp {
   expectProblems(problems: ExpectedProblems): void {
     this.#app.expectProblems(problems);
   }
-}
-
-/** Dispatches a paste event carrying the text at the page's focused element. */
-async function pasteInto(page: Page, text: string): Promise<void> {
-  await page.evaluate((pasted) => {
-    const data = new DataTransfer();
-    data.setData("text/plain", pasted);
-    const target = document.activeElement ?? document.body;
-    target.dispatchEvent(
-      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
-    );
-  }, text);
 }
 
 /**

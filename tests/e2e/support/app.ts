@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
 import type {
   ListenLogInput,
   ReleaseDetail,
@@ -7,15 +7,27 @@ import type {
 } from "../../../src/shared/api.ts";
 import { tuneSnapshot } from "../../../src/shared/track-identity.ts";
 import type { Job } from "../../../src/shared/types.ts";
-import type { ExpectedProblems } from "./browser-log.ts";
+import type { BrowserLog, ExpectedProblems } from "./browser-log.ts";
 import type { AbortedRequests, RequestMatch } from "./fault-routes.ts";
 import type { FakeLoad, FakePlayerSnapshot } from "./fake-youtube.ts";
 import type { DiggaLibrary, DiggaRun } from "./spawn.ts";
 
 /**
+ * The page every test gets on either host: the header's breakpoints change accessible names, and
+ * dates follow the locale and time zone (docs/e2e/AUTHORING.md#determinism).
+ */
+export const PAGE_SETTINGS = {
+  viewport: { width: 1600, height: 1000 },
+  locale: "en-US",
+  timezoneId: "UTC",
+  colorScheme: "dark",
+  reducedMotion: "reduce",
+} as const;
+
+/**
  * What a test gets: the window under test and the app's own API, whichever host runs it
  * (docs/e2e/HARNESS.md#the-app-host). The web host implements all of it; the Electron host
- * will not have restartServer().
+ * has no restartServer() and no openPage().
  */
 export interface DiggaApp {
   /** The window under test. A relaunch replaces it; page objects read it on each use. */
@@ -76,6 +88,31 @@ export interface DiggaApp {
   abortRequests(match: RequestMatch, options?: { times?: number }): Promise<AbortedRequests>;
   /** Declares problems the test causes on purpose, so the fixture does not fail it for them. */
   expectProblems(problems: ExpectedProblems): void;
+}
+
+/** What a process that ran the app's server printed so far. */
+export interface ProcessOutput {
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+/** A host as the fixture sees it: the test's app, and what the fixture checks and closes. */
+export interface DiggaHost extends DiggaApp {
+  readonly log: BrowserLog;
+  /**
+   * Every process that ran the app's server in this test, the current one last: `digga serve` in
+   * the web host, the main process in the Electron host.
+   */
+  readonly servers: readonly ProcessOutput[];
+  readonly server: ProcessOutput;
+  /** False after a relaunch that failed, when there is no page to read. */
+  readonly running: boolean;
+  /** What went wrong that the test did not declare; the fixture fails the test on any. */
+  undeclaredProblems(): Promise<string[]>;
+  /** The host's own failure artifacts, besides those the fixture attaches for every host. */
+  attachFailureArtifacts(testInfo: TestInfo): Promise<void>;
+  /** Stops what is running; a relaunch that failed has left nothing. */
+  close(): Promise<void>;
 }
 
 /** Typed calls to the app's own /api, for given state and read-back; never another origin. */
@@ -161,6 +198,18 @@ export class Given {
     if (job.status !== "done")
       throw new Error(`reading ${username}'s shop ended ${job.status}: ${job.error ?? ""}`);
   }
+}
+
+/** Dispatches a paste event carrying the text at the page's focused element. */
+export async function pasteText(page: Page, text: string): Promise<void> {
+  await page.evaluate((pasted) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", pasted);
+    const target = document.activeElement ?? document.body;
+    target.dispatchEvent(
+      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  }, text);
 }
 
 /** Reads and drives window.__fakeYouTube in the page. */

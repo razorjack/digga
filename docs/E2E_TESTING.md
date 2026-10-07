@@ -1,8 +1,8 @@
 # End-to-end testing
 
 Digga's E2E suite drives the built app in Chromium against fake Discogs and YouTube services.
-Each test has its own server, temporary library and fake services. The shared suite is designed
-for an Electron host later; only the web host exists today.
+Each test has its own server, temporary library and fake services. The shared suite runs on two
+hosts: the web host, a Chromium tab on `digga serve`, and the Electron host, the unpackaged app.
 
 Read this guide when running, writing or debugging E2E tests. Then read only the documents
 needed for the task. Routine product work does not require loading the full E2E reference.
@@ -32,6 +32,7 @@ Run from the repository root:
 ```sh
 vp run e2e:smoke                 # build, then all implemented @P0 tests on web-chromium
 vp run e2e                       # build, then every implemented web scenario, including P2
+vp run e2e:electron              # build, then the shared suite and the ELEC scenarios on Electron
 vp run verify                   # format, lint, types, unit tests, portability, Svelte, smoke
 
 # After vp build: one scenario or a changed spec's required burn-in
@@ -43,8 +44,12 @@ The direct Playwright commands do not build the client. Include the ID boundary 
 filter: without it, `@TRI-1` also selects TRI-10 to TRI-19. Without a global `vp`, use `npx vp`.
 
 The scripts in [package.json](../package.json) and the
-[Playwright configuration](../tests/e2e/playwright.config.ts) define the runnable suite.
-`e2e:electron` and `e2e:contract` are planned and do not exist yet.
+[Playwright configuration](../tests/e2e/playwright.config.ts) define the runnable suite. The
+default configuration runs the web host only; Electron runs only through `vp run e2e:electron`
+or commands naming
+[playwright.electron.config.ts](../tests/e2e/playwright.electron.config.ts), with fewer workers
+than the web project ([ELECTRON](e2e/ELECTRON.md#running)). `e2e:contract` is planned and does
+not exist yet.
 
 ### CI
 

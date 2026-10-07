@@ -42,9 +42,9 @@ Per-test state goes on top, through documented paths only:
 - **Credentials.** Templates hold none. The `small-account` build passes `DISCOGS_TOKEN` to its
   import commands only. A test that wants a saved token calls `app.given.savedToken(token)`,
   which goes through `PUT /api/discogs/token` before the page opens, so the token lands wherever
-  the host's `Secrets` keeps it: `secrets.env` in the web app and, in the [Electron plan](ELECTRON.md), `safeStorage`. The
-  environment token is `DISCOGS_TOKEN`; the planned Electron `Secrets` must give it the same
-  precedence as the CLI's. A test asks for it with `diggaOptions.environmentToken`, which the
+  the host's `Secrets` keeps it: `secrets.env` in the library, as text in the web app and
+  encrypted with `safeStorage` in the [Electron app](ELECTRON.md#launch), under the mock keychain. The
+  environment token is `DISCOGS_TOKEN`, which wins in both, as in the CLI. A test asks for it with `diggaOptions.environmentToken`, which the
   fixture passes to the server only when it starts with `e2e-` (SET-09).
 - **Decisions.** `app.given` writes verdicts, track marks and listens through the app's own
   `/api` before the page opens. Available helpers: `given.listen()`, `given.verdict()`, which takes the verdict's `decidedAt` so a
@@ -373,8 +373,8 @@ is set about 9 ms after `page.goto()` with no test action at all, so under Playw
 is practically always set and the app would never wait for Space. The init script therefore replaces
 `navigator.userActivation` with an object the harness owns. It turns active on the first trusted
 `keydown` other than Escape, or the first `pointerdown`, which is what the HTML standard counts as
-activation. The app and the fake player read the same flag. The planned other browser hosts
-and Electron reuse it; Electron's planned `autoplayPolicy` does not change the flag. If the Electron shell later skips the Space step
+activation. The app and the fake player read the same flag. The Electron host
+reuses it, as other browser hosts will; Electron's `autoplayPolicy: "no-user-gesture-required"` (`electron/window.ts`) does not change the flag. If the Electron shell later skips the Space step
 because it may autoplay, TRI-02 gets an Electron variant.
 
 `window.__fakeYouTube` lets tests read and drive it: `players()` lists each player's video,
@@ -416,5 +416,7 @@ folder, a `--user-data-dir` in the temp folder (userData holds the log and Chrom
 by default it is the real library folder), `--use-mock-keychain --password-store=basic`, and the
 resolver switch from [HARNESS](HARNESS.md#the-network-and-filesystem-guard), which covers the
 renderer; `NODE_OPTIONS` loads the guard in the main process and its workers. A `-r` preload can
-stub `shell.openExternal` so no browser opens. The
-[Electron rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) shows the commands.
+stub `shell.openExternal` so no browser opens. The harness's own preload holds the app's start
+until a host releases it, so a manual run does not use it. The
+[Electron rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) shows the commands,
+and the [spike](HISTORY.md#the-electron-spike-electron-unpackaged) the launcher's checks.

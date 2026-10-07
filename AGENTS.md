@@ -26,8 +26,9 @@ that change without reloading data.
   and `backup` run beside the server.
 - **Electron, unpackaged:** `vp run electron:dev` runs `electron/main.ts`, which imports
   `createServer` from `src/server/server.ts`, starts it on a free localhost port and opens a
-  `BrowserWindow` at it, on the same library. Packaging, signing and the Electron E2E host come
-  later and must be packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
+  `BrowserWindow` at it, on the same library. `vp run e2e:electron` runs the E2E suite on it.
+  Packaging and signing come later and must be packaging work only, never a rewrite. See
+  `docs/ELECTRON_PLAN.md`.
 
 ## Commands
 
@@ -60,9 +61,15 @@ Install the browser once with `npx playwright install chromium`.
 ```sh
 vp run e2e                       # vp build, then every scenario in tests/e2e/specs/
 vp run e2e:smoke                 # vp build, then the P0 scenarios (part of vp run verify)
+vp run e2e:electron              # vp build, then the shared suite and the ELEC scenarios on Electron
 npx playwright test --config tests/e2e/playwright.config.ts --grep "@TRI-12\b"   # one scenario, after vp build
 npx playwright test --config tests/e2e/playwright.config.ts --repeat-each=10     # a new or changed spec, before its commit
+npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 4 --grep "@TRI-12\b"  # on Electron
 ```
+
+Only `vp run e2e:electron` and commands naming `playwright.electron.config.ts` start Electron;
+`e2e`, `e2e:smoke`, `verify` and CI run the web project. A spec that also runs on Electron passes
+its burn-in on both.
 
 The tests start every Digga process through `spawnDigga()` with a throwaway library in a temp
 folder; they never touch the real library, and they use only fake `e2e-token-*` tokens.
@@ -129,14 +136,17 @@ tools/dump/            streaming loader (parse.ts, convert.ts, load.ts, growing.
 tools/dev/             fake-services.ts: the fake Discogs API, oEmbed and data.discogs.com, which the E2E harness
                        imports and `node tools/dev/fake-services.ts <dump>` serves to rehearse the setup
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
-tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwright.config.ts;
+tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwright.config.ts (web),
+                       playwright.electron.config.ts (Electron, docs/e2e/ELECTRON.md);
                        specs/*.e2e.ts (scenarios, tagged with their IDs and priority); pages/ (page objects:
                        triage, header, twelves, settings, setup, dialogs); fixtures/ (catalogue.ts, the one source of releases,
                        videos and accounts, the generated bulk records included, dump.ts, which writes them
                        as dumps with gzip checkpoints, and decisions.ts, decisions backups for `digga restore`);
                        support/ (test.ts fixtures, app.ts the host interface,
-                       hosts/web.ts, spawn.ts, templates.ts, fake-youtube.ts, guard.ts and browser-guard.ts,
-                       browser-log.ts, fault-routes.ts, live-regions.ts, global-setup.ts); the fake services are
+                       hosts/web.ts, hosts/electron.ts and electron-preload.cjs (the Electron host and the
+                       preload that guards and holds the app), spawn.ts, templates.ts, fake-youtube.ts,
+                       guard.ts and browser-guard.ts, browser-log.ts, fault-routes.ts, listener.ts,
+                       live-regions.ts, global-setup.ts); the fake services are
                        tools/dev/fake-services.ts
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
 ```

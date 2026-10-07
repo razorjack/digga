@@ -2,14 +2,17 @@
 
 Read this when changing process launch, isolation, guards or lifecycle. Start with the [E2E guide](../E2E_TESTING.md)
 and its binding rules. For data and fake services, read [FIXTURES](FIXTURES.md). Electron-specific work also needs
-[ELECTRON](ELECTRON.md); its host is planned, not implemented.
+[ELECTRON](ELECTRON.md), which describes the Electron host.
 
 ## Runner and configuration
 
 The suite uses Playwright Test. [package.json](../../package.json) pins the version, and
-[playwright.config.ts](../../tests/e2e/playwright.config.ts) defines the current projects,
-retries, timeout and artifacts. The [runner comparison](HISTORY.md#runner-choice-on-2026-09-30)
-records the original selection.
+[playwright.config.ts](../../tests/e2e/playwright.config.ts) defines the web project, retries,
+timeout and artifacts. [playwright.electron.config.ts](../../tests/e2e/playwright.electron.config.ts)
+takes the same settings with the Electron project instead, so only `vp run e2e:electron` and
+commands naming that file start Electron ([ELECTRON](ELECTRON.md#running)). Each project sets the
+fixture option `host`, and leaves out the tests tagged for the other host. The
+[runner comparison](HISTORY.md#runner-choice-on-2026-09-30) records the original selection.
 
 Tests end in `.e2e.ts`, with `testDir: "specs"` and `testMatch: "**/*.e2e.ts"`; Vitest only
 loads `tests/**/*.test.ts`. `tsconfig.e2e.json` includes the DOM library for the fake YouTube
@@ -53,9 +56,10 @@ Playwright worker (Node; several run in parallel)
  |                                       request log, fault injection, transfer checkpoints
  |- app host
  |    web:      spawns the guarded CLI server, then opens a prepared Chromium context
+ |    electron: launches the app with the harness preload, prepares its context, then its window
  '- test -> page objects -> app.page
 
-Page (Chromium tab; BrowserWindow with the planned Electron host)
+Page (Chromium tab; the app's BrowserWindow with the Electron host)
  |- prepared before the app's first script: fake YouTube API, routes, clock
  '- Digga client -> /api -> Digga server -> SQLite in the temp library -> fake services
 ```
@@ -121,9 +125,12 @@ fakes keep answering until the server has exited. The temp folder is deleted aft
 
 ### The app host
 
-Tests receive a `DiggaApp` and never touch `browser` or `context` directly. The web host
-implements it today. The planned [Electron host](ELECTRON.md) will use the same contract,
-except for web-only operations.
+Tests receive a `DiggaApp` and never touch `browser` or `context` directly. The web host and the
+[Electron host](ELECTRON.md#shared-host-contract) implement it; the Electron host has no
+`restartServer()` and no `openPage()`. The fixture sees each host as a `DiggaHost`, which adds
+the problem log, the server processes' output (`app.servers`, the current one `app.server`) and
+closing. A test that needs to know the host destructures the `host` fixture (`"web"` or
+`"electron"`), as PER-11 does for the name the library lock gives the server.
 
 The authoritative interface, API client, given-state helpers, YouTube handle and page clock
 are in [support/app.ts](../../tests/e2e/support/app.ts). Read the signatures there when using
@@ -147,8 +154,8 @@ restores the decisions backup `digga backup` wrote into a fresh `small` library 
 test's folder, with every library in it, is deleted after the app has stopped.
 
 **Another page.** `app.openPage()` opens a second page of the app on the same server, blank until
-its `open()`: in the web host a new page in the same browser context, as a second tab; the planned
-Electron host would open a second window. It returns a `DiggaApp` for that page, so page objects
+its `open()`: in the web host a new page in the same browser context, as a second tab. The
+Electron app opens one window, so the Electron host has no `openPage()`, and PER-10 is `@web`. It returns a `DiggaApp` for that page, so page objects
 built on it act there, with its own fake player and clock handles, while the server, library, API,
 given state and problem log are the app's. The context's guard, routes, init scripts and
 collectors cover it. `relaunch()` closes it, and it cannot relaunch the app or restart the server
@@ -175,7 +182,7 @@ restarted" rather than moving to another port, where the page could not follow.
 
 - `expectExternalOpen()` installs its interception before the action: in the web host a context
   route that answers the external URL with an empty page and the `page` event that captures the
-  popup. The planned Electron host uses a stub of `shell.openExternal`. It returns once the URL is known. The web
+  popup. The Electron host reads what the preload's stub of `shell.openExternal` recorded. It returns once the URL is known. The web
   host's route matches every URL outside the app's origin, answers the window's page and nothing
   else the window asks for (`404`), and is removed once the window is closed, so the URL neither
   reaches the network nor counts as refused, while an external URL the app opens outside the
@@ -185,11 +192,12 @@ restarted" rather than moving to another port, where the page could not follow.
 - `expectDownload()` resolves only when the download has completed: in the web host it arms the
   page's `download` event before the action and awaits `download.saveAs()` into `downloads/` in
   the test's output folder, which resolves once the download has completed and rejects for one
-  that failed. In the planned Electron host the `will-download` handler sets that path and waits for
-  `done` with state `completed`. SET-20 covers the web implementation.
+  that failed. In the Electron host the preload's `will-download` handler saves the file in
+  `downloads/` in the test's folder, and the host waits for `done` with state `completed`. SET-20
+  covers both, ELEC-05 the Electron handler.
 - `paste()` dispatches a synthetic `ClipboardEvent` with a `DataTransfer`, which is what Digga's
   `onpaste` handlers read. It needs no clipboard permission and never touches the OS clipboard,
-  so parallel workers do not interfere and the planned Electron host can use the same helper. The suite does not press
+  so parallel workers do not interfere and the Electron host uses the same helper. The suite does not press
   `ControlOrMeta+V`: the browser would read the OS clipboard, which workers and the developer
   share. That the browser turns the key into a paste event is the browser's behaviour.
 
@@ -203,7 +211,11 @@ starts. A reload after the fact cannot undo a request that already left.
   is prepared with the routes, the fake YouTube init script, blocked service workers and, if the
   test asks for it, the clock. Only then does the host call `page.goto()`.
 
-For the planned Electron preload and held navigation, see [Electron startup](ELECTRON.md#startup-order).
+- **Electron.** The fakes start; the library is prepared; the app starts with the harness preload,
+  which installs the guard and holds the app's start; the context is prepared as for the web; the
+  app starts its server and its window, whose first navigation the preload holds; the given state
+  goes through the API; the navigation is released to a blank page; the host calls `page.goto()`
+  in `open()`. [Electron startup](ELECTRON.md#startup-order) gives the reasons for each step.
 
 ### Service configuration
 
@@ -222,14 +234,15 @@ The harness supplies all three URLs from its fake services before starting any p
   passed as `DISCOGS_TOKEN` (the "token from the environment" state, where Settings disables the
   field and the route answers `409`).
 - The fake fails any request with a token that does not start with `e2e-`.
-- The Electron app uses `safeStorage`; see [Electron](ELECTRON.md#launch-and-release-builds) for keychains in CI.
+- The Electron app encrypts a saved token with `safeStorage`, under the mock keychain in the
+  tests; see [Electron](ELECTRON.md#launch).
 
 ### The network and filesystem guard
 
 The guard fails closed at runtime in every process that could reach the network. The layers
 overlap on purpose.
 
-1. **Node processes** (the CLI server and commands, and, in the plan, Electron's main process). A module
+1. **Node processes** (the CLI server and commands, and Electron's main process). A module
    patches `net.Socket.prototype.connect` to allow loopback addresses at the fake services' exact
    port and nothing else; listening is unaffected. The TCP clients Node ships connect through it
    (fetch and undici, `http`, `https`, `tls`, `net`), so a redirect to another host or an IP
@@ -237,9 +250,12 @@ overlap on purpose.
    not be. The patch reads both call forms: `http` and `https` pass `path: null`, so a pipe is
    recognised by a truthy `path`, and `net.connect()` passes its normalised arguments as an
    array. CLI processes load it with `NODE_OPTIONS=--import=<guard>`, and their worker threads
-   inherit it. The dump-load worker makes no requests. Electron needs the separate
-   [preload guard](ELECTRON.md#startup-order), which workers do not inherit from a `-r` preload.
-2. **Context routes.** The base route lets through the app's exact origin, and the same port on
+   inherit it. The dump-load worker makes no requests. Playwright removes `NODE_OPTIONS` from an
+   Electron launch, so the [harness preload](ELECTRON.md#the-harness-preload) loads the guard and
+   makes each worker import it first, since workers do not inherit a module a `-r` preload loaded.
+2. **Context routes.** The base route lets nothing through until the host allows the app's origin
+   (`guardContext()` returns the guard, and `allowOrigin()` opens it), since the Electron host
+   installs it before its server has a port. It then lets through the app's exact origin, and the same port on
    `127.0.0.1`, where SHELL-06 opens the app to see its warning, and aborts everything else,
    recording the URL; the fixture fails a test that has aborts it did not declare. In
    Chromium, Playwright does not route the requests that follow a redirect, so the base route
@@ -262,7 +278,8 @@ overlap on purpose.
    `--host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1"`, so no
    other host name or IP literal resolves. This covers what Playwright does not route, such as
    preconnects. `127.0.0.1` stays resolvable for SHELL-06; routes still allow only the app's port there.
-   The Electron plan applies the same switch to cover `electron.net`. Future Firefox and
+   The Electron host passes the same switch (`HOST_RESOLVER_RULES` in `browser-guard.ts`), which
+   also covers `electron.net`. Future Firefox and
    WebKit projects have no such switch and must rely on routes.
 4. **The harness's own requests.** `app.api` and the health probe accept only the test's origin
    and use `redirect: "error"`.

@@ -24,11 +24,12 @@ of a particular run. New scenarios get new IDs; keep existing IDs when moving do
 [CI](../../E2E_TESTING.md#ci) runs every implemented web test, P0 through P2, on every push, as
 `vp run e2e` does locally. The owner decided on 2026-10-02 against scheduled or nightly runs, and
 on 2026-10-03 that burn-ins run locally, not in CI. Use the [current commands](../../E2E_TESTING.md#running);
-Electron and contract scripts do not exist yet.
+`vp run e2e:electron` runs the Electron host, locally only, and the contract script does not
+exist yet.
 
 The target is shared web/Electron coverage unless a specification says web or Electron only.
-Shared target describes the design; only the web host exists. Specs use tags such as
-`{ tag: ["@TRI-12", "@P0"] }`; `@web` and `@electron` mark host restrictions.
+Specs use tags such as `{ tag: ["@TRI-12", "@P0"] }`; `@web` and `@electron` mark host
+restrictions. A test tagged `@web` says in a comment why it cannot apply to Electron.
 Named templates and given state apply where stated. A scenario may need several tests for its
 variants, so a test count is not a scenario count.
 

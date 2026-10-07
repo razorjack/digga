@@ -80,8 +80,8 @@ clock 60 s, and the load's ETA changes. Tests that read such text match a patter
 
 Rules:
 
-- Install the clock before the app starts: before `page.goto()` in the web host, before the held
-  navigation is released in the planned Electron host. After `install()` time keeps flowing, so polling runs. A
+- Install the clock before the app starts: before `page.goto()` in the web host, before the app
+  creates its window in the Electron host. After `install()` time keeps flowing, so polling runs. A
   test asks for it with `test.use({ diggaOptions: { clock: true } })`; the host installs it on
   every context it opens, a relaunch's too.
 - A test whose action must land inside a browser timer's window, such as an action before a
@@ -147,7 +147,8 @@ The completion contracts for each page are kept with its scenarios: [triage](sce
 
 ## Determinism
 
-- Viewport 1600 x 1000; the Electron plan uses the same content size. The header hides the ETA
+- Viewport 1600 x 1000 on both hosts (`PAGE_SETTINGS` in `support/app.ts`); the Electron host
+  also sizes the window, which macOS may keep smaller. The header hides the ETA
   from sight at 1180 px and below (`App.svelte`), as `.visually-hidden` does, so accessible names stay the same;
   responsive checks set their own viewport.
 - `locale: "en-US"`, `timezoneId: "UTC"` in the browser; `TZ=UTC` in the server, so backup file
@@ -171,8 +172,10 @@ On failure the fixture attaches, as text where possible:
 - `page.locator("body").ariaSnapshot()`, a YAML view of the accessibility tree that an agent can
   read without opening a trace viewer;
 - a screenshot, and a trace (`trace: "retain-on-failure"`). In the web host these options reach
-  the contexts the host creates with `browser.newContext()`, and Playwright also writes an
-  `error-context.md` with the error and the test's source for an agent to read.
+  the contexts the host creates with `browser.newContext()`. They do not reach an Electron app,
+  so the Electron host attaches the screenshot and a trace of each launch (`trace-launch-1`, …)
+  itself. Playwright also writes an `error-context.md` with the error and the test's source for
+  an agent to read.
 
 Any `pageerror` or unexpected `console.error` fails the test, unless the test declares it. So
 does any `/api` response with a status of 400 or above that the test did not declare, which

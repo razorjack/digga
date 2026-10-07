@@ -19,7 +19,7 @@ const FAILING_RULES = new Set(["landmark-unique", "page-has-heading-one"]);
  * only once it has settled: axe reads the DOM at one moment.
  */
 export async function expectNoAxeViolations(page: Page, state: string): Promise<AxeResults> {
-  const results = await new AxeBuilder({ page }).analyze();
+  const results = await axeFor(page).analyze();
   await attachResults(state, results);
   const failing = results.violations.filter(isFailing);
   expect(failing.map(describeViolation), `axe violations in ${state}`).toEqual([]);
@@ -33,7 +33,7 @@ export async function expectNoAxeViolations(page: Page, state: string): Promise<
 export async function expectLightContrast(page: Page, state: string): Promise<AxeResults> {
   await emulateColorScheme(page, "light");
   try {
-    const results = await new AxeBuilder({ page }).withRules(["color-contrast"]).analyze();
+    const results = await axeFor(page).withRules(["color-contrast"]).analyze();
     await attachResults(`${state} (light)`, results);
     const failing = results.violations.filter(isFailing);
     expect(failing.map(describeViolation), `axe violations in ${state} (light)`).toEqual([]);
@@ -72,6 +72,14 @@ async function emulateColorScheme(page: Page, scheme: "light" | "dark"): Promise
     before,
     { polling: 50 },
   );
+}
+
+/**
+ * axe finishes a scan in a blank page it opens in the context. An Electron context, which has no
+ * browser, cannot open one, so its scans use axe's legacy mode, which also reads every frame.
+ */
+function axeFor(page: Page): AxeBuilder {
+  return new AxeBuilder({ page }).setLegacyMode(page.context().browser() === null);
 }
 
 function isFailing(violation: Violation): boolean {

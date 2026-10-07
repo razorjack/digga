@@ -1,4 +1,5 @@
 import { defineConfig, type ReporterDescription } from "@playwright/test";
+import { HOST_RESOLVER_RULES } from "./support/browser-guard.ts";
 
 /**
  * The end-to-end suite (docs/E2E_TESTING.md). Run it through `vp run e2e`, which builds the client
@@ -6,11 +7,6 @@ import { defineConfig, type ReporterDescription } from "@playwright/test";
  */
 
 const CI = Boolean(process.env.CI);
-
-// No host name but localhost resolves in the browser; the context routes then allow only the
-// app's port. 127.0.0.1 stays resolvable for the scenario that opens the app there.
-const HOST_RESOLVER_RULES =
-  "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1";
 
 export default defineConfig({
   testDir: "specs",

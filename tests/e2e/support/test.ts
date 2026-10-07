@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test as base, expect, type TestInfo } from "@playwright/test";
+import {
+  test as base,
+  type Browser as PlaywrightBrowser,
+  expect,
+  type TestInfo,
+} from "@playwright/test";
 import type { Browser } from "../../../src/shared/api.ts";
 import { type Config, ConfigSchema } from "../../../src/shared/config.ts";
 import type { DecisionsBackup } from "../../../src/shared/decisions-backup.ts";
@@ -19,6 +24,8 @@ import {
   writeDump,
 } from "../fixtures/dump.ts";
 import { FakeServices, memoryDump, type ServiceUrls } from "../../../tools/dev/fake-services.ts";
+import type { DiggaHost } from "./app.ts";
+import { ElectronApp, type HeldApp } from "./hosts/electron.ts";
 import { WebApp } from "./hosts/web.ts";
 import { type DiggaEnvironment, type DiggaLibrary, runDiggaOrThrow } from "./spawn.ts";
 import { copyTemplate, type TemplateName, Templates, updateConfig } from "./templates.ts";
@@ -69,6 +76,11 @@ export interface DiggaOptions {
    * Full Disk Access on macOS. POSIX only, and not as root, whom permissions do not stop.
    */
   unreadableBrowsers: Browser[];
+  /**
+   * Electron only: runs while the window's first navigation is held, with the server running and
+   * nothing loaded (ELEC-10, ELEC-13).
+   */
+  beforeRelease: ((held: HeldApp) => Promise<void>) | null;
 }
 
 const DEFAULT_OPTIONS: DiggaOptions = {
@@ -84,7 +96,11 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   decisionsBackup: null,
   browserHistory: [],
   unreadableBrowsers: [],
+  beforeRelease: null,
 };
+
+/** Which host runs the app: a Chromium tab on `digga serve`, or the Electron app. */
+export type HostName = "web" | "electron";
 
 interface TestFixtures {
   /** What a test changes from DEFAULT_OPTIONS. */
@@ -92,7 +108,7 @@ interface TestFixtures {
   fakes: FakeServices;
   /** The test's folder in the run's temp root, deleted after the app has stopped. */
   testFolder: string;
-  app: WebApp;
+  app: DiggaHost;
   /**
    * Another library in the test's folder, copied from a template with the default test config.
    * `app.cli(args, { library })` prepares it and `app.relaunch({ library })` moves the app to it
@@ -102,12 +118,16 @@ interface TestFixtures {
 }
 
 interface WorkerFixtures {
+  host: HostName;
   runRoot: string;
   templates: Templates;
+  /** The worker's Chromium for the web host, launched on first use, so Electron workers have none. */
+  webBrowser: () => Promise<PlaywrightBrowser>;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   diggaOptions: [{}, { option: true }],
+  host: ["web", { option: true, scope: "worker" }],
 
   runRoot: [
     // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
@@ -128,6 +148,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     { scope: "worker" },
   ],
 
+  webBrowser: [
+    async ({ playwright, browserName }, use) => {
+      const launched: { browser?: Promise<PlaywrightBrowser> } = {};
+      // Playwright's own worker fixture gives this launch the project's launch options.
+      await use(() => (launched.browser ??= playwright[browserName].launch()));
+      if (launched.browser) await (await launched.browser).close();
+    },
+    { scope: "worker" },
+  ],
+
   // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
   fakes: async ({}, use) => {
     const fakes = await FakeServices.start();
@@ -142,7 +172,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   app: async (
-    { browser, fakes, templates, runRoot, testFolder: folder, diggaOptions },
+    { host, webBrowser, fakes, templates, runRoot, testFolder: folder, diggaOptions },
     use,
     testInfo,
   ) => {
@@ -172,13 +202,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       const file = writeDecisionsBackup(path.join(folder, "given"), options.decisionsBackup);
       await runDiggaOrThrow(["restore", file], environment);
     }
-    const app = await WebApp.launch({
-      browser,
-      savedToken: options.savedToken,
-      clock: options.clock,
-      outputDir: testInfo.outputDir,
-      environment,
-    });
+    const app = await launchHost(host, { options, environment, folder, webBrowser, testInfo });
     // Locked once the server runs, which reads the folders only when the page asks.
     const unlocks = options.unreadableBrowsers.map((browser) => lockBrowserFolder(home, browser));
 
@@ -186,7 +210,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
     // A folder without permissions could not be deleted.
     for (const unlock of unlocks) unlock();
-    const problems = [...app.log.undeclared(), ...fakes.violations];
+    const problems = [...(await app.undeclaredProblems()), ...fakes.violations];
     if (problems.length > 0 || testInfo.status !== testInfo.expectedStatus)
       await attachArtifacts(app, fakes, testInfo);
     await app.close();
@@ -207,6 +231,36 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     });
   },
 });
+
+/** The app on the project's host, prepared with the test's options (docs/e2e/HARNESS.md#the-app-host). */
+async function launchHost(
+  host: HostName,
+  launch: {
+    options: DiggaOptions;
+    environment: DiggaEnvironment;
+    folder: string;
+    webBrowser: () => Promise<PlaywrightBrowser>;
+    testInfo: TestInfo;
+  },
+): Promise<DiggaHost> {
+  const { options, environment } = launch;
+  if (host === "electron")
+    return ElectronApp.launch({
+      environment,
+      testFolder: launch.folder,
+      savedToken: options.savedToken,
+      clock: options.clock,
+      beforeRelease: options.beforeRelease,
+    });
+  if (options.beforeRelease) throw new Error("beforeRelease applies to the Electron app only");
+  return WebApp.launch({
+    browser: await launch.webBrowser(),
+    savedToken: options.savedToken,
+    clock: options.clock,
+    outputDir: launch.testInfo.outputDir,
+    environment,
+  });
+}
 
 /** Only a fake token may reach a Digga process (docs/e2e/HARNESS.md#secrets-and-the-discogs-token). */
 function checkedToken(token: string | null): string | undefined {
@@ -231,7 +285,7 @@ function testConfig(config: Config, options: DiggaOptions): Config {
 
 /** Text an agent can read without a trace viewer (docs/e2e/AUTHORING.md#failure-artifacts). */
 async function attachArtifacts(
-  app: WebApp,
+  app: DiggaHost,
   fakes: FakeServices,
   testInfo: TestInfo,
 ): Promise<void> {
@@ -259,4 +313,5 @@ async function attachArtifacts(
       body: app.log.guard.fetchFailures.join("\n"),
       contentType: "text/plain",
     });
+  await app.attachFailureArtifacts(testInfo);
 }

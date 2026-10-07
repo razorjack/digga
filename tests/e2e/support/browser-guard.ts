@@ -14,30 +14,48 @@ export function emptyGuardLog(): BrowserGuardLog {
 }
 
 /**
+ * Chromium's switch for the browser and the Electron app: no host name but localhost resolves, so
+ * what the routes never see, such as a preconnect or electron.net, goes nowhere. 127.0.0.1 stays
+ * resolvable for the scenario that opens the app there; the routes allow only the app's port.
+ */
+export const HOST_RESOLVER_RULES =
+  "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1";
+
+/** The guard of one context, which lets nothing through until it knows the app's origin. */
+export interface ContextGuard {
+  allowOrigin(origin: string): void;
+}
+
+/**
  * The browser's layers of the network guard (docs/e2e/HARNESS.md#the-network-and-filesystem-guard).
  * Only the app's exact origin, and the same server on 127.0.0.1 (SHELL-06), gets through, and the
  * harness fetches those requests itself with redirects refused, since
  * Playwright does not route the requests that follow a redirect in Chromium. Every WebSocket is
- * closed. Routes registered later call route.fallback() for what they do not handle.
+ * closed. Routes registered later call route.fallback() for what they do not handle. The Electron
+ * host installs the guard before its server has a port, so the origin is allowed afterwards.
  */
 export async function guardContext(
   context: BrowserContext,
-  origin: string,
   log: BrowserGuardLog,
-): Promise<void> {
+): Promise<ContextGuard> {
   await context.routeWebSocket(/.*/, (webSocket) => {
     log.webSockets.push(webSocket.url());
     void webSocket.close();
   });
-  const allowed = appOrigins(origin);
+  const allowed = new Set<string>();
   await context.route("**/*", (route) => passAppRequest(route, allowed, log));
+  return {
+    allowOrigin(origin) {
+      for (const appOrigin of appOrigins(origin)) allowed.add(appOrigin);
+    },
+  };
 }
 
 /** The app's origin, and the same port on the address the server binds, where the app warns. */
-function appOrigins(origin: string): Set<string> {
+function appOrigins(origin: string): string[] {
   const address = new URL(origin);
   address.hostname = "127.0.0.1";
-  return new Set([origin, address.origin]);
+  return [origin, address.origin];
 }
 
 async function passAppRequest(

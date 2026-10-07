@@ -62,7 +62,7 @@ export function spawnDigga(
   const stdio = options.ipc ? ["ignore", "pipe", "pipe", "ipc"] : ["ignore", "pipe", "pipe"];
   return spawn(process.execPath, [CLI, ...args], {
     cwd: environment.cwd,
-    env: buildEnvironment(environment),
+    env: { ...diggaVariables(environment), NODE_OPTIONS: `--import=${GUARD}` },
     stdio: stdio as ("ignore" | "pipe" | "ipc")[],
   });
 }
@@ -158,7 +158,11 @@ export class DiggaServer {
   }
 }
 
-function buildEnvironment(environment: DiggaEnvironment): NodeJS.ProcessEnv {
+/**
+ * A Digga process's whole environment, built from nothing; the guard's allowed port is in it, but
+ * how the guard is loaded is the launcher's part.
+ */
+export function diggaVariables(environment: DiggaEnvironment): NodeJS.ProcessEnv {
   const inherited = INHERITED.filter((name) => process.env[name] !== undefined).map(
     (name) => [name, process.env[name]] as const,
   );
@@ -180,14 +184,13 @@ function buildEnvironment(environment: DiggaEnvironment): NodeJS.ProcessEnv {
     TZ: "UTC",
     LANG: "en_US.UTF-8",
     DIGGA_LOG_LEVEL: "debug",
-    NODE_OPTIONS: `--import=${GUARD}`,
     DIGGA_E2E_ALLOWED_PORT: String(environment.allowedPort),
     ...(environment.token === undefined ? {} : { DISCOGS_TOKEN: environment.token }),
   };
 }
 
 /** The check that keeps the real library safe: it runs before the process exists. */
-function checkPaths(args: string[], environment: DiggaEnvironment): void {
+export function checkPaths(args: string[], environment: DiggaEnvironment): void {
   const { root, cwd, home, library } = environment;
   const named = { cwd, home, ...library };
   for (const [name, value] of Object.entries(named)) assertInside(root, value, name);
@@ -196,19 +199,19 @@ function checkPaths(args: string[], environment: DiggaEnvironment): void {
     throw new Error("digga dump census without --out writes the shipped census in the repository");
 }
 
-function assertInside(root: string, value: string, name: string): void {
+export function assertInside(root: string, value: string, name: string): void {
   const relative = path.relative(root, value);
   if (!path.isAbsolute(value) || relative.startsWith("..") || path.isAbsolute(relative))
     throw new Error(`${name} (${value}) is not inside the run's temp root ${root}`);
 }
 
-interface CollectedOutput {
+export interface CollectedOutput {
   stdout(): string;
   stderr(): string;
   all(): string;
 }
 
-function collectOutput(child: ChildProcess): CollectedOutput {
+export function collectOutput(child: ChildProcess): CollectedOutput {
   const streams = { stdout: "", stderr: "", all: "" };
   child.stdout?.on("data", (chunk) => {
     streams.stdout += String(chunk);
@@ -246,11 +249,11 @@ function lineAfter(lines: string[], prefix: string): string | undefined {
     .trim();
 }
 
-function exited(child: ChildProcess): Promise<number | null> {
+export function exited(child: ChildProcess): Promise<number | null> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(child.exitCode);
   return new Promise((resolve) => child.once("exit", (code) => resolve(code)));
 }
 
-function timeout(ms: number): Promise<"timeout"> {
+export function timeout(ms: number): Promise<"timeout"> {
   return new Promise((resolve) => setTimeout(() => resolve("timeout"), ms));
 }

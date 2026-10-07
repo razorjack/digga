@@ -1,15 +1,18 @@
+import { spawn } from "node:child_process";
+import fs from "node:fs";
 import http from "node:http";
-import net from "node:net";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { TriagePage } from "../pages/triage.ts";
 import { emptyGuardLog, guardContext } from "../support/browser-guard.ts";
+import {
+  closeServer,
+  type CountingListener,
+  countingListener,
+  listen,
+} from "../support/listener.ts";
 import { expect, test } from "../support/test.ts";
-
-/** A loopback listener the test owns, never Digga's port 3456; it counts who connects. */
-interface CountingListener {
-  port: number;
-  connections(): number;
-  close(): Promise<void>;
-}
 
 const guarded = test.extend<{ forbidden: CountingListener }>({
   // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
@@ -56,7 +59,8 @@ guarded(
     const allowed = await redirectingServer(forbidden.port);
     const log = emptyGuardLog();
     const context = await browser.newContext();
-    await guardContext(context, allowed.origin, log);
+    const guard = await guardContext(context, log);
+    guard.allowOrigin(allowed.origin);
     const page = await context.newPage();
     await page.goto(`${allowed.origin}/`);
 
@@ -94,14 +98,59 @@ guarded(
   },
 );
 
-async function countingListener(): Promise<CountingListener> {
-  let connections = 0;
-  const server = net.createServer((socket) => {
-    connections += 1;
-    socket.destroy();
+/** The test's folder holds the folder the preload allows and, beside it, one it must refuse. */
+for (const outside of ["userData", "DIGGA_DATA_DIR"] as const)
+  test(
+    `GUARD-03 the Electron preload refuses to start with ${outside} outside the test's folder`,
+    { tag: ["@GUARD-03", "@P0", "@electron"] },
+    async ({ testFolder }) => {
+      const allowed = path.join(testFolder, "allowed");
+      const elsewhere = path.join(testFolder, "elsewhere");
+      const userData = path.join(outside === "userData" ? elsewhere : allowed, "user-data");
+      const dataDir = path.join(outside === "DIGGA_DATA_DIR" ? elsewhere : allowed, "library");
+
+      const run = await startElectron({ root: allowed, userData, dataDir });
+
+      expect(run.code).toBe(78);
+      expect(run.stderr).toContain(
+        `digga-e2e preload: refused to start: ${outside} (${outside === "userData" ? fs.realpathSync(userData) : dataDir}) is not inside the test's folder (${allowed})`,
+      );
+      // Electron creates the userData folder before the preload runs; nothing is written into it.
+      expect(fs.readdirSync(userData)).toEqual([]);
+      expect(fs.existsSync(dataDir)).toBe(false);
+    },
+  );
+
+/**
+ * Starts the Electron app with the harness preload and nothing else of the host, so the preload's
+ * own check is all that stands between the app and the folders it is given.
+ */
+async function startElectron(folders: {
+  root: string;
+  userData: string;
+  dataDir: string;
+}): Promise<{ code: number | null; stderr: string }> {
+  const electron = createRequire(import.meta.url)("electron") as string;
+  const preload = fileURLToPath(new URL("../support/electron-preload.cjs", import.meta.url));
+  const appDir = fileURLToPath(new URL("../../../", import.meta.url));
+  fs.mkdirSync(folders.root, { recursive: true });
+  const child = spawn(electron, ["-r", preload, appDir, `--user-data-dir=${folders.userData}`], {
+    cwd: folders.root,
+    env: {
+      PATH: process.env.PATH,
+      HOME: folders.root,
+      DIGGA_E2E_TEMP_ROOT: folders.root,
+      DIGGA_DATA_DIR: folders.dataDir,
+    },
+    stdio: ["ignore", "ignore", "pipe"],
   });
-  const port = await listen(server);
-  return { port, connections: () => connections, close: () => closeServer(server) };
+  let stderr = "";
+  child.stderr.on("data", (chunk) => (stderr += String(chunk)));
+  // An app the preload let through would wait for the host at its start; it must not outlive the test.
+  const stray = setTimeout(() => child.kill("SIGKILL"), 10_000);
+  const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+  clearTimeout(stray);
+  return { code, stderr };
 }
 
 /** A page, and a redirect to the forbidden port, as a server bug could send. */
@@ -120,14 +169,4 @@ async function redirectingServer(
     return closeServer(server);
   };
   return { origin: `http://localhost:${port}`, close };
-}
-
-function listen(server: net.Server): Promise<number> {
-  return new Promise((resolve) =>
-    server.listen(0, "127.0.0.1", () => resolve((server.address() as net.AddressInfo).port)),
-  );
-}
-
-function closeServer(server: net.Server): Promise<void> {
-  return new Promise((resolve) => server.close(() => resolve()));
 }
