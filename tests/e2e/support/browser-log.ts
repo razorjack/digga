@@ -13,11 +13,19 @@ export interface ExpectedProblems {
   /** console.error messages, with the page's URL in brackets. */
   consoleErrors?: RegExp[];
   pageErrors?: RegExp[];
+  /** URLs the browser guard refused, as ELEC-13 asks the page for one. */
+  refused?: RegExp[];
 }
 
 type ProblemKind = keyof ExpectedProblems;
 
-const PROBLEM_KINDS: ProblemKind[] = ["aborted", "apiErrors", "consoleErrors", "pageErrors"];
+const PROBLEM_KINDS: ProblemKind[] = [
+  "aborted",
+  "apiErrors",
+  "consoleErrors",
+  "pageErrors",
+  "refused",
+];
 
 /** Chromium logs a failed /api response this way; the API status check reports those. */
 const FAILED_RESPONSE_MESSAGE = "Failed to load resource: the server responded with a status of";
@@ -36,6 +44,7 @@ export class BrowserLog {
     apiErrors: [],
     consoleErrors: [],
     pageErrors: [],
+    refused: this.guard.refused,
   };
   /** The page's /api requests that have neither finished nor failed yet. */
   readonly #inFlight = new Set<Request>();
@@ -45,6 +54,7 @@ export class BrowserLog {
     apiErrors: [],
     consoleErrors: [],
     pageErrors: [],
+    refused: [],
   };
 
   watch(context: BrowserContext): void {
@@ -95,9 +105,9 @@ export class BrowserLog {
 
   /** What the test did not declare; the fixture fails the test on any. */
   undeclared(): string[] {
-    const { refused, redirects, webSockets } = this.guard;
+    const { redirects, webSockets } = this.guard;
     return [
-      ...refused.map((url) => `the browser requested ${url}`),
+      ...this.#undeclared("refused").map((url) => `the browser requested ${url}`),
       ...redirects.map((hop) => `the app redirected ${hop}`),
       ...webSockets.map((url) => `the browser opened a WebSocket to ${url}`),
       ...this.#undeclared("aborted").map((request) => `a fault route aborted ${request}`),

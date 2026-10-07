@@ -1,0 +1,440 @@
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import type { SettingsTab } from "../../../src/client/settings/tabs.ts";
+import { DEFAULT_CONFIG } from "../../../src/shared/config.ts";
+import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
+import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
+import { datedVerdicts } from "../fixtures/decisions.ts";
+import { DJ, FIRST_RECORD, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
+import { SettingsPage } from "../pages/settings.ts";
+import { isRequest, TriagePage } from "../pages/triage.ts";
+import { TwelvesPage } from "../pages/twelves.ts";
+import { ElectronApp } from "../support/hosts/electron.ts";
+import { type CountingListener, countingListener } from "../support/listener.ts";
+import { test as base, expect } from "../support/test.ts";
+
+/** The Electron app's own scenarios (docs/e2e/scenarios/electron.md), on the Electron host only. */
+const test = base.extend<{ electron: ElectronApp }>({
+  electron: async ({ app }, use) => {
+    if (!(app instanceof ElectronApp)) throw new Error("the ELEC scenarios need the Electron host");
+    await use(app);
+  },
+});
+
+test(
+  "ELEC-01 the app serves on a free port bound to 127.0.0.1 and opens its window at localhost",
+  { tag: ["@ELEC-01", "@P0", "@electron"] },
+  async ({ electron }) => {
+    const triage = new TriagePage(electron);
+    const windowUrl = new URL(electron.windowUrl);
+
+    expect(windowUrl.hostname).toBe("localhost");
+    expect(electron.server.stdout).toContain(`listening on http://127.0.0.1:${windowUrl.port}`);
+    // The system chose the port; the config's is where a `digga serve` may already listen.
+    expect(Number(windowUrl.port)).not.toBe(DEFAULT_CONFIG.server.port);
+    const address = otherInterfaceAddress();
+    if (address) expect(await connects(address, Number(windowUrl.port))).toBe(false);
+
+    await electron.open();
+    await expect(triage.record).toBeVisible();
+    expect(new URL(electron.page.url()).origin).toBe(windowUrl.origin);
+  },
+);
+
+test.describe("with a saved token", () => {
+  test.use({ diggaOptions: { savedToken: "e2e-token-dj" } });
+
+  test(
+    "ELEC-02 the library is the one the environment names, userData the one --user-data-dir names, and nothing is written in the home folder",
+    { tag: ["@ELEC-02", "@P1", "@electron"] },
+    async ({ electron, testFolder }) => {
+      const triage = new TriagePage(electron);
+      await electron.open();
+      await expect(triage.record).toBeVisible();
+      const userData = fs.realpathSync(electron.userDataDir);
+      const { dataDir, dumpsDir } = electron.library;
+
+      expect(
+        await electron.electronApp.evaluate(({ app }) => ({
+          userData: app.getPath("userData"),
+          sessionData: app.getPath("sessionData"),
+          crashDumps: app.getPath("crashDumps"),
+        })),
+      ).toEqual({
+        userData,
+        sessionData: path.join(userData, "Chromium"),
+        crashDumps: path.join(userData, "Crashpad"),
+      });
+      expect(fs.readdirSync(userData).sort()).toEqual(["Chromium", "Crashpad", "digga.log"]);
+      const log = fs.readFileSync(path.join(userData, "digga.log"), "utf8");
+      expect(log).toContain(`library: ${dataDir}, dumps: ${dumpsDir}`);
+      // The token file is the library's (decision 152); Chromium's files stay in userData.
+      expect(fs.readdirSync(dataDir).sort()).toEqual([
+        "backups",
+        "digga.config.json",
+        "digga.lock",
+        "digga.sqlite",
+        "digga.sqlite-shm",
+        "digga.sqlite-wal",
+        "secrets.env",
+      ]);
+      const secrets = fs.readFileSync(path.join(dataDir, "secrets.env"), "utf8");
+      expect(secrets).toMatch(/^DISCOGS_TOKEN_ENCRYPTED=/m);
+      expect(secrets).not.toContain("e2e-token-dj");
+      expect(writtenInHomeFolder(electron, testFolder)).toEqual([]);
+    },
+  );
+});
+
+test.describe("with records in Twelves", () => {
+  test.use({
+    diggaOptions: { savedToken: "e2e-token-dj", config: { discogs: { username: DJ.username } } },
+  });
+
+  test(
+    "ELEC-04 O, S, Y and the discogs.com link go to shell.openExternal and open no window",
+    { tag: ["@ELEC-04", "@P1", "@electron"] },
+    async ({ electron }) => {
+      const triage = new TriagePage(electron);
+      const twelves = new TwelvesPage(electron);
+      const second = triageKeyOf(SECOND_RECORD);
+      await electron.given.verdicts(datedVerdicts([{ release: SECOND_RECORD, status: "maybe" }]));
+      await electron.open();
+      const firstSearch = youtubeSearchUrl(
+        `${FIRST_RECORD.artists.join(", ")} ${FIRST_RECORD.title}`,
+      );
+
+      expect(await triage.openOnDiscogs()).toBe(discogsReleaseUrl(FIRST_RECORD.id));
+      expect(await triage.searchYouTube()).toBe(firstSearch);
+      await twelves.open();
+      await twelves.select(second);
+      expect(await twelves.searchYouTube()).toBe(
+        youtubeSearchUrl(`${SECOND_RECORD.artists.join(", ")} ${SECOND_RECORD.title}`),
+      );
+      const link = twelves.record(second).getByRole("link");
+      expect(await electron.expectExternalOpen(() => link.click())).toBe(
+        discogsReleaseUrl(SECOND_RECORD.id),
+      );
+
+      expect(electron.electronApp.windows()).toEqual([electron.page]);
+      expect(
+        await electron.electronApp.evaluate(
+          ({ BrowserWindow }) => BrowserWindow.getAllWindows().length,
+        ),
+      ).toBe(1);
+      expect(electron.page.url()).toMatch(/#\/twelves$/);
+      const opened = [...electron.server.stdout.matchAll(/\] opening (\S+) in the browser$/gm)];
+      expect(opened.map((match) => match[1])).toEqual([
+        discogsReleaseUrl(FIRST_RECORD.id),
+        firstSearch,
+        youtubeSearchUrl(`${SECOND_RECORD.artists.join(", ")} ${SECOND_RECORD.title}`),
+        discogsReleaseUrl(SECOND_RECORD.id),
+      ]);
+    },
+  );
+});
+
+test(
+  "ELEC-05 an export saves through will-download into the folder set for it and completes",
+  { tag: ["@ELEC-05", "@P1", "@electron"] },
+  async ({ electron }) => {
+    const settings = new SettingsPage(electron);
+    await electron.given.verdict({
+      key: triageKeyOf(FIRST_RECORD),
+      status: "candidate",
+      releaseId: FIRST_RECORD.id,
+    });
+    await settings.open("backups");
+
+    const csv = await electron.expectDownload(() =>
+      settings.exports.getByRole("link", { name: "verdicts (CSV)" }).click(),
+    );
+
+    expect(csv.path).toBe(path.join(electron.downloadsDir, csv.name));
+    expect(fs.readFileSync(csv.path, "utf8")).toContain(triageKeyOf(FIRST_RECORD));
+    const { downloads, openDialogs } = await electron.recorded();
+    expect(downloads).toEqual([{ name: csv.name, path: csv.path, state: "completed" }]);
+    expect(openDialogs).toEqual([]);
+    // The app's own will-download handler saw the same download end.
+    await expect
+      .poll(() => electron.server.stdout)
+      .toContain(`download of ${csv.name} completed: ${csv.path}`);
+    expect(electron.page.url()).toMatch(/#\/settings\/backups$/);
+  },
+);
+
+test.describe("with an account to import", () => {
+  test.use({
+    diggaOptions: { savedToken: "e2e-token-dj", config: { discogs: { username: DJ.username } } },
+  });
+
+  test(
+    "ELEC-06 the Library menu opens the Settings tab that starts each job, where the job runs and reports",
+    { tag: ["@ELEC-06", "@P2", "@electron"] },
+    async ({ electron }) => {
+      const settings = new SettingsPage(electron);
+      const menuTabs: [string, SettingsTab][] = [
+        ["Update the Catalogue…", "library"],
+        ["Import from Discogs…", "discogs"],
+        ["Back Up…", "backups"],
+      ];
+      await electron.open();
+
+      for (const [item, tab] of menuTabs) {
+        await clickMenuItem(electron, "Library", item);
+        await expect(electron.page, item).toHaveURL(new RegExp(`#/settings/${tab}$`));
+        await expect(settings.tabLink(tab), item).toHaveAttribute("aria-current", "page");
+      }
+      await clickMenuItem(electron, "Library", "Import from Discogs…");
+      const wantlist = await settings.startJob(
+        settings.imports.getByRole("button", { name: "Wantlist" }),
+      );
+      await settings.waitForJob(wantlist, "done");
+      await expect(settings.job(wantlist)).toContainText(`${DJ.wantlist.length} items`);
+
+      await clickMenuItem(electron, "Library", "Back Up…");
+      const backedUp = electron.page.waitForResponse((response) =>
+        isRequest(response, "POST", "/api/backups"),
+      );
+      await settings.backups.getByRole("button", { name: "Back up now" }).click();
+      expect((await backedUp).ok()).toBe(true);
+      await expect(settings.backups.getByText("Backup saved.", { exact: true })).toBeVisible();
+
+      await clickMenuItem(electron, "Digga", "Settings…");
+      await expect(electron.page).toHaveURL(/#\/settings$/);
+    },
+  );
+});
+
+for (const scheme of ["light", "dark"] as const)
+  test.describe(`with the ${scheme} scheme saved`, () => {
+    const atHold = { themeSource: "" };
+    test.use({
+      diggaOptions: {
+        config: { appearance: { colorScheme: scheme } },
+        beforeRelease: async ({ electronApp }) => {
+          atHold.themeSource = await electronApp.evaluate(
+            ({ nativeTheme }) => nativeTheme.themeSource,
+          );
+        },
+      },
+    });
+
+    test(
+      `ELEC-10 nativeTheme follows the saved ${scheme} scheme before the window loads the app`,
+      { tag: ["@ELEC-10", "@P2", "@electron"] },
+      async ({ electron }) => {
+        const triage = new TriagePage(electron);
+
+        expect(atHold.themeSource).toBe(scheme);
+        // Without the host's emulated scheme the page sees the system's, which nativeTheme sets.
+        await electron.page.emulateMedia({ colorScheme: null });
+        await electron.open();
+        await expect(triage.record).toBeVisible();
+
+        expect(
+          await electron.page.evaluate(
+            (expected) => matchMedia(`(prefers-color-scheme: ${expected})`).matches,
+            scheme,
+          ),
+        ).toBe(true);
+      },
+    );
+  });
+
+test(
+  "ELEC-11 the window's user agent is Chrome's and names neither Electron nor Digga",
+  { tag: ["@ELEC-11", "@P1", "@electron"] },
+  async ({ electron }) => {
+    const triage = new TriagePage(electron);
+    const queueRead = electron.page.waitForRequest((request) =>
+      new URL(request.url()).pathname.startsWith("/api/queue"),
+    );
+    await electron.open();
+    await expect(triage.record).toBeVisible();
+
+    const userAgent = await electron.page.evaluate(() => navigator.userAgent);
+    expect(userAgent).toMatch(/ Chrome\/\d+[\d.]* Safari\/[\d.]+$/);
+    expect(userAgent).not.toMatch(/electron|digga/i);
+    expect(await (await queueRead).headerValue("user-agent")).toBe(userAgent);
+  },
+);
+
+/** What the app was like while its window's first navigation was held. */
+interface HeldState {
+  windows: number;
+  contentsUrl: string;
+  health: number;
+  mainProcess: string;
+  worker: string;
+  releasedAfter: number;
+}
+
+const heldTest = test.extend<{ forbidden: CountingListener; held: HeldState }>({
+  // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
+  forbidden: async ({}, use) => {
+    const listener = await countingListener();
+    await use(listener);
+    await listener.close();
+  },
+  // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
+  held: async ({}, use) => {
+    await use({
+      windows: -1,
+      contentsUrl: "",
+      health: 0,
+      mainProcess: "",
+      worker: "",
+      releasedAfter: 0,
+    });
+  },
+  diggaOptions: async ({ diggaOptions, forbidden, held, testFolder }, use) => {
+    const probe = path.join(testFolder, "connect-probe.mjs");
+    fs.writeFileSync(probe, CONNECT_PROBE);
+    await use({
+      ...diggaOptions,
+      beforeRelease: async ({ electronApp, url }) => {
+        held.windows = electronApp.windows().length;
+        held.contentsUrl = await electronApp.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0]!.webContents.getURL(),
+        );
+        const health = new URL("/api/health", url);
+        health.hostname = "127.0.0.1";
+        held.health = (await fetch(health, { redirect: "error" })).status;
+        held.mainProcess = await electronApp.evaluate(
+          (_electron, port) =>
+            fetch(`http://127.0.0.1:${port}/`).then(
+              () => "connected",
+              (error: Error) => String(error.cause ?? error),
+            ),
+          forbidden.port,
+        );
+        held.worker = await electronApp.evaluate(
+          (_electron, { file, port }) => {
+            const { Worker } = process.getBuiltinModule("node:worker_threads");
+            const worker = new Worker(new URL(file), { workerData: { port } });
+            return new Promise<string>((resolve) => worker.once("message", resolve));
+          },
+          { file: pathToFileURL(probe).href, port: forbidden.port },
+        );
+        held.releasedAfter = Date.now();
+      },
+    });
+  },
+});
+
+heldTest(
+  "ELEC-13 the held window loads nothing and the main process and its workers reach only the fakes; once released, the page has the routes and the fake player",
+  { tag: ["@ELEC-13", "@P1", "@electron"] },
+  async ({ electron, fakes, forbidden, held }) => {
+    const triage = new TriagePage(electron);
+    const refusal = `digga-e2e guard: refused a connection to 127.0.0.1:${forbidden.port}`;
+
+    expect(held).toMatchObject({ windows: 0, contentsUrl: "", health: 200 });
+    expect(held.mainProcess).toContain(refusal);
+    expect(held.worker).toBe(`refused: ${refusal}`);
+    expect(fakes.log.filter((request) => request.arrivedAt <= held.releasedAfter)).toEqual([]);
+
+    await electron.open();
+    await expect(triage.record).toBeVisible();
+    await expect.poll(() => electron.youtube.players()).not.toEqual([]);
+    const forbiddenUrl = `http://localhost:${forbidden.port}/`;
+    electron.expectProblems({
+      refused: [new RegExp(`^${forbiddenUrl}$`)],
+      consoleErrors: [/^Failed to load resource: net::ERR_BLOCKED_BY_CLIENT/],
+    });
+    const fetched = await electron.page.evaluate(
+      (url) =>
+        fetch(url).then(
+          () => "loaded",
+          () => "failed",
+        ),
+      forbiddenUrl,
+    );
+
+    expect(fetched).toBe("failed");
+    expect(electron.log.guard.refused).toEqual([forbiddenUrl]);
+    expect(forbidden.connections()).toBe(0);
+  },
+);
+
+/** A worker that connects to the port it is given and says how that went. */
+const CONNECT_PROBE = `
+import net from "node:net";
+import { parentPort, workerData } from "node:worker_threads";
+const socket = net.connect(workerData.port, "127.0.0.1");
+socket.on("connect", () => {
+  parentPort.postMessage("connected");
+  socket.destroy();
+});
+socket.on("error", (error) => parentPort.postMessage("refused: " + error.message));
+`;
+
+/** Clicks an item of the app's menu bar as a user would, through the main process. */
+async function clickMenuItem(electron: ElectronApp, menu: string, item: string): Promise<void> {
+  await electron.electronApp.evaluate(
+    ({ Menu }, labels) => {
+      const top = Menu.getApplicationMenu()?.items.find((entry) => entry.label === labels.menu);
+      const found = top?.submenu?.items.find((entry) => entry.label === labels.item);
+      if (!found) throw new Error(`the menu has no ${labels.menu} › ${labels.item}`);
+      found.click();
+    },
+    { menu, item },
+  );
+}
+
+/** An address of this machine other than loopback, where a server bound to 127.0.0.1 is absent. */
+function otherInterfaceAddress(): string | undefined {
+  const addresses = Object.values(os.networkInterfaces()).flat();
+  return addresses.find((address) => address?.family === "IPv4" && !address.internal)?.address;
+}
+
+function connects(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.connect(port, host);
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("error", () => resolve(false));
+  });
+}
+
+/**
+ * Files the app's processes hold open for writing in the real home folder, where every userData
+ * Electron could choose lies, outside the test's folder. The macOS caches and temp files the
+ * system keeps for the Electron binary are in /var/folders, outside the home folder. lsof sees
+ * the files open now, not those written and closed before.
+ */
+function writtenInHomeFolder(electron: ElectronApp, testFolder: string): string[] {
+  const home = fs.realpathSync(os.userInfo().homedir);
+  const folder = fs.realpathSync(testFolder);
+  return openForWriting(electron.electronApp.process().pid!).filter(
+    (file) => isInside(home, file) && !isInside(folder, file),
+  );
+}
+
+/** The files a process and its children hold open for writing, from `lsof -F an`. */
+function openForWriting(pid: number): string[] {
+  const children = execFileSync("pgrep", ["-P", String(pid)], { encoding: "utf8" }).trim();
+  const pids = [String(pid), ...children.split("\n").filter(Boolean)];
+  const listing = execFileSync("lsof", ["-n", "-P", "-F", "an", "-p", pids.join(",")], {
+    encoding: "utf8",
+  });
+  const files: string[] = [];
+  let access = "";
+  for (const line of listing.split("\n")) {
+    if (line.startsWith("a")) access = line.slice(1);
+    else if (line.startsWith("n/") && (access === "w" || access === "u")) files.push(line.slice(1));
+  }
+  return files;
+}
+
+function isInside(folder: string, file: string): boolean {
+  const relative = path.relative(folder, file);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}

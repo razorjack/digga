@@ -4,8 +4,9 @@ For the test host, preload and release checks, read the [Electron E2E plan](e2e/
 
 Digga runs in an Electron window on macOS, unpackaged, from this repository: `vp run electron:dev`
 builds the client and starts `electron .`. The main process wraps the server without changing it,
-and the app opens the library the browser version uses. Packaging, signing, notarization and the
-Electron E2E host are still to do; see [What is left](#what-is-left).
+and the app opens the library the browser version uses. The E2E suite runs on it
+(`vp run e2e:electron`). Packaging, signing and notarization are still to do; see
+[What is left](#what-is-left).
 
 ## Main process
 
@@ -139,7 +140,9 @@ start it against the fake services with the guard loaded.
 - **Logs.** `digga.log` grows without rotation. The dump-load and backup workers log to their
   own console, which an unpackaged run prints and a packaged app loses; forwarding their lines to
   the main process's logger is left for packaging.
-- **The Electron E2E host and ELEC scenarios**, and running on Windows and Linux.
+- **The Electron E2E scenarios that need packaging or the setup's Electron parts** (ELEC-03,
+  ELEC-07, ELEC-08, ELEC-09 and ELEC-12, [PLAN](e2e/PLAN.md#electron)), the suite on the
+  inspectable release candidate, and on Windows and Linux.
 - **Auto-update.**
 
 ## What would break each rule
