@@ -39,7 +39,7 @@ vp dev                           # Vite dev server on :5173, proxies /api to :34
 npm run digga -- serve           # Hono server on 127.0.0.1:3456, open http://localhost:3456 (serves dist/ after vp build)
 npm run digga -- serve --port 0  # pick a free port
 vp run electron:dev              # vp build, then the Electron app on the same library (macOS)
-vp run electron:package          # vp build, then the ad-hoc signed app, dmg and inspectable variant in release/
+vp run electron:package          # vp build, the ad-hoc signed app, dmg and inspectable variant in release/, health check
 vp build                         # build the client into dist/
 vp check                         # format + lint + type check (oxfmt, oxlint, tsgolint)
 vp test                          # vitest, tests/**/*.test.ts
@@ -108,7 +108,8 @@ digga.config.example.json  the schema defaults a new digga.config.json starts wi
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
                        FIRST_RUN (the setup's design) STYLE_CENSUS (what it is, how to refresh the shipped one)
                        E2E_TESTING (commands, rules and task routes), e2e/ (task-specific references and scenarios)
-scripts/               check-portability.ts, package-electron.ts (electron-builder, see docs/ELECTRON_PLAN.md)
+scripts/               check-portability.ts, package-electron.ts (electron-builder, see docs/ELECTRON_PLAN.md),
+                       electron-health-check.ts (the fused build starts, answers /api/health and stops)
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
                        the decisions backup format (decisions-backup), the style census format (style-census).

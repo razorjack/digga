@@ -124,7 +124,8 @@ start it against the fake services with the guard loaded.
 
 `vp run electron:package` builds the client and runs `scripts/package-electron.ts`, which calls
 electron-builder's `build()` with its configuration in the script (decision 159), once for each
-variant:
+variant, and then the release build's health check, `scripts/electron-health-check.ts`
+([Electron E2E plan](e2e/ELECTRON.md#product-integration-requirements)):
 
 - the release build: `release/Digga-<version>-arm64.dmg` and the app in
   `release/mac-arm64/Digga.app`;

@@ -107,7 +107,6 @@ Waiting, with what each waits for:
 | ELEC-09, "Use a dump file I have" with a file dialog        | the setup's file dialog; the preload already stubs `showOpenDialog`. Settings' "From a file" takes a path instead (decision 157)                                    |
 | ELEC-12, the Full Disk Access dialog                        | the packaged app, which needs Full Disk Access to read Brave's history, and the dialog for `HistoryAccessError` ([ELECTRON_PLAN](../ELECTRON_PLAN.md#what-is-left)) |
 | The suite on Windows and Linux                              | their packages; Linux needs `xvfb-run` and a check of `safeStorage` under the basic store                                                                           |
-| The fused artifact's launch and health check                | packaging ([ELECTRON](ELECTRON.md#product-integration-requirements))                                                                                                |
 
 No `test.fail` stands for these: they are features not built yet, not gaps in built ones.
 Running Electron in CI is not planned.

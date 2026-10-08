@@ -246,11 +246,21 @@ for writing.
 **Fuses.** `_electron.launch()` starts Electron with inspector arguments to attach to it, so a
 build with the `EnableNodeCliInspectArguments` fuse off cannot be launched by Playwright at
 all. `vp run electron:package` builds an inspectable variant beside the release build that
-differs only in that fuse (`release/inspectable/`, [ELECTRON_PLAN](../ELECTRON_PLAN.md#packaging)). The final fused artifact gets a smaller check without Playwright: launched with the
-isolated environment, `--user-data-dir`, an empty library and the fake service URLs, with no
-preload and no hold, it must write its "listening on" line to its log and answer
-`GET /api/health`, and it is then stopped. Nothing guards it but the environment, so the check
-does nothing more.
+differs only in that fuse (`release/inspectable/`, [ELECTRON_PLAN](../ELECTRON_PLAN.md#packaging)). The fused release build
+gets a smaller check without Playwright, `scripts/electron-health-check.ts`, which
+`vp run electron:package` runs after packaging (decision 163): in a new temp folder, with an
+environment built from nothing, `--user-data-dir`, the mock-keychain switches, the resolver rule,
+an empty library and the URLs of fake services it starts, with no preload and no hold, the app
+must write its "listening on" line to `digga.log` and answer `GET /api/health`, and it is then
+stopped with SIGTERM, after which the log says "stopped". The script prints the environment and
+the command line first, and refuses to start unless every path lies in the temp folder and every
+service URL is a loopback one. Nothing guards the app but the environment, so the check does
+nothing more.
+
+```sh
+node scripts/electron-health-check.ts                         # release/mac-arm64/Digga.app
+node scripts/electron-health-check.ts path/to/Digga.app       # another build
+```
 
 **Linux CI** needs a display: `xvfb-run`, whose `DISPLAY` and `XAUTHORITY` the environment passes
 through. Running Electron in CI is not planned yet.

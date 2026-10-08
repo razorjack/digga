@@ -13,7 +13,7 @@
     "digga": "node src/cli/digga.ts",
     "serve": "node src/cli/digga.ts serve",
     "electron:dev": "vp build && electron .",
-    "electron:package": "vp build && node scripts/package-electron.ts",
+    "electron:package": "vp build && node scripts/package-electron.ts && node scripts/electron-health-check.ts",
     "check:portability": "node scripts/check-portability.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
     "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",

@@ -1096,3 +1096,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      waits, so the variable gives nothing to anyone who sets it. Chromium runs before the
      preload, so on the packaged app a refused userData folder already holds Chromium's files,
      and the host's check before each launch is what keeps userData in the test's folder.
+163. **The fused build's health check is a script that packaging runs.** Playwright cannot attach
+     to the release build, and a check of it needs the build, which only `vp run electron:package`
+     makes; as a vitest test it would fail or be skipped in every `vp test` without one, and CI
+     never packages. So `scripts/electron-health-check.ts` runs as the last step of
+     `vp run electron:package`, and alone on any build. It starts the app in a new temp folder
+     with an environment built from nothing, the mock keychain and the fake services, refuses to
+     start if any path or URL points elsewhere, and passes when the app logs "listening on",
+     answers `GET /api/health` and stops on SIGTERM.
