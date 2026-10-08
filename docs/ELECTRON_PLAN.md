@@ -35,7 +35,9 @@ userData is `~/Library/Application Support/Digga`, the default library folder). 
 9. sets the menu and opens the window at the server's `localhost` address, where YouTube accepts
    the embeds.
 
-Any error before the window opens shows a dialog and quits. When the library lock is held, the
+Any error before the window opens shows a dialog and quits. A quit during the start shows none:
+it stops the server under the window still loading the app, whose `loadURL()` then fails, and
+the dialog used to keep the app from exiting until someone answered it. When the library lock is held, the
 dialog says another Digga is using the library and names the holder from `digga.lock`, such as
 "the Digga server (process 4242, since ...)". Electron's single-instance lock is not used
 (decision 156).

@@ -30,10 +30,17 @@ declare global {
 // The library is in the userData folder by default; Chromium's own files stay out of it.
 app.setPath("sessionData", path.join(app.getPath("userData"), "Chromium"));
 
+/** A quit during the start stops the server under the loading window, which is no startup error. */
+let quitting = false;
+app.on("before-quit", () => {
+  quitting = true;
+});
+
 waitForTestHost()
   .then(() => app.whenReady())
   .then(startDigga)
   .catch(async (error: unknown) => {
+    if (quitting) return;
     await showStartupError(error);
     app.quit();
   });
