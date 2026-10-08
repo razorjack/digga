@@ -18,7 +18,7 @@
   import Triage from "./pages/Triage.svelte";
   import Twelves from "./pages/Twelves.svelte";
   import { getRoute, localhostAlternative, navigate } from "./router.svelte.ts";
-  import { PAGES, ROUTES, SETTINGS } from "./routes.ts";
+  import { PAGES, type Route, ROUTES, SETTINGS } from "./routes.ts";
   import { pagesClosed, sendToSetup } from "./setup/access.ts";
   import { settings, stats, ui } from "./stores.svelte.ts";
 
@@ -55,6 +55,8 @@
   const setupOnly = $derived(route === "setup" && pagesClosed(library));
   /** The setup has shown in this tab, so it has said why a load stopped. */
   let setupShown = false;
+  /** The page Settings was opened from, which Esc in Settings goes back to. */
+  let pageBeforeSettings: Route = "triage";
 
   // A clicked toolbar link must not keep focus: a later Enter would follow it again.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
@@ -74,6 +76,10 @@
 
   $effect(() => {
     if (route) void stats.refresh();
+  });
+
+  $effect(() => {
+    if (route === "triage" || route === "twelves") pageBeforeSettings = route;
   });
 
   // styles.css picks the root's color scheme from this attribute.
@@ -96,6 +102,11 @@
     }
     // The open dialog handles its own keys, Esc included.
     if (ui.helpOpen || setupOnly) return;
+    if (event.key === "Escape" && route === "settings") {
+      navigate(pageBeforeSettings);
+      event.preventDefault();
+      return;
+    }
     const target = ROUTES.find(
       (destination) => destination.key.toLowerCase() === event.key.toLowerCase(),
     );
@@ -206,7 +217,7 @@
     {#if route === "twelves"}
       <div class="page"><Twelves /></div>
     {:else if route === "settings"}
-      <div class="page scroll"><Settings /></div>
+      <div class="page"><Settings /></div>
     {:else if route === "setup"}
       <div class="page scroll"><Setup /></div>
     {/if}

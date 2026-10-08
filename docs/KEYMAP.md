@@ -145,7 +145,8 @@ load that stopped has left records to dig.
 
 ## Settings
 
-`Cmd+S` / `Ctrl+S` saves. Fields are reached with Tab. Page keys keep working while a checkbox,
+Esc goes back to the page Settings was opened from, Triage or Twelves, unless a text field has
+focus. `Cmd+S` / `Ctrl+S` saves. Fields are reached with Tab. Page keys keep working while a checkbox,
 radio button or slider has focus; text fields and menus take the keys for themselves.
 
 ## Player behaviours

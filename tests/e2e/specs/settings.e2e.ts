@@ -683,3 +683,25 @@ function keysOf(queue: QueueResponse): string[] {
 function backups(app: DiggaApp): Promise<BackupsResponse> {
   return app.api.get<BackupsResponse>("/api/backups");
 }
+
+test(
+  "SET-24 Esc in Settings goes back to the page it was opened from, except in a text field",
+  { tag: ["@SET-24", "@P2"] },
+  async ({ app }) => {
+    const header = new HeaderPage(app);
+    const settings = new SettingsPage(app);
+    await app.open("#/twelves");
+    await header.goTo("settings");
+    await settings.showTab("discogs");
+
+    // A key's handler sets the hash while it runs, so the hash is exact once the press returns.
+    await settings.username.click();
+    await app.page.keyboard.press("Escape");
+    expect(await app.page.evaluate(() => location.hash)).toBe("#/settings/discogs");
+
+    await settings.username.blur();
+    await app.page.keyboard.press("Escape");
+    await expect(header.link("twelves")).toHaveAttribute("aria-current", "page");
+    expect(await app.page.evaluate(() => location.hash)).toBe("#/twelves");
+  },
+);

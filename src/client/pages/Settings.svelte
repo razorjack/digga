@@ -32,7 +32,8 @@
   let draft = $state<Config | null>(null);
   let saving = $state(false);
   let flash = $state<string | null>(null);
-  let head = $state<HTMLElement | null>(null);
+  /** The tab's sections, which scroll beside the list of tabs. */
+  let sections = $state<HTMLElement | null>(null);
 
   const saved = $derived(settings.value);
   const dirty = $derived(
@@ -62,10 +63,10 @@
     untrack(() => void jobState.load());
   });
 
-  // A tab opened from further down the page starts at its top.
+  // A tab opened from further down another one starts at its top.
   $effect(() => {
     void tab;
-    untrack(() => head?.scrollIntoView({ block: "nearest" }));
+    untrack(() => sections?.scrollTo({ top: 0 }));
   });
 
   onMount(() => {
@@ -143,23 +144,9 @@
 <svelte:window {onkeydown} />
 
 <div class="settings">
-  <header class="head" bind:this={head}>
+  <aside class="sidebar">
     <h1>Settings</h1>
-  </header>
-
-  {#if !draft}
-    {#if settings.error}
-      <p class="quiet">Settings did not load: {settings.error}</p>
-      <p>
-        <button type="button" class="secondary" aria-busy={settings.loading} onclick={() => void settings.retry()}>
-          Try again
-        </button>
-      </p>
-    {:else}
-      <p class="quiet">Loading…</p>
-    {/if}
-  {:else}
-    <div class="layout">
+    {#if draft}
       <nav class="tabs" aria-label="Settings sections">
         <ul>
           {#each SETTINGS_TABS as destination (destination)}
@@ -177,85 +164,101 @@
         </ul>
         <span id="{id}-unsaved" hidden>Unsaved changes</span>
       </nav>
+    {/if}
+  </aside>
 
-      <div class="panel">
-        {#if tab === "digging"}
-          <DiggingTab bind:draft {issues} {formId} onsubmit={submit} />
-        {:else if tab === "library"}
-          <LibraryTab bind:draft {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
-        {:else if tab === "discogs"}
-          <DiscogsTab
-            bind:draft
-            {formId}
-            onsubmit={submit}
-            {discogs}
-            jobs={jobState}
-            {startJob}
-            {cancelJob}
-            {showFlash}
-          />
-        {:else if tab === "backups"}
-          <Backups />
+  <div class="pane">
+    <div class="sections" bind:this={sections}>
+      {#if !draft}
+        {#if settings.error}
+          <p class="quiet">Settings did not load: {settings.error}</p>
+          <p>
+            <button type="button" class="secondary" aria-busy={settings.loading} onclick={() => void settings.retry()}>
+              Try again
+            </button>
+          </p>
         {:else}
-          <GeneralTab bind:draft {showFlash} />
+          <p class="quiet">Loading…</p>
         {/if}
-        {#if !hasSettingsForm(tab)}
-          <!-- Unsaved changes from another tab still save from this one, through this empty form. -->
-          <form id={formId} onsubmit={submit}></form>
-        {/if}
-      </div>
-    </div>
-
-    <div class="savebar" class:idle>
-      <p class="status" role="status">
-        {#if problems.length > 0}
-          <span class="problem">{problems[0]}</span>
-        {:else if flash}
-          <span class="flash">{flash}</span>
-        {:else if dirty}
-          Unsaved changes.
-        {/if}
-      </p>
-      {#if dirty}
-        <button type="button" class="secondary" onclick={revert}>Revert</button>
-        <button
-          type="submit"
-          form={formId}
-          class="primary"
-          disabled={problems.length > 0 || saving}
-          aria-keyshortcuts="Meta+S Control+S"
-        >
-          Save settings <kbd class="kbd" aria-hidden="true">⌘S</kbd>
-        </button>
+      {:else}
+        <div class="panel">
+          {#if tab === "digging"}
+            <DiggingTab bind:draft {issues} {formId} onsubmit={submit} />
+          {:else if tab === "library"}
+            <LibraryTab bind:draft {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
+          {:else if tab === "discogs"}
+            <DiscogsTab
+              bind:draft
+              {formId}
+              onsubmit={submit}
+              {discogs}
+              jobs={jobState}
+              {startJob}
+              {cancelJob}
+              {showFlash}
+            />
+          {:else if tab === "backups"}
+            <Backups />
+          {:else}
+            <GeneralTab bind:draft {showFlash} />
+          {/if}
+          {#if !hasSettingsForm(tab)}
+            <!-- Unsaved changes from another tab still save from this one, through this empty form. -->
+            <form id={formId} onsubmit={submit}></form>
+          {/if}
+        </div>
       {/if}
     </div>
-  {/if}
+
+    {#if draft}
+      <div class="savebar" class:idle>
+        <p class="status" role="status">
+          {#if problems.length > 0}
+            <span class="problem">{problems[0]}</span>
+          {:else if flash}
+            <span class="flash">{flash}</span>
+          {:else if dirty}
+            Unsaved changes.
+          {/if}
+        </p>
+        {#if dirty}
+          <button type="button" class="secondary" onclick={revert}>Revert</button>
+          <button
+            type="submit"
+            form={formId}
+            class="primary"
+            disabled={problems.length > 0 || saving}
+            aria-keyshortcuts="Meta+S Control+S"
+          >
+            Save settings <kbd class="kbd" aria-hidden="true">⌘S</kbd>
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
+  /* A split view: the tabs in a sidebar, the tab's sections beside them above the save bar. */
   .settings {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-    padding: 32px 40px 0;
-  }
-  .head {
     display: grid;
-    gap: 8px;
-    margin-bottom: 28px;
-    scroll-margin-top: 32px;
+    grid-template-columns: 19em minmax(0, 1fr);
+    height: 100%;
   }
-  .layout {
+  .sidebar {
     display: grid;
-    grid-template-columns: 11em minmax(0, 940px);
-    align-items: start;
-    column-gap: 48px;
-    flex: 1;
-    padding-bottom: 48px;
+    align-content: start;
+    gap: 16px;
+    min-height: 0;
+    padding: 24px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--rule);
+    background: var(--surface);
+    user-select: none;
   }
-  .tabs {
-    position: sticky;
-    top: 24px;
+  .sidebar h1 {
+    padding-inline: 12px;
+    font-size: var(--text-lg);
   }
   .tabs ul {
     display: grid;
@@ -265,52 +268,47 @@
     list-style: none;
   }
   .tabs a {
-    display: block;
+    display: flex;
+    align-items: center;
     padding: 6px 12px;
     color: var(--fg-muted);
     text-decoration: none;
+    cursor: default;
   }
   .tabs a:hover {
     color: var(--fg);
   }
   .unsaved {
-    display: inline-block;
     width: 6px;
     height: 6px;
     margin-left: 8px;
     border-radius: 50%;
     background: var(--accent-mark);
-    vertical-align: middle;
   }
   .tabs a[aria-current="page"] {
-    background: var(--surface);
+    background: var(--bg);
     box-shadow: inset 3px 0 0 var(--accent-mark);
     color: var(--fg);
   }
-  @media (max-width: 760px) {
-    .layout {
-      grid-template-columns: minmax(0, 1fr);
-      row-gap: 24px;
-    }
-    .tabs {
-      position: static;
-    }
-    .tabs ul {
-      display: flex;
-      flex-wrap: wrap;
-    }
+  .pane {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-width: 0;
+    min-height: 0;
+  }
+  .sections {
+    min-height: 0;
+    padding: 32px 40px 48px;
+    overflow-y: auto;
   }
   .savebar {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
     display: flex;
     align-items: center;
     gap: 14px;
-    margin: 0 -40px;
     padding: 12px 40px;
     border-top: 1px solid var(--rule);
     background: var(--surface);
+    user-select: none;
   }
   /* The status stays in the DOM while idle, so its next message is announced. */
   .savebar.idle {
@@ -326,5 +324,20 @@
     font-family: inherit;
     font-weight: 400;
     opacity: 0.7;
+  }
+  /* A browser window this narrow puts the tabs above the sections. */
+  @media (max-width: 760px) {
+    .settings {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .tabs ul {
+      display: flex;
+      flex-wrap: wrap;
+    }
   }
 </style>

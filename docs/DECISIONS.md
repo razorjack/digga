@@ -1269,6 +1269,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        with `S`, shown as a segmented control: the six orders do not map one to one onto the
        columns (year sorts the label column, price and most wanted the market), and the Tracks
        shelf has columns for two of them only, so clickable headers would hide orders.
+     - Settings takes the same split view, and Esc in it goes back to the page it was opened
+       from, as closing a settings window would. Settings stays in the main window: a window of
+       its own would need the Triage window to hear each save, which the page has no channel for.
      - The icon is the logo's cube on a flyer-yellow squircle: the one accent colour is what
        tells the app apart in the Dock at 32 px, where a dark squircle disappeared among others.
        A script draws it from the logo, so the binaries in `build/` have a source.

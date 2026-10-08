@@ -243,3 +243,11 @@ clock, which a test cannot move, and a relaunch starts without the failure in an
   the dialog's type and message and accepts or dismisses as the test says. "Forget them"
   (`forgetDiscogsData()`) asks the same way; it ends once `DELETE /api/discogs/data` has answered
   and the page says how many items it forgot.
+
+## SET-24
+
+Priority: **P2**.
+
+Esc in Settings goes back to the page Settings was opened from (decision 173): opened from Twelves
+with `,` and moved to the Discogs tab, Esc in the username field leaves the hash at
+`#/settings/discogs`, and Esc once the field has lost focus shows Twelves
