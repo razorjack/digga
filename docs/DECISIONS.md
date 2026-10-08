@@ -1253,3 +1253,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        `docs/ELECTRON_PLAN.md`.
      - The window opens at its last size and place, never below 1080 x 680, and shows only once
        painted, over the page's ground colour.
+     - The menus are an app's: View shows the pages and the keys with `Cmd` accelerators, and
+       only an unpackaged run keeps Reload and the developer tools. Single-key accelerators stay
+       out of the menu: on macOS Electron cannot show an accelerator without registering it, and
+       a registered `A` would take the key from text fields. Right-click opens the native editing
+       menu in text fields and Copy on selected text.

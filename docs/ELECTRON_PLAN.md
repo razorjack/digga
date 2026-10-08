@@ -113,10 +113,17 @@ later would mean replacing `createHttpApi()` in that one file.
 
 ## Menu
 
-`electron/menu.ts` builds the standard roles (the File, Edit, View and Window menus; Edit gives
-copy and paste in text fields on macOS) and macOS's application menu with Settings… (⌘,). The
-Library menu's items open the Settings tab that starts each job instead of starting it there
-(decision 157):
+`electron/menu.ts` builds an app's menus, not a browser's: macOS's application menu with
+Settings… (⌘,), the File, Edit and Window roles (Edit gives copy and paste in text fields on
+macOS), a View menu and a Library menu. On Windows and Linux, File holds Settings… and Quit.
+
+- **View** shows Triage (⌘1) and Twelves (⌘2), opens the Keys dialog (⌘/) by dispatching `?` to
+  the page, and toggles full screen. Reload and the developer tools are there only in an
+  unpackaged run (`!app.isPackaged`); a packaged app has no Reload (decision 173).
+- **Right-click** opens a native menu (`electron/context-menu.ts`): Cut, Copy, Paste and Select
+  All in a text field, Copy on selected text, and nothing elsewhere.
+- **Library**'s items open the Settings tab that starts each job instead of starting it there
+  (decision 157):
 
 | Item                  | Opens                | The tab's jobs                            |
 | --------------------- | -------------------- | ----------------------------------------- |

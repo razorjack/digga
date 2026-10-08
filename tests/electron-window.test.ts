@@ -1,5 +1,6 @@
 import type { MenuItemConstructorOptions } from "electron";
 import { describe, expect, it } from "vite-plus/test";
+import { contextMenuTemplate } from "../electron/context-menu.ts";
 import { linkTarget } from "../electron/links.ts";
 import { menuTemplate } from "../electron/menu.ts";
 import { parseWindowState, reachableBounds } from "../electron/window-state.ts";
@@ -21,36 +22,113 @@ describe("links in the window", () => {
 
 describe("the menu", () => {
   const shown: string[] = [];
-  const template = menuTemplate({ show: (route) => shown.push(route) }, "darwin");
-  const submenu = (label: string) =>
-    template.find((menu) => menu.label === label)?.submenu as MenuItemConstructorOptions[];
+  let keysShown = 0;
+  const actions = { show: (route: string) => shown.push(route), showKeys: () => (keysShown += 1) };
+  const template = menuTemplate(actions, { platform: "darwin", developer: false });
+  const submenu = (menus: MenuItemConstructorOptions[], label: string) =>
+    menus.find((menu) => (menu.label ?? menu.role) === label)
+      ?.submenu as MenuItemConstructorOptions[];
   const click = (item: MenuItemConstructorOptions | undefined) =>
     (item?.click as (() => void) | undefined)?.();
+  const names = (items: MenuItemConstructorOptions[]) =>
+    items.map((item) => item.label ?? item.role ?? item.type);
 
-  it("has the standard menus, Edit among them for copy and paste in text fields", () => {
-    expect(template.map((menu) => menu.role ?? menu.label)).toEqual([
+  it("has an app's menus: Edit for copy and paste in text fields, View for the pages", () => {
+    expect(names(template)).toEqual([
       "appMenu",
       "fileMenu",
       "editMenu",
+      "View",
       "Library",
-      "viewMenu",
       "windowMenu",
     ]);
-    expect(
-      menuTemplate({ show: () => {} }, "linux").map((menu) => menu.role ?? menu.label),
-    ).toEqual(["fileMenu", "editMenu", "Library", "viewMenu", "windowMenu"]);
+    const linux = menuTemplate(actions, { platform: "linux", developer: false });
+    expect(names(linux)).toEqual(["File", "editMenu", "View", "Library", "windowMenu"]);
+    expect(names(submenu(linux, "File"))).toEqual(["Settings…", "separator", "quit"]);
   });
 
   it("opens the Settings tab that starts each job, and Settings itself from the app menu", () => {
-    for (const item of submenu("Library")) click(item);
-    const appMenu = template[0]!.submenu as MenuItemConstructorOptions[];
-    click(appMenu.find((item) => item.label === "Settings…"));
+    shown.length = 0;
+    for (const item of submenu(template, "Library")) click(item);
+    click(submenu(template, "appMenu").find((item) => item.label === "Settings…"));
 
     expect(shown).toEqual([
       "#/settings/library",
       "#/settings/discogs",
       "#/settings/backups",
       "#/settings",
+    ]);
+  });
+
+  it("shows the pages and the keys from View, with Reload and the developer tools only in development", () => {
+    shown.length = 0;
+    const view = submenu(template, "View");
+    expect(names(view)).toEqual([
+      "Triage",
+      "Twelves",
+      "separator",
+      "Keys",
+      "separator",
+      "togglefullscreen",
+    ]);
+    for (const item of view) click(item);
+    expect(shown).toEqual(["#/triage", "#/twelves"]);
+    expect(keysShown).toBe(1);
+    // A modifier on each: a menu accelerator without one would take the key from text fields.
+    expect(view.flatMap((item) => (item.accelerator ? [item.accelerator] : []))).toEqual([
+      "CommandOrControl+1",
+      "CommandOrControl+2",
+      "CommandOrControl+/",
+    ]);
+
+    const developer = menuTemplate(actions, { platform: "darwin", developer: true });
+    expect(names(submenu(developer, "View")).slice(-3)).toEqual([
+      "separator",
+      "reload",
+      "toggleDevTools",
+    ]);
+  });
+});
+
+describe("the context menu", () => {
+  const editFlags = {
+    canUndo: false,
+    canRedo: false,
+    canCut: true,
+    canCopy: true,
+    canPaste: true,
+    canDelete: true,
+    canSelectAll: true,
+    canEditRichly: false,
+  };
+
+  it("edits in a text field, copies selected text, and shows nothing elsewhere", () => {
+    const field = contextMenuTemplate({ isEditable: true, selectionText: "", editFlags });
+    expect(field.map((item) => item.role ?? item.type)).toEqual([
+      "cut",
+      "copy",
+      "paste",
+      "separator",
+      "selectAll",
+    ]);
+    const selected = contextMenuTemplate({
+      isEditable: false,
+      selectionText: "Konflikt",
+      editFlags,
+    });
+    expect(selected.map((item) => item.role)).toEqual(["copy"]);
+    expect(contextMenuTemplate({ isEditable: false, selectionText: " ", editFlags })).toEqual([]);
+  });
+
+  it("disables what the field cannot do", () => {
+    const empty = contextMenuTemplate({
+      isEditable: true,
+      selectionText: "",
+      editFlags: { ...editFlags, canCut: false, canCopy: false },
+    });
+    expect(empty.filter((item) => item.enabled === false).map((item) => item.role)).toEqual([
+      "cut",
+      "copy",
     ]);
   });
 });

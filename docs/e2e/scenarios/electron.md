@@ -174,3 +174,22 @@ app lists the download cancelled, and `#/setup` opens step 1, which says "The do
 … KB of … KB when Digga quit. Discogs does not allow resuming, so it starts over." Fetch starts a
 new download. Cancelling that one (`POST /api/jobs/:id/cancel`, as Settings' Cancel does) and
 reloading opens step 1 with Fetch and without the quit's message
+
+## ELEC-17
+
+Priority: **P2**.
+
+On macOS the toolbar is the title bar (decision 173): the Window Controls Overlay is visible, the
+toolbar starts at the window's top edge, is as tall as the overlay's area, and its first page link
+starts after the traffic lights. A window moved and resized to 1200 x 760 is saved there in
+`userData/window-state.json` when the app quits, and the relaunched window's minimum size is
+1080 x 680; the host sizes each window it launches, so `tests/electron-window.test.ts` checks how
+the saved bounds are restored. Skipped elsewhere, where the system title bar stays
+
+## ELEC-18
+
+Priority: **P2**.
+
+The View menu's Twelves and Triage items show those pages (`aria-current` on the toolbar's link),
+and Keys opens the Keys dialog and closes it again. Reload and the developer tools are in the View
+menu of an unpackaged run only

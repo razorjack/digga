@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   type BrowserWindowConstructorOptions,
+  Menu,
   nativeTheme,
   type Rectangle,
   screen,
@@ -10,6 +11,7 @@ import {
 } from "electron";
 import path from "node:path";
 import type { Logger } from "../src/server/logger.ts";
+import { contextMenuTemplate } from "./context-menu.ts";
 import { linkTarget } from "./links.ts";
 import { reachableBounds, readWindowState, saveWindowState } from "./window-state.ts";
 
@@ -57,6 +59,10 @@ export async function openWindow({
   window.on("close", () => {
     const state = { bounds: window.getNormalBounds(), maximized: window.isMaximized() };
     saveWindowState(stateFile, state, logger);
+  });
+  window.webContents.on("context-menu", (_event, params) => {
+    const template = contextMenuTemplate(params);
+    if (template.length > 0) Menu.buildFromTemplate(template).popup({ window });
   });
   keepToApp(window, new URL(url).origin, logger);
   // localhost, not 127.0.0.1: YouTube refuses some embeds on IP-address origins.

@@ -16,6 +16,11 @@ or Alt. Holding a key down never repeats a verdict.
 | `?` | show or hide the keys  |
 | Esc | close the keys overlay |
 
+In the desktop app the View menu also has Triage (`Cmd+1`), Twelves (`Cmd+2`) and Keys (`Cmd+/`),
+and the application menu Settings… (`Cmd+,`); elsewhere `Ctrl` takes the place of `Cmd`. The menu
+leaves the single keys to the page, since an accelerator without a modifier would take the key
+from text fields.
+
 ## Triage: player
 
 | key       | action                                                               |

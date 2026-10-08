@@ -15,6 +15,8 @@ import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { DJ, FIRST_RECORD, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
 import { bulkDump, writeDump } from "../fixtures/dump.ts";
+import { KeysDialog } from "../pages/dialogs.ts";
+import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { SetupPage } from "../pages/setup.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
@@ -48,6 +50,77 @@ test(
     await electron.open();
     await expect(triage.record).toBeVisible();
     expect(new URL(electron.page.url()).origin).toBe(windowUrl.origin);
+  },
+);
+
+test(
+  "ELEC-17 on macOS the toolbar is the title bar, and a quit saves where the window was",
+  { tag: ["@ELEC-17", "@P2", "@electron"] },
+  async ({ electron }) => {
+    test.skip(process.platform !== "darwin", "only macOS hides the title bar");
+    const header = new HeaderPage(electron);
+    await electron.open();
+    await expect(header.pages).toBeVisible();
+
+    const overlay = await electron.page.evaluate(() => {
+      const controls = (navigator as Navigator & { windowControlsOverlay: WindowControlsOverlay })
+        .windowControlsOverlay;
+      return {
+        visible: controls.visible,
+        area: controls.getTitlebarAreaRect().toJSON() as DOMRect,
+      };
+    });
+    const toolbar = (await header.root.boundingBox())!;
+    const firstPage = (await header.link("triage").boundingBox())!;
+    expect(overlay.visible).toBe(true);
+    expect(toolbar.y).toBe(0);
+    expect(toolbar.height).toBe(overlay.area.height);
+    expect(firstPage.x, "the toolbar starts after the traffic lights").toBeGreaterThanOrEqual(
+      overlay.area.x,
+    );
+
+    // The host sizes the window at each launch, so what the quit saved is checked, not the reopened window.
+    const placed = { x: 120, y: 80, width: 1200, height: 760 };
+    await electron.electronApp.evaluate(({ BrowserWindow }, bounds) => {
+      BrowserWindow.getAllWindows()[0]!.setBounds(bounds);
+    }, placed);
+    await electron.relaunch();
+    const saved: unknown = JSON.parse(
+      fs.readFileSync(path.join(electron.userDataDir, "window-state.json"), "utf8"),
+    );
+    expect(saved).toEqual({ bounds: placed, maximized: false });
+    const minimum = await electron.electronApp.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0]!.getMinimumSize(),
+    );
+    expect(minimum).toEqual([1080, 680]);
+  },
+);
+
+test(
+  "ELEC-18 the View menu shows the pages and the keys, and only a development run can reload",
+  { tag: ["@ELEC-18", "@P2", "@electron"] },
+  async ({ electron }) => {
+    const header = new HeaderPage(electron);
+    const keys = new KeysDialog(electron);
+    await electron.open();
+    await expect(header.pages).toBeVisible();
+
+    await clickMenuItem(electron, "View", "Twelves");
+    await expect(header.link("twelves")).toHaveAttribute("aria-current", "page");
+    await clickMenuItem(electron, "View", "Keys");
+    await expect(keys.root).toBeVisible();
+    await clickMenuItem(electron, "View", "Keys");
+    await expect(keys.root).toBeHidden();
+    await clickMenuItem(electron, "View", "Triage");
+    await expect(header.link("triage")).toHaveAttribute("aria-current", "page");
+
+    const view = await electron.electronApp.evaluate(({ app, Menu }) => {
+      const menu = Menu.getApplicationMenu()?.items.find((entry) => entry.label === "View");
+      const items = menu?.submenu?.items ?? [];
+      return { packaged: app.isPackaged, roles: items.map((item) => item.role?.toLowerCase()) };
+    });
+    expect(view.roles.includes("reload"), "Reload").toBe(!view.packaged);
+    expect(view.roles.includes("toggledevtools"), "the developer tools").toBe(!view.packaged);
   },
 );
 
@@ -751,6 +824,12 @@ async function jobStatuses(electron: ElectronApp): Promise<[string, string][]> {
 function dumpsIn(folder: string): string[] {
   if (!fs.existsSync(folder)) return [];
   return fs.readdirSync(folder).filter((name) => name.endsWith(".xml.gz"));
+}
+
+/** The Window Controls Overlay API, which TypeScript's DOM library does not declare. */
+interface WindowControlsOverlay {
+  visible: boolean;
+  getTitlebarAreaRect(): DOMRect;
 }
 
 /** Clicks an item of the app's menu bar as a user would, through the main process. */

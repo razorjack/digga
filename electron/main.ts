@@ -74,9 +74,11 @@ async function startDigga(): Promise<void> {
   nativeTheme.themeSource = config.appearance.colorScheme;
   session.defaultSession.setUserAgent(chromeUserAgent(session.defaultSession.getUserAgent()));
   secureSession(session.defaultSession, logger);
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate(menuTemplate({ show: showRoute }, process.platform)),
+  const menu = menuTemplate(
+    { show: showRoute, showKeys },
+    { platform: process.platform, developer: !app.isPackaged },
   );
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menu));
   await openWindow({
     url: browserUrl,
     logger,
@@ -176,6 +178,14 @@ function quitOnWindowClose(quit: { stopped(): boolean }): void {
 function showRoute(route: string): void {
   const window = BrowserWindow.getAllWindows()[0];
   void window?.webContents.executeJavaScript(`location.hash = ${JSON.stringify(route)}`);
+}
+
+/** Opens or closes the page's list of keys, as pressing ? in it does. */
+function showKeys(): void {
+  const window = BrowserWindow.getAllWindows()[0];
+  void window?.webContents.executeJavaScript(
+    `window.dispatchEvent(new KeyboardEvent("keydown", { key: "?" }))`,
+  );
 }
 
 async function showStartupError(error: unknown): Promise<void> {
