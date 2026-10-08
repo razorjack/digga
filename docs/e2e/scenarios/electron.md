@@ -156,3 +156,14 @@ that may be created, and `dumps-folder.json` in the library holds it. With the l
 dump's own size, a relaunch logs the chosen folder as its dumps folder, step 1 names it, and
 Fetch downloads the dump into it; the default folder stays without a dump. SETUP-05 checks that
 the app offers no folder while `DIGGA_DUMPS_DIR` names one.
+
+## ELEC-16
+
+Priority: **P2**.
+
+A quit that stopped the download before any load began is step 1's news. With the download held
+at the fake's checkpoint on step 2, a relaunch answers the quit question with Quit; the relaunched
+app lists the download cancelled, and `#/setup` opens step 1, which says "The download stopped at
+… KB of … KB when Digga quit. Discogs does not allow resuming, so it starts over." Fetch starts a
+new download. Cancelling that one (`POST /api/jobs/:id/cancel`, as Settings' Cancel does) and
+reloading opens step 1 with Fetch and without the quit's message

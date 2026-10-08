@@ -1,7 +1,7 @@
 import type { SeedTally } from "../../shared/api.ts";
 import { formatBytes, formatEta } from "../../shared/display.ts";
 import type { CensusStyle, StyleCensus } from "../../shared/style-census.ts";
-import { INTERRUPTED_JOB_ERROR, type Job } from "../../shared/types.ts";
+import { INTERRUPTED_JOB_ERROR, type Job, QUIT_JOB_ERROR } from "../../shared/types.ts";
 
 /** Years the load keeps on each side of the dug ones, so they can be widened without a load. */
 export const LOAD_MARGIN_YEARS = 3;
@@ -246,6 +246,23 @@ export function stoppedDownloadMessage(download: Job | null): string | null {
   return (
     `The download stopped at ${formatBytes(received)}${of}: ${reason}. ` +
     "Discogs does not allow resuming, so it starts again."
+  );
+}
+
+/**
+ * What step 1 says of a download Digga's quit stopped, or null for any other download. A Cancel the
+ * user pressed says nothing, as before.
+ */
+export function quitDownloadMessage(download: Job | null): string | null {
+  if (download?.type !== "dump_download" || download.status !== "cancelled") return null;
+  if (download.error !== QUIT_JOB_ERROR) return null;
+  const received = download.progress?.receivedBytes ?? 0;
+  const total = download.progress?.totalBytes;
+  const of = total ? ` of ${formatBytes(total)}` : "";
+  const at = received > 0 ? ` at ${formatBytes(received)}${of}` : "";
+  return (
+    `The download stopped${at} when Digga quit. ` +
+    "Discogs does not allow resuming, so it starts over."
   );
 }
 

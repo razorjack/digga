@@ -10,10 +10,11 @@ import {
   markJobStarted,
   updateJobProgress,
 } from "../src/server/db/jobs.ts";
-import { createJobRunner } from "../src/server/jobs/runner.ts";
+import { createJobRunner, type JobContext } from "../src/server/jobs/runner.ts";
 import { createLogger } from "../src/server/logger.ts";
 import { runWorker } from "../src/server/jobs/worker.ts";
 import { elapsed, jobProgress } from "../src/shared/job-display.ts";
+import { QUIT_JOB_ERROR } from "../src/shared/types.ts";
 import { silentLogger } from "./helpers.ts";
 
 describe("job contracts", () => {
@@ -210,8 +211,28 @@ it("waits for cancelled async work before releasing its database", async () => {
   release();
   await stopping;
   expect(runner.get(job.id)?.status).toBe("cancelled");
+  expect(runner.get(job.id)?.error).toBe(QUIT_JOB_ERROR);
   expect(runner.active()).toEqual([]);
   expect(() => runner.run("import_wantlist", async () => {})).toThrow("stopping");
+  db.close();
+});
+
+it("records that Digga quit only for the jobs a stop cancelled, not for a Cancel", async () => {
+  const db = openDb(":memory:");
+  const runner = createJobRunner(db, silentLogger);
+  const untilAborted = ({ signal }: JobContext) =>
+    new Promise<void>((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("Cancelled")), { once: true });
+    });
+  const cancelled = runner.run("dump_download", untilAborted);
+  const stopped = runner.run("dump_download", untilAborted);
+
+  runner.cancel(cancelled.id);
+  await expect.poll(() => runner.get(cancelled.id)?.status).toBe("cancelled");
+  await runner.stop();
+
+  expect(runner.get(cancelled.id)).toMatchObject({ status: "cancelled", error: "Cancelled" });
+  expect(runner.get(stopped.id)).toMatchObject({ status: "cancelled", error: QUIT_JOB_ERROR });
   db.close();
 });
 

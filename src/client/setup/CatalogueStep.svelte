@@ -74,6 +74,9 @@
         {:else}
           <p class="quiet">Asking data.discogs.com for the newest catalogue…</p>
         {/if}
+        {#if flow.downloadQuit}
+          <p>{flow.downloadQuit}</p>
+        {/if}
       </div>
     </li>
     <li>

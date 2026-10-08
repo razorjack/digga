@@ -298,6 +298,52 @@ test.describe("on a new library", () => {
   );
 
   test(
+    "ELEC-16 after a quit stopped the download before any load, step 1 says so and fetching starts it over; a Cancel says nothing",
+    { tag: ["@ELEC-16", "@P2", "@electron"] },
+    async ({ electron, fakes }) => {
+      const setup = new SetupPage(electron);
+      const point = fakes.dumps.checkpoint("100-to-dig");
+      fakes.dumps.holdAt(point.name);
+      await electron.open();
+      await setup.fetchCatalogue();
+      await expect.poll(() => downloadedBytes(electron)).toBe(point.offset);
+
+      // The preload answers the quit question with Quit.
+      await electron.relaunch();
+      expect(electron.servers[0]!.stderr).toContain(
+        '"message":"Quit while Digga downloads the catalogue?"',
+      );
+      expect(await jobStatuses(electron)).toEqual([["dump_download", "cancelled"]]);
+      await electron.open("#/setup");
+      await setup.expectStep("catalogue");
+      await expect(
+        setup.root.getByText(
+          /^The download stopped at [\d.]+ KB of [\d.]+ KB when Digga quit\. Discogs does not allow resuming, so it starts over\.$/,
+        ),
+      ).toBeVisible();
+
+      await setup.fetchCatalogue();
+      await expect.poll(() => downloadedBytes(electron)).toBe(point.offset);
+      const { jobs } = await electron.api.get<JobsResponse>("/api/jobs");
+      expect(jobs.map((job) => [job.type, job.status])).toEqual([
+        ["dump_download", "running"],
+        ["dump_download", "cancelled"],
+      ]);
+
+      await electron.api.send("POST", `/api/jobs/${jobs[0]!.id}/cancel`);
+      await expect
+        .poll(() => jobStatuses(electron))
+        .toEqual([
+          ["dump_download", "cancelled"],
+          ["dump_download", "cancelled"],
+        ]);
+      await setup.reload("catalogue");
+      await expect(setup.button("Fetch the catalogue")).toBeEnabled();
+      await expect(setup.root.getByText(/when Digga quit/)).toHaveCount(0);
+    },
+  );
+
+  test(
     "ELEC-08 the Dock shows the download and the load, the Mac stays awake while they run, and a load that ends unseen is announced",
     { tag: ["@ELEC-08", "@P2", "@electron"] },
     async ({ electron, fakes }) => {

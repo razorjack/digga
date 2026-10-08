@@ -1,4 +1,4 @@
-import type { Job, JobType, JobProgress } from "../../shared/types.ts";
+import { type Job, type JobType, type JobProgress, QUIT_JOB_ERROR } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import {
   createJob,
@@ -107,22 +107,26 @@ class Runner implements JobRunner {
         },
       });
       const status = controller.signal.aborted ? "cancelled" : "done";
-      markJobFinished(this.#db, job.id, status);
+      markJobFinished(this.#db, job.id, status, this.#recordedError(controller, undefined));
       this.#report(job.id);
       log.info(`job ${job.id} ${status}`);
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      markJobFinished(
-        this.#db,
-        job.id,
-        controller.signal.aborted ? "cancelled" : "failed",
-        message,
-      );
+      const status = controller.signal.aborted ? "cancelled" : "failed";
+      markJobFinished(this.#db, job.id, status, this.#recordedError(controller, message));
       this.#report(job.id);
       log.error(`job ${job.id} failed: ${message}`);
       throw error;
     }
+  }
+
+  /**
+   * A job the stopping server cancelled records that Digga quit, so the setup can tell it from a
+   * Cancel the user pressed; any other job records its own error.
+   */
+  #recordedError(controller: AbortController, error: string | undefined): string | undefined {
+    return controller.signal.aborted && this.#stopping ? QUIT_JOB_ERROR : error;
   }
 
   /** Tells the listener what the jobs table holds now; a listener's failure leaves the job alone. */

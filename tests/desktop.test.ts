@@ -27,6 +27,7 @@ import {
   type DumpLoadProgress,
   type DumpUpdateProgress,
   type Job,
+  QUIT_JOB_ERROR,
 } from "../src/shared/types.ts";
 import { silentLogger, testSecrets } from "./helpers.ts";
 
@@ -94,7 +95,7 @@ describe("the server's reports to the desktop", () => {
         progress: null,
         error: "Discogs answered 503",
       },
-      { type: "dump_download", status: "cancelled", progress: null, error: "Cancelled" },
+      { type: "dump_download", status: "cancelled", progress: null, error: QUIT_JOB_ERROR },
     ]);
   });
 });

@@ -43,8 +43,10 @@ the library lock is held, the dialog says another Digga is using the library and
 "the Digga server (process 4242, since ...)". Electron's single-instance lock is not used
 (decision 156).
 
-Quitting waits for `server.stop()` in `before-quit`: running jobs end cancelled, the daily backup
-being written finishes, the database closes and the lock is released, and then the app quits.
+Quitting waits for `server.stop()` in `before-quit`: running jobs end cancelled with the error
+`QUIT_JOB_ERROR` ("Digga quit"), which a Cancel the user pressed does not record, so step 1 can say
+that a quit stopped the download and that it starts over. The daily backup being written
+finishes, the database closes and the lock is released, and then the app quits.
 During a download or load it asks first (decision 166): "Quit while Digga downloads and loads
 the catalogue?", where the download stands and that Discogs does not resume it, how far the load
 has read and that the releases it kept stay (`quitQuestion()` in `electron/dump-jobs.ts`). Cancel

@@ -5,6 +5,7 @@ import {
   loadYearsFor,
   middleSpan,
   checksumRetryNote,
+  quitDownloadMessage,
   keptNothing,
   roundEstimate,
   stoppedDownloadMessage,
@@ -18,7 +19,7 @@ import { withChange } from "../src/client/setup/flow.svelte.ts";
 import type { SeedTally } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { CensusStyle, StyleCensus } from "../src/shared/style-census.ts";
-import { INTERRUPTED_JOB_ERROR, type Job } from "../src/shared/types.ts";
+import { INTERRUPTED_JOB_ERROR, type Job, QUIT_JOB_ERROR } from "../src/shared/types.ts";
 
 function style(name: string, genre: string, firstYear: number, years: number[]): CensusStyle {
   const releases = years.reduce((sum, count) => sum + count, 0);
@@ -233,6 +234,23 @@ describe("a download that stopped", () => {
     expect(stoppedDownloadMessage(download("done", null, 10))).toBeNull();
     expect(stoppedDownloadMessage(download("cancelled", null, 10))).toBeNull();
     expect(stoppedDownloadMessage(download("failed", INTERRUPTED_JOB_ERROR, 10))).toBeNull();
+  });
+
+  it("says where a quit stopped it and that it starts over", () => {
+    expect(quitDownloadMessage(download("cancelled", QUIT_JOB_ERROR, 4_400_000_000))).toBe(
+      "The download stopped at 4.1 GB of 10.5 GB when Digga quit. Discogs does not allow resuming, so it starts over.",
+    );
+    expect(quitDownloadMessage(download("cancelled", QUIT_JOB_ERROR, 0))).toBe(
+      "The download stopped when Digga quit. Discogs does not allow resuming, so it starts over.",
+    );
+  });
+
+  it("says nothing of a download the user cancelled, or one that did not end with a quit", () => {
+    expect(quitDownloadMessage(null)).toBeNull();
+    expect(quitDownloadMessage(download("cancelled", "Cancelled", 10))).toBeNull();
+    expect(quitDownloadMessage(download("cancelled", null, 10))).toBeNull();
+    expect(quitDownloadMessage(download("running", null, 10))).toBeNull();
+    expect(quitDownloadMessage(download("failed", "fetch failed", 10))).toBeNull();
   });
 });
 

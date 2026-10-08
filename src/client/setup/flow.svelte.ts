@@ -14,6 +14,7 @@ import {
   DIG_THRESHOLD,
   keptNothing,
   loadYearsFor,
+  quitDownloadMessage,
   stoppedDownloadMessage,
   type YearSpan,
 } from "./model.ts";
@@ -86,6 +87,8 @@ export class SetupFlow {
   );
   /** Why and where the download stopped, while it has not started again. */
   downloadStopped = $derived(stoppedDownloadMessage(this.download));
+  /** A download Digga's quit stopped before any load began, which fetching starts over. */
+  downloadQuit = $derived(this.load ? null : quitDownloadMessage(this.download));
   /** The download did not match Discogs' checksum and runs once more by itself. */
   checksumRetry = $derived(checksumRetryNote(this.download));
   /**

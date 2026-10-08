@@ -53,6 +53,9 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 /** The error of a job the server found running when it started: Digga closed during it. */
 export const INTERRUPTED_JOB_ERROR = "interrupted";
 
+/** The error of a job the server cancelled while it stopped: Digga quit during it. */
+export const QUIT_JOB_ERROR = "Digga quit";
+
 /**
  * The error of a load whose download did not match Discogs' checksum and is downloading once more:
  * the file it read was thrown away, so a load has to read the new download from the start.
