@@ -69,9 +69,6 @@ downloads and loads that run (`electron/dump-jobs.ts`), without asking the page,
 - notifies when a load or update finishes or fails while no window of the app is focused, after
   logging the notification ("notification: The catalogue is in: 1,500 releases kept."); clicking
   it shows the window;
-- explains Full Disk Access on macOS when a history import fails with `HistoryAccessError`, which
-  the server reports through `historyAccessDenied()`: a message box with "Open Privacy & Security",
-  which opens Full Disk Access in System Settings, and "Not Now" (decision 170);
 - asks before quitting (below).
 
 The page reaches the app's native dialogs through `/api/desktop` routes, which only a server with
@@ -104,11 +101,11 @@ copy and paste in text fields on macOS) and macOS's application menu with Settin
 Library menu's items open the Settings tab that starts each job instead of starting it there
 (decision 157):
 
-| Item                  | Opens                | The tab's jobs                                    |
-| --------------------- | -------------------- | ------------------------------------------------- |
-| Update the Catalogue… | `#/settings/library` | update, download, load (also from a path)         |
-| Import from Discogs…  | `#/settings/discogs` | collection, wantlist, history, Maybe list, seller |
-| Back Up…              | `#/settings/backups` | Back up now                                       |
+| Item                  | Opens                | The tab's jobs                            |
+| --------------------- | -------------------- | ----------------------------------------- |
+| Update the Catalogue… | `#/settings/library` | update, download, load (also from a path) |
+| Import from Discogs…  | `#/settings/discogs` | collection, wantlist, Maybe list, seller  |
+| Back Up…              | `#/settings/backups` | Back up now                               |
 
 The tab shows the job's progress, Cancel and result, which a job started from the main process
 would not reach. Its "From a file" field takes an absolute path, so the dump needs no file dialog.
@@ -243,7 +240,7 @@ Later:
 | Jobs are library functions       | job logic inside a Hono handler, the CLI switch or a menu item                                                                  |
 | Heavy work off the server thread | running the loader inline in a route, synchronous file scans in handlers                                                        |
 | Frontend environment-agnostic    | `window.location.pathname`, `localStorage` of absolute URLs, `import.meta.env` reads for paths, non-hash routing                |
-| Native modules isolated          | importing `better-sqlite3` in an importer or test helper, opening profile files outside `history.ts`                            |
+| Native modules isolated          | importing `better-sqlite3` in an importer or test helper                                                                        |
 | Logging through logger           | `console.log` in server modules or `electron/`                                                                                  |
 | Server free of Electron          | an `electron` import in `src/`, `tools/` or `scripts/`; server code that tells the app from the CLI other than by its `desktop` |
 | Enforce it                       | skipping `vp run check:portability` before commit                                                                               |

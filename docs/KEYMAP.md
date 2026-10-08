@@ -166,8 +166,10 @@ radio button or slider has focus; text fields and menus take the keys for themse
   always reach Digga.
 
 Settings has independent controls for skipping records imported from browser history and skipping
-previously heard tunes during playback. Both are on by default. Turning off the history exclusion
-returns `seen` records to the queue; undo restores that original history verdict. The heard label
+previously heard tunes during playback. Both are on by default. Digga no longer reads browser
+history (decision 171), so the history control shows only for a library that kept `seen` records
+from an earlier version. Turning it off returns them to the queue; undo restores that original
+history verdict. The heard label
 remains visible when automatic skipping is off.
 
 Enter on any Twelves record shelf replays the visible records from the selection. Enter on Tracks

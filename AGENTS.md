@@ -91,7 +91,6 @@ gzip -dc path/to/discogs_20250901_releases.xml.gz | npm run digga -- dump load -
 #    saved in Settings or set as DISCOGS_TOKEN in the environment or .env)
 npm run digga -- import collection
 npm run digga -- import wantlist
-npm run digga -- import history --browser brave        # Brave on macOS; also chrome, firefox, --path
 npm run digga -- import list                           # releases on your Discogs Maybe list (discogs.maybeListId)
 npm run digga -- import seller <username>              # what a seller has for sale, for F in Triage
 npm run digga -- stats
@@ -125,7 +124,7 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts, seed-tally.ts,
                        style-census.ts)
                        discogs/ (client, transport, types, lists, data-dumps), importers/ (collection, wantlist,
-                       history, list, seller, seeds)
+                       list, seller, seeds)
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
                        queue/ (query, scopes, detail, twelves, coverage)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
@@ -380,7 +379,7 @@ client TypeScript and CSS.
    and the page reaches its native dialogs through `/api/desktop` routes. Nothing in `src/`
    imports Electron (decisions 165, 168). 127.0.0.1 only.
 2. **One transport seam.** `src/client/api.ts` is the only file in `src/client` that may call `fetch`.
-3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist,
+3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, dist,
    by default in the per-user app folder Electron's `userData` names, and reads the dumps folder
    chosen in the app from the library (decision 169). The CLI and the Electron app
    pass `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` from the environment or a
@@ -396,8 +395,7 @@ client TypeScript and CSS.
 7. **Frontend is environment-agnostic.** `src/shared` imports nothing from Node; `src/client` reads no
    env, filesystem, or `window.location` beyond the hash router. Vite `base: './'`, hash routing only.
    The YouTube IFrame API needs an http(s) origin, which the localhost server provides.
-8. **Native modules stay isolated.** Only `db/db.ts` imports `better-sqlite3`; only
-   `importers/history.ts` touches browser profile files.
+8. **Native modules stay isolated.** Only `db/db.ts` imports `better-sqlite3`.
 9. **Logging goes through `src/server/logger.ts`.**
 10. **Enforce it.** `scripts/check-portability.ts` fails the build on violations of 2, 3, 4, 7, 8,
     scans `electron/` with the server's rules, and refuses an `electron` import outside it.

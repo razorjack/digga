@@ -73,8 +73,7 @@ the seek keys jump.
 
 ![Settings on its Digging tab: years, formats, countries, format details, hidden labels and what to skip, beside the list of tabs](docs/assets/screenshots/settings.webp)
 
-Imports of your collection, wantlist, and browser history can keep records you already know out
-of the queue. The session counter shows how many you have judged, how many remain, and an estimated
+Imports of your collection and wantlist can keep records you already know out of the queue. The session counter shows how many you have judged, how many remain, and an estimated
 time to finish once you have a listening pace.
 
 ## What stays local
@@ -161,8 +160,7 @@ A new library opens the setup, which takes about 20 minutes, most of it waiting:
 2. **Bring your Discogs** (optional). Paste a personal access token from
    [Discogs Settings → Developers](https://www.discogs.com/settings/developers); Digga takes your
    username from it. It then imports your collection and wantlist, so records you own or want stay
-   out of the queue, and it can mark the releases you opened on discogs.com in Brave, Chrome or
-   Firefox as seen. Without a token, your username reads a public collection and wantlist.
+   out of the queue. Without a token, your username reads a public collection and wantlist.
 3. **Pick your sound.** Every Discogs style, with its size, and the years to dig, over a histogram
    of their releases. Styles your Discogs records mostly carry are picked already, and the estimate
    says how many releases the picks come to.
@@ -250,7 +248,6 @@ npm run digga -- dump download    # the newest dump into the dumps folder, check
 npm run digga -- dump load ~/Library/Caches/Digga/dumps/discogs_YYYYMMDD_releases.xml.gz
 npm run digga -- import collection
 npm run digga -- import wantlist
-npm run digga -- import history --browser brave   # also chrome or firefox; --path reads a copy
 ```
 
 To rehearse the setup without downloading from Discogs, serve a dump you have with
@@ -318,11 +315,11 @@ want, and _Crime Audio_ by Item A La Playa is a grail, marked on its track (line
   release without a master, like
   [discogs.com/release/620767](https://www.discogs.com/release/620767).
 - `status` is the verdict: `accepted` (want), `candidate` (grail), `rejected` (skip), `maybe`,
-  `snoozed` or `no_audio`, or `seen` from the browser history import. A record you skipped looks
+  `snoozed` or `no_audio`, or `seen` from the browser history import of earlier versions. A record you skipped looks
   the same with `"status":"rejected"`. What your Discogs collection, wantlist and Maybe list hold
   is in `memberships`, apart from your decisions.
 - `source` is `triage` for a decision you made in Digga, or `seed:history` for a page the history
-  import found.
+  import of earlier versions found.
 - `releaseId` is the pressing you heard. Times are in UTC.
 
 **To restore**, stop the server first. With a database copy, run

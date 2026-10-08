@@ -111,7 +111,8 @@ once; the player rebuilds the open release's playlist when its videos change.
 
 `verdicts` holds one row per triage key: the decisions made in Digga (`rejected`, `accepted`,
 `maybe`, `candidate`, `snoozed`, `no_audio`), written by the UI, and `seen` from the browser
-history import. `import collection|wantlist|list` record what the Discogs account holds in
+history import of earlier versions, which libraries keep (decision 171). `import
+collection|wantlist|list` record what the Discogs account holds in
 `memberships` and never change a verdict; the queue leaves out records with either, and Twelves
 shows both (`docs/DATA_MODEL.md`). `listen_log` records
 every listen (proof of coverage) and feeds `heard_tracks`, keyed by the tune key (the normalized
@@ -120,8 +121,8 @@ heard on another release is greyed out instead of replayed.
 
 ## Jobs
 
-The jobs (`downloadDump`, `dumpLoad`, `importCollection`, `importWantlist`, `importHistory`,
-`importList`, `importSeller`) are
+The jobs (`downloadDump`, `dumpLoad`, `importCollection`, `importWantlist`, `importList`,
+`importSeller`) are
 async functions in `src/server/jobs/` taking explicit dependencies and an `onProgress` callback.
 `jobs/runner.ts` creates the `jobs` row, streams progress into `progress_json` and records the
 outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits for them. The dump
@@ -156,7 +157,7 @@ that reaches the end of the dump also counts the style census (`tools/dump/censu
 library still needs its first load (no load has finished), which dump data.discogs.com offers,
 with the size its listing shows (read again after an hour), whether the dumps folder has it, the
 free space there and the space the download needs, the styles and years of the imported
-collection and wantlist (`db/seed-tally.ts`), and the browsers with a history to import.
+collection and wantlist (`db/seed-tally.ts`), and whether the server runs in the desktop app.
 `GET /api/styles` returns the style census for the style picker: the one the last complete load
 counted, or the one shipped with Digga (`src/server/style-census.json`) before the first.
 `GET /api/discogs/profile` gives the account's collection and wantlist sizes and its currency.

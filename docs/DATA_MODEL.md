@@ -99,8 +99,9 @@ in the queue (`requeueNoAudio()` in `src/server/db/no-audio.ts`).
 
 ## verdicts
 
-What was decided about a record: in Digga, or `seen` from the browser history. What the Discogs
-account holds is not a verdict (see `memberships`).
+What was decided about a record: in Digga, or `seen` from the browser history import of earlier
+versions, which libraries keep (decision 171); nothing writes `seen` now. What the Discogs account
+holds is not a verdict (see `memberships`).
 
 | column       | notes                                                                       |
 | ------------ | --------------------------------------------------------------------------- |
@@ -113,7 +114,7 @@ account holds is not a verdict (see `memberships`).
 
 Precedence (`verdictRank()` in `src/shared/verdict-rank.ts`) decides only which verdict a record
 keeps when two meet on one key: `candidate` (grail) > `accepted` (want) > any other decision >
-`seen`. A history hit never replaces a decision (`applySeedVerdict`). `maybe` means the release
+`seen`. A history hit never replaced a decision. `maybe` means the release
 belongs on the Discogs Maybe list; Twelves says when the list does not hold it yet. `snoozed` is
 "hear it again later": a round of snoozed records in Triage replaces it with the new verdict, and
 undo there restores the snooze with its original `decided_at` (`POST /api/verdicts` accepts
@@ -221,9 +222,9 @@ releases with that `added_by_load`.
 
 ## jobs
 
-`id` (uuid), `type` (`dump_download`, `dump_load`, `dump_update`, `import_collection`, `import_wantlist`, `import_history`,
+`id` (uuid), `type` (`dump_download`, `dump_load`, `dump_update`, `import_collection`, `import_wantlist`,
 `import_list`, `import_seller`; migration 5 deleted the rows of the removed `enrich` and
-`enrich_twelves`),
+`enrich_twelves`; rows of the removed `import_history` stay and are not listed, decision 171),
 `status` (`queued`, `running`, `done`, `failed`, `cancelled`), `progress_json`, `error`, `created_at`,
 `started_at`, `finished_at`. Jobs still `running` when the server starts are marked `failed`
 with error `interrupted`.

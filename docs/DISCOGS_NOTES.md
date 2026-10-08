@@ -110,12 +110,6 @@ Endpoints used:
 `basic_information` has `id, master_id, title, year, artists, labels, formats (qty as string),
 genres, styles`, enough for a stub release row.
 
-## Discogs URLs in browser history
-
-`src/shared/discogs-urls.ts` recognises `/release/{id}[-slug]`, `/master/{id}[-slug]`, the legacy
-`/{Artist-Title}/release/{id}` and `/master/{id}`, localized prefixes (`/de/`, `/pl/`, ...) and
-`/sell/release/{id}`. Artist, label, `/sell/item/` and API URLs are ignored.
-
 ## YouTube
 
 Video ids are parsed from `watch?v=`, `youtu.be/`, `embed/`, `shorts/`. The IFrame Player API

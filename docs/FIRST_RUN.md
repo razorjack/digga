@@ -188,8 +188,6 @@ styles in step 3.
 
   Connected as razorjack: 312 in your collection, 1,204 wants.
   [x] Read my collection and wantlist            about 20 s
-  [ ] Mark releases I opened on discogs.com in [ Brave v ] as seen
-      Reads the browser's history on this computer.
   Prices in [ EUR v ]
 
   [ Continue  Enter ]   Skip
@@ -233,8 +231,7 @@ styles in step 3.
   next to the limit, so the text states them instead.
 - The same list, under a shorter paragraph, appears in Settings' Discogs tab, and in the README
   as "Digga and the Discogs API".
-- The browser list shows only browsers whose history files exist. In Electron on macOS, the
-  line says the history import needs Full Disk Access, and how to grant it.
+- Digga does not read browser history (decision 171), so the step offers no history import.
 - "Continue" starts the chosen imports as jobs and moves on at once; they finish while the user
   picks styles. "Skip" moves on with nothing connected; Settings has all of it later.
 
@@ -430,7 +427,7 @@ In the voice of the verdict copy, never at the cost of reading speed.
 - `parseDumpListing()` also reads each file's size from the listing page.
 - `GET /api/setup`: whether the setup is needed, the newest dump (date, file, size; cached for an
   hour), whether it is in the dumps folder, the dumps folder and its free space, the space needed,
-  the style and year tally of imported releases, and the browsers with history to import.
+  and the style and year tally of imported releases.
 - `GET /api/styles`: the style census (below).
 - The Discogs account response adds the profile's collection and wantlist counts and currency.
 - The loader reports progress every second instead of every 100,000 releases. The progress gains
@@ -510,8 +507,6 @@ The flow is the same web page. The shell adds:
   running. Closing the window asks the same.
 - "Use a dump file I have" in step 1, with a file dialog (built on 2026-10-08, see step 1).
 - A folder picker for the dumps when the disk is short of space (built on 2026-10-08, see step 1).
-- On macOS, a history import that Digga may not read shows a message box explaining Full Disk
-  Access, with "Open Privacy & Security" and "Not Now" (built on 2026-10-08, decision 170).
 - The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 
 ## Build order
