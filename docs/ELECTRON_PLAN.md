@@ -14,7 +14,8 @@ on it (`vp run e2e:electron`). [What is left](#what-is-left) lists the rest.
 userData is `~/Library/Application Support/Digga`, the default library folder). In order, it:
 
 1. moves Chromium's session data to `userData/Chromium`, so the library folder holds only
-   Digga's files (decision 155);
+   Digga's files (decision 155), and with `DIGGA_E2E_HOLD=1` then waits for the E2E host to
+   prepare it (decision 162, [The packaged app](e2e/ELECTRON.md#the-packaged-app));
 2. reads the environment through `readLaunchEnvironment()` in `src/cli/environment.ts`, the
    CLI's code: `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`, `DIGGA_CONFIG_FILE`, `DIGGA_LOG_LEVEL`, the
    three service URLs, and a `.env` in the working directory (decision 151);

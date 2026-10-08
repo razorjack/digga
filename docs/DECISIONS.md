@@ -1083,3 +1083,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      package is covered by the signature alone. An ad-hoc signature can be made again by anyone
      who can write the app, so the two keep a copy from being damaged or changed by accident, not
      from someone who means to change it.
+162. **The packaged app waits for the E2E host with `DIGGA_E2E_HOLD=1`.** A packaged build ignores
+     `-r`, with its fuses or without them, so the harness preload cannot run before the app's
+     first line there. `electron/main.ts` gets the one test hook `docs/e2e/ELECTRON.md` planned:
+     with `DIGGA_E2E_HOLD=1` in the environment (read by `testHostHoldRequested()` in
+     `src/cli/environment.ts`), it sets `sessionData`, which must happen before Electron is
+     ready, and then waits for `globalThis.diggaE2eHold.release()` before it starts the server.
+     The host loads the same preload through the inspector while the app waits, so the packaged
+     and unpackaged runs share the preload, its guard and its stubs. The wait is a promise, since
+     a top-level `await` held Electron's start and Playwright never saw the DevTools endpoint.
+     Only the inspectable variant can be released; the release build, with no inspector, just
+     waits, so the variable gives nothing to anyone who sets it. Chromium runs before the
+     preload, so on the packaged app a refused userData folder already holds Chromium's files,
+     and the host's check before each launch is what keeps userData in the test's folder.

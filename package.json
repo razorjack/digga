@@ -19,6 +19,7 @@
     "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",
     "e2e:smoke": "vp build && playwright test --config tests/e2e/playwright.config.ts --grep @P0",
     "e2e:electron": "vp build && playwright test --config tests/e2e/playwright.electron.config.ts",
+    "e2e:packaged": "vp run electron:package && playwright test --config tests/e2e/playwright.packaged.config.ts",
     "verify": "vp check && vp test && vp run check:portability && vp run check:svelte && vp run e2e:smoke"
   },
   "dependencies": {

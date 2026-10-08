@@ -119,6 +119,8 @@ interface TestFixtures {
 
 interface WorkerFixtures {
   host: HostName;
+  /** The packaged app's executable the Electron host starts, or null for the repository's app. */
+  electronExecutable: string | null;
   runRoot: string;
   templates: Templates;
   /** The worker's Chromium for the web host, launched on first use, so Electron workers have none. */
@@ -128,6 +130,7 @@ interface WorkerFixtures {
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   diggaOptions: [{}, { option: true }],
   host: ["web", { option: true, scope: "worker" }],
+  electronExecutable: [null, { option: true, scope: "worker" }],
 
   runRoot: [
     // oxlint-disable-next-line no-empty-pattern -- Playwright passes fixtures by destructuring.
@@ -172,39 +175,33 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   app: async (
-    { host, webBrowser, fakes, templates, runRoot, testFolder: folder, diggaOptions },
+    {
+      host,
+      electronExecutable,
+      webBrowser,
+      fakes,
+      templates,
+      runRoot,
+      testFolder: folder,
+      diggaOptions,
+    },
     use,
     testInfo,
   ) => {
     const options = { ...DEFAULT_OPTIONS, ...diggaOptions };
-    const library = copyTemplate(
-      await templates.folder(options.template),
-      path.join(folder, "library"),
-    );
-    if (options.template !== "empty")
-      updateConfig(library.configFile, (config) => testConfig(config, options));
-    for (const month of options.dumpFiles) writeDump(library.dumpsDir, smallDump(month));
-    if (options.listedDump) fakes.dumps.list(memoryDump(LISTED_DUMPS[options.listedDump]()));
-    const work = path.join(folder, "work");
-    fs.mkdirSync(work);
-    const home = path.join(folder, "home");
-    for (const history of options.browserHistory) writeBrowserHistory(home, history);
-    const environment: DiggaEnvironment = {
-      root: runRoot,
-      cwd: work,
-      home,
-      library,
-      allowedPort: fakes.port,
-      serviceUrls: { ...fakes.urls, ...options.serviceUrls },
-      token: checkedToken(options.environmentToken),
-    };
-    if (options.decisionsBackup) {
-      const file = writeDecisionsBackup(path.join(folder, "given"), options.decisionsBackup);
-      await runDiggaOrThrow(["restore", file], environment);
-    }
-    const app = await launchHost(host, { options, environment, folder, webBrowser, testInfo });
+    const environment = await prepareEnvironment(options, { folder, runRoot, fakes, templates });
+    const app = await launchHost(host, {
+      options,
+      environment,
+      folder,
+      electronExecutable,
+      webBrowser,
+      testInfo,
+    });
     // Locked once the server runs, which reads the folders only when the page asks.
-    const unlocks = options.unreadableBrowsers.map((browser) => lockBrowserFolder(home, browser));
+    const unlocks = options.unreadableBrowsers.map((browser) =>
+      lockBrowserFolder(environment.home, browser),
+    );
 
     await use(app);
 
@@ -232,6 +229,43 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 });
 
+/**
+ * The test's library from its template, its home and working folder, and the environment a Digga
+ * process gets, with what the options put there before the app starts.
+ */
+async function prepareEnvironment(
+  options: DiggaOptions,
+  test: { folder: string; runRoot: string; fakes: FakeServices; templates: Templates },
+): Promise<DiggaEnvironment> {
+  const { folder, fakes } = test;
+  const library = copyTemplate(
+    await test.templates.folder(options.template),
+    path.join(folder, "library"),
+  );
+  if (options.template !== "empty")
+    updateConfig(library.configFile, (config) => testConfig(config, options));
+  for (const month of options.dumpFiles) writeDump(library.dumpsDir, smallDump(month));
+  if (options.listedDump) fakes.dumps.list(memoryDump(LISTED_DUMPS[options.listedDump]()));
+  const work = path.join(folder, "work");
+  fs.mkdirSync(work);
+  const home = path.join(folder, "home");
+  for (const history of options.browserHistory) writeBrowserHistory(home, history);
+  const environment: DiggaEnvironment = {
+    root: test.runRoot,
+    cwd: work,
+    home,
+    library,
+    allowedPort: fakes.port,
+    serviceUrls: { ...fakes.urls, ...options.serviceUrls },
+    token: checkedToken(options.environmentToken),
+  };
+  if (options.decisionsBackup) {
+    const file = writeDecisionsBackup(path.join(folder, "given"), options.decisionsBackup);
+    await runDiggaOrThrow(["restore", file], environment);
+  }
+  return environment;
+}
+
 /** The app on the project's host, prepared with the test's options (docs/e2e/HARNESS.md#the-app-host). */
 async function launchHost(
   host: HostName,
@@ -239,6 +273,7 @@ async function launchHost(
     options: DiggaOptions;
     environment: DiggaEnvironment;
     folder: string;
+    electronExecutable: string | null;
     webBrowser: () => Promise<PlaywrightBrowser>;
     testInfo: TestInfo;
   },
@@ -247,6 +282,7 @@ async function launchHost(
   if (host === "electron")
     return ElectronApp.launch({
       environment,
+      executablePath: launch.electronExecutable,
       testFolder: launch.folder,
       savedToken: options.savedToken,
       clock: options.clock,

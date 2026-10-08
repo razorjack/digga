@@ -27,6 +27,15 @@ export function readLaunchEnvironment(): LaunchEnvironment {
   return launchEnvironment(process.env);
 }
 
+/**
+ * DIGGA_E2E_HOLD=1, from the environment only: the Electron app waits at its start until the E2E
+ * host has prepared it through the inspector (docs/e2e/ELECTRON.md#startup-order). A build without
+ * the inspector cannot be prepared, so there the variable only stops the app.
+ */
+export function testHostHoldRequested(): boolean {
+  return process.env.DIGGA_E2E_HOLD === "1";
+}
+
 export function launchEnvironment(env: Record<string, string | undefined>): LaunchEnvironment {
   const read = (name: string) => nonEmpty(env[name]);
   return {

@@ -9,8 +9,10 @@ and its binding rules. For data and fake services, read [FIXTURES](FIXTURES.md).
 The suite uses Playwright Test. [package.json](../../package.json) pins the version, and
 [playwright.config.ts](../../tests/e2e/playwright.config.ts) defines the web project, retries,
 timeout and artifacts. [playwright.electron.config.ts](../../tests/e2e/playwright.electron.config.ts)
-takes the same settings with the Electron project instead, so only `vp run e2e:electron` and
-commands naming that file start Electron ([ELECTRON](ELECTRON.md#running)). Each project sets the
+takes the same settings with the Electron project instead, and
+[playwright.packaged.config.ts](../../tests/e2e/playwright.packaged.config.ts) with the packaged
+app's, so only `vp run e2e:electron`, `vp run e2e:packaged` and commands naming those files start
+Electron ([ELECTRON](ELECTRON.md#running)). Each project sets the
 fixture option `host`, and leaves out the tests tagged for the other host. The
 [runner comparison](HISTORY.md#runner-choice-on-2026-09-30) records the original selection.
 

@@ -64,12 +64,14 @@ Install the browser once with `npx playwright install chromium`.
 vp run e2e                       # vp build, then every scenario in tests/e2e/specs/
 vp run e2e:smoke                 # vp build, then the P0 scenarios (part of vp run verify)
 vp run e2e:electron              # vp build, then the shared suite and the ELEC scenarios on Electron
+vp run e2e:packaged              # vp run electron:package, then the same on the packaged inspectable app
 npx playwright test --config tests/e2e/playwright.config.ts --grep "@TRI-12\b"   # one scenario, after vp build
 npx playwright test --config tests/e2e/playwright.config.ts --repeat-each=10     # a new or changed spec, before its commit
 npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 4 --grep "@TRI-12\b"  # on Electron
 ```
 
-Only `vp run e2e:electron` and commands naming `playwright.electron.config.ts` start Electron;
+Only `vp run e2e:electron`, `vp run e2e:packaged` and commands naming
+`playwright.electron.config.ts` or `playwright.packaged.config.ts` start Electron;
 `e2e`, `e2e:smoke`, `verify` and CI run the web project. A spec that also runs on Electron passes
 its burn-in on both.
 
@@ -139,7 +141,8 @@ tools/dev/             fake-services.ts: the fake Discogs API, oEmbed and data.d
                        imports and `node tools/dev/fake-services.ts <dump>` serves to rehearse the setup
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)
 tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwright.config.ts (web),
-                       playwright.electron.config.ts (Electron, docs/e2e/ELECTRON.md);
+                       playwright.electron.config.ts (Electron, docs/e2e/ELECTRON.md), playwright.packaged.config.ts
+                       (the packaged inspectable app);
                        specs/*.e2e.ts (scenarios, tagged with their IDs and priority); pages/ (page objects:
                        triage, header, twelves, settings, setup, dialogs); fixtures/ (catalogue.ts, the one source of releases,
                        videos and accounts, the generated bulk records included, dump.ts, which writes them

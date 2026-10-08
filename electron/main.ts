@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, nativeTheme, safeStorage, session } from "electron";
 import path from "node:path";
-import { readLaunchEnvironment } from "../src/cli/environment.ts";
+import { readLaunchEnvironment, testHostHoldRequested } from "../src/cli/environment.ts";
 import { loadConfig } from "../src/server/config-file.ts";
 import { LibraryInUseError } from "../src/server/library-lock.ts";
 import {
@@ -22,11 +22,16 @@ import { openWindow, secureSession } from "./window.ts";
  * renderer is the same client as in a browser and talks to the server over HTTP only.
  */
 
+declare global {
+  /** Set while the app waits for the E2E host; see waitForTestHost(). */
+  var diggaE2eHold: { release(): void } | undefined;
+}
+
 // The library is in the userData folder by default; Chromium's own files stay out of it.
 app.setPath("sessionData", path.join(app.getPath("userData"), "Chromium"));
 
-app
-  .whenReady()
+waitForTestHost()
+  .then(() => app.whenReady())
   .then(startDigga)
   .catch(async (error: unknown) => {
     await showStartupError(error);
@@ -62,6 +67,18 @@ async function startDigga(): Promise<void> {
     Menu.buildFromTemplate(menuTemplate({ show: showRoute }, process.platform)),
   );
   await openWindow(browserUrl, logger);
+}
+
+/**
+ * With DIGGA_E2E_HOLD=1 the app waits here for the E2E host, which installs its guard and stubs
+ * through the inspector, since a packaged build ignores -r (docs/e2e/ELECTRON.md#startup-order).
+ * The wait must not block the module's evaluation: Electron starts Chromium only after it.
+ */
+function waitForTestHost(): Promise<void> {
+  if (!testHostHoldRequested()) return Promise.resolve();
+  const hold = Promise.withResolvers<void>();
+  globalThis.diggaE2eHold = { release: () => hold.resolve() };
+  return hold.promise;
 }
 
 /** The log in userData; an unpackaged run, started from a terminal, prints it there too. */

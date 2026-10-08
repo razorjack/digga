@@ -2,7 +2,8 @@
 
 Digga's E2E suite drives the built app in Chromium against fake Discogs and YouTube services.
 Each test has its own server, temporary library and fake services. The shared suite runs on two
-hosts: the web host, a Chromium tab on `digga serve`, and the Electron host, the unpackaged app.
+hosts: the web host, a Chromium tab on `digga serve`, and the Electron host, the unpackaged app
+or the packaged app's inspectable variant.
 
 Read this guide when running, writing or debugging E2E tests. Then read only the documents
 needed for the task. Routine product work does not require loading the full E2E reference.
@@ -33,6 +34,7 @@ Run from the repository root:
 vp run e2e:smoke                 # build, then all implemented @P0 tests on web-chromium
 vp run e2e                       # build, then every implemented web scenario, including P2
 vp run e2e:electron              # build, then the shared suite and the ELEC scenarios on Electron
+vp run e2e:packaged              # package, then the same on the packaged inspectable app
 vp run verify                   # format, lint, types, unit tests, portability, Svelte, smoke
 
 # After vp build: one scenario or a changed spec's required burn-in
@@ -45,9 +47,10 @@ filter: without it, `@TRI-1` also selects TRI-10 to TRI-19. Without a global `vp
 
 The scripts in [package.json](../package.json) and the
 [Playwright configuration](../tests/e2e/playwright.config.ts) define the runnable suite. The
-default configuration runs the web host only; Electron runs only through `vp run e2e:electron`
-or commands naming
-[playwright.electron.config.ts](../tests/e2e/playwright.electron.config.ts), with fewer workers
+default configuration runs the web host only; Electron runs only through `vp run e2e:electron`,
+`vp run e2e:packaged` or commands naming
+[playwright.electron.config.ts](../tests/e2e/playwright.electron.config.ts) or
+[playwright.packaged.config.ts](../tests/e2e/playwright.packaged.config.ts), with fewer workers
 than the web project ([ELECTRON](e2e/ELECTRON.md#running)). `e2e:contract` is planned and does
 not exist yet.
 

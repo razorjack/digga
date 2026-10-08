@@ -4,14 +4,17 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { _electron } from "@playwright/test";
 import { TriagePage } from "../pages/triage.ts";
 import { emptyGuardLog, guardContext } from "../support/browser-guard.ts";
+import { preloadHeldApp } from "../support/hosts/electron.ts";
 import {
   closeServer,
   type CountingListener,
   countingListener,
   listen,
 } from "../support/listener.ts";
+import { collectOutput, exited } from "../support/spawn.ts";
 import { expect, test } from "../support/test.ts";
 
 const guarded = test.extend<{ forbidden: CountingListener }>({
@@ -105,38 +108,51 @@ for (const outside of ["userData", "DIGGA_DATA_DIR"] as const)
   test(
     `GUARD-03 the Electron preload refuses to start with ${outside} outside the test's folder`,
     { tag: ["@GUARD-03", "@P0", "@electron"] },
-    async ({ testFolder }) => {
+    async ({ testFolder, electronExecutable }) => {
       const allowed = path.join(testFolder, "allowed");
       const elsewhere = path.join(testFolder, "elsewhere");
       const userData = path.join(outside === "userData" ? elsewhere : allowed, "user-data");
       const dataDir = path.join(outside === "DIGGA_DATA_DIR" ? elsewhere : allowed, "library");
 
-      const run = await startElectron({ root: allowed, userData, dataDir });
+      const folders = { root: allowed, userData, dataDir };
+      const run = electronExecutable
+        ? await startPackagedElectron(electronExecutable, folders)
+        : await startElectron(folders);
 
       expect(run.code).toBe(78);
       expect(run.stderr).toContain(
         `digga-e2e preload: refused to start: ${outside} (${outside === "userData" ? fs.realpathSync(userData) : dataDir}) is not inside the test's folder (${allowed})`,
       );
-      // Electron creates the userData folder before the preload runs; nothing is written into it.
-      expect(fs.readdirSync(userData)).toEqual([]);
+      // Electron creates the userData folder before the preload runs. A packaged build starts
+      // Chromium, which writes its profile there, before the host can load the preload, so the
+      // host refuses such a folder before every launch; Digga's own code never runs.
+      expect(fs.readdirSync(userData)).toEqual(electronExecutable ? ["Chromium"] : []);
       expect(fs.existsSync(dataDir)).toBe(false);
     },
   );
+
+interface ElectronFolders {
+  root: string;
+  userData: string;
+  dataDir: string;
+}
+
+/** Keeps every start off the login keychain, as the host's launches do. */
+const MOCK_KEYCHAIN = ["--use-mock-keychain", "--password-store=basic"];
 
 /**
  * Starts the Electron app with the harness preload and nothing else of the host, so the preload's
  * own check is all that stands between the app and the folders it is given.
  */
-async function startElectron(folders: {
-  root: string;
-  userData: string;
-  dataDir: string;
-}): Promise<{ code: number | null; stderr: string }> {
+async function startElectron(
+  folders: ElectronFolders,
+): Promise<{ code: number | null; stderr: string }> {
   const electron = createRequire(import.meta.url)("electron") as string;
   const preload = fileURLToPath(new URL("../support/electron-preload.cjs", import.meta.url));
   const appDir = fileURLToPath(new URL("../../../", import.meta.url));
   fs.mkdirSync(folders.root, { recursive: true });
-  const child = spawn(electron, ["-r", preload, appDir, `--user-data-dir=${folders.userData}`], {
+  const args = ["-r", preload, appDir, `--user-data-dir=${folders.userData}`, ...MOCK_KEYCHAIN];
+  const child = spawn(electron, args, {
     cwd: folders.root,
     env: {
       PATH: process.env.PATH,
@@ -153,6 +169,35 @@ async function startElectron(folders: {
   const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
   clearTimeout(stray);
   return { code, stderr };
+}
+
+/**
+ * The packaged app ignores -r: it waits with DIGGA_E2E_HOLD=1 until the preload is loaded through
+ * the inspector, as the host does it (preloadHeldApp), and nothing else of the host runs.
+ */
+async function startPackagedElectron(
+  executablePath: string,
+  folders: ElectronFolders,
+): Promise<{ code: number | null; stderr: string }> {
+  fs.mkdirSync(folders.root, { recursive: true });
+  const electronApp = await _electron.launch({
+    executablePath,
+    args: [`--user-data-dir=${folders.userData}`, ...MOCK_KEYCHAIN],
+    cwd: folders.root,
+    env: {
+      PATH: process.env.PATH!,
+      HOME: folders.root,
+      DIGGA_E2E_TEMP_ROOT: folders.root,
+      DIGGA_DATA_DIR: folders.dataDir,
+      DIGGA_E2E_HOLD: "1",
+    },
+  });
+  const output = collectOutput(electronApp.process());
+  const exit = exited(electronApp.process());
+  await expect(preloadHeldApp(electronApp, output)).rejects.toThrow(/refused to start/);
+  const code = await exit;
+  await electronApp.close().catch(() => {});
+  return { code, stderr: output.stderr() };
 }
 
 /** A page, and a redirect to the forbidden port, as a server bug could send. */

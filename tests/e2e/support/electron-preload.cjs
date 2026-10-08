@@ -1,6 +1,7 @@
 "use strict";
 /**
- * Loaded into Electron's main process with `-r`, before the app's first line
+ * Loaded into Electron's main process with `-r`, before the app's first line, or in a packaged
+ * build, which ignores -r, by the host while the app waits for it with DIGGA_E2E_HOLD=1
  * (docs/e2e/ELECTRON.md#startup-order). In order, it:
  *
  * 1. exits unless userData and every DIGGA_* path lie inside the test's temp folder, so no run

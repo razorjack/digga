@@ -5,25 +5,34 @@ Read this when running, changing or debugging the Electron test host. Start with
 contracts, [Electron scenarios](scenarios/electron.md) for coverage, and the product
 [Electron plan](../ELECTRON_PLAN.md) for packaging.
 
-The host runs the shared suite and the Electron-only scenarios on the unpackaged app,
-`electron/main.ts` from this repository, on macOS. It was built on 2026-10-07 after the spike in
-[HISTORY](HISTORY.md#the-electron-spike-electron-unpackaged). The packaged app, the inspectable
-release candidate, Windows and Linux wait for packaging ([PLAN](PLAN.md#electron)).
+The host runs the shared suite and the Electron-only scenarios on macOS, on the unpackaged app,
+`electron/main.ts` from this repository, or on the packaged app's inspectable variant
+([The packaged app](#the-packaged-app)). It was built on 2026-10-07 after the spike in
+[HISTORY](HISTORY.md#the-electron-spike-electron-unpackaged). Windows and Linux wait for their
+packages ([PLAN](PLAN.md#electron)).
 
 ## Running
 
 `vp run e2e:electron` builds the client and runs
 [playwright.electron.config.ts](../../tests/e2e/playwright.electron.config.ts), whose one project,
-`electron`, sets the fixture option `host: "electron"` and leaves out tests tagged `@web`. The
+`electron`, sets the fixture option `host: "electron"` and leaves out tests tagged `@web`.
+`vp run e2e:packaged` packages the app and runs
+[playwright.packaged.config.ts](../../tests/e2e/playwright.packaged.config.ts), whose project,
+`electron-packaged`, also sets `electronExecutable` to the inspectable variant's executable. The
 default configuration has only the web project and leaves out `@electron`, so `vp run e2e`,
 `vp run e2e:smoke`, `vp run verify` and CI never start Electron. CI also skips Electron's binary
-download.
+download and never packages.
 
 ```sh
 vp run e2e:electron                                                                    # build, then every Electron test
 npx playwright test --config tests/e2e/playwright.electron.config.ts --grep '@ELEC-13\b'  # after vp build
 npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 4         # choose workers for the load
+vp run e2e:packaged                                                                    # package, then every test on the inspectable variant
+npx playwright test --config tests/e2e/playwright.packaged.config.ts --workers 4         # on the last package
 ```
+
+A spec run on the packaged configuration tests the last package: after a change to `src/`,
+`electron/` or `dist/`, package again first.
 
 Each test starts a whole Electron app: a main process with the server, a GPU process, a network
 process and a renderer. Use fewer workers than for the web project; on the 10-core Mac four
@@ -36,15 +45,16 @@ host builds the app's environment from nothing, so it does not reach the app.
 [hosts/electron.ts](../../tests/e2e/support/hosts/electron.ts) implements `DiggaApp`. Each launch
 is `_electron.launch()` with:
 
-- `args`: `-r tests/e2e/support/electron-preload.cjs`, the repository's folder (so `package.json`'s
-  `main` and `productName` apply, as in `vp run electron:dev`), `--user-data-dir=<test folder>/user-data`,
+- `args`: `-r tests/e2e/support/electron-preload.cjs` and the repository's folder (so
+  `package.json`'s `main` and `productName` apply, as in `vp run electron:dev`), both left out for
+  a packaged build, then `--user-data-dir=<test folder>/user-data`,
   `--use-mock-keychain`, `--password-store=basic` and the host-resolver switch from
   [HARNESS](HARNESS.md#the-network-and-filesystem-guard). Playwright puts its own loader, `--inspect=0`
   and `--remote-debugging-port=0` before them.
 - `env`: the CLI's environment from `diggaVariables()` in `spawn.ts`, built from nothing, with
   `DIGGA_E2E_TEMP_ROOT` (the test's folder) and `DIGGA_E2E_DOWNLOADS_DIR` (`<test folder>/downloads`)
-  for the preload. Playwright removes `NODE_OPTIONS` from an Electron launch, so the preload loads
-  the guard instead.
+  for the preload, and `DIGGA_E2E_HOLD=1` for a packaged build. Playwright removes `NODE_OPTIONS`
+  from an Electron launch, so the preload loads the guard instead.
 - `cwd`: the test's working folder, which holds no `.env`.
 - `locale`, `timezoneId` and `colorScheme` from `PAGE_SETTINGS` in `app.ts`, which the web host's
   context uses too.
@@ -71,12 +81,14 @@ the CLI, vitest and the web host, so packaging must not run one there.
 ## The harness preload
 
 [electron-preload.cjs](../../tests/e2e/support/electron-preload.cjs) runs in the main process with
-`-r`, after Playwright's loader and before the app's first line. In order, it:
+`-r`, after Playwright's loader and before the app's first line; in a packaged build the host
+loads it while the app waits for it ([The packaged app](#the-packaged-app)). In order, it:
 
 1. exits with code 78 unless `app.getPath("userData")` and every `DIGGA_*` path that is set lie
    inside `DIGGA_E2E_TEMP_ROOT`, comparing real paths (Electron reports `/private/var` for `/var`
    on macOS). Electron has created the userData folder by then, empty; the preload exits before
-   anything is written into it. GUARD-03 tests the refusal;
+   anything is written into it (in a packaged build Chromium has written its folder there).
+   GUARD-03 tests the refusal;
 2. loads `tests/e2e/support/guard.ts`, and replaces `worker_threads.Worker` with a subclass whose
    workers `--import` the guard first, then calls `syncBuiltinESMExports()` so the app's
    `import { Worker }` binding gets the subclass. A file worker inherits a guard loaded with
@@ -126,13 +138,34 @@ ELEC-13 tests the sequence. The product has no code for it. The preload must kee
 app's start method, `app.whenReady()` in `electron/main.ts`, and its navigation method,
 `loadURL()` in `electron/window.ts`; a change to `loadFile()` needs corresponding interception.
 
-Electron may ignore `-r` in a packaged build. That is checked when there is an inspectable
-release candidate ([PLAN](PLAN.md#electron)). If the flag is ignored there, the product gets one
-test hook at the same point: with `DIGGA_E2E_HOLD=1` the main process waits before it starts,
-and the host installs the guard and the stubs through `evaluate()` while it waits (`require` is
-not defined there; the guard takes `net` from `process.getBuiltinModule()`). Node code that runs
-before that point is then unguarded, and only the fake service URLs keep it from the real
-services; the resolver rule still covers Chromium's network and `electron.net`.
+## The packaged app
+
+A packaged build ignores `-r`, with or without its fuses, and Playwright's loader too, which it
+adds only for the `electron` package. So the product has one test hook (decision 162): with
+`DIGGA_E2E_HOLD=1` from the environment, `electron/main.ts` sets `sessionData` and then waits,
+before it reads the environment or calls `app.whenReady()`, until `globalThis.diggaE2eHold.release()`
+is called. The wait is a promise, not a top-level `await`: Electron starts Chromium, and with it
+the DevTools endpoint Playwright needs, only after the main module has been evaluated.
+
+With `executablePath`, the host passes neither `-r` nor the repository's folder, adds
+`DIGGA_E2E_HOLD=1`, and after the launch calls `preloadHeldApp()`: it waits through `evaluate()`
+until the hold exists, loads the same preload with `process.getBuiltinModule("node:module")`'s
+`createRequire()` (`require` is not defined in `evaluate()`), and releases the hold. The preload
+then does what it does after `-r`, and the startup order goes on at step 2. Static imports of
+`electron/main.ts` have been evaluated by then; none of them connects anywhere, and
+`syncBuiltinESMExports()` still reaches their `Worker` binding.
+
+What differs from `-r`:
+
+- Chromium has started before the preload runs, so a refused `--user-data-dir` already holds
+  Chromium's `Chromium` folder when the preload exits with 78; Digga's code has not run and no
+  library exists. The host's own check before every launch keeps userData in the test's folder,
+  and GUARD-03 expects the folder on the packaged configuration.
+- Node code before the hold is unguarded, and only the fake service URLs keep it from the real
+  services; it makes no connection. The resolver rule covers Chromium's network and
+  `electron.net` from the first moment.
+- The release build has no inspector, so `DIGGA_E2E_HOLD=1` only stops it: nothing can release
+  the hold.
 
 ## Shared host contract
 
@@ -150,8 +183,10 @@ services; the resolver rule still covers Chromium's network and `electron.net`.
   it completed; the file is in `<test folder>/downloads`.
 - `paste()`, `abortRequests()`, `apiRequests()`, `expectProblems()` and `cli()` work as in the web
   host.
-- `app.servers` holds each launch's main-process output, where the server logs (the unpackaged app
-  prints its log to the terminal too). GUARD-01 and PER-03 read it there.
+- `app.servers` holds each launch's output: `stdout` is the launch's part of `userData/digga.log`,
+  where the server logs (a packaged app prints nothing, and an unpackaged one prints the same
+  lines), and `stderr` the process's, where the guard reports. GUARD-01, PER-03 and the ELEC
+  scenarios read them there; quitting waits for the log's "stopped" line.
 - `ElectronApp` also has `electronApp`, `windowUrl`, `userDataDir`, `downloadsDir` and
   `recorded()` for the ELEC scenarios.
 
@@ -199,7 +234,8 @@ process exited after 261 ms (at most 909 ms, 183 quits). The 20 s exits of the r
 `src/cli/environment.ts`; its secrets give `DISCOGS_TOKEN` precedence over `safeStorage`, as the
 CLI does; `window.open` goes through `setWindowOpenHandler` and `shell.openExternal`, downloads
 through `will-download`; and `before-quit` waits for `server.stop()`, so jobs become cancelled
-and the database closes. A change must keep them. The harness needed no product change.
+and the database closes. A change must keep them. The harness needs one product change, the
+`DIGGA_E2E_HOLD` hook in `electron/main.ts`, for the packaged app ([The packaged app](#the-packaged-app)).
 
 Electron writes outside userData too, independent of `--user-data-dir`: on macOS, `HOME` and
 `TMPDIR` move neither `appData`, `home`, `downloads` nor `temp`, and Chromium keeps a file in the

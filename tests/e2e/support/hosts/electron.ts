@@ -1,6 +1,6 @@
-import type { ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import {
   _electron,
@@ -41,9 +41,10 @@ import {
 } from "../spawn.ts";
 
 /**
- * The Electron app, unpackaged: electron/main.ts with the harness preload, on the test's library,
- * with userData in the test's folder (docs/e2e/ELECTRON.md). The server runs in the main process,
- * so a relaunch replaces the whole app, and there is no restartServer().
+ * The Electron app with the harness preload, on the test's library, with userData in the test's
+ * folder (docs/e2e/ELECTRON.md): unpackaged, electron/main.ts from this repository, or a packaged
+ * build's inspectable variant. The server runs in the main process, so a relaunch replaces the
+ * whole app, and there is no restartServer().
  */
 
 const APP_DIR = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -57,6 +58,8 @@ const STOP_TIMEOUT_MS = 15_000;
  * host kills it after this and says so.
  */
 const EXIT_TIMEOUT_MS = 10_000;
+/** How often the host reads digga.log while it waits for a line; the app writes it synchronously. */
+const LOG_POLL_MS = 50;
 
 /** What the preload records in the main process (tests/e2e/support/electron-preload.cjs). */
 export interface MainProcessRecord {
@@ -77,6 +80,8 @@ interface PreloadApi {
 
 declare global {
   var diggaE2e: PreloadApi | undefined;
+  /** Set by electron/main.ts while a packaged build waits for the host (DIGGA_E2E_HOLD=1). */
+  var diggaE2eHold: { release(): void } | undefined;
 }
 
 /** The app while its window waits for the first navigation: its server runs, nothing has loaded. */
@@ -88,6 +93,8 @@ export interface HeldApp {
 
 export interface ElectronAppOptions {
   environment: DiggaEnvironment;
+  /** A packaged build's executable, or null for electron/main.ts from this repository. */
+  executablePath: string | null;
   /** The test's temp folder; userData, downloads and every path the app gets lie inside it. */
   testFolder: string;
   /** Saved through PUT /api/discogs/token before the page first opens. */
@@ -101,7 +108,8 @@ export interface ElectronAppOptions {
 /** One start of the app: its process, its window and the server in it. */
 interface Launch {
   electronApp: ElectronApplication;
-  output: CollectedOutput;
+  /** Its lines of digga.log, and its stderr. */
+  server: ProcessOutput;
   page: Page;
   api: AppApiClient;
   heldUrl: string;
@@ -303,8 +311,9 @@ export class ElectronApp implements DiggaHost {
    * until open() as a web page does (docs/e2e/ELECTRON.md#startup-order).
    */
   async #start(given: (api: AppApiClient, held: HeldApp) => Promise<void>): Promise<void> {
-    const { electronApp, output } = await this.#launchElectron();
+    const { electronApp, output, server } = await this.#launchElectron();
     try {
+      if (this.#options.executablePath) await preloadHeldApp(electronApp, output);
       const guard = await this.#prepareContext(electronApp.context());
       const heldUrl = await this.#startApp(electronApp, output);
       guard.allowOrigin(new URL(heldUrl).origin);
@@ -315,7 +324,7 @@ export class ElectronApp implements DiggaHost {
       const page = await releaseToBlankPage(electronApp);
       this.#launch = {
         electronApp,
-        output,
+        server,
         page,
         api,
         heldUrl,
@@ -328,13 +337,16 @@ export class ElectronApp implements DiggaHost {
     }
   }
 
-  async #launchElectron(): Promise<{ electronApp: ElectronApplication; output: CollectedOutput }> {
-    const { testFolder } = this.#options;
+  async #launchElectron(): Promise<{
+    electronApp: ElectronApplication;
+    output: CollectedOutput;
+    server: ProcessOutput;
+  }> {
+    const { testFolder, executablePath } = this.#options;
     const environment = this.#environment;
     const args = [
-      "-r",
-      PRELOAD,
-      APP_DIR,
+      // A packaged build ignores -r and runs its own app; preloadHeldApp() loads the preload there.
+      ...(executablePath ? [] : ["-r", PRELOAD, APP_DIR]),
       `--user-data-dir=${this.userDataDir}`,
       // Playwright adds these only with its own loader; passed here, no run touches a real keychain.
       "--use-mock-keychain",
@@ -342,18 +354,26 @@ export class ElectronApp implements DiggaHost {
       HOST_RESOLVER_RULES,
     ];
     checkLaunch(args, environment, testFolder);
+    const logFile = path.join(this.userDataDir, "digga.log");
+    const logStart = fs.existsSync(logFile) ? fs.statSync(logFile).size : 0;
     const electronApp = await _electron.launch({
+      executablePath: executablePath ?? undefined,
       args,
       cwd: environment.cwd,
-      env: electronVariables(environment, testFolder, this.downloadsDir),
+      env: electronVariables(environment, {
+        testFolder,
+        downloadsDir: this.downloadsDir,
+        hold: executablePath !== null,
+      }),
       locale: PAGE_SETTINGS.locale,
       timezoneId: PAGE_SETTINGS.timezoneId,
       colorScheme: PAGE_SETTINGS.colorScheme,
       timeout: START_TIMEOUT_MS,
     });
     const output = collectOutput(electronApp.process());
-    this.servers.push(processOutput(output));
-    return { electronApp, output };
+    const server = serverOutput(output, logFile, logStart);
+    this.servers.push(server);
+    return { electronApp, output, server };
   }
 
   /** Everything the page needs before the app's first script, installed before the window exists. */
@@ -426,10 +446,43 @@ export class ElectronApp implements DiggaHost {
   }
 }
 
-function processOutput(output: CollectedOutput): ProcessOutput {
+/**
+ * A packaged build ignores -r: with DIGGA_E2E_HOLD=1 it waits at its start (electron/main.ts), and
+ * the preload is loaded through the inspector, before the app's own code goes on. The preload's
+ * refusal exits the app here, with its line on stderr.
+ */
+export async function preloadHeldApp(
+  electronApp: ElectronApplication,
+  output: CollectedOutput,
+): Promise<void> {
+  try {
+    await expect
+      .poll(() => electronApp.evaluate(() => globalThis.diggaE2eHold !== undefined), {
+        message: "the packaged app to wait for the host",
+        timeout: START_TIMEOUT_MS,
+      })
+      .toBe(true);
+    await electronApp.evaluate((_electron, preload) => {
+      const { createRequire } = process.getBuiltinModule("node:module");
+      createRequire(preload)(preload);
+      globalThis.diggaE2eHold!.release();
+    }, PRELOAD);
+  } catch (error) {
+    throw new Error(
+      `the host could not prepare the packaged app (${String(error)}):\n${output.all()}`,
+    );
+  }
+}
+
+/**
+ * The launch's lines of digga.log, which the app writes in both forms; a packaged app prints none
+ * of them, and an unpackaged one prints the same lines. The log keeps every launch's lines.
+ */
+function serverOutput(output: CollectedOutput, logFile: string, logStart: number): ProcessOutput {
   return {
     get stdout() {
-      return output.stdout();
+      if (!fs.existsSync(logFile)) return "";
+      return fs.readFileSync(logFile).subarray(logStart).toString("utf8");
     },
     get stderr() {
       return output.stderr();
@@ -440,13 +493,13 @@ function processOutput(output: CollectedOutput): ProcessOutput {
 /** The CLI's isolated environment, without NODE_OPTIONS, which Playwright removes: the preload guards. */
 function electronVariables(
   environment: DiggaEnvironment,
-  testFolder: string,
-  downloadsDir: string,
+  launch: { testFolder: string; downloadsDir: string; hold: boolean },
 ): Record<string, string> {
   const variables = {
     ...diggaVariables(environment),
-    DIGGA_E2E_TEMP_ROOT: testFolder,
-    DIGGA_E2E_DOWNLOADS_DIR: downloadsDir,
+    DIGGA_E2E_TEMP_ROOT: launch.testFolder,
+    DIGGA_E2E_DOWNLOADS_DIR: launch.downloadsDir,
+    DIGGA_E2E_HOLD: launch.hold ? "1" : undefined,
   };
   return Object.fromEntries(
     Object.entries(variables).filter((entry): entry is [string, string] => entry[1] !== undefined),
@@ -490,11 +543,13 @@ async function quit(launch: Launch): Promise<void> {
   const exit = exited(child);
   // The process can exit before it answers.
   await launch.electronApp.evaluate(({ app }) => app.quit()).catch(() => {});
+  const waiting = new AbortController();
   const stopped = await Promise.race([
-    waitForLine(child, launch.output, /\] stopped$/m),
+    waitForLogLine(launch.server, /\] stopped$/m, waiting.signal),
     exit,
     timeout(STOP_TIMEOUT_MS),
   ]);
+  waiting.abort();
   if (stopped === "timeout") {
     await kill(launch.electronApp);
     throw new Error(`the Electron app's server did not stop within ${STOP_TIMEOUT_MS / 1000} s`);
@@ -515,15 +570,14 @@ async function kill(electronApp: ElectronApplication): Promise<void> {
   await electronApp.close().catch(() => {});
 }
 
-/** Resolves once stdout has a matching line; collectOutput()'s listener has read each chunk first. */
-function waitForLine(child: ChildProcess, output: CollectedOutput, pattern: RegExp): Promise<void> {
-  return new Promise((resolve) => {
-    const check = () => {
-      if (!pattern.test(output.stdout())) return;
-      child.stdout?.off("data", check);
-      resolve();
-    };
-    child.stdout?.on("data", check);
-    check();
-  });
+/** Resolves once the launch's log has a matching line, and never once the signal aborts. */
+async function waitForLogLine(
+  server: ProcessOutput,
+  pattern: RegExp,
+  signal: AbortSignal,
+): Promise<void> {
+  while (!pattern.test(server.stdout)) {
+    const aborted = await sleep(LOG_POLL_MS, false, { signal }).catch(() => true);
+    if (aborted) return new Promise(() => {});
+  }
 }
