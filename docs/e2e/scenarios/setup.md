@@ -240,7 +240,10 @@ A new page resumes at the first step not done: step 1 before anything is fetched
 address asks; step 2 while the catalogue comes, or step 3 when the address asks; the account a
 username connected comes back on step 2; with the picks confirmed and the load waiting for the
 imports (the wantlist page held at the fake), step 3 with those picks; the load's screen once a load
-exists. A catalogue that was in the dumps folder before any download is SETUP-06
+exists. With a saved token and the wantlist page held, a new page opens step 2 at once: the account
+reads "Checking your Discogs account…" without the token field while `/oauth/identity` waits
+behind the held page, and "Connected as dj" once the page is released. A catalogue that was in the
+dumps folder before any download is SETUP-06
 
 ## SETUP-29
 

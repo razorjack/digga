@@ -43,6 +43,11 @@ export class SetupFlow {
   setup = $state.raw<SetupResponse | null>(null);
   census = $state.raw<StyleCensus | null>(null);
   account = $state.raw<DiscogsAccountResponse | null>(null);
+  /**
+   * The saved token's account is being asked of Discogs. The server sends Discogs one request at
+   * a time, so the answer can wait behind an import's page; the steps do not wait for it.
+   */
+  accountChecking = $state(false);
   profile = $state.raw<DiscogsProfileResponse | null>(null);
   download = $state.raw<Job | null>(null);
   load = $state.raw<Job | null>(null);
@@ -98,20 +103,18 @@ export class SetupFlow {
   /** Reads what the server has and resumes at `requested` when it can, else the first step not done. */
   async open(requested: SetupStep | null = null): Promise<void> {
     try {
-      const [setup, { jobs }, account, config] = await Promise.all([
+      void this.#checkAccount();
+      const [setup, { jobs }, config] = await Promise.all([
         api.getSetup(),
         api.getJobs(),
-        api.getDiscogsAccount().catch(() => null),
         settings.value ?? api.getSettings(),
       ]);
       this.setup = setup;
-      this.account = account;
       this.picks = confirmedPicks(config);
       this.pickedDump = config.setup.dumpFile;
       this.#adoptJobs(jobs);
       this.step = this.#resumeStep(requested);
       await this.#loadAgainAfterRetry();
-      if (account?.username || account?.tokenUsername) void this.#loadProfile();
       if (this.step === "sound" || this.step === "crate") void this.#loadCensus();
       this.#poll();
     } catch (error) {
@@ -331,6 +334,16 @@ export class SetupFlow {
   async #saveSettings(change: SettingsChange): Promise<void> {
     const current = settings.value ?? (await api.getSettings());
     await settings.save(withChange($state.snapshot(current) as Config, change));
+  }
+
+  /** The account the saved token or username names, then its profile. */
+  async #checkAccount(): Promise<void> {
+    this.accountChecking = true;
+    const account = await api.getDiscogsAccount().catch(() => null);
+    if (this.#closed) return;
+    this.account = account;
+    this.accountChecking = false;
+    if (account?.username || account?.tokenUsername) await this.#loadProfile();
   }
 
   async #loadProfile(): Promise<void> {

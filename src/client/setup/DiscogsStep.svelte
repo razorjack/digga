@@ -98,7 +98,9 @@
   <div class="account">
     <!-- The status stays in the page, empty until connected, so the account is announced. -->
     <div class="connected" role="status">
-      {#if connectedAs}
+      {#if flow.accountChecking}
+        <p>Checking your Discogs account…</p>
+      {:else if connectedAs}
         <p>
           Connected as <b>{connectedAs}</b>{#if flow.profile?.collection !== null && flow.profile?.collection !== undefined}:
             {formatCount(flow.profile.collection)} in your collection, {formatCounted(flow.profile.wantlist ?? 0, "want")}{/if}.
@@ -106,7 +108,7 @@
         </p>
       {/if}
     </div>
-    {#if !connectedAs}
+    {#if !connectedAs && !flow.accountChecking}
       <form class="token" onsubmit={connect}>
         <p class="hint" id="token-hint">
           The token stays on this computer. Get one on discogs.com under Settings › Developers › Generate new token.

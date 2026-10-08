@@ -197,6 +197,9 @@ styles in step 3.
   with `/oauth/identity` before saving it; a token Discogs refuses shows its answer on the field
   (`setCustomValidity`, `aria-invalid`). The identity gives the username, so the user never
   types it.
+- A setup opened again with a saved token shows its step at once and the account as "Checking your
+  Discogs account…" until Discogs answers: the server sends Discogs one request at a time, so
+  `/oauth/identity` can wait behind a running import's page, for 15 s with a large wantlist.
 - The profile (`GET /users/{username}`) gives the collection and wantlist counts and the currency
   (`curr_abbr`). It becomes `discogs.currency` when the API prices in it, else EUR as today (the
   API has no PLN, for example); the select changes it.

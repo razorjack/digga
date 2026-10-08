@@ -3,7 +3,12 @@ import { api } from "../src/client/api.ts";
 import { confirmedPicks, SetupFlow, withChange } from "../src/client/setup/flow.svelte.ts";
 import type { SetupStep } from "../src/client/setup/steps.ts";
 import { settings } from "../src/client/stores.svelte.ts";
-import type { SetupResponse, Stats } from "../src/shared/api.ts";
+import type {
+  DiscogsAccountResponse,
+  DiscogsProfileResponse,
+  SetupResponse,
+  Stats,
+} from "../src/shared/api.ts";
 import { type Config, DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { StyleCensus } from "../src/shared/style-census.ts";
 import { DOWNLOAD_RETRIED_ERROR, type Job } from "../src/shared/types.ts";
@@ -36,6 +41,23 @@ function job(id: string, type: "dump_download" | "dump_load"): Job {
     progress: null,
   } as Job;
 }
+
+const ACCOUNT: DiscogsAccountResponse = {
+  username: "dj",
+  hasToken: true,
+  tokenSource: "saved",
+  tokenEncrypted: false,
+  tokenUsername: "dj",
+  error: null,
+  dataAccount: null,
+};
+
+const PROFILE: DiscogsProfileResponse = {
+  username: "dj",
+  collection: 312,
+  wantlist: 1204,
+  currency: "EUR",
+};
 
 const DOWNLOAD = job("download", "dump_download");
 const LOAD = job("load", "dump_load");
@@ -131,6 +153,25 @@ describe("where the setup resumes", () => {
     serverHas([], false);
 
     expect(await resumedStep("sound")).toBe("catalogue");
+  });
+
+  it("resumes without waiting for the account, which shows as checked until Discogs answers", async () => {
+    serverHas([DOWNLOAD], false);
+    const answer = Promise.withResolvers<DiscogsAccountResponse>();
+    vi.spyOn(api, "getDiscogsAccount").mockReturnValue(answer.promise);
+    vi.spyOn(api, "getDiscogsProfile").mockResolvedValue(PROFILE);
+    const flow = new SetupFlow();
+
+    await flow.open(null);
+    expect(flow.step).toBe("discogs");
+    expect(flow.accountChecking).toBe(true);
+    expect(flow.account).toBeNull();
+
+    answer.resolve(ACCOUNT);
+    await vi.waitFor(() => expect(flow.profile).toEqual(PROFILE));
+    expect(flow.accountChecking).toBe(false);
+    expect(flow.account).toEqual(ACCOUNT);
+    flow.close();
   });
 });
 

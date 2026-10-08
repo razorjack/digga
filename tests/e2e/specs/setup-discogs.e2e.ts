@@ -227,6 +227,31 @@ test(
   },
 );
 
+test(
+  "SETUP-28 with a saved token, a new page resumes at once and checks the account behind a held import",
+  { tag: ["@SETUP-28", "@P1"] },
+  async ({ app, fakes }) => {
+    test.slow();
+    const wantlist = fakes.hold("GET /users/:user/wants");
+    const setup = await openDiscogsStep(app);
+    await setup.connect(DJ_TOKEN);
+    await setup.continueFromDiscogs(["collection", "wantlist"]);
+    await wantlist.received;
+    const identityChecks = fakes.requests("GET /oauth/identity").length;
+
+    // The server sends Discogs one request at a time: the account check waits for the held page.
+    await openNewPage(setup, "#/setup/discogs", "discogs");
+    await expect(setup.accountCheck).toBeVisible();
+    await expect(setup.tokenField).toBeHidden();
+    expect(fakes.requests("GET /oauth/identity")).toHaveLength(identityChecks);
+
+    wantlist.release();
+    await expect(setup.account).toContainText(`Connected as ${DJ.username}`);
+    await expect(setup.accountCheck).toBeHidden();
+    expect(fakes.requests("GET /oauth/identity")).toHaveLength(identityChecks + 1);
+  },
+);
+
 /**
  * The setup in a new page at the address, as after closing the tab: the hash changes in the
  * page, and the reload opens it afresh, so the setup resumes from what the server has.

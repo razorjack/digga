@@ -95,6 +95,11 @@ export class SetupPage {
     return this.root.getByRole("status").filter({ hasText: "Connected as" });
   }
 
+  /** Step 2 while the saved token's account is asked of Discogs. */
+  get accountCheck(): Locator {
+    return this.root.getByRole("status").filter({ hasText: "Checking your Discogs account…" });
+  }
+
   get currency(): Locator {
     return this.root.getByRole("combobox", { name: "Prices in" });
   }
