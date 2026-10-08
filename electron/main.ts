@@ -13,6 +13,7 @@ import {
 import { resolvePaths } from "../src/server/paths.ts";
 import { createSecrets, type SecretEncryption } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
+import { createDesktop } from "./desktop.ts";
 import { menuTemplate } from "./menu.ts";
 import { chromeUserAgent } from "./user-agent.ts";
 import { openWindow, secureSession } from "./window.ts";
@@ -54,12 +55,14 @@ async function startDigga(): Promise<void> {
     envFile: paths.secretsFile,
     encryption: safeStorageEncryption(),
   });
+  const desktop = createDesktop();
   const server = createServer({
     config,
     paths,
     secrets,
     logger,
     libraryHolder: "the Digga app",
+    desktop,
     ...environment.services,
   });
   stopServerBeforeQuit(server, logger);

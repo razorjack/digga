@@ -17,6 +17,12 @@ export interface JobContext {
 
 export type JobFn<Result = unknown> = (context: JobContext) => Promise<Result>;
 
+/**
+ * Hears every change of a job: its start, each progress report, and its end, with the error it
+ * failed with. The Digga app follows its downloads and loads through it (src/server/desktop.ts).
+ */
+export type JobListener = (job: Job, failure?: unknown) => void;
+
 export interface JobRunner {
   /**
    * Runs an async job function on this thread and returns at once. CPU-heavy steps run in a
@@ -38,19 +44,21 @@ interface ActiveJob {
   finished: Promise<unknown>;
 }
 
-export function createJobRunner(db: Db, logger: Logger): JobRunner {
-  return new Runner(db, logger);
+export function createJobRunner(db: Db, logger: Logger, listener?: JobListener): JobRunner {
+  return new Runner(db, logger, listener);
 }
 
 class Runner implements JobRunner {
   #db: Db;
   #logger: Logger;
+  #listener: JobListener | undefined;
   #active = new Map<string, ActiveJob>();
   #stopping = false;
 
-  constructor(db: Db, logger: Logger) {
+  constructor(db: Db, logger: Logger, listener: JobListener | undefined) {
     this.#db = db;
     this.#logger = logger;
+    this.#listener = listener;
   }
 
   run(type: JobType, fn: JobFn): Job {
@@ -72,6 +80,7 @@ class Runner implements JobRunner {
     if (this.#stopping) throw new Error("Job runner is stopping");
     const job = createJob(this.#db, type);
     markJobStarted(this.#db, job.id);
+    this.#report(job.id);
     return job;
   }
 
@@ -92,10 +101,14 @@ class Runner implements JobRunner {
     try {
       const result = await fn({
         signal: controller.signal,
-        onProgress: (progress) => updateJobProgress(this.#db, job.id, progress),
+        onProgress: (progress) => {
+          updateJobProgress(this.#db, job.id, progress);
+          this.#report(job.id);
+        },
       });
       const status = controller.signal.aborted ? "cancelled" : "done";
       markJobFinished(this.#db, job.id, status);
+      this.#report(job.id);
       log.info(`job ${job.id} ${status}`);
       return result;
     } catch (error) {
@@ -106,8 +119,20 @@ class Runner implements JobRunner {
         controller.signal.aborted ? "cancelled" : "failed",
         message,
       );
+      this.#report(job.id, error);
       log.error(`job ${job.id} failed: ${message}`);
       throw error;
+    }
+  }
+
+  /** Tells the listener what the jobs table holds now; a listener's failure leaves the job alone. */
+  #report(id: string, failure?: unknown): void {
+    const job = this.#listener ? getJob(this.#db, id) : null;
+    if (!job) return;
+    try {
+      this.#listener?.(job, failure);
+    } catch (error) {
+      this.#logger.warn(`the listener of job ${id} failed`, error);
     }
   }
 

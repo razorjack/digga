@@ -5,6 +5,7 @@ import { createApp } from "./app.ts";
 import { saveConfig } from "./config-file.ts";
 import { type DailyBackups, startDailyBackups } from "./daily-backups.ts";
 import { type Db, openDb } from "./db/db.ts";
+import { type Desktop, desktopJobListener } from "./desktop.ts";
 import { failStaleJobs } from "./db/jobs.ts";
 import { createDiscogsClient, type DiscogsClient } from "./discogs/client.ts";
 import { createDataDumpClient } from "./discogs/data-dumps.ts";
@@ -24,6 +25,8 @@ export interface CreateServerOptions {
   db?: Db;
   /** What the library lock calls this process, for another process's refusal; "the Digga server" by default. */
   libraryHolder?: string;
+  /** The Digga app's main process, which hears every job change; the CLI's server has none. */
+  desktop?: Desktop;
   /** Serve dist/ for non-API routes. Default true. */
   serveStatic?: boolean;
   /** Persist PUT /api/settings to paths.configFile. Default true. */
@@ -51,7 +54,7 @@ export interface DiggaServer {
 
 /**
  * The whole backend as a function. The CLI's `serve` command calls it, and so does the Electron
- * app's main process, which opens a BrowserWindow at the returned URL.
+ * app's main process, which opens a BrowserWindow at the returned URL and gives it a desktop.
  */
 export function createServer(options: CreateServerOptions): DiggaServer {
   let config = options.config;
@@ -61,7 +64,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   const stale = failStaleJobs(db);
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
   const backups = lock ? startDailyBackups(db, { ...options, getConfig: () => config }) : null;
-  const jobs = createJobRunner(db, logger.child("jobs"));
+  const jobs = createJobRunner(db, logger.child("jobs"), desktopJobListener(options.desktop));
 
   const app = createApp({
     db,

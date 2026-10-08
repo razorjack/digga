@@ -1113,3 +1113,15 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      `postMessage`, as errors and plain objects do. `createFileSink()` moves a log larger than
      10 MB at the start to `digga.log.1`, replacing the one there: a few lines that bound the log
      to two files for ordinary use, without rotating while the app runs.
+165. **The server reports to a desktop interface the app implements; the window keeps no preload.**
+     The setup's Electron parts need the main process to know the downloads and loads, for the
+     Dock's progress bar, keeping the Mac awake and asking before quitting, and the page to reach
+     native dialogs. `createServer` takes an optional `desktop` (`src/server/desktop.ts`), which
+     `electron/main.ts` implements in `electron/desktop.ts` and the CLI leaves out. The job runner
+     reports every change of a job to it, start, progress and end, so the main process follows
+     the jobs itself, whether the page is open on the setup, on another page or not at all. A
+     product preload with `contextBridge` was the alternative: it would give the page a second
+     channel beside HTTP, which decision 157 kept out and which would need its own isolation
+     review, and the main process would still have to learn the jobs from the page. With the
+     interface the renderer stays the browser client, `src/client/api.ts` stays its one
+     transport, and nothing in `src/` imports Electron.

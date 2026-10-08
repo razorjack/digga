@@ -25,8 +25,9 @@ userData is `~/Library/Application Support/Digga`, the default library folder). 
    process's logger, so their lines reach the log of a packaged app too (decision 164);
 4. resolves the paths with `resolvePaths()`, loads the config, and creates the secrets with
    `safeStorage` as their encryption (below);
-5. calls `createServer({ ..., libraryHolder: "the Digga app" })`, which takes the library lock,
-   and starts it on a free port on 127.0.0.1;
+5. calls `createServer({ ..., libraryHolder: "the Digga app", desktop })`, which takes the
+   library lock, and starts it on a free port on 127.0.0.1; the `desktop` hears every job change
+   ([Desktop](#desktop));
 6. sets `nativeTheme.themeSource` from the saved colour scheme, so the first paint uses it; a
    change in Settings applies in the renderer at once and reaches `nativeTheme` on the next start;
 7. gives the default session Chrome's user agent without the app's and Electron's tokens
@@ -46,6 +47,13 @@ Quitting waits for `server.stop()` in `before-quit`: running jobs end cancelled,
 being written finishes, the database closes and the lock is released, and then the app quits.
 Closing the window quits, on macOS too. SIGTERM goes the same way, since Chromium handles it as a
 quit.
+
+## Desktop
+
+`createServer` takes an optional `desktop` (`src/server/desktop.ts`, decision 165), which
+`electron/desktop.ts` implements and the CLI's server leaves out. The job runner reports each
+change of a job to it: its start, every progress report and its end. The main process keeps the
+downloads and loads that run (`electron/dump-jobs.ts`), without asking the page.
 
 ## Window
 
@@ -205,16 +213,16 @@ Later:
 
 ## What would break each rule
 
-| rule                             | regression to watch for                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Server is a function             | starting the server at module import time, reading argv in `server.ts`, binding to `0.0.0.0`                          |
-| One transport seam               | a page or store calling `fetch`, `EventSource` or `WebSocket` directly                                                |
-| One place for paths              | `path.resolve('data')`, `__dirname` for user data, `process.cwd()` outside the CLI, `serveStatic({ root: './dist' })` |
-| One place for secrets            | `process.env.DISCOGS_TOKEN` read in the client, a job or `electron/`                                                  |
-| Jobs are library functions       | job logic inside a Hono handler, the CLI switch or a menu item                                                        |
-| Heavy work off the server thread | running the loader inline in a route, synchronous file scans in handlers                                              |
-| Frontend environment-agnostic    | `window.location.pathname`, `localStorage` of absolute URLs, `import.meta.env` reads for paths, non-hash routing      |
-| Native modules isolated          | importing `better-sqlite3` in an importer or test helper, opening profile files outside `history.ts`                  |
-| Logging through logger           | `console.log` in server modules or `electron/`                                                                        |
-| Server free of Electron          | an `electron` import in `src/`, `tools/` or `scripts/`                                                                |
-| Enforce it                       | skipping `vp run check:portability` before commit                                                                     |
+| rule                             | regression to watch for                                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Server is a function             | starting the server at module import time, reading argv in `server.ts`, binding to `0.0.0.0`                                    |
+| One transport seam               | a page or store calling `fetch`, `EventSource` or `WebSocket` directly                                                          |
+| One place for paths              | `path.resolve('data')`, `__dirname` for user data, `process.cwd()` outside the CLI, `serveStatic({ root: './dist' })`           |
+| One place for secrets            | `process.env.DISCOGS_TOKEN` read in the client, a job or `electron/`                                                            |
+| Jobs are library functions       | job logic inside a Hono handler, the CLI switch or a menu item                                                                  |
+| Heavy work off the server thread | running the loader inline in a route, synchronous file scans in handlers                                                        |
+| Frontend environment-agnostic    | `window.location.pathname`, `localStorage` of absolute URLs, `import.meta.env` reads for paths, non-hash routing                |
+| Native modules isolated          | importing `better-sqlite3` in an importer or test helper, opening profile files outside `history.ts`                            |
+| Logging through logger           | `console.log` in server modules or `electron/`                                                                                  |
+| Server free of Electron          | an `electron` import in `src/`, `tools/` or `scripts/`; server code that tells the app from the CLI other than by its `desktop` |
+| Enforce it                       | skipping `vp run check:portability` before commit                                                                               |

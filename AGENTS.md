@@ -119,7 +119,8 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        attach-video.ts, youtube.ts (oEmbed titles), enrich.ts (one release, for Triage),
                        dump-files.ts, decisions-backup.ts, decisions-backup-worker.ts and daily-backups.ts (the
                        daily backups),
-                       setup.ts (what the first run needs), style-census.ts + style-census.json (shipped)
+                       setup.ts (what the first run needs), style-census.ts + style-census.json (shipped),
+                       desktop.ts (what the Digga app adds: it hears every job change)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
                        export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts, seed-tally.ts,
                        style-census.ts)
@@ -130,7 +131,8 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
                        environment.ts (what the environment and a .env set, for the CLI and Electron)
 electron/              the Electron main process: main.ts (server, quit), window.ts (window, links, downloads,
-                       permissions), links.ts, menu.ts, user-agent.ts
+                       permissions), desktop.ts (the server's desktop), dump-jobs.ts (what the running
+                       downloads and loads mean for the app), links.ts, menu.ts, user-agent.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css
@@ -373,7 +375,9 @@ client TypeScript and CSS.
 ## Electron-ready rules (enforced by `vp run check:portability`)
 
 1. **Server is a function.** `createServer({ config, paths, secrets, logger })` returns
-   `{ app, start(port, host), stop() }`. The CLI is one caller, `electron/main.ts` another. 127.0.0.1 only.
+   `{ app, start(port, host), stop() }`. The CLI is one caller, `electron/main.ts` another, which
+   also passes a `desktop` (`src/server/desktop.ts`): the server reports every job change to it.
+   Nothing in `src/` imports Electron (decision 165). 127.0.0.1 only.
 2. **One transport seam.** `src/client/api.ts` is the only file in `src/client` that may call `fetch`.
 3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist,
    by default in the per-user app folder Electron's `userData` names. The CLI and the Electron app
