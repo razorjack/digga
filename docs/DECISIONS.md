@@ -1272,6 +1272,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      - Settings takes the same split view, and Esc in it goes back to the page it was opened
        from, as closing a settings window would. Settings stays in the main window: a window of
        its own would need the Triage window to hear each save, which the page has no channel for.
+     - The setup takes the same split view instead of a card in the middle of the window, which
+       read as a window inside a window. The steps are numbered A1 to B2, as tracks on two sides,
+       and the step's actions stay in a bar at the pane's foot while the step scrolls. Step 1 lost
+       its second list of the steps, which the sidebar now shows.
      - The icon is the logo's cube on a flyer-yellow squircle: the one accent colour is what
        tells the app apart in the Dock at 32 px, where a dark squircle disappeared among others.
        A script draws it from the logo, so the binaries in `build/` have a source.

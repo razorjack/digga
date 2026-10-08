@@ -1,6 +1,7 @@
 <script lang="ts">
   /** The first run (docs/FIRST_RUN.md): four steps from an empty library to digging. */
   import { onDestroy, onMount, untrack } from "svelte";
+  import Art from "../components/Art.svelte";
   import { getAnchor, navigate } from "../router.svelte.ts";
   import CatalogueStep from "../setup/CatalogueStep.svelte";
   import CrateStep from "../setup/CrateStep.svelte";
@@ -55,87 +56,171 @@
 <svelte:head><title>{title}</title></svelte:head>
 
 <div class="setup">
-  <ol class="steps" aria-label="Setup">
-    {#each SETUP_STEPS as entry, index (entry.step)}
-      <li aria-current={index === current ? "step" : undefined} class:past={index < current}>
-        <span class="number" aria-hidden="true">{index + 1}</span>
-        {entry.title}
-      </li>
-    {/each}
-  </ol>
+  <aside class="sidebar">
+    <Art name="logo" size={88} />
+    <ol class="steps" aria-label="Setup">
+      {#each SETUP_STEPS as entry, index (entry.step)}
+        <li
+          aria-current={index === current ? "step" : undefined}
+          class:past={index < current}
+          data-side={entry.position.endsWith("1") ? `Side ${entry.position[0]}` : undefined}
+        >
+          <span class="number" aria-hidden="true">{entry.position}</span>
+          {entry.title}
+        </li>
+      {/each}
+    </ol>
+  </aside>
 
-  {#if flow.step === "catalogue"}
-    <CatalogueStep {flow} />
-  {:else if flow.step === "discogs"}
-    <DiscogsStep {flow} />
-  {:else if flow.step === "sound"}
-    <SoundStep {flow} />
-  {:else}
-    <CrateStep {flow} />
-  {/if}
-
-  {#if flow.step === "discogs" || flow.step === "sound"}
-    <div class="foot">
-      <DownloadNotice
-        message={flow.downloadStopped ?? flow.checksumRetry}
-        canRestart={flow.downloadStopped !== null}
-        busy={flow.busy}
-        onrestart={() => void flow.restartDownload()}
-      />
-      {#if downloading && flow.download}
-        <DownloadStrip download={flow.download} />
+  <div class="pane">
+    <div class="sections">
+      {#if flow.step === "catalogue"}
+        <CatalogueStep {flow} />
+      {:else if flow.step === "discogs"}
+        <DiscogsStep {flow} />
+      {:else if flow.step === "sound"}
+        <SoundStep {flow} />
+      {:else}
+        <CrateStep {flow} />
       {/if}
     </div>
-  {/if}
+
+    {#if flow.step === "discogs" || flow.step === "sound"}
+      <div class="foot">
+        <DownloadNotice
+          message={flow.downloadStopped ?? flow.checksumRetry}
+          canRestart={flow.downloadStopped !== null}
+          busy={flow.busy}
+          onrestart={() => void flow.restartDownload()}
+        />
+        {#if downloading && flow.download}
+          <DownloadStrip download={flow.download} />
+        {/if}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
+  /* A split view like Twelves: the steps in a sidebar, the step beside them. */
   .setup {
-    display: flex;
-    flex-direction: column;
-    gap: 40px;
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 36px 40px 120px;
+    display: grid;
+    grid-template-columns: 19em minmax(0, 1fr);
+    height: 100%;
   }
-  /* The download runs behind steps 2 and 3, so what it does stays in sight at the window's foot. */
-  .foot {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+  .sidebar {
+    display: grid;
+    align-content: start;
+    gap: 20px;
+    min-height: 0;
+    padding: 28px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--rule);
+    background: var(--surface);
+    user-select: none;
+  }
+  .sidebar :global(.art) {
+    margin-left: 12px;
   }
   .steps {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 28px;
+    display: grid;
+    gap: 2px;
     margin: 0;
-    padding: 0 0 14px;
+    padding: 0;
     list-style: none;
-    border-bottom: 1px solid var(--rule);
     color: var(--fg-faint);
-    font-size: var(--text-sm);
   }
   .steps li {
-    display: inline-flex;
+    display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 12px;
+    padding: 6px 12px;
+  }
+  /* The steps are numbered as tracks, so each side's first one says which side it starts. */
+  .steps li[data-side]::before {
+    content: attr(data-side) / "";
+    position: absolute;
+    translate: 0 -28px;
+    color: var(--fg-faint);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .steps li[data-side] {
+    position: relative;
+    margin-top: 28px;
   }
   .steps .number {
+    width: 2em;
     font-family: var(--display);
+    font-size: var(--text-sm);
   }
   .steps .past {
     color: var(--fg-muted);
   }
   .steps [aria-current="step"] {
+    background: var(--bg);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
     color: var(--fg);
   }
   .steps [aria-current="step"] .number {
     color: var(--fg-accent);
   }
+  .pane {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-width: 0;
+    min-height: 0;
+  }
+  /* The step scrolls; its outcome, the alerts and the actions, stays at the pane's foot. */
+  .sections {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 32px 40px 0;
+    overflow-y: auto;
+  }
+  .sections > :global(.step) {
+    flex: 1 0 auto;
+  }
+  .sections :global(.step > .outcome) {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin: auto -40px 0;
+    padding: 14px 40px;
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
+  }
   @media (max-width: 860px) {
     .setup {
-      padding: 24px 20px 120px;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    /* Stacked, the steps take one row and leave the height to the step. */
+    .sidebar {
+      padding-block: 8px;
+      border-right: 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .sidebar :global(.art),
+    .steps li[data-side]::before {
+      display: none;
+    }
+    .steps {
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .steps li[data-side] {
+      margin-top: 0;
+    }
+    .sections {
+      padding-inline: 20px;
+    }
+    .sections :global(.step > .outcome) {
+      margin-inline: -20px;
+      padding-inline: 20px;
     }
   }
 </style>

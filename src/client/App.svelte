@@ -219,7 +219,7 @@
     {:else if route === "settings"}
       <div class="page"><Settings /></div>
     {:else if route === "setup"}
-      <div class="page scroll"><Setup /></div>
+      <div class="page"><Setup /></div>
     {/if}
   </main>
 </div>
@@ -365,9 +365,6 @@
   }
   .page {
     height: 100%;
-  }
-  .scroll {
-    overflow-y: auto;
   }
   /* Narrow windows hide the ETA as .visually-hidden does, so screen readers still have it. */
   @media (max-width: 1180px) {

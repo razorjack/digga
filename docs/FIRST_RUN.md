@@ -110,33 +110,42 @@ pace either way.
   the suggestions, and a setup whose picks are confirmed but whose load has not started resumes
   there.
 
+## The screen
+
+The setup is a split view like Twelves and Settings. A sidebar holds the logo and the four steps,
+numbered as the tracks of a record: A1 and A2 on side A, B1 and B2 on side B. The current step is
+marked as a selected shelf is. The step fills the pane beside the sidebar, and its actions and
+alerts stay at the pane's foot while the step scrolls. Below 860 px wide the steps take one row
+above the step.
+
 ## Step 1: Fetch the catalogue
 
 Says what Digga is and what setup will do, and starts the one long download.
 
 ```
-digga                                                          1 2 3 4
-
-  Dig every record in your styles, by ear.
-
-  Digga plays a few seconds of each track on every record in the styles
-  and years you pick. One key per record: skip, want, maybe, grail. What
-  you want lands in Twelves, and on your Discogs wantlist if you like.
-
-  Setting up takes about 20 minutes, mostly waiting. You can start
-  digging after the first few.
-
-  1  Fetch the catalogue   Discogs publishes every release in one file
-                           a month. Digga downloads the newest, from
-                           1 September 2026: 10.5 GB, into
-                           ~/Library/Caches/Digga/dumps (182 GB free).
-                           Digga reads releases from this file, not
-                           from Discogs' API.
-  2  Bring your Discogs    Optional. Leaves out what you own and want.
-  3  Pick your sound       Styles and years.
-  4  Fill the crate        Digga keeps what matches. Dig while it works.
-
-  [ Fetch the catalogue  Enter ]
+                               Setting up
+-------------------------+----------------------------------------------------
+  (logo)                 |  Fetch the catalogue
+                         |
+  SIDE A                 |  Dig every record in your styles, by ear. Digga
+  A1 Fetch the catalogue |  plays a few seconds of each track on every record
+  A2 Bring your Discogs  |  in the styles and years you pick. One key per
+  SIDE B                 |  record: skip, want, maybe, grail. What you want
+  B1 Pick your sound     |  lands in Twelves, and on your Discogs wantlist if
+  B2 Fill the crate      |  you like.
+                         |
+                         |  Setting up takes about 20 minutes, mostly
+                         |  waiting. You can start digging after the first
+                         |  few.
+                         |
+                         |  Discogs publishes every release in one file a
+                         |  month. Digga downloads the newest, from
+                         |  1 September 2026: 10.5 GB, into
+                         |  ~/Library/Caches/Digga/dumps (182 GB free). Digga
+                         |  reads releases from this file, not from Discogs'
+                         |  API.
+                         |----------------------------------------------------
+                         |  [ Fetch the catalogue  Enter ]
 ```
 
 - The dump's date, size, folder and the free space come from `GET /api/setup` when the page

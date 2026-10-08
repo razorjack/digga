@@ -109,6 +109,9 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   sections only with a problem, a message or unsaved changes, and saves all of them from any
   tab; a tab with unsaved fields carries a small flyer dot. Esc goes back to the page Settings
   was opened from.
+- **The setup** is a split view too: the logo and the four steps in a sidebar, numbered as
+  tracks (A1 and A2 on side A, B1 and B2 on side B), the current one marked like a selected shelf;
+  the step fills the pane, with its actions in a bar at the pane's foot (docs/FIRST_RUN.md).
 
 ## What exists already
 

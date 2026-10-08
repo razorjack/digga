@@ -154,7 +154,7 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
 
         await app.open();
         await expect(setup.button("Fetch the catalogue")).toBeEnabled();
-        await expectStepRegion(setup, "catalogue", "Dig every record in your styles, by ear.");
+        await expectStepRegion(setup, "catalogue", "Fetch the catalogue");
         await expectAccessible(app.page, "the setup's step 1");
 
         await setup.fetchCatalogue();

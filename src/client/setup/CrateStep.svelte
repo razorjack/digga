@@ -270,7 +270,7 @@
     gap: 24px;
   }
   h1 {
-    font-size: var(--text-3xl);
+    font-size: var(--text-2xl);
     line-height: 1.15;
   }
   .lead {

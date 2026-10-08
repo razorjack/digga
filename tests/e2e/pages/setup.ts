@@ -15,14 +15,6 @@ export interface Picks {
   vinylOnly: boolean;
 }
 
-/** Each step's heading, which shows once the work that leads to the step has answered. */
-const STEP_HEADINGS: Record<SetupStep, string> = {
-  catalogue: "Dig every record in your styles, by ear.",
-  discogs: "Bring your Discogs",
-  sound: "Pick your sound",
-  crate: "Fill the crate",
-};
-
 /**
  * The crate reads the records to dig every 3 s and the job every second, and the load commits
  * what has arrived within a second, so a count can take about 5 s to show.
@@ -45,8 +37,9 @@ export class SetupPage {
     return this.app.page.getByRole("main");
   }
 
+  /** The step's heading, its title, which shows once the work that leads to the step has answered. */
   heading(step: SetupStep): Locator {
-    return this.root.getByRole("heading", { level: 1, name: STEP_HEADINGS[step] });
+    return this.root.getByRole("heading", { level: 1, name: stepTitle(step) });
   }
 
   /** The step's button, by its visible name. */
