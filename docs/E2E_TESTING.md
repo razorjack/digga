@@ -100,7 +100,7 @@ must also pass as required by [AGENTS.md](../AGENTS.md#commands). Failure diagno
   and in the scenario's target.
 - Hermetic and fail-closed. No request reaches Discogs, data.discogs.com or YouTube, and a request
   the harness did not allow fails the test instead of leaving the machine. No test reads or writes
-  the owner's library, token, browser history or config.
+  the owner's library, token or config.
 - Deterministic. No fixed sleeps. Tests synchronise on completed requests and on state the app
   exposes, not on the first visible sign of an action. A test that fails once in fifty runs is a
   bug in the test or the app, and retries are not allowed to hide it.

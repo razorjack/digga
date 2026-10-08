@@ -23,13 +23,7 @@ const TAB_SETTINGS: Partial<Record<SettingsTab, readonly (keyof Config)[]>> = {
 /** The jobs a tab starts, which it lists under its controls. */
 export const TAB_JOBS = {
   library: ["dump_update", "dump_download", "dump_load"],
-  discogs: [
-    "import_collection",
-    "import_wantlist",
-    "import_history",
-    "import_list",
-    "import_seller",
-  ],
+  discogs: ["import_collection", "import_wantlist", "import_list", "import_seller"],
 } as const satisfies Record<string, readonly JobType[]>;
 
 /** How many of its jobs a tab lists, newest first. */

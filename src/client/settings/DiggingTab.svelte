@@ -11,6 +11,7 @@
   import { formatCount } from "../../shared/display.ts";
   import { parseInteger } from "../../shared/integer.ts";
   import Key from "../components/Key.svelte";
+  import { stats } from "../stores.svelte.ts";
   import { joinList, parseLines, parseList } from "./fields.ts";
   import { FilterPreview } from "./preview.svelte.ts";
   import { problemAt, reportProblem } from "./problems.ts";
@@ -37,6 +38,8 @@
   const batchProblem = $derived(problemAt(issues, "queue.limit"));
   const seekProblem = $derived(problemAt(issues, "player.seekStepSeconds"));
   const startAtPercent = $derived(Math.round(draft.player.startAtFraction * 100));
+  /** Only a library from before decision 171 has records seen in the browser history to skip. */
+  const hasSeenRecords = $derived((stats.value?.verdicts.seen ?? 0) > 0);
 
   $effect(() => {
     const filters = issues.length === 0 ? $state.snapshot(draft.filters) : null;
@@ -171,13 +174,15 @@
             </label>
             <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
           </div>
-          <div class="skip">
-            <label class="check">
-              <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
-              records opened before
-            </label>
-            <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
-          </div>
+          {#if hasSeenRecords}
+            <div class="skip">
+              <label class="check">
+                <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
+                records opened before
+              </label>
+              <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
+            </div>
+          {/if}
           <div class="skip">
             <label class="check">
               <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />

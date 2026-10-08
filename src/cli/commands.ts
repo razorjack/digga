@@ -3,7 +3,6 @@ import {
   downloadDump,
   dumpLoad,
   importCollection,
-  importHistory,
   importList,
   importSeller,
   importWantlist,
@@ -52,11 +51,7 @@ import {
   withOwnedLibrary,
 } from "./runtime.ts";
 
-export type ImportResult =
-  | SeedImportResult
-  | ListImportResult
-  | SellerImportResult
-  | ({ kind: "history" } & Awaited<ReturnType<typeof importHistory>>);
+export type ImportResult = SeedImportResult | ListImportResult | SellerImportResult;
 
 export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
   const deps = {
@@ -122,7 +117,7 @@ export async function cmdDumpCensus(runtime: Runtime, args: string[]): Promise<v
 }
 
 export async function cmdImport(runtime: Runtime, args: string[]): Promise<void> {
-  const command = parseImportOptions(args, runtime.config, runtime.paths.tempDir);
+  const command = parseImportOptions(args, runtime.config);
   const result = await runImport(runtime, command);
   showImport(result);
 }
@@ -131,12 +126,6 @@ async function runImport(runtime: Runtime, command: ImportCommand): Promise<Impo
   return withOwnedDatabase(runtime, `digga import ${command.kind}`, async (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     const { kind, options } = command;
-    if (kind === "history") {
-      const { result } = await jobs.runAndWait("import_history", ({ signal, onProgress }) =>
-        importHistory({ db, logger: runtime.logger }, { ...options, signal }, onProgress),
-      );
-      return { kind, ...result };
-    }
     const discogs = discogsFor(runtime);
     const deps = { db, discogs, logger: runtime.logger };
     if (kind === "list") {

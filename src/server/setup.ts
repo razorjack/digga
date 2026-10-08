@@ -1,16 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-  BROWSERS,
-  type HistoryBrowser,
-  type SetupCatalogue,
-  type SetupResponse,
-} from "../shared/api.ts";
+import type { SetupCatalogue, SetupResponse } from "../shared/api.ts";
 import type { AppContext } from "./context.ts";
 import { hasLoadedCatalogue } from "./db/dump-loads.ts";
 import { tallySeedReleases } from "./db/seed-tally.ts";
 import type { DataDump, DataDumpClient } from "./discogs/data-dumps.ts";
-import { discoverHistoryFiles, isAccessDenied } from "./importers/history.ts";
 import { freeBytesIn, SPARE_BYTES } from "./jobs/dump-download.ts";
 
 /** A new dump appears once a month; the listing is read again after an hour. */
@@ -35,19 +29,8 @@ export async function readSetup(
     needed: !hasLoadedCatalogue(deps.db),
     catalogue: await readCatalogue(deps, options.freeBytes ?? freeBytesIn),
     seeds: tallySeedReleases(deps.db),
-    browsers: historyBrowsers(),
     desktop: deps.desktop !== null,
   };
-}
-
-function historyBrowsers(): HistoryBrowser[] {
-  return BROWSERS.flatMap((name): HistoryBrowser[] => {
-    try {
-      return discoverHistoryFiles({ browser: name }).length > 0 ? [{ name, readable: true }] : [];
-    } catch (error) {
-      return isAccessDenied(error) ? [{ name, readable: false }] : [];
-    }
-  });
 }
 
 async function readCatalogue(

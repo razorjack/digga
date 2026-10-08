@@ -15,12 +15,11 @@ import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { DJ, FIRST_RECORD, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
 import { bulkDump, writeDump } from "../fixtures/dump.ts";
-import { browserFolder, releaseVisit } from "../fixtures/history.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { SetupPage } from "../pages/setup.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
-import { ElectronApp, type MessageBox } from "../support/hosts/electron.ts";
+import { ElectronApp } from "../support/hosts/electron.ts";
 import { type CountingListener, countingListener } from "../support/listener.ts";
 import { test as base, expect } from "../support/test.ts";
 
@@ -420,57 +419,6 @@ test.describe("on a new library", () => {
   );
 });
 
-test.describe("with Brave's history kept from Digga", () => {
-  test.use({
-    diggaOptions: {
-      browserHistory: [
-        { browser: "brave", visits: [releaseVisit(FIRST_RECORD, "2026-09-20T18:00:00.000Z")] },
-      ],
-      unreadableBrowsers: ["brave"],
-    },
-  });
-
-  test(
-    "ELEC-12 a history import Digga may not read explains Full Disk Access and offers its settings",
-    { tag: ["@ELEC-12", "@P2", "@electron"] },
-    async ({ electron, testFolder }) => {
-      test.skip(
-        process.platform !== "darwin" || process.getuid?.() === 0,
-        "Full Disk Access is macOS's, and taking a folder's permissions does not stop root",
-      );
-      const settings = new SettingsPage(electron);
-      await settings.open("discogs");
-
-      const { box: asked } = await answerHistoryDenial(electron, settings, "Not Now");
-      expect(asked).toEqual({
-        type: "info",
-        message: "Digga may not read the browser's history",
-        detail:
-          "macOS lets Digga read another app's data only with Full Disk Access. Turn on Digga under " +
-          "Privacy & Security › Full Disk Access in System Settings, open Digga again, and import " +
-          "the history once more.",
-        buttons: ["Open Privacy & Security", "Not Now"],
-        answer: "Not Now",
-      });
-      expect((await electron.recorded()).externalOpens).toEqual([]);
-
-      let job = "";
-      const opened = await electron.expectExternalOpen(async () => {
-        ({ job } = await answerHistoryDenial(electron, settings, "Open Privacy & Security"));
-      });
-      expect(opened).toBe(
-        "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
-      );
-      // The page's own message stays; the import read the fake home's Brave folder.
-      const brave = browserFolder(path.join(testFolder, "home"), "brave");
-      await expect(settings.job(job)).toContainText(
-        `Cannot read ${brave}: EACCES: permission denied`,
-      );
-      expect((await electron.recorded()).externalOpens).toEqual([opened]);
-    },
-  );
-});
-
 test.describe("on a new library without DIGGA_DUMPS_DIR", () => {
   test.use({ diggaOptions: { template: "empty", listedDump: "bulk", dumpsDirFromApp: true } });
 
@@ -723,29 +671,12 @@ async function jobStatuses(electron: ElectronApp): Promise<[string, string][]> {
   return jobs.map((job) => [job.type, job.status]);
 }
 
-/** Clicks an item of the app's menu bar as a user would, through the main process. */
 function dumpsIn(folder: string): string[] {
   if (!fs.existsSync(folder)) return [];
   return fs.readdirSync(folder).filter((name) => name.endsWith(".xml.gz"));
 }
 
-/**
- * Starts a history import from Settings that fails because Digga may not read the history, and
- * answers the Full Disk Access dialog it brings with the button given.
- */
-async function answerHistoryDenial(
-  electron: ElectronApp,
-  settings: SettingsPage,
-  answer: "Open Privacy & Security" | "Not Now",
-): Promise<{ box: MessageBox; job: string }> {
-  let job = "";
-  const box = await electron.expectMessageBox(async () => {
-    job = await settings.startJob(settings.imports.getByRole("button", { name: "History" }));
-    await settings.waitForJob(job, "failed");
-  }, answer);
-  return { box, job };
-}
-
+/** Clicks an item of the app's menu bar as a user would, through the main process. */
 async function clickMenuItem(electron: ElectronApp, menu: string, item: string): Promise<void> {
   await electron.electronApp.evaluate(
     ({ Menu }, labels) => {

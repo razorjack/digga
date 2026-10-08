@@ -1,6 +1,5 @@
 <script lang="ts">
   /** Step 2 (optional): the Discogs token, what Digga does with it, and the imports to run. */
-  import type { Browser } from "../../shared/api.ts";
   import { DISCOGS_CURRENCIES } from "../../shared/config.ts";
   import { formatCount } from "../../shared/display.ts";
   import { tick } from "svelte";
@@ -21,23 +20,16 @@
   /** The step's error is about the field that was refused, until the field is edited. */
   let refused = $state<"token" | "username" | null>(null);
   let seeds = $state(true);
-  let readHistory = $state(false);
-  let browser = $state<Browser | null>(null);
   let currency = $state<string | null>(null);
 
   const fromEnvironment = $derived(flow.account?.tokenSource === "environment");
   const connectedAs = $derived(flow.account?.tokenUsername ?? flow.profile?.username ?? null);
-  const browsers = $derived(flow.setup?.browsers ?? []);
-  const chosenBrowser = $derived(
-    browser ?? browsers.find((entry) => entry.readable)?.name ?? browsers[0]?.name ?? null,
-  );
   const chosenCurrency = $derived(
     currency ?? flow.profile?.currency ?? settings.value?.discogs.currency ?? "EUR",
   );
   const importTime = $derived(
     Math.round(importSeconds(flow.profile?.collection ?? 0) + importSeconds(flow.profile?.wantlist ?? 0)),
   );
-  const blocked = $derived(browsers.find((entry) => entry.name === chosenBrowser)?.readable === false);
   const tokenProblem = $derived(refused === "token" ? (flow.error ?? "") : "");
   const usernameProblem = $derived(refused === "username" ? (flow.error ?? "") : "");
 
@@ -67,7 +59,6 @@
   function continueToSound(): void {
     void flow.continueFromDiscogs({
       seeds: seeds && connectedAs !== null,
-      browser: readHistory && !blocked ? chosenBrowser : null,
       currency: chosenCurrency,
     });
   }
@@ -166,49 +157,20 @@
     {/if}
   </div>
 
-  {#if connectedAs || browsers.length > 0}
+  {#if connectedAs}
     <fieldset class="imports">
       <legend>What you already know</legend>
-      {#if connectedAs}
-        <label>
-          <input type="checkbox" bind:checked={seeds} />
-          Read my collection and wantlist
-          <span class="quiet">about {importTime} s</span>
-        </label>
-      {/if}
-      {#if browsers.length > 0}
-        <div class="history">
-          <label>
-            <input type="checkbox" bind:checked={readHistory} />
-            Mark releases I opened on discogs.com as seen, from
-          </label>
-          <select
-            aria-label="Browser"
-            value={chosenBrowser}
-            onchange={(event) => (browser = event.currentTarget.value as Browser)}
-          >
-            {#each browsers as entry (entry.name)}
-              <option value={entry.name}>{entry.name[0]!.toUpperCase()}{entry.name.slice(1)}</option>
-            {/each}
-          </select>
-        </div>
-        <p class="quiet indent">
-          {#if blocked}
-            Digga may not read that browser's history. On macOS, allow it under System Settings › Privacy & Security ›
-            Full Disk Access.
-          {:else}
-            Reads the browser's history on this computer; nothing leaves it.
-          {/if}
-        </p>
-      {/if}
-      {#if connectedAs}
-        <label class="currency">
-          Prices in
-          <select value={chosenCurrency} onchange={(event) => (currency = event.currentTarget.value)}>
-            {#each DISCOGS_CURRENCIES as code (code)}<option value={code}>{code}</option>{/each}
-          </select>
-        </label>
-      {/if}
+      <label>
+        <input type="checkbox" bind:checked={seeds} />
+        Read my collection and wantlist
+        <span class="quiet">about {importTime} s</span>
+      </label>
+      <label class="currency">
+        Prices in
+        <select value={chosenCurrency} onchange={(event) => (currency = event.currentTarget.value)}>
+          {#each DISCOGS_CURRENCIES as code (code)}<option value={code}>{code}</option>{/each}
+        </select>
+      </label>
     </fieldset>
   {/if}
 
@@ -329,14 +291,6 @@
   }
   .imports input[type="checkbox"] {
     accent-color: var(--accent);
-  }
-  .history {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-  }
-  .indent {
-    padding-left: 26px;
   }
   .currency {
     margin-top: 6px;

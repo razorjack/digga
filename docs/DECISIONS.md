@@ -1191,3 +1191,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      message, which the page shows as before. A browser folder the import may not list now fails
      with `HistoryAccessError` too, as a file it may not copy did; before, it failed with the bare
      `EACCES` error, which no hint followed.
+171. **Digga does not read browser history.** On 2026-10-08 the owner removed the browser history
+     import (`digga import history`, step 2's checkbox and browser list, and History in Settings'
+     Discogs tab), and with it the Full Disk Access dialog. The signal is weak: opening a
+     release's page is not listening to it. Brave and Chrome keep 90 days of history by default,
+     so most of what a digger opened years ago is gone anyway. Reading another app's history is
+     not something this app should do, and on macOS it needs Full Disk Access, which the app
+     cannot ask for and should not want. This supersedes decisions 15 and 170, and the history
+     parts of 7. A library keeps the `seen` verdicts the import wrote, with source
+     `seed:history`: `filters.skipHistory` still leaves them out of the queue, Settings shows
+     its toggle only while the stats count a `seen` verdict, and every decisions backup format
+     still restores them. Since no import can bring them back, the daily decisions backup now
+     counts any verdict as worth keeping. Rows of the import's jobs stay in the `jobs` table
+     and are not listed, so Settings and the job runner read the other jobs as before.

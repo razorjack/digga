@@ -440,6 +440,11 @@ is visible on the same record and the release API still has no verdict.
 
 ### TRI-47: Playback and history controls (P1)
 
+A library without `seen` verdicts has no "records opened before" control in Settings' Skip group,
+once the header's counter shows that the stats have loaded; "tunes heard before" is there. The
+browser history import that wrote `seen` verdicts is gone (decision 171), so only a library from
+before it shows the control.
+
 Seed a history verdict and a heard tune. Disable both skip controls in Settings and save. Triage
 includes the record and starts on the heard first track. Judge and undo it; the saved verdict is
 `seen` again.

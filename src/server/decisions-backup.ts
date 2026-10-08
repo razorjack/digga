@@ -310,10 +310,13 @@ async function saveDecisionsBackup(
   return { file, day: options.day, bytes };
 }
 
-/** Anything made in Digga; the account's items and history hits come back from the imports. */
+/**
+ * Anything an import cannot bring back: the account's items come back from the imports, while a
+ * verdict was made in Digga or seen in the browser history import it no longer has (decision 171).
+ */
 function hasDiggaData(data: BackedUpData): boolean {
   return (
-    data.verdicts.some((verdict) => verdict.source === "triage" || verdict.source === "manual") ||
+    data.verdicts.length > 0 ||
     data.trackMarks.length > 0 ||
     data.heardTunes.length > 0 ||
     data.attachedVideos.length > 0 ||

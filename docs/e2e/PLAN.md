@@ -16,8 +16,8 @@ their rows ([history](HISTORY.md#the-triage-p2-scenarios-and-the-2026-10-03-chan
 host, the web P0 set and every specified web scenario are implemented. On 2026-10-07 the Electron
 host ran the shared suite on the unpackaged app, with the Electron scenarios it can meet, and on
 2026-10-08 on the packaged app's inspectable variant ([Electron](#electron)). No current spec uses
-`test.fail` or `test.fixme`; the two `test.skip` calls, in SETUP-12 and SET-23, skip on Windows or
-as root, where file permissions do not stop Digga. The observations below still need decisions.
+`test.fail` or `test.fixme`; the one `test.skip` call, in SET-23, skips on Windows or as root,
+where file permissions do not stop Digga. The observations below still need decisions.
 
 ## Next work
 

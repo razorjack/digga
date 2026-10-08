@@ -4,15 +4,12 @@ import { parseArgs } from "node:util";
 import { readIdList } from "../../tools/dump/load.ts";
 import type { DumpLoadJobOptions } from "../server/jobs/dump-load.ts";
 import type { Config } from "../shared/config.ts";
-import { BROWSERS } from "../shared/api.ts";
 import type { SeedImportOptions } from "../server/importers/seeds.ts";
-import type { HistoryImportOptions } from "../server/importers/history.ts";
 import type { ListImportOptions } from "../server/importers/list.ts";
 import type { SellerImportOptions } from "../server/importers/seller.ts";
 import { integerOption } from "./args.ts";
 
 export type ImportCommand =
-  | { kind: "history"; options: HistoryImportOptions }
   | { kind: "list"; options: ListImportOptions }
   | { kind: "seller"; options: SellerImportOptions }
   | { kind: "collection" | "wantlist"; options: SeedImportOptions };
@@ -46,19 +43,13 @@ export function parseDumpOptions(args: string[], config: Config): DumpLoadJobOpt
   };
 }
 
-export function parseImportOptions(args: string[], config: Config, tempDir: string): ImportCommand {
+export function parseImportOptions(args: string[], config: Config): ImportCommand {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { browser: { type: "string" }, path: { type: "string" }, list: { type: "string" } },
+    options: { list: { type: "string" } },
   });
   const kind = positionals[0];
-  if (kind === "history") {
-    const browser = BROWSERS.find((browser) => browser === values.browser);
-    if (values.browser !== undefined && browser === undefined)
-      throw new Error(`--browser must be one of ${BROWSERS.join(", ")}`);
-    return { kind, options: { browser, path: values.path, tempDir } };
-  }
   if (kind === "list") {
     const listId = integerOption(values.list, "list", { min: 1 }) ?? config.discogs.maybeListId;
     if (listId === null)
@@ -73,7 +64,7 @@ export function parseImportOptions(args: string[], config: Config, tempDir: stri
     return { kind, options: { username } };
   }
   if (kind !== "collection" && kind !== "wantlist")
-    throw new Error("import needs one of: collection, wantlist, history, list, seller");
+    throw new Error("import needs one of: collection, wantlist, list, seller");
   return { kind, options: { username: config.discogs.username } };
 }
 

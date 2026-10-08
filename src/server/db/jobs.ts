@@ -2,6 +2,7 @@ import { JobSchema } from "../../shared/jobs.ts";
 import { randomUUID } from "node:crypto";
 import {
   INTERRUPTED_JOB_ERROR,
+  JOB_TYPES,
   type Job,
   type JobStatus,
   type JobType,
@@ -18,6 +19,12 @@ interface JobRow {
   started_at: string | null;
   finished_at: string | null;
 }
+
+/**
+ * Rows of jobs Digga no longer has, such as the browser history import (decision 171), stay in
+ * the table and are not listed, since nothing can describe them.
+ */
+const KNOWN_TYPE = `type IN (${JOB_TYPES.map((type) => `'${type}'`).join(", ")})`;
 
 function rowToJob(row: JobRow): Job {
   return JobSchema.parse({
@@ -65,13 +72,15 @@ export function markJobFinished(
 }
 
 export function getJob(db: Db, id: string): Job | null {
-  const row = db.prepare("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | undefined;
+  const row = db.prepare(`SELECT * FROM jobs WHERE id = ? AND ${KNOWN_TYPE}`).get(id) as
+    | JobRow
+    | undefined;
   return row ? rowToJob(row) : null;
 }
 
 export function listJobs(db: Db, limit = 50): Job[] {
   const rows = db
-    .prepare("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?")
+    .prepare(`SELECT * FROM jobs WHERE ${KNOWN_TYPE} ORDER BY created_at DESC LIMIT ?`)
     .all(limit) as JobRow[];
   return rows.map(rowToJob);
 }

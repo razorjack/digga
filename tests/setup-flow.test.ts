@@ -21,7 +21,6 @@ const SETUP: SetupResponse = {
     neededBytes: null,
   },
   seeds: { releases: 0, styles: [] },
-  browsers: [],
   desktop: false,
 };
 

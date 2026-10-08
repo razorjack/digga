@@ -6,6 +6,20 @@ import { TriagePage } from "../pages/triage.ts";
 import { expect, test } from "../support/test.ts";
 
 test(
+  "TRI-47 Settings offers the history exclusion only to a library with records seen",
+  { tag: ["@TRI-47", "@P1"] },
+  async ({ app }) => {
+    const settings = new SettingsPage(app);
+    await settings.open();
+    // The counter shows once the stats, which count the records seen, have loaded.
+    await expect(new HeaderPage(app).root.getByText(/ dug$/)).toBeVisible();
+
+    await expect(settings.skipHeard).toBeVisible();
+    await expect(settings.skipHistory).toHaveCount(0);
+  },
+);
+
+test(
   "TRI-47 history exclusion and heard-tune skipping can be disabled independently",
   { tag: ["@TRI-47", "@P1"] },
   async ({ app }) => {

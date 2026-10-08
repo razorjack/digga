@@ -118,17 +118,8 @@ tokens, names neither Electron nor Digga, and is the one the page's requests sen
 
 ## ELEC-12
 
-Priority: **P2**.
-
-A history import that Digga may not read explains Full Disk Access (macOS only, and not as root).
-Brave's history is in the fake home, and its folder has no permissions
-(`diggaOptions.unreadableBrowsers`). History in Settings' Discogs tab fails, and the app shows an
-"info" message box, "Digga may not read the browser's history", whose detail says where to turn
-on Full Disk Access, with "Open Privacy & Security" and "Not Now". Answered "Not Now", nothing
-opens; a second import answered "Open Privacy & Security" opens
-`x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`, which the preload
-records. The job's row keeps the import's own message, "Cannot read <the fake home's Brave
-folder>: EACCES: permission denied …"
+Retired: the browser history import and its Full Disk Access dialog were removed (decision 171 in
+`docs/DECISIONS.md`).
 
 ## ELEC-13
 

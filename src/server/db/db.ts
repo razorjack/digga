@@ -17,7 +17,7 @@ export type Statement<Params extends unknown[] | Record<string, unknown> = unkno
 
 export interface OpenOptions {
   readonly?: boolean;
-  /** Skip WAL and migrations (used for foreign databases such as browser history). */
+  /** Skip WAL and migrations, for a database that is not the library, such as a backup copy. */
   foreign?: boolean;
 }
 

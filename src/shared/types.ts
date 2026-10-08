@@ -1,6 +1,7 @@
 /**
- * What was decided about a record: in Digga, or `seen` from the browser history. What the
- * Discogs account holds is not a verdict but a membership (MEMBERSHIP_KINDS).
+ * What was decided about a record: in Digga, or `seen` from the browser history import Digga
+ * once had (decision 171), which libraries may still hold. What the Discogs account holds is not
+ * a verdict but a membership (MEMBERSHIP_KINDS).
  */
 export const VERDICT_STATUSES = [
   "seen",
@@ -41,7 +42,6 @@ export const JOB_TYPES = [
   "dump_update",
   "import_collection",
   "import_wantlist",
-  "import_history",
   "import_list",
   "import_seller",
 ] as const;
@@ -251,14 +251,6 @@ export interface ImportProgress {
   removed: number;
 }
 
-export interface HistoryImportProgress {
-  files: number;
-  urls: number;
-  discogsUrls: number;
-  keys: number;
-  verdictsWritten: number;
-}
-
 /** Reading a seller's shop: pages of listings, then the records of it that are loaded. */
 export interface SellerImportProgress {
   username: string;
@@ -284,7 +276,6 @@ export interface JobProgressByType {
   dump_download: DumpDownloadProgress;
   dump_load: DumpLoadProgress;
   dump_update: DumpUpdateProgress;
-  import_history: HistoryImportProgress;
   import_collection: ImportProgress;
   import_wantlist: ImportProgress;
   import_list: ImportProgress;

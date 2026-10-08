@@ -1,5 +1,4 @@
 import type { Job } from "../shared/types.ts";
-import { HistoryAccessError } from "./importers/history.ts";
 import type { JobListener } from "./jobs/runner.ts";
 
 /**
@@ -11,8 +10,6 @@ import type { JobListener } from "./jobs/runner.ts";
 export interface Desktop {
   /** A job started, reported progress or ended. */
   jobChanged(job: Job): void;
-  /** A history import failed because the system keeps Digga out of a browser's history. */
-  historyAccessDenied(): void;
   /** Asks for a releases dump the user has, with the system's file dialog; null when cancelled. */
   chooseDumpFile(): Promise<string | null>;
   /** Asks for a folder for the dumps, starting at the current one; null when cancelled. */
@@ -22,8 +19,5 @@ export interface Desktop {
 /** The job runner's listener for the desktop, when there is one. */
 export function desktopJobListener(desktop: Desktop | undefined): JobListener | undefined {
   if (!desktop) return undefined;
-  return (job, failure) => {
-    desktop.jobChanged(job);
-    if (failure instanceof HistoryAccessError) desktop.historyAccessDenied();
-  };
+  return (job) => desktop.jobChanged(job);
 }

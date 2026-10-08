@@ -54,12 +54,6 @@ export function showDump(result: DumpLoadJobResult): void {
 }
 
 export function showImport(result: ImportResult): void {
-  if (result.kind === "history") {
-    console.log(
-      `import history: ${result.files} file(s), ${result.discogsUrls} Discogs URLs, ${result.keys} releases/masters marked seen (${result.verdictsWritten} new)`,
-    );
-    return;
-  }
   if (result.kind === "seller") {
     const cut = result.listings !== null && result.read < result.listings;
     const read = cut ? `${result.read} of ${result.listings}` : `${result.read}`;

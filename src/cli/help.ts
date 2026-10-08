@@ -19,9 +19,6 @@ Commands:
       --out FILE            Write it elsewhere
   import collection         Seed verdicts from your Discogs collection
   import wantlist           Seed verdicts from your Discogs wantlist
-  import history            Mark releases you already opened on discogs.com as seen
-      --browser NAME        brave (default) | chrome | firefox
-      --path FILE           Explicit History / places.sqlite file
   import list               Mark the releases on your Discogs Maybe list as maybe
       --list ID             Another list than discogs.maybeListId
   import seller <username>  Read what a seller has for sale, to dig only that (F in Triage)

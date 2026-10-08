@@ -11,7 +11,6 @@ import {
   downloadDump,
   dumpLoad,
   importCollection,
-  importHistory,
   importList,
   importSeller,
   importWantlist,
@@ -129,15 +128,6 @@ function downloadWriting(context: AppContext, file: string): Job | null {
 export function startImport(context: AppContext, kind: ImportKind, input: ImportJobInput): Job {
   const config = context.getConfig();
   const { db, logger, jobs } = context;
-  if (kind === "history") {
-    return jobs.run("import_history", ({ signal, onProgress }) =>
-      importHistory(
-        { db, logger },
-        { browser: input.browser, path: input.path, tempDir: context.paths.tempDir, signal },
-        onProgress,
-      ),
-    );
-  }
   const deps = { db, logger, discogs: context.getDiscogs() };
   if (kind === "seller") {
     const username = input.username;

@@ -428,11 +428,6 @@ describe("HTTP API", () => {
     // A shop read needs a seller's username.
     expect((await send("POST", "/api/jobs/import/seller", {})).status).toBe(400);
     expect((await send("POST", "/api/jobs/import/seller", { username: " " })).status).toBe(400);
-    const imp = await send<Job>("POST", "/api/jobs/import/history", {
-      path: "/definitely/missing/History",
-    });
-    expect(imp.status).toBe(202);
-    expect((await waitForJob(imp.body.id)).status).toBe("failed");
     expect((await get("/api/jobs/missing")).status).toBe(404);
   });
 

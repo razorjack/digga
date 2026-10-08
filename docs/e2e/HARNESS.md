@@ -297,13 +297,9 @@ The guard is tested itself. A vitest test runs the Node guard against fetch, `ht
 the running layers against a second loopback listener the test owns, never port 3456.
 
 **Filesystem.** `HOME`, `USERPROFILE` and the other folder variables point into a fake home in
-the temp folder. `readSetup()` looks for browser history there (`discoverHistoryFiles()` defaults
-to `os.homedir()`), so the setup never sees the developer's Brave or Firefox. History tests place
-fixture databases there with `diggaOptions.browserHistory`, and lock a browser's folder with
-`diggaOptions.unreadableBrowsers`; the fixture gives the permissions back before it deletes the
-folder ([Browser history](FIXTURES.md#browser-history)). SET-23 makes the library's `backups`
-folder read-only (mode `555`) inside the test and gives the permission back in `finally`; like
-SETUP-12 it skips on Windows and as root, where the mode stops nothing.
+the temp folder, so nothing the app or Chromium writes under the home lands in the developer's.
+SET-23 makes the library's `backups` folder read-only (mode `555`) inside the test and gives the
+permission back in `finally`; it skips on Windows and as root, where the mode stops nothing.
 
 ### Disk space
 

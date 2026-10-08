@@ -1,21 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-  test as base,
-  type Browser as PlaywrightBrowser,
-  expect,
-  type TestInfo,
-} from "@playwright/test";
-import type { Browser } from "../../../src/shared/api.ts";
+import { test as base, type Browser, expect, type TestInfo } from "@playwright/test";
 import { type Config, ConfigSchema } from "../../../src/shared/config.ts";
 import type { DecisionsBackup } from "../../../src/shared/decisions-backup.ts";
 import { labelsBesides } from "../fixtures/catalogue.ts";
 import { writeDecisionsBackup } from "../fixtures/decisions.ts";
-import {
-  type BrowserHistory,
-  lockBrowserFolder,
-  writeBrowserHistory,
-} from "../fixtures/history.ts";
 import {
   bulkDump,
   type DumpFile,
@@ -74,13 +63,6 @@ export interface DiggaOptions {
    * starts, as the README says to restore: with the server stopped.
    */
   decisionsBackup: DecisionsBackup | null;
-  /** History databases in the fake home, where the setup and the history import look. */
-  browserHistory: BrowserHistory[];
-  /**
-   * Browsers whose folder in the fake home has no permissions while the test runs, as without
-   * Full Disk Access on macOS. POSIX only, and not as root, whom permissions do not stop.
-   */
-  unreadableBrowsers: Browser[];
   /**
    * Electron only: runs while the window's first navigation is held, with the server running and
    * nothing loaded (ELEC-10, ELEC-13).
@@ -100,8 +82,6 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   dumpFiles: [],
   dumpsDirFromApp: false,
   decisionsBackup: null,
-  browserHistory: [],
-  unreadableBrowsers: [],
   beforeRelease: null,
 };
 
@@ -130,7 +110,7 @@ interface WorkerFixtures {
   runRoot: string;
   templates: Templates;
   /** The worker's Chromium for the web host, launched on first use, so Electron workers have none. */
-  webBrowser: () => Promise<PlaywrightBrowser>;
+  webBrowser: () => Promise<Browser>;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -159,7 +139,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   webBrowser: [
     async ({ playwright, browserName }, use) => {
-      const launched: { browser?: Promise<PlaywrightBrowser> } = {};
+      const launched: { browser?: Promise<Browser> } = {};
       // Playwright's own worker fixture gives this launch the project's launch options.
       await use(() => (launched.browser ??= playwright[browserName].launch()));
       if (launched.browser) await (await launched.browser).close();
@@ -204,15 +184,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       webBrowser,
       testInfo,
     });
-    // Locked once the server runs, which reads the folders only when the page asks.
-    const unlocks = options.unreadableBrowsers.map((browser) =>
-      lockBrowserFolder(environment.home, browser),
-    );
-
     await use(app);
 
-    // A folder without permissions could not be deleted.
-    for (const unlock of unlocks) unlock();
     const problems = [...(await app.undeclaredProblems()), ...fakes.violations];
     if (problems.length > 0 || testInfo.status !== testInfo.expectedStatus)
       await attachArtifacts(app, fakes, testInfo);
@@ -258,7 +231,6 @@ async function prepareEnvironment(
   const work = path.join(folder, "work");
   fs.mkdirSync(work);
   const home = path.join(folder, "home");
-  for (const history of options.browserHistory) writeBrowserHistory(home, history);
   const environment: DiggaEnvironment = {
     root: test.runRoot,
     cwd: work,
@@ -284,7 +256,7 @@ async function launchHost(
     environment: DiggaEnvironment;
     folder: string;
     electronExecutable: string | null;
-    webBrowser: () => Promise<PlaywrightBrowser>;
+    webBrowser: () => Promise<Browser>;
     testInfo: TestInfo;
   },
 ): Promise<DiggaHost> {

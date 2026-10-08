@@ -6,7 +6,6 @@ import {
   yearHistogram,
 } from "../../../src/client/setup/model.ts";
 import type {
-  DecisionsExport,
   DiscogsAccountResponse,
   JobsResponse,
   SetupResponse,
@@ -16,8 +15,7 @@ import { formatCount } from "../../../src/shared/display.ts";
 import type { StyleCensus } from "../../../src/shared/style-census.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import { PUSH_RETRY_DELAYS_MS } from "../../../src/shared/wantlist.ts";
-import { BULK, DJ, releaseById, triageKeyOf } from "../fixtures/catalogue.ts";
-import { type BrowserHistory, releaseVisit } from "../fixtures/history.ts";
+import { DJ, releaseById } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage, type SetupStep } from "../pages/setup.ts";
 import { TriagePage } from "../pages/triage.ts";
@@ -288,102 +286,6 @@ test.describe("with the clock", () => {
       await expect(twelves.wantlistHandoff).toContainText(
         "1 record is not on your Discogs wantlist.",
       );
-    },
-  );
-});
-
-/** Two bulk releases opened in Brave, among pages that are not releases. */
-const BRAVE_HISTORY: BrowserHistory = {
-  browser: "brave",
-  visits: [
-    releaseVisit(BULK[0]!, "2026-09-12T20:15:00.000Z"),
-    releaseVisit(BULK[1]!, "2026-09-14T21:40:30.000Z"),
-    {
-      url: "https://www.discogs.com/artist/1-Someone",
-      title: "Someone | Discogs",
-      visits: 1,
-      lastVisit: "2026-09-14T21:41:00.000Z",
-    },
-    {
-      url: "https://example.com/",
-      title: "Example",
-      visits: 3,
-      lastVisit: "2026-09-15T08:00:00.000Z",
-    },
-  ],
-};
-
-/** A third bulk release, opened in Firefox. */
-const FIREFOX_HISTORY: BrowserHistory = {
-  browser: "firefox",
-  visits: [releaseVisit(BULK[2]!, "2026-09-20T10:00:00.000Z")],
-};
-
-test.describe("with Brave's and Firefox's history in the home folder", () => {
-  test.use({ diggaOptions: { ...FIRST_RUN, browserHistory: [BRAVE_HISTORY, FIREFOX_HISTORY] } });
-
-  test(
-    "SETUP-12 step 2 offers the browsers that have a history, and the import marks the releases opened as seen",
-    { tag: ["@SETUP-12", "@P2"] },
-    async ({ app }) => {
-      test.slow();
-      const setup = await openDiscogsStep(app);
-
-      await expect(setup.historyBrowser.getByRole("option")).toHaveText(["Brave", "Firefox"]);
-      await expect(setup.historyBrowser).toHaveValue("brave");
-      await expect(
-        setup.root.getByText("Reads the browser's history on this computer; nothing leaves it."),
-      ).toBeVisible();
-      await setup.historyCheckbox.check();
-      await setup.continueFromDiscogs(["history"]);
-
-      await expect.poll(() => importStatuses(app)).toEqual({ import_history: "done" });
-      const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
-      const seen = exported.verdicts.map(({ key, status, source, decidedAt }) => ({
-        key,
-        status,
-        source,
-        decidedAt,
-      }));
-      expect(seen).toEqual(
-        expect.arrayContaining(
-          [0, 1].map((index) => ({
-            key: triageKeyOf(BULK[index]!),
-            status: "seen",
-            source: "seed:history",
-            decidedAt: BRAVE_HISTORY.visits[index]!.lastVisit,
-          })),
-        ),
-      );
-      expect(seen).toHaveLength(2);
-    },
-  );
-});
-
-test.describe("with a browser folder Digga may not read", () => {
-  test.use({
-    diggaOptions: { ...FIRST_RUN, browserHistory: [BRAVE_HISTORY], unreadableBrowsers: ["chrome"] },
-  });
-
-  test(
-    "SETUP-12 a browser whose folder Digga may not read is listed with the Full Disk Access hint",
-    { tag: ["@SETUP-12", "@P2"] },
-    async ({ app }) => {
-      test.skip(
-        process.platform === "win32" || process.getuid?.() === 0,
-        "taking a folder's permissions stops only a POSIX user who is not root",
-      );
-      const setup = await openDiscogsStep(app);
-
-      await expect(setup.historyBrowser.getByRole("option")).toHaveText(["Brave", "Chrome"]);
-      await setup.historyBrowser.selectOption("chrome");
-      await expect(setup.root.getByText(/Full Disk Access\.$/)).toHaveText(
-        "Digga may not read that browser's history. On macOS, allow it under System Settings › Privacy & Security › Full Disk Access.",
-      );
-      await setup.historyBrowser.selectOption("brave");
-      await expect(
-        setup.root.getByText("Reads the browser's history on this computer; nothing leaves it."),
-      ).toBeVisible();
     },
   );
 });

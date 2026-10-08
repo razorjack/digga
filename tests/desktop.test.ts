@@ -14,7 +14,6 @@ import {
 import { openDb, type Db } from "../src/server/db/db.ts";
 import type { Desktop } from "../src/server/desktop.ts";
 import { createDataDumpClient } from "../src/server/discogs/data-dumps.ts";
-import { HistoryAccessError } from "../src/server/importers/history.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
 import { createLogger } from "../src/server/logger.ts";
 import { type Paths, resolvePaths } from "../src/server/paths.ts";
@@ -44,21 +43,16 @@ describe("the server's reports to the desktop", () => {
   let db: Db;
   let server: DiggaServer;
   let reports: Report[];
-  let historyDenials: number;
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-desktop-"));
     db = openDb(":memory:");
     reports = [];
-    historyDenials = 0;
     const desktop: Desktop = {
       jobChanged: ({ type, status, progress, error }) =>
         reports.push({ type, status, progress, error }),
       chooseDumpFile: async () => null,
       chooseDumpsFolder: async () => null,
-      historyAccessDenied: () => {
-        historyDenials += 1;
-      },
     };
     server = serverWith({ paths: resolvePaths({ dataDir: tmp }), db, desktop });
   });
@@ -103,20 +97,6 @@ describe("the server's reports to the desktop", () => {
       { type: "dump_download", status: "cancelled", progress: null, error: "Cancelled" },
     ]);
   });
-  it("tells it when a history import may not read a browser's history, and no other failure", async () => {
-    const denied = server.jobs.runAndWait("import_history", async () => {
-      throw new HistoryAccessError("/Users/dj/Library/Application Support/BraveSoftware", "EPERM");
-    });
-    await expect(denied).rejects.toThrow(HistoryAccessError);
-    expect(historyDenials).toBe(1);
-    const failed = server.jobs.runAndWait("import_history", async () => {
-      throw new Error("No browser history found for brave");
-    });
-    await expect(failed).rejects.toThrow("No browser history found");
-
-    expect(historyDenials).toBe(1);
-    expect(reports.filter((report) => report.status === "failed")).toHaveLength(2);
-  });
 });
 
 describe("the setup's dialogs", () => {
@@ -127,7 +107,6 @@ describe("the setup's dialogs", () => {
   let asked: string[];
   const desktop: Desktop = {
     jobChanged: () => {},
-    historyAccessDenied: () => {},
     chooseDumpFile: async () => {
       asked.push("dump file");
       return chosen;

@@ -132,12 +132,11 @@ returned, then cancelled
 
 Priority: **P2**.
 
-Given: `small-account` with a saved token, and Brave's history with visits to two releases.
+Given: `small-account` with a saved token.
 
-Imports: History reads the fake home's history file (the row reads "2 Discogs links, 2 releases", and
-the export has them seen, from `seed:history`); Maybe list is disabled until a list is saved, not
-merely chosen; Read shop needs a username, reads `shopkeeper`, and `F`'s search then offers the
-seller
+Imports: "Your Discogs" offers Collection, Wantlist and Maybe list, and no history import; Maybe list
+is disabled until a list is saved, not merely chosen; Read shop needs a username, reads
+`shopkeeper`, and `F`'s search then offers the seller
 
 ## SET-16
 
@@ -215,8 +214,7 @@ queue and Twelves read after it
 Priority: **P2**.
 
 A failed scheduled backup shows in Settings. With a verdict given after the first start's check, the
-library's `backups` folder loses its write permission (POSIX, not as root, given back in cleanup,
-as SETUP-12 does with its browser folder), and `relaunch()`: the start's check finds the day's
+library's `backups` folder loses its write permission (POSIX, not as root, given back in cleanup), and `relaunch()`: the start's check finds the day's
 database copy and cannot write the decisions backup or the checkpoint, `/api/backups` reports the
 failure, and the Backups tab reads "A scheduled backup failed just now: the daily decisions backup
 failed: EACCES…; the decisions checkpoint failed: EACCES…. Digga tries again every fifteen

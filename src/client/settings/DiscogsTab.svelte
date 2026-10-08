@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { BROWSERS, type Browser } from "../../shared/api.ts";
   import { type Config, DISCOGS_CURRENCIES } from "../../shared/config.ts";
   import { formatCount } from "../../shared/display.ts";
   import type { Job } from "../../shared/types.ts";
@@ -36,7 +35,6 @@
   const id = $props.id();
 
   let tokenDraft = $state("");
-  let historyBrowser = $state<Browser>("brave");
   let sellerUsername = $state("");
 
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
@@ -227,7 +225,7 @@
 <section class="jobs" aria-labelledby="{id}-imports-title">
   <header>
     <h2 id="{id}-imports-title">Imports</h2>
-    <p>Seed verdicts from your Discogs collection, wantlist and Maybe list, and from browser history.</p>
+    <p>Seed verdicts from your Discogs collection, wantlist and Maybe list.</p>
   </header>
   <div class="fields">
     <fieldset class="field">
@@ -235,12 +233,6 @@
       <div class="inline wrap">
         <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
         <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
-        <select bind:value={historyBrowser} aria-label="Browser">
-          {#each BROWSERS as browser (browser)}<option value={browser}>{browser}</option>{/each}
-        </select>
-        <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("history", { browser: historyBrowser }))}>
-          History
-        </button>
         <button
           type="button"
           class="secondary"

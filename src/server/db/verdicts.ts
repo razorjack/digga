@@ -9,7 +9,6 @@ import type {
 } from "../../shared/types.ts";
 import { VERDICT_STATUSES } from "../../shared/types.ts";
 import { toUtcTimestamp } from "../../shared/timestamp.ts";
-import { verdictRank } from "../../shared/verdict-rank.ts";
 import { type Db, nowIso } from "./db.ts";
 
 interface VerdictRow {
@@ -108,28 +107,6 @@ export function upsertVerdict(db: Db, verdict: VerdictWrite): Verdict {
     updated_at: toUtcTimestamp(verdict.updatedAt ?? nowIso()),
   });
   return getVerdict(db, verdict.key)!;
-}
-
-/**
- * Writes a browser-history hit unless the record has a verdict that outranks it: a decision
- * made in Digga always does. A newer visit to a page already seen moves its date.
- */
-export function applySeedVerdict(
-  db: Db,
-  verdict: VerdictWrite,
-): { written: boolean; previous: Verdict | null } {
-  const previous = getVerdict(db, verdict.key);
-  if (previous && verdictRank(verdict) < verdictRank(previous)) return { written: false, previous };
-  if (
-    previous &&
-    previous.status === verdict.status &&
-    previous.source === verdict.source &&
-    previous.decidedAt === toUtcTimestamp(verdict.decidedAt ?? previous.decidedAt)
-  ) {
-    return { written: false, previous };
-  }
-  upsertVerdict(db, verdict);
-  return { written: true, previous };
 }
 
 /** Whether the record's verdict is still the one a page saw: the same decision at the same time. */

@@ -23,18 +23,18 @@ describe("CLI workflows", () => {
   it("validates command options before execution", () => {
     expect(() => parseDumpOptions([FIXTURE_GZ, "--limit", "0"], DEFAULT_CONFIG)).toThrow("--limit");
     expect(parseDumpOptions([FIXTURE_GZ, "--dry-run"], DEFAULT_CONFIG).dryRun).toBe(true);
-    expect(() =>
-      parseImportOptions(["history", "--browser", "bad"], DEFAULT_CONFIG, "/tmp"),
-    ).toThrow("--browser");
-    expect(parseImportOptions(["list", "--list", "77"], DEFAULT_CONFIG, "/tmp")).toMatchObject({
+    expect(() => parseImportOptions(["history"], DEFAULT_CONFIG)).toThrow(
+      "import needs one of: collection, wantlist, list, seller",
+    );
+    expect(parseImportOptions(["list", "--list", "77"], DEFAULT_CONFIG)).toMatchObject({
       kind: "list",
       options: { listId: 77 },
     });
-    expect(parseImportOptions(["seller", "Shop"], DEFAULT_CONFIG, "/tmp")).toEqual({
+    expect(parseImportOptions(["seller", "Shop"], DEFAULT_CONFIG)).toEqual({
       kind: "seller",
       options: { username: "Shop" },
     });
-    expect(() => parseImportOptions(["seller"], DEFAULT_CONFIG, "/tmp")).toThrow("username");
+    expect(() => parseImportOptions(["seller"], DEFAULT_CONFIG)).toThrow("username");
     expect(parseServeOptions(["--port", "0"])).toEqual({ port: 0, host: undefined });
   });
 

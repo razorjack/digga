@@ -1,5 +1,4 @@
 import type {
-  Browser,
   DiscogsAccountResponse,
   DiscogsProfileResponse,
   SetupResponse,
@@ -193,7 +192,7 @@ export class SetupFlow {
   }
 
   /** Step 2: starts the chosen imports and moves on while they run. */
-  async continueFromDiscogs(choice: { seeds: boolean; browser: Browser | null; currency: string }) {
+  async continueFromDiscogs(choice: { seeds: boolean; currency: string }) {
     await this.#act(async () => {
       if (this.profile) await this.#saveSettings({ currency: choice.currency });
       const started: Job[] = [];
@@ -201,8 +200,6 @@ export class SetupFlow {
         started.push(await api.startImport("collection"));
         started.push(await api.startImport("wantlist"));
       }
-      if (choice.browser)
-        started.push(await api.startImport("history", { browser: choice.browser }));
       this.imports = started;
       this.goTo("sound");
       this.#poll();

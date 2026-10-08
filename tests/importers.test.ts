@@ -13,7 +13,6 @@ import {
 import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import {
-  applySeedVerdict,
   countDug,
   getVerdict,
   triageDecisionTimes,
@@ -306,12 +305,9 @@ describe("collection and wantlist importers", () => {
 });
 
 describe("the Discogs account beside decisions made in Digga", () => {
-  it("leaves decisions alone, and a history hit never overrides one", async () => {
+  it("leaves decisions alone", async () => {
     const db = await fixtureDb();
     upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage", releaseId: 1001 });
-    expect(
-      applySeedVerdict(db, { key: "m:501", status: "seen", source: "seed:history" }).written,
-    ).toBe(false);
     const seed = { releaseId: 1001, masterId: 501, dateAdded: null, rating: null, notes: null };
     applySeedItem(db, { ...seed, kind: "collection", basicInformation: basic(1001, 501, "W") });
 

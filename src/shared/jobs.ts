@@ -74,19 +74,6 @@ export const JobSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     ...base,
-    type: z.literal("import_history"),
-    progress: z
-      .object({
-        files: count,
-        urls: count,
-        discogsUrls: count,
-        keys: count,
-        verdictsWritten: count,
-      })
-      .nullable(),
-  }),
-  z.object({
-    ...base,
     type: z.literal("import_collection"),
     progress: ImportProgressSchema.nullable(),
   }),

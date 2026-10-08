@@ -56,11 +56,6 @@ function progressOf(job: Job): ProgressSummary {
         : loadProgress(job.progress);
     case "import_seller":
       return sellerProgress(job.progress);
-    case "import_history":
-      return {
-        text: `${formatCount(job.progress.discogsUrls)} Discogs links, ${formatCount(job.progress.keys)} releases`,
-        fraction: null,
-      };
     default: {
       const { page, pages, processed } = job.progress;
       const total = pages ? ` of ${pages}` : "";
@@ -132,7 +127,6 @@ export const JOB_LABEL: Record<JobType, string> = {
   dump_update: "Update from the newest dump",
   import_collection: "Import collection",
   import_wantlist: "Import wantlist",
-  import_history: "Import browser history",
   import_list: "Import Maybe list",
   import_seller: "Read seller shop",
 };

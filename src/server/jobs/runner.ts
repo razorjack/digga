@@ -18,10 +18,10 @@ export interface JobContext {
 export type JobFn<Result = unknown> = (context: JobContext) => Promise<Result>;
 
 /**
- * Hears every change of a job: its start, each progress report, and its end, with the error it
- * failed with. The Digga app follows its downloads and loads through it (src/server/desktop.ts).
+ * Hears every change of a job: its start, each progress report, and its end. The Digga app
+ * follows its downloads and loads through it (src/server/desktop.ts).
  */
-export type JobListener = (job: Job, failure?: unknown) => void;
+export type JobListener = (job: Job) => void;
 
 export interface JobRunner {
   /**
@@ -119,18 +119,18 @@ class Runner implements JobRunner {
         controller.signal.aborted ? "cancelled" : "failed",
         message,
       );
-      this.#report(job.id, error);
+      this.#report(job.id);
       log.error(`job ${job.id} failed: ${message}`);
       throw error;
     }
   }
 
   /** Tells the listener what the jobs table holds now; a listener's failure leaves the job alone. */
-  #report(id: string, failure?: unknown): void {
+  #report(id: string): void {
     const job = this.#listener ? getJob(this.#db, id) : null;
     if (!job) return;
     try {
-      this.#listener?.(job, failure);
+      this.#listener?.(job);
     } catch (error) {
       this.#logger.warn(`the listener of job ${id} failed`, error);
     }

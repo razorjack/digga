@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { DumpsDirSource } from "../shared/api.ts";
 
 export interface Paths {
-  /** The library: database, backups, config, saved token, temp files. */
+  /** The library: database, backups, config, saved token. */
   dataDir: string;
   dbFile: string;
   configFile: string;
@@ -17,7 +17,6 @@ export interface Paths {
   dumpsFolderFile: string;
   /** Daily copies of the database, written when the server starts. */
   backupsDir: string;
-  tempDir: string;
   /** Built frontend bundle served by Hono in production. */
   distDir: string;
   /** The Discogs token Settings saves, in .env format; read by secrets.ts. */
@@ -75,7 +74,6 @@ export function resolvePaths(options: PathOptions = {}, system: System = current
     dumpsDirSource: dumps.source,
     dumpsFolderFile,
     backupsDir: path.join(dataDir, "backups"),
-    tempDir: path.join(dataDir, "tmp"),
     distDir: path.resolve(options.distDir ?? DEFAULT_DIST_DIR),
     secretsFile: path.join(dataDir, "secrets.env"),
     lockFile: path.join(dataDir, "digga.lock"),

@@ -419,8 +419,6 @@ export interface SetupResponse {
   needed: boolean;
   catalogue: SetupCatalogue;
   seeds: SeedTally;
-  /** Browsers with a history on this computer. */
-  browsers: HistoryBrowser[];
   /** The server runs in Digga's desktop app, so the setup offers its file dialog. */
   desktop: boolean;
 }
@@ -439,12 +437,6 @@ export interface DumpsFolderResponse {
 /** The releases dump the user chose with the desktop app's file dialog; null when cancelled. */
 export interface DumpFileResponse {
   file: string | null;
-}
-
-export interface HistoryBrowser {
-  name: Browser;
-  /** False when the history exists but Digga may not read it, such as without Full Disk Access. */
-  readable: boolean;
 }
 
 export interface SetupCatalogue {
@@ -480,13 +472,9 @@ export interface SeedTally {
 }
 
 // POST /api/jobs/import/:kind
-export const IMPORT_KINDS = ["collection", "wantlist", "history", "list", "seller"] as const;
+export const IMPORT_KINDS = ["collection", "wantlist", "list", "seller"] as const;
 export type ImportKind = (typeof IMPORT_KINDS)[number];
-export const BROWSERS = ["brave", "chrome", "firefox"] as const;
-export type Browser = (typeof BROWSERS)[number];
 export const ImportJobInputSchema = z.object({
-  browser: z.enum(BROWSERS).optional(),
-  path: z.string().optional(),
   /** List import: the Discogs list to read; defaults to discogs.maybeListId. */
   listId: z.number().int().positive().optional(),
   /** Seller import: the Discogs username whose shop to read. */
