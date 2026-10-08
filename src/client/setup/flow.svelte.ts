@@ -56,6 +56,8 @@ export class SetupFlow {
   dumpDeleted = $state(false);
   /** What step 3 confirmed, in this visit or an earlier one; step 3 starts from it. */
   picks = $state.raw<Picks | null>(null);
+  /** The dump the user chose in step 1 of the desktop app, which the setup loads instead of a download. */
+  pickedDump = $state<string | null>(null);
 
   importsRunning = $derived(this.imports.some(isRunning));
   loadRunning = $derived(isRunning(this.load));
@@ -63,9 +65,13 @@ export class SetupFlow {
   #followed = $state(false);
   followsLoad = $derived(this.#followed || this.loadRunning);
   loadDone = $derived(this.load?.status === "done");
-  /** The dump the setup fetches; the download names it once found, the listing before. */
+  /**
+   * The dump the setup loads: the one the user chose, else the one it fetches, which the download
+   * names once found and the listing before.
+   */
   dumpFile = $derived(
-    (this.download?.type === "dump_download" ? this.download.progress?.file : null) ??
+    this.pickedDump ??
+      (this.download?.type === "dump_download" ? this.download.progress?.file : null) ??
       this.setup?.catalogue.newest?.file ??
       null,
   );
@@ -102,6 +108,7 @@ export class SetupFlow {
       this.setup = setup;
       this.account = account;
       this.picks = confirmedPicks(config);
+      this.pickedDump = config.setup.dumpFile;
       this.#adoptJobs(jobs);
       this.step = this.#resumeStep(requested);
       await this.#loadAgainAfterRetry();
@@ -132,6 +139,18 @@ export class SetupFlow {
       void loadStatus.check();
       this.goTo("discogs");
       this.#poll();
+    });
+  }
+
+  /** Step 1 in the desktop app: a dump the user has, chosen in the file dialog, instead of a download. */
+  async useDumpFile(): Promise<void> {
+    await this.#act(async () => {
+      const { file } = await api.chooseDumpFile();
+      if (file === null) return;
+      await this.#saveSettings({ dumpFile: file });
+      this.pickedDump = file;
+      this.download = null;
+      this.goTo("discogs");
     });
   }
 
@@ -205,8 +224,7 @@ export class SetupFlow {
   async pickUp(): Promise<void> {
     await this.#act(async () => {
       this.setup = await api.getSetup();
-      if (!this.setup.catalogue.newest?.downloaded && !isRunning(this.download))
-        this.download = await api.startDumpDownload();
+      if (this.#needsDownload()) this.download = await api.startDumpDownload();
       await this.#startLoad();
       this.#poll();
     });
@@ -230,9 +248,10 @@ export class SetupFlow {
     });
   }
 
+  /** Deletes the downloaded dump from the dumps folder; a file the user chose stays where it is. */
   async deleteDump(): Promise<void> {
     const file = this.dumpFile;
-    if (!file) return;
+    if (!file || this.pickedDump !== null) return;
     await this.#act(async () => {
       await api.deleteDump(file);
       this.dumpDeleted = true;
@@ -241,7 +260,8 @@ export class SetupFlow {
 
   #adoptJobs(jobs: Job[]): void {
     const newest = (type: Job["type"]) => jobs.find((job) => job.type === type) ?? null;
-    this.download = newest("dump_download");
+    // A download from before the user chose a file is no longer the setup's.
+    this.download = this.pickedDump === null ? newest("dump_download") : null;
     this.load = newest("dump_load");
     // A load that ended before this visit belongs to it only when the library still needs one.
     this.#followed = this.load !== null && this.load.status !== "done";
@@ -256,13 +276,26 @@ export class SetupFlow {
    */
   #resumeStep(requested: SetupStep | null): SetupStep {
     if (this.load) return "crate";
-    const fetched =
-      isRunning(this.download) || this.download?.status === "done" || this.downloadStopped !== null;
+    const fetched = this.#catalogueChosen();
     const inFolder = this.setup?.catalogue.newest?.downloaded === true;
     if (!fetched && !inFolder) return "catalogue";
     if (requested === "sound" || requested === "discogs") return requested;
     if (this.picks) return "sound";
     return fetched ? "discogs" : "catalogue";
+  }
+
+  /** Step 1 is done: the user chose a file, or the download runs, has finished or has stopped. */
+  #catalogueChosen(): boolean {
+    if (this.pickedDump !== null) return true;
+    return (
+      isRunning(this.download) || this.download?.status === "done" || this.downloadStopped !== null
+    );
+  }
+
+  /** A load needs a download unless the user chose a file, or the folder has the dump or will. */
+  #needsDownload(): boolean {
+    if (this.pickedDump !== null || isRunning(this.download)) return false;
+    return !this.setup?.catalogue.newest?.downloaded;
   }
 
   /** A stopped download starts again, so a load has a dump to read; Discogs cannot resume one. */
@@ -390,14 +423,20 @@ function awaitsRetriedDownload(load: Job): boolean {
 export interface SettingsChange {
   username?: string;
   currency?: string;
+  /** The dump the user chose in step 1. */
+  dumpFile?: string;
   picks?: Picks;
 }
 
-/** The config after a setup step: the account's name or currency, or the picks, dug for real. */
+/**
+ * The config after a setup step: the account's name or currency, the dump the user chose, or the
+ * picks, dug for real.
+ */
 export function withChange(config: Config, change: SettingsChange): Config {
   const next = structuredClone(config);
   if (change.username) next.discogs.username = change.username;
   if (change.currency) next.discogs.currency = change.currency;
+  if (change.dumpFile) next.setup.dumpFile = change.dumpFile;
   if (!change.picks) return next;
   const { styles, span, loadYears, vinylOnly } = change.picks;
   next.setup.picksConfirmed = true;

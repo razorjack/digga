@@ -30,6 +30,7 @@ describe("request timeouts", () => {
     const api = createHttpApi(await slowServer({ delayMs: 200 }), {
       localMs: 30,
       discogsMs: 1000,
+      dialogMs: 1000,
     });
     await expect(api.getStats()).rejects.toThrow("No answer within 30 ms");
   });
@@ -38,14 +39,25 @@ describe("request timeouts", () => {
     const api = createHttpApi(await slowServer({ delayMs: 80 }), {
       localMs: 30,
       discogsMs: 1000,
+      dialogMs: 1000,
     });
     await expect(api.enrichRelease(1)).resolves.toEqual({});
+  });
+
+  it("let a request that waits for the user to answer a native dialog take longer", async () => {
+    const api = createHttpApi(await slowServer({ delayMs: 80 }), {
+      localMs: 30,
+      discogsMs: 30,
+      dialogMs: 1000,
+    });
+    await expect(api.chooseDumpFile()).resolves.toEqual({});
   });
 
   it("cover an answer whose body stalls", async () => {
     const api = createHttpApi(await slowServer("stall"), {
       localMs: 50,
       discogsMs: 1000,
+      dialogMs: 1000,
     });
     await expect(api.getQueue()).rejects.toThrow("No answer within 50 ms");
   });

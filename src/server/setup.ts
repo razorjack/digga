@@ -19,7 +19,7 @@ const LISTING_TIMEOUT_MS = 20_000;
 
 const listings = new WeakMap<DataDumpClient, { dump: DataDump; readAt: number }>();
 
-export type SetupDeps = Pick<AppContext, "db" | "paths" | "dataDumps">;
+export type SetupDeps = Pick<AppContext, "db" | "paths" | "dataDumps" | "desktop">;
 
 export interface SetupOptions {
   /** Free bytes on the disk of a folder that exists; the default asks the filesystem. */
@@ -36,6 +36,7 @@ export async function readSetup(
     catalogue: await readCatalogue(deps, options.freeBytes ?? freeBytesIn),
     seeds: tallySeedReleases(deps.db),
     browsers: historyBrowsers(),
+    desktop: deps.desktop !== null,
   };
 }
 

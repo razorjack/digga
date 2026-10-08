@@ -104,6 +104,7 @@ describe("GET /api/setup", () => {
     const { body } = await send<SetupResponse>("GET", "/api/setup");
 
     expect(body.needed).toBe(true);
+    expect(body.desktop).toBe(false);
     expect(body.catalogue).toMatchObject({
       newest: {
         date: "2026-09-01",
@@ -121,7 +122,7 @@ describe("GET /api/setup", () => {
   it("says nothing of the free space when the filesystem cannot tell it", async () => {
     const asked: string[] = [];
     const setup = await readSetup(
-      { db, paths, dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }) },
+      { db, paths, dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }), desktop: null },
       {
         freeBytes: async (dir) => {
           asked.push(dir);

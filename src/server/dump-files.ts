@@ -18,6 +18,15 @@ export function listDumpFiles(dir: string): DumpFile[] {
 }
 
 /**
+ * A gzipped releases dump the user keeps anywhere, under any name ending in .xml.gz; whether it
+ * holds releases only the load can tell.
+ */
+export function isDumpFileElsewhere(file: string): boolean {
+  if (!file.endsWith(".xml.gz")) return false;
+  return fs.statSync(file, { throwIfNoEntry: false })?.isFile() === true;
+}
+
+/**
  * Deletes a releases dump the folder lists; false when it has none by that name. Only listed
  * names are accepted, so the name cannot reach outside the folder.
  */

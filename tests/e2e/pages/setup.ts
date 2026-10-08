@@ -202,6 +202,18 @@ export class SetupPage {
     await this.expectStep("discogs");
   }
 
+  /**
+   * Step 1 in the desktop app: opens the file dialog, which the Electron host answers or cancels;
+   * returns once the server has answered.
+   */
+  async useDumpFile(
+    button: "Use a dump file I have" | "Choose another file" = "Use a dump file I have",
+  ): Promise<void> {
+    const chosen = this.#response("POST", "/api/desktop/dump-file");
+    await this.button(button).click();
+    await answered(chosen);
+  }
+
   /** Step 1's "Try again" or "Check again": returns once the setup has read the catalogue again. */
   async readCatalogueAgain(button: "Try again" | "Check again"): Promise<void> {
     const read = this.#response("GET", "/api/setup");

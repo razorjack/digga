@@ -11,6 +11,7 @@ import { registerJobsRoutes } from "./routes/jobs.ts";
 import { registerDiscogsRoutes } from "./routes/discogs.ts";
 import { registerDataRoutes } from "./routes/data.ts";
 import { registerSetupRoutes } from "./routes/setup.ts";
+import { registerDesktopRoutes } from "./routes/desktop.ts";
 import { registerSessionRoutes } from "./routes/sessions.ts";
 import type { AppContext } from "./context.ts";
 import { discogsErrorMessage } from "./routes/request.ts";
@@ -39,6 +40,7 @@ export function createApp(context: AppContext): Hono {
   registerDiscogsRoutes(api, context);
   registerDataRoutes(api, context);
   registerSetupRoutes(api, context);
+  registerDesktopRoutes(api, context);
   app.route("/api", api);
   app.all("/api/*", (request) =>
     request.json(

@@ -5,6 +5,7 @@ import {
   type DiscogsAccountResponse,
   type DiscogsListsResponse,
   type DiscogsProfileResponse,
+  type DumpFileResponse,
   type DumpLoadJobInput,
   type DumpsResponse,
   type ExpectedVerdict,
@@ -106,6 +107,8 @@ export interface Api {
   getDiscogsProfile(): Promise<DiscogsProfileResponse>;
   /** Undoes the unfinished first load, so the setup can load other picks. */
   forgetFirstLoad(): Promise<{ deleted: number }>;
+  /** The desktop app's file dialog, for a releases dump the user has; only where setup says desktop. */
+  chooseDumpFile(): Promise<DumpFileResponse>;
   /** Where the browser downloads an export of the saved decisions. */
   exportUrl(file: ExportFile): string;
 }
@@ -135,11 +138,14 @@ export interface Timeouts {
    * when the rate limit runs out and backs off on 429, so an answer can take minutes.
    */
   discogsMs: number;
+  /** Requests that wait for the user to answer one of the desktop app's native dialogs. */
+  dialogMs: number;
 }
 
 export const DEFAULT_TIMEOUTS: Timeouts = {
   localMs: 30_000,
   discogsMs: 5 * 60_000,
+  dialogMs: 60 * 60_000,
 };
 
 function queryString(params: Record<string, string | number | boolean | undefined>): string {
@@ -155,6 +161,7 @@ function queryString(params: Record<string, string | number | boolean | undefine
 export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIMEOUTS): Api {
   const call = httpCaller(baseUrl, timeouts.localMs);
   const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
+  const callDialog = httpCaller(baseUrl, timeouts.dialogMs);
   return {
     getLatestSession: () => call("GET", "/sessions/latest"),
     putSession: (input) => call("PUT", "/sessions/current", input),
@@ -211,6 +218,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getStyles: () => call("GET", "/styles"),
     getDiscogsProfile: () => callDiscogs("GET", "/discogs/profile"),
     forgetFirstLoad: () => call("DELETE", "/setup/load"),
+    chooseDumpFile: () => callDialog("POST", "/desktop/dump-file"),
     exportUrl: (file) => `${baseUrl}/export/${file}`,
   };
 }

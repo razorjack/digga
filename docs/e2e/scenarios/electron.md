@@ -4,9 +4,9 @@ Read this when working on electron only coverage. Follow the [E2E rules](../../E
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
 `tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-07,
-ELEC-08, ELEC-10, ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
-unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-09 and ELEC-12
-wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
+ELEC-08, ELEC-09, ELEC-10, ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
+unpackaged app and on the packaged app's inspectable variant. ELEC-03 and ELEC-12 wait
+for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
 says what each waits for.
 
 ## ELEC-01
@@ -93,7 +93,15 @@ the notification and creates none ([ELECTRON](../ELECTRON.md#the-harness-preload
 
 Priority: **P2**.
 
-"Use a dump file I have" with a stubbed `showOpenDialog` loads the fixture dump
+"Use a dump file I have" in step 1 loads a dump the user keeps outside the dumps folder: the
+bulk dump is written to a folder in the test's folder. With no answer the preload cancels the
+open dialog, and step 1 stays as it was, with Fetch enabled. Answered with the file, the setup
+moves on to step 2; back on step 1 it names the file and no longer offers the button. Skip, a
+style and Fill the crate load it: the open dialogs recorded are "Use a dump file you have" for
+one file filtered to `xml.gz`, cancelled and then answered; the settings hold the file in
+`setup.dumpFile`; the fake dumps service sent no transfer, and the only job is the finished load.
+The crate says Digga read the catalogue from the file and leaves it where it is, with no "Delete
+it"; the file is still there, and the dumps folder has no dump
 
 ## ELEC-10
 

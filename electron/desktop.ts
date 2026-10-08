@@ -3,6 +3,7 @@ import {
   dialog,
   type MessageBoxOptions,
   Notification,
+  type OpenDialogOptions,
   powerSaveBlocker,
 } from "electron";
 import type { Desktop } from "../src/server/desktop.ts";
@@ -18,10 +19,10 @@ import {
 } from "./dump-jobs.ts";
 
 /**
- * The server's desktop (src/server/desktop.ts, decision 165): the main process follows the jobs
- * the server reports, so it shows the download and the load on the Dock, keeps the Mac awake
- * while they run, says when a load ends unseen, and knows what quitting would stop, without
- * asking the page.
+ * The server's desktop (src/server/desktop.ts, decisions 165 and 168): the main process follows
+ * the jobs the server reports, so it shows the download and the load on the Dock, keeps the Mac
+ * awake while they run, says when a load ends unseen, and knows what quitting would stop, without
+ * asking the page; and it shows the file dialog the setup asks for.
  */
 export interface AppDesktop extends Desktop {
   /** The downloads and loads running now, in the order they started. */
@@ -34,6 +35,13 @@ export interface AppDesktop extends Desktop {
 }
 
 const QUIT = 0;
+
+const DUMP_FILE_DIALOG: OpenDialogOptions = {
+  title: "Use a dump file you have",
+  properties: ["openFile"],
+  // macOS filters on the last part of an extension, .gz, so the server checks for .xml.gz.
+  filters: [{ name: "Discogs releases dump", extensions: ["xml.gz"] }],
+};
 
 export function createDesktop(logger: Logger): AppDesktop {
   const running = runningDumpJobs();
@@ -60,6 +68,7 @@ export function createDesktop(logger: Logger): AppDesktop {
       });
       return answer === QUIT;
     },
+    chooseDumpFile: () => showOpenDialog(DUMP_FILE_DIALOG),
   };
 }
 
@@ -122,6 +131,16 @@ function showWindow(): void {
   const window = appWindow();
   if (window?.isMinimized()) window.restore();
   window?.focus();
+}
+
+/** The app's open dialog, a sheet on its window when there is one; the file chosen, or null. */
+async function showOpenDialog(options: OpenDialogOptions): Promise<string | null> {
+  const window = appWindow();
+  const { canceled, filePaths } = window
+    ? await dialog.showOpenDialog(window, options)
+    : await dialog.showOpenDialog(options);
+  if (canceled) return null;
+  return filePaths[0] ?? null;
 }
 
 /** The app's message box, attached to its window as a sheet when there is one; answers the button. */

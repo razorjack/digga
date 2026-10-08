@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../src/client/api.ts";
 import { confirmedPicks, SetupFlow, withChange } from "../src/client/setup/flow.svelte.ts";
 import type { SetupStep } from "../src/client/setup/steps.ts";
+import { settings } from "../src/client/stores.svelte.ts";
 import type { SetupResponse, Stats } from "../src/shared/api.ts";
 import { type Config, DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { StyleCensus } from "../src/shared/style-census.ts";
@@ -20,6 +21,7 @@ const SETUP: SetupResponse = {
   },
   seeds: { releases: 0, styles: [] },
   browsers: [],
+  desktop: false,
 };
 
 function job(id: string, type: "dump_download" | "dump_load"): Job {
@@ -48,6 +50,8 @@ const PICKS = {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  // A step that saves settings keeps them in the store, which the next test's open() would read.
+  settings.value = null;
 });
 
 describe("where the setup resumes", () => {
@@ -127,6 +131,64 @@ describe("where the setup resumes", () => {
     serverHas([], false);
 
     expect(await resumedStep("sound")).toBe("catalogue");
+  });
+});
+
+describe("a dump file the user chose in the desktop app", () => {
+  const CHOSEN = "/Volumes/Crates/discogs_20260901_releases.xml.gz";
+  const STOPPED = { ...DOWNLOAD, status: "failed", error: "fetch failed" } as Job;
+
+  /** Answers the settings the setup saves. */
+  function serverHas(config: Config) {
+    vi.spyOn(api, "getSetup").mockResolvedValue({ ...SETUP, desktop: true });
+    vi.spyOn(api, "getJobs").mockResolvedValue({ jobs: [STOPPED] });
+    vi.spyOn(api, "getDiscogsAccount").mockRejectedValue(new Error("no account"));
+    vi.spyOn(api, "getStyles").mockRejectedValue(new Error("not needed here"));
+    vi.spyOn(api, "getSettings").mockResolvedValue(config);
+    return vi.spyOn(api, "putSettings").mockImplementation(async (saved) => saved);
+  }
+
+  it("is saved, and the setup moves on to step 2 without a download; a cancelled dialog changes nothing", async () => {
+    const save = serverHas(DEFAULT_CONFIG);
+    const choose = vi.spyOn(api, "chooseDumpFile").mockResolvedValue({ file: null });
+    const flow = new SetupFlow();
+    await flow.open(null);
+    flow.close();
+
+    await flow.useDumpFile();
+    expect(flow.step).toBe("discogs");
+    expect(flow.downloadStopped).toBe("The download stopped: fetch failed.");
+
+    choose.mockResolvedValue({ file: CHOSEN });
+    await flow.useDumpFile();
+    expect(flow.error).toBeNull();
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ setup: { picksConfirmed: false, dumpFile: CHOSEN } }),
+    );
+    expect(flow.step).toBe("discogs");
+    expect(flow.dumpFile).toBe(CHOSEN);
+    expect(flow.downloadStopped).toBeNull();
+  });
+
+  it("is loaded where it is, never downloaded again, and never deleted", async () => {
+    serverHas(withChange(DEFAULT_CONFIG, { dumpFile: CHOSEN }));
+    const download = vi.spyOn(api, "startDumpDownload").mockResolvedValue(DOWNLOAD);
+    const load = vi.spyOn(api, "startDumpLoad").mockResolvedValue({ ...LOAD, status: "done" });
+    const deleteDump = vi.spyOn(api, "deleteDump");
+    const flow = new SetupFlow();
+    await flow.open(null);
+    flow.close();
+
+    expect(flow.step).toBe("discogs");
+    expect(flow.download).toBeNull();
+    await flow.fillCrate(PICKS);
+    await flow.pickUp();
+    await flow.deleteDump();
+
+    expect(flow.error).toBeNull();
+    expect(load.mock.calls).toEqual([[{ file: CHOSEN }], [{ file: CHOSEN }]]);
+    expect(download).not.toHaveBeenCalled();
+    expect(deleteDump).not.toHaveBeenCalled();
   });
 });
 

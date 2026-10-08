@@ -122,6 +122,11 @@ export const ConfigSchema = z.object({
        * not the defaults a new config starts with; the setup starts from them when it returns.
        */
       picksConfirmed: z.boolean().default(false),
+      /**
+       * The releases dump the user chose in step 1 of the desktop app instead of downloading the
+       * newest; the setup loads it, and never deletes it. Null to download.
+       */
+      dumpFile: z.string().nullable().default(null),
     })
     .prefault({}),
 });

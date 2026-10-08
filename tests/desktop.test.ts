@@ -13,10 +13,13 @@ import {
 } from "../electron/dump-jobs.ts";
 import { openDb, type Db } from "../src/server/db/db.ts";
 import type { Desktop } from "../src/server/desktop.ts";
+import { createDataDumpClient } from "../src/server/discogs/data-dumps.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
 import { createLogger } from "../src/server/logger.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
+import { readSetup } from "../src/server/setup.ts";
+import type { ApiError, DumpFileResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import {
   DOWNLOAD_RETRIED_ERROR,
@@ -48,17 +51,9 @@ describe("the server's reports to the desktop", () => {
     const desktop: Desktop = {
       jobChanged: ({ type, status, progress, error }) =>
         reports.push({ type, status, progress, error }),
+      chooseDumpFile: async () => null,
     };
-    server = createServer({
-      config: DEFAULT_CONFIG,
-      paths: resolvePaths({ dataDir: tmp }),
-      secrets: testSecrets(),
-      logger: silentLogger,
-      db,
-      serveStatic: false,
-      persistConfig: false,
-      desktop,
-    });
+    server = serverIn(tmp, db, desktop);
   });
 
   afterEach(async () => {
@@ -100,6 +95,90 @@ describe("the server's reports to the desktop", () => {
       },
       { type: "dump_download", status: "cancelled", progress: null, error: "Cancelled" },
     ]);
+  });
+});
+
+describe("the setup's file dialog", () => {
+  let tmp: string;
+  let db: Db;
+  let chosen: string | null;
+  const desktop: Desktop = { jobChanged: () => {}, chooseDumpFile: async () => chosen };
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-desktop-"));
+    db = openDb(":memory:");
+    chosen = null;
+  });
+
+  afterEach(() => {
+    db.close();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  async function chooseDumpFile(server: DiggaServer): Promise<{ status: number; body: unknown }> {
+    const response = await server.app.request("/api/desktop/dump-file", { method: "POST" });
+    return { status: response.status, body: await response.json() };
+  }
+
+  async function withServer(
+    serverDesktop: Desktop | undefined,
+    use: (server: DiggaServer) => Promise<void>,
+  ): Promise<void> {
+    const server = serverIn(tmp, db, serverDesktop);
+    try {
+      await use(server);
+    } finally {
+      await server.stop();
+    }
+  }
+
+  it("is offered by the app's server, which answers the dump the user chose, anywhere", async () => {
+    chosen = path.join(tmp, "elsewhere", "my releases.xml.gz");
+    fs.mkdirSync(path.dirname(chosen));
+    fs.writeFileSync(chosen, "");
+
+    const setup = await readSetup({
+      db,
+      paths: resolvePaths({ dataDir: tmp }),
+      dataDumps: createDataDumpClient({ fetchImpl: offline }),
+      desktop,
+    });
+    expect(setup.desktop).toBe(true);
+    await withServer(desktop, async (server) => {
+      expect(await chooseDumpFile(server)).toEqual({
+        status: 200,
+        body: { file: chosen } satisfies DumpFileResponse,
+      });
+    });
+  });
+
+  it("answers no file when the user cancels", async () => {
+    await withServer(desktop, async (server) => {
+      expect(await chooseDumpFile(server)).toEqual({ status: 200, body: { file: null } });
+    });
+  });
+
+  it("refuses a file that is not a gzipped dump, or is gone", async () => {
+    chosen = path.join(tmp, "discogs_20260901_releases.tar.gz");
+    fs.writeFileSync(chosen, "");
+
+    await withServer(desktop, async (server) => {
+      expect(await chooseDumpFile(server)).toEqual({
+        status: 400,
+        body: {
+          error:
+            "discogs_20260901_releases.tar.gz is not a releases dump; pick a file ending in .xml.gz",
+        } satisfies ApiError,
+      });
+      chosen = path.join(tmp, "discogs_20260901_releases.xml.gz");
+      expect((await chooseDumpFile(server)).status).toBe(400);
+    });
+  });
+
+  it("is not there in the CLI's server", async () => {
+    await withServer(undefined, async (server) => {
+      expect((await chooseDumpFile(server)).status).toBe(404);
+    });
   });
 });
 
@@ -240,6 +319,24 @@ describe("the notification when a load ends", () => {
     expect(loadEndNotice(retried)).toBeNull();
   });
 });
+
+function serverIn(dataDir: string, db: Db, desktop: Desktop | undefined): DiggaServer {
+  return createServer({
+    config: DEFAULT_CONFIG,
+    paths: resolvePaths({ dataDir }),
+    secrets: testSecrets(),
+    logger: silentLogger,
+    db,
+    serveStatic: false,
+    persistConfig: false,
+    desktop,
+  });
+}
+
+/** data.discogs.com out of reach: the tests never ask the real one. */
+async function offline(): Promise<Response> {
+  throw new Error("offline");
+}
 
 /** A job that runs until it is cancelled, as a download does when the server stops. */
 function untilAborted(signal: AbortSignal): Promise<never> {

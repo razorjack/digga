@@ -88,6 +88,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       logger: logger.child("youtube"),
       baseUrl: options.youtubeOembedUrl,
     }),
+    desktop: options.desktop ?? null,
     serveStatic: options.serveStatic ?? true,
     backupFailure: () => backups?.failure() ?? null,
   });

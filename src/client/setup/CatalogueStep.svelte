@@ -10,16 +10,23 @@
 
   const catalogue = $derived(flow.setup?.catalogue ?? null);
   const newest = $derived(catalogue?.newest ?? null);
+  const picked = $derived(flow.pickedDump);
   const shortOfSpace = $derived(
-    catalogue !== null &&
+    picked === null &&
+      catalogue !== null &&
       catalogue.neededBytes !== null &&
       catalogue.freeBytes !== null &&
       catalogue.freeBytes < catalogue.neededBytes,
   );
   const canFetch = $derived(newest !== null && !shortOfSpace && !flow.busy);
+  /** The desktop app offers a dump the user has, unless the download has begun. */
+  const canChooseFile = $derived(
+    flow.setup?.desktop === true && picked === null && flow.download?.status !== "running",
+  );
 
   function fetchCatalogue(): void {
-    if (canFetch) void flow.fetchCatalogue();
+    if (picked !== null) flow.goTo("discogs");
+    else if (canFetch) void flow.fetchCatalogue();
   }
 
   function onkeydown(event: KeyboardEvent): void {
@@ -45,7 +52,12 @@
       <span class="number" aria-hidden="true">1</span>
       <h2>Fetch the catalogue</h2>
       <div class="what" aria-live="polite" aria-busy={flow.setup === null}>
-        {#if newest && catalogue}
+        {#if picked}
+          <p>
+            Digga reads releases from <code>{homeRelative(picked)}</code>, the file you chose, not from Discogs' API.
+            The file stays where it is.
+          </p>
+        {:else if newest && catalogue}
           <p>
             Discogs publishes every release in one file a month. Digga downloads the newest, from
             <b>{formatDumpDate(newest.date)}</b>{#if newest.bytes}: <b>{formatBytes(newest.bytes)}</b>{/if}, into
@@ -89,7 +101,10 @@
     <p class="problem" role="alert">{flow.error ?? ""}</p>
 
     <div class="actions">
-      {#if flow.download?.status === "running"}
+      {#if picked}
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
+        <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}>Choose another file</Action>
+      {:else if flow.download?.status === "running"}
         <p class="quiet">The catalogue is downloading.</p>
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
       {:else if newest?.downloaded}
@@ -98,10 +113,13 @@
       {:else if newest}
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}>Fetch the catalogue</Action>
       {/if}
-      {#if catalogue?.error || shortOfSpace}
+      {#if picked === null && (catalogue?.error || shortOfSpace)}
         <Action onclick={() => void flow.open()} disabled={flow.busy}>
           {shortOfSpace ? "Check again" : "Try again"}
         </Action>
+      {/if}
+      {#if canChooseFile}
+        <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}>Use a dump file I have</Action>
       {/if}
     </div>
   </div>

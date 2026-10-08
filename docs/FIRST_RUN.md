@@ -149,6 +149,12 @@ digga                                                          1 2 3 4
   catalogue on another disk: `DIGGA_DUMPS_DIR` in `.env`, then start Digga again. Electron gets a
   folder picker instead.
 - data.discogs.com unreachable: the reason and "Try again (Enter)".
+- In the desktop app, "Use a dump file I have" opens a file dialog for a releases dump the user
+  has, anywhere, under any name ending in `.xml.gz` (built on 2026-10-08, decision 168). It is
+  offered whatever the listing says, unless the download has begun. The setup saves the file in
+  `setup.dumpFile`, moves on to step 2 and loads it in step 4 as it would load a download, reading
+  it where it is; nothing downloads. Step 1 then names the file, with "Continue" and "Choose
+  another file". Cancelling the dialog leaves step 1 as it was.
 - From step 2 on, a download strip stays at the foot of the screen: "Fetching the catalogue · 2.9
   of 10.5 GB · 5 min left", a native `<progress>`.
 
@@ -330,7 +336,9 @@ Shows the load, and lets the user start digging as soon as there is enough to di
   "Reading your wantlist first (page 9 of 13), so the load also keeps other records on your
   labels", with "Start without it".
 - The last sentence of the screen says that closing the page does not stop the load while the
-  server runs (in Electron, see below).
+  server runs. In the desktop app it says that quitting Digga stops the load and asks first.
+- After a load of a file the user chose, the crate names the file and says Digga leaves it where
+  it is: there is no "Delete it", and the setup never deletes it.
 - "Change your picks" cancels the load, takes the releases it added out of the universe (keeping
   those with the user's data as stubs), and returns to step 3 with the picks as they were
   confirmed. The download continues.
@@ -496,7 +504,7 @@ The flow is the same web page. The shell adds:
   2026-10-08, decision 166): the question says where the download stands, that Discogs does not
   resume it, how far the load has read and that the releases it kept stay. Cancel keeps both
   running. Closing the window asks the same.
-- "Use a dump file I have" in step 1, with a file dialog.
+- "Use a dump file I have" in step 1, with a file dialog (built on 2026-10-08, see step 1).
 - The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 
 ## Build order

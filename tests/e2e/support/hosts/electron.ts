@@ -70,11 +70,19 @@ export interface MessageBox {
   answer?: string;
 }
 
+/** One of the app's open dialogs, and the files the preload answered it with; none is cancelled. */
+export interface OpenDialog {
+  title?: string;
+  properties?: string[];
+  filters?: { name: string; extensions: string[] }[];
+  filePaths: string[];
+}
+
 /** What the preload records in the main process (tests/e2e/support/electron-preload.cjs). */
 export interface MainProcessRecord {
   externalOpens: string[];
   messageBoxes: MessageBox[];
-  openDialogs: unknown[];
+  openDialogs: OpenDialog[];
   progressBars: { progress: number; mode?: string }[];
   powerSaveBlockers: { call: "start" | "stop"; type?: string; id: number }[];
   /** Notifications shown although the preload answers Notification.isSupported() with false. */
@@ -85,6 +93,7 @@ export interface MainProcessRecord {
 interface PreloadApi {
   recorded: MainProcessRecord;
   answerMessageBox(label: string): void;
+  answerOpenDialog(filePaths: string[]): void;
   start(): void;
   heldUrl: Promise<string>;
   release(url?: string): void;
@@ -307,6 +316,14 @@ export class ElectronApp implements DiggaHost {
       .toBeDefined();
     launch.expectedBoxes.add(index);
     return box!;
+  }
+
+  /** The app's next open dialog answers with the files given; an open dialog cancels else. */
+  async answerOpenDialog(filePaths: string[]): Promise<void> {
+    await this.#current.electronApp.evaluate(
+      (_electron, files) => globalThis.diggaE2e!.answerOpenDialog(files),
+      filePaths,
+    );
   }
 
   /**

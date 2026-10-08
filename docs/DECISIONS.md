@@ -1152,3 +1152,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      constructor create Electron's notification presenter, which asks macOS for permission to
      notify, so the E2E preload answers it with false and the tests read the log instead of
      creating one.
+168. **The page reaches the app's dialogs through the server, and a dump file the user chose is
+     read where it is and never deleted.** The setup's "Use a dump file I have" needs a native
+     file dialog, which only the main process can show. The page asks for it with
+     `POST /api/desktop/dump-file`, which calls the `desktop` (decision 165) and answers the path,
+     so `src/client/api.ts` stays the page's one transport and the window keeps no preload. Only
+     a server with a `desktop` registers the `/api/desktop` routes, and `GET /api/setup`, which the
+     setup reads anyway, reports `desktop: true`; the browser's setup offers no dialog and its
+     server answers the routes as unknown. The server checks the answer, since the macOS filter
+     only knows the last part of `.xml.gz`: a file that is not there or not named `*.xml.gz` gets
+     a 400. The path goes into `setup.dumpFile` in `digga.config.json` beside `picksConfirmed`,
+     so the setup loads the same file after a reload or a quit, and Pick up never downloads; a
+     download that ran before the choice is no longer the setup's. The file is the user's: the
+     load reads it where it is, without copying it into the dumps folder, and the crate offers no
+     "Delete it" for it.

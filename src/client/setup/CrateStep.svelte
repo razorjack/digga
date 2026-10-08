@@ -12,7 +12,7 @@
   import { settings, stats } from "../stores.svelte.ts";
   import Action from "./Action.svelte";
   import type { SetupFlow } from "./flow.svelte.ts";
-  import { DIG_THRESHOLD, stoppedLoadMessage, transferLeft, yearHistogram } from "./model.ts";
+  import { DIG_THRESHOLD, homeRelative, stoppedLoadMessage, transferLeft, yearHistogram } from "./model.ts";
   import ProgressRow from "./ProgressRow.svelte";
   import YearHistogram from "./YearHistogram.svelte";
 
@@ -237,7 +237,12 @@
   {/if}
 
   {#if flow.loadDone}
-    {#if flow.dumpFile && !flow.dumpDeleted}
+    {#if flow.pickedDump}
+      <p class="quiet">
+        Digga read the catalogue from <code>{homeRelative(flow.pickedDump)}</code>, the file you chose, and leaves it
+        where it is.
+      </p>
+    {:else if flow.dumpFile && !flow.dumpDeleted}
       <div class="dump">
         <p class="quiet">
           The catalogue file uses {downloadProgress ? formatBytes(downloadProgress.receivedBytes) : "about 10 GB"} in
@@ -248,6 +253,8 @@
     {:else if flow.dumpDeleted}
       <p class="quiet">The catalogue file is deleted.</p>
     {/if}
+  {:else if flow.setup?.desktop}
+    <p class="quiet">Quitting Digga stops the load, so it asks first.</p>
   {:else}
     <p class="quiet">Closing this page does not stop the load while Digga's server runs.</p>
   {/if}
@@ -356,6 +363,9 @@
   .quiet {
     color: var(--fg-faint);
     font-size: var(--text-sm);
+  }
+  .quiet code {
+    color: var(--fg-muted);
   }
   .problem {
     color: var(--fg-accent);

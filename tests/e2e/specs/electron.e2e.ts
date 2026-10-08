@@ -5,14 +5,16 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SettingsTab } from "../../../src/client/settings/tabs.ts";
+import { homeRelative } from "../../../src/client/setup/model.ts";
 import type { JobsResponse } from "../../../src/shared/api.ts";
-import { DEFAULT_CONFIG } from "../../../src/shared/config.ts";
+import { type Config, DEFAULT_CONFIG } from "../../../src/shared/config.ts";
 import { formatCount } from "../../../src/shared/display.ts";
 import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
 import type { DumpLoadProgress } from "../../../src/shared/types.ts";
 import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { DJ, FIRST_RECORD, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
+import { bulkDump, writeDump } from "../fixtures/dump.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { SetupPage } from "../pages/setup.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
@@ -366,6 +368,55 @@ test.describe("on a new library", () => {
       expect(electron.server.stdout).not.toContain("notification:");
     },
   );
+
+  test(
+    "ELEC-09 a dump file the user has loads from where it is, without a download, and is never offered for deletion",
+    { tag: ["@ELEC-09", "@P2", "@electron"] },
+    async ({ electron, fakes, testFolder }) => {
+      const setup = new SetupPage(electron);
+      const file = writeDump(path.join(testFolder, "my dumps"), bulkDump());
+      const chosenLine = `Digga reads releases from ${homeRelative(file)}, the file you chose`;
+      await electron.open();
+
+      // The preload cancels a dialog it has no answer for; step 1 stays as it was.
+      await setup.useDumpFile();
+      await expect(setup.button("Fetch the catalogue")).toBeEnabled();
+      await setup.expectStep("catalogue");
+
+      await electron.answerOpenDialog([file]);
+      await setup.useDumpFile();
+      await setup.expectStep("discogs");
+      await setup.back("catalogue");
+      await expect(setup.root.getByText(chosenLine)).toBeVisible();
+      await expect(setup.button("Use a dump file I have")).toBeHidden();
+      await setup.continueFromCatalogue();
+      await setup.skipDiscogs();
+      await setup.pickStyle("Drum n Bass");
+      await setup.fillCrate();
+      await setup.waitForCatalogue();
+
+      const dialog = {
+        title: "Use a dump file you have",
+        properties: ["openFile"],
+        filters: [{ name: "Discogs releases dump", extensions: ["xml.gz"] }],
+      };
+      expect((await electron.recorded()).openDialogs).toEqual([
+        { ...dialog, filePaths: [] },
+        { ...dialog, filePaths: [file] },
+      ]);
+      expect((await electron.api.get<Config>("/api/settings")).setup.dumpFile).toBe(file);
+      expect(fakes.dumps.transfers).toBe(0);
+      expect(await jobStatuses(electron)).toEqual([["dump_load", "done"]]);
+      await expect(
+        setup.root.getByText(
+          `Digga read the catalogue from ${homeRelative(file)}, the file you chose, and leaves it where it is.`,
+        ),
+      ).toBeVisible();
+      await expect(setup.button("Delete it")).toBeHidden();
+      expect(fs.existsSync(file)).toBe(true);
+      expect(dumpsIn(electron.library.dumpsDir)).toEqual([]);
+    },
+  );
 });
 
 for (const scheme of ["light", "dark"] as const)
@@ -568,6 +619,11 @@ async function jobStatuses(electron: ElectronApp): Promise<[string, string][]> {
 }
 
 /** Clicks an item of the app's menu bar as a user would, through the main process. */
+function dumpsIn(folder: string): string[] {
+  if (!fs.existsSync(folder)) return [];
+  return fs.readdirSync(folder).filter((name) => name.endsWith(".xml.gz"));
+}
+
 async function clickMenuItem(electron: ElectronApp, menu: string, item: string): Promise<void> {
   await electron.electronApp.evaluate(
     ({ Menu }, labels) => {

@@ -421,6 +421,13 @@ export interface SetupResponse {
   seeds: SeedTally;
   /** Browsers with a history on this computer. */
   browsers: HistoryBrowser[];
+  /** The server runs in Digga's desktop app, so the setup offers its file dialog. */
+  desktop: boolean;
+}
+
+/** The releases dump the user chose with the desktop app's file dialog; null when cancelled. */
+export interface DumpFileResponse {
+  file: string | null;
 }
 
 export interface HistoryBrowser {

@@ -39,6 +39,7 @@
     "colorScheme": "system"
   },
   "setup": {
-    "picksConfirmed": false
+    "picksConfirmed": false,
+    "dumpFile": null
   }
 }

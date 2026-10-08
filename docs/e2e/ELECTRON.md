@@ -97,7 +97,8 @@ loads it while the app waits for it ([The packaged app](#the-packaged-app)). In 
    `dialog.showOpenDialog` with stubs: the app's own message box answers with the button the test
    named through `answerMessageBox(label)`, else with its first, and is also printed to stderr
    with its answer (a startup error or a question before a quit is followed by the app's exit,
-   after which nothing can read the record), and an open dialog answers as cancelled. A page's `alert()` or `confirm()` also
+   after which nothing can read the record); an open dialog answers with the files the test gave
+   `answerOpenDialog(filePaths)`, else as cancelled. A page's `alert()` or `confirm()` also
    reaches `showMessageBox`, with an abort signal; the stub leaves it unanswered, and the test
    answers it through Playwright's `dialog` event, as in the web host;
 4. records `BrowserWindow.setProgressBar()` calls and `powerSaveBlocker.start()` and `stop()`
@@ -195,6 +196,9 @@ What differs from `-r`:
   fails the test like an undeclared problem.
 - `expectMessageBox(action, answer)` has the preload answer the app's next message box with the
   button labelled `answer`, runs the action and returns the box once it is recorded (ELEC-07).
+- `answerOpenDialog(filePaths)` has the preload answer the app's next open dialog with those
+  files; `recorded().openDialogs` holds each dialog's title, properties, filters and answer
+  (ELEC-09).
 - `expectDownload()` waits until the download the action started reaches `done`, and fails unless
   it completed; the file is in `<test folder>/downloads`.
 - `paste()`, `abortRequests()`, `apiRequests()`, `expectProblems()` and `cli()` work as in the web

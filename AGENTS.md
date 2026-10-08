@@ -376,8 +376,9 @@ client TypeScript and CSS.
 
 1. **Server is a function.** `createServer({ config, paths, secrets, logger })` returns
    `{ app, start(port, host), stop() }`. The CLI is one caller, `electron/main.ts` another, which
-   also passes a `desktop` (`src/server/desktop.ts`): the server reports every job change to it.
-   Nothing in `src/` imports Electron (decision 165). 127.0.0.1 only.
+   also passes a `desktop` (`src/server/desktop.ts`): the server reports every job change to it,
+   and the page reaches its native dialogs through `/api/desktop` routes. Nothing in `src/`
+   imports Electron (decisions 165, 168). 127.0.0.1 only.
 2. **One transport seam.** `src/client/api.ts` is the only file in `src/client` that may call `fetch`.
 3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist,
    by default in the per-user app folder Electron's `userData` names. The CLI and the Electron app

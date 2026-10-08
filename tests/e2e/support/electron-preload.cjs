@@ -51,6 +51,8 @@ const recorded = {
 
 /** The buttons the app's next message boxes are answered with, by label; the first button else. */
 const messageBoxAnswers = [];
+/** The files the app's next open dialogs are answered with; cancelled else. */
+const openDialogAnswers = [];
 
 installGuard();
 stubShell();
@@ -65,6 +67,8 @@ globalThis.diggaE2e = {
   recorded,
   /** Answers the app's next message box with the button labelled so. */
   answerMessageBox: (label) => messageBoxAnswers.push(label),
+  /** Answers the app's next open dialog with the files given. */
+  answerOpenDialog: (filePaths) => openDialogAnswers.push(filePaths),
   start,
   /** Resolves with the URL the window's first loadURL() asked for, once it has. */
   heldUrl: navigation.held,
@@ -137,7 +141,8 @@ function stubShell() {
 
 /**
  * No native dialog opens. The app's own message boxes answer with the button the test named
- * through answerMessageBox(), else with their first, and an open dialog as cancelled. A page's
+ * through answerMessageBox(), else with their first, and an open dialog with the files the test
+ * gave answerOpenDialog(), else as cancelled. A page's
  * alert() or confirm() also reaches showMessageBox, with an abort signal: it stays unanswered
  * here, and the test answers it through Playwright's `dialog` event.
  */
@@ -154,8 +159,10 @@ function stubDialogs() {
     return { response, checkboxChecked: false };
   };
   dialog.showOpenDialog = async (...args) => {
-    recorded.openDialogs.push(args.at(-1));
-    return { canceled: true, filePaths: [] };
+    const { title, properties, filters } = args.at(-1);
+    const filePaths = openDialogAnswers.shift() ?? [];
+    recorded.openDialogs.push({ title, properties, filters, filePaths });
+    return { canceled: filePaths.length === 0, filePaths };
   };
 }
 
