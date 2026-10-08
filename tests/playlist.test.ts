@@ -3,6 +3,7 @@ import type { TrackDetail } from "../src/shared/api.ts";
 import {
   buildPlaylist,
   entryForPosition,
+  trackEntry,
   firstEntry,
   nextEntry,
   previousEntry,
@@ -57,6 +58,15 @@ describe("playlist", () => {
     expect(entries.map((e) => e.heardBefore)).toEqual([false, true, false, false, false]);
     expect(entryForPosition(entries, "B1")).toBe(2);
     expect(entryForPosition(entries, "B2")).toBeNull();
+  });
+
+  it("gives a track's row its current video, else one that has not failed, else its first", () => {
+    const noneFailed = new Set<string>();
+    expect(trackEntry(entries, "B1", null, noneFailed)).toBe(2);
+    expect(trackEntry(entries, "B1", 3, noneFailed)).toBe(3);
+    expect(trackEntry(entries, "B1", 0, new Set(["b1"]))).toBe(3);
+    expect(trackEntry(entries, "B1", null, new Set(["b1", "b1-again"]))).toBe(2);
+    expect(trackEntry(entries, "B2", null, noneFailed)).toBeNull();
   });
 
   it("skips heard tunes, failed videos and second uploads going forward", () => {

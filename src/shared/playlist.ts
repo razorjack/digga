@@ -109,6 +109,24 @@ export function entryForPosition(entries: PlaylistEntry[], position: string): nu
 }
 
 /**
+ * The entry a track's row stands for: the current one when it plays the track, else the first of
+ * the track's videos that has not failed, else its first; null when no video matches the track.
+ */
+export function trackEntry(
+  entries: PlaylistEntry[],
+  position: string,
+  current: number | null,
+  failed: ReadonlySet<string>,
+): number | null {
+  if (current !== null && entries[current]?.track?.position === position) return current;
+  const playable = entries.findIndex(
+    (entry) => entry.track?.position === position && !failed.has(entry.video.videoId),
+  );
+  if (playable !== -1) return playable;
+  return entryForPosition(entries, position);
+}
+
+/**
  * Where playback starts: `fraction` of the duration, at least a few seconds before the end.
  * Null when the duration is unknown; the player then seeks once it reports one.
  */

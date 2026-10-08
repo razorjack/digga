@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ReleaseDetail } from "../../shared/api.ts";
   import { formatDuration } from "../../shared/display.ts";
-  import { buildPlaylist, entryForPosition } from "../../shared/playlist.ts";
+  import { buildPlaylist, trackEntry } from "../../shared/playlist.ts";
   import type { TrackMark } from "../../shared/types.ts";
   import Stamp from "../components/Stamp.svelte";
   import type { TriagePlayer } from "../player/triage-player.svelte.ts";
@@ -40,15 +40,11 @@
 
   type VideoState = "playing" | "cued" | "video" | "failed" | "blocked" | "none";
 
-  function videoState(position: string): VideoState {
-    const index = entryForPosition(entries, position);
+  /** The row's entry is current, or else failed only when every video of its track failed. */
+  function videoState(position: string, index: number | null): VideoState {
     if (index === null) return blockedPositions.has(position) ? "blocked" : "none";
     if (index === currentIndex) return currentState;
-    const entry = entries[index]!;
-    const allFailed = entries
-      .filter((e) => e.track?.position === position)
-      .every((entry) => player.failed.has(entry.video.videoId));
-    return allFailed || player.failed.has(entry.video.videoId) ? "failed" : "video";
+    return player.failed.has(entries[index]!.video.videoId) ? "failed" : "video";
   }
 
   function strayState(index: number, failed: boolean): "playing" | "cued" | "failed" | "video" {
@@ -74,8 +70,8 @@
     {#if track.position === ""}
       <li class="heading">{track.title}</li>
     {:else}
-      {@const state = videoState(track.position)}
-      {@const index = entryForPosition(entries, track.position)}
+      {@const index = trackEntry(entries, track.position, currentIndex, player.failed)}
+      {@const state = videoState(track.position, index)}
       {@const heardNow = mine && player.heardNow.has(track.position)}
       {@const heard = track.heard || (player.heardKeys.has(track.heardKey) && !heardNow)}
       <li data-position={track.position} class="row {state}" class:heard={heard && !isCurrent(state)}>
