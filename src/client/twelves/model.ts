@@ -42,6 +42,31 @@ export const SORTS: {
   { id: "want", label: "most wanted" },
 ];
 
+/** A table column an order sorts; the tables mark it with `aria-sort`. */
+export type SortColumn = "record" | "label" | "market" | "decided";
+
+/** The column each order sorts, and which way: year sorts the label column, whose second line it is. */
+export const SORT_COLUMN: Record<
+  SortId,
+  { column: SortColumn; direction: "ascending" | "descending" }
+> = {
+  newest: { column: "decided", direction: "descending" },
+  label: { column: "label", direction: "ascending" },
+  artist: { column: "record", direction: "ascending" },
+  year: { column: "label", direction: "ascending" },
+  price: { column: "market", direction: "ascending" },
+  want: { column: "market", direction: "descending" },
+};
+
+/** The column's `aria-sort` under the order, or none when the order sorts another column. */
+export function columnSort(
+  sort: SortId,
+  column: SortColumn,
+): "ascending" | "descending" | undefined {
+  const sorted = SORT_COLUMN[sort];
+  return sorted.column === column ? sorted.direction : undefined;
+}
+
 export const EMPTY: Record<ShelfId, string> = {
   all: "Nothing here yet. Press A on a release in Triage, or import your Discogs wantlist and collection.",
   accepted: "Nothing wanted yet. Press A on a release in Triage.",

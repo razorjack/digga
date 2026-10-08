@@ -1,0 +1,58 @@
+/* The record box: Twelves' tables of records and of marked tracks, which share their look. */
+.box {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Headers stay in sight while the rows scroll; aria-sort marks the column the order sorts. */
+.box th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 14px 10px 8px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+  color: var(--fg-faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.box th[aria-sort] {
+  color: var(--fg);
+}
+.box th[aria-sort="ascending"]::after {
+  content: " ▴" / "";
+}
+.box th[aria-sort="descending"]::after {
+  content: " ▾" / "";
+}
+
+/* A row scrolled into view stops below the sticky headers. */
+.box tbody tr {
+  scroll-margin-top: 40px;
+}
+
+.box td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: middle;
+  cursor: default;
+}
+.box :is(th, td):first-child {
+  padding-left: 16px;
+}
+.box :is(th, td):last-child {
+  padding-right: 16px;
+  text-align: right;
+}
+
+.box .selected {
+  background: var(--surface);
+}
+.box .selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-mark);
+}

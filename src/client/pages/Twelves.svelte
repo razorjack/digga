@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-  import { formatCount, formatCounted, formatDay, formatPrice } from "../../shared/display.ts";
+  import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
   import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
@@ -20,11 +20,13 @@
   import { TwelvesShelf } from "../twelves/shelf.svelte.ts";
   import Pager from "../twelves/Pager.svelte";
   import TrackTable from "../twelves/TrackTable.svelte";
+  import "../twelves/box.css";
   import {
     SHELVES,
     SORTS,
     EMPTY,
     JUDGE_KEYS,
+    columnSort,
     notOnList,
     notOnWantlist,
     recordStamp,
@@ -48,8 +50,6 @@
   let filterInput = $state<HTMLInputElement | null>(null);
 
   let table = $state<HTMLTableElement | null>(null);
-  /** The sticky footer covers the bottom of the window, so a row scrolled into view stops above it. */
-  let footHeight = $state(0);
 
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
   const shelfLabel = $derived(SHELVES.find((option) => option.id === shelfState.shelf)!.label);
@@ -212,15 +212,9 @@
 
 <svelte:window {onkeydown} {onpaste} />
 
-<div class="twelves" style:--foot-height="{footHeight}px">
-  <header class="head">
+<div class="twelves">
+  <aside class="sidebar">
     <h1>Twelves</h1>
-    <p class="lede">
-      {formatCounted(shelfState.counts.all, "record")} you want, own, or put aside.
-    </p>
-  </header>
-
-  <div class="controls">
     <fieldset class="shelves">
       <legend class="visually-hidden">Shelf</legend>
       {#each SHELVES as option, index (option.id)}
@@ -234,36 +228,41 @@
             bind:group={shelfState.shelf}
           />
           <Key label={String(index + 1)} size="sm" aria-hidden="true" />
-          {option.label}
+          <span class="shelf-label">{option.label}</span>
           <span class="count">{formatCount(shelfState.counts[option.id])}</span>
         </label>
       {/each}
     </fieldset>
-    <search class="tools">
-      <label class="filter">
-        <Key label="/" size="sm" />
-        <input
-          type="search"
-          bind:this={filterInput}
-          bind:value={shelfState.query}
-          onkeydown={onFilterKey}
-          placeholder="artist, title, label, cat no"
-          aria-label="Filter"
-          aria-keyshortcuts="/"
-        />
-      </label>
-      <fieldset class="sort" aria-keyshortcuts="S">
-        <legend><Key label="S" size="sm" aria-hidden="true" /> sort</legend>
+  </aside>
+
+  <div class="pane">
+  <search class="tools">
+    <label class="filter">
+      <Key label="/" size="sm" />
+      <input
+        type="search"
+        bind:this={filterInput}
+        bind:value={shelfState.query}
+        onkeydown={onFilterKey}
+        placeholder="artist, title, label, cat no"
+        aria-label="Filter"
+        aria-keyshortcuts="/"
+      />
+    </label>
+    <fieldset class="sort" aria-keyshortcuts="S">
+      <legend><Key label="S" size="sm" aria-hidden="true" /> sort</legend>
+      <div class="segments">
         {#each SORTS as option (option.id)}
           <label>
             <input type="radio" class="visually-hidden" name="sort" value={option.id} bind:group={shelfState.sort} />
             {option.label}
           </label>
         {/each}
-      </fieldset>
-    </search>
-  </div>
+      </div>
+    </fieldset>
+  </search>
 
+  <div class="shelf">
   {#if shelfState.shelf === "maybe" || (shelfState.shelf === "all" && shelfState.pending > 0)}
     <div class="handoff">
       {#if !hasMaybeList}
@@ -340,6 +339,7 @@
   {:else if onTracks}
     <TrackTable
       tracks={shelfState.trackPage.items}
+      sort={shelfState.sort}
       selectedKey={shelfState.selectedTrackKey}
       {editingKey}
       onselect={(key) => (shelfState.selectedTrackKey = key)}
@@ -358,12 +358,14 @@
       </caption>
       <thead>
         <tr>
-          <th scope="col" class="catno"><span class="visually-hidden">Cat no</span></th>
-          <th scope="col" class="who"><span class="visually-hidden">Record</span></th>
-          <th scope="col" class="where"><span class="visually-hidden">Label, year and country</span></th>
-          <th scope="col" class="market"><span class="visually-hidden">Market</span></th>
-          <th scope="col" class="verdict"><span class="visually-hidden">Verdict</span></th>
-          <th scope="col" class="day"><span class="visually-hidden">Decided</span></th>
+          <th scope="col" class="catno">Cat no</th>
+          <th scope="col" class="who" aria-sort={columnSort(shelfState.sort, "record")}>Record</th>
+          <th scope="col" class="where" aria-sort={columnSort(shelfState.sort, "label")}>
+            Label<span class="visually-hidden">, year and country</span>
+          </th>
+          <th scope="col" class="market" aria-sort={columnSort(shelfState.sort, "market")}>Market</th>
+          <th scope="col" class="verdict">Verdict</th>
+          <th scope="col" class="day" aria-sort={columnSort(shelfState.sort, "decided")}>Decided</th>
         </tr>
       </thead>
       <tbody>
@@ -449,7 +451,9 @@
     </table>
   {/if}
 
-  <footer class="foot" bind:offsetHeight={footHeight}>
+  </div>
+
+  <footer class="foot">
     <p class="hints">
       <span><Key label="J" /><Key label="K" /> move</span>
       <span><Key label="O" /> discogs</span>
@@ -472,68 +476,79 @@
       {/if}
     </div>
   </footer>
+  </div>
 </div>
 
 <style>
+  /* A split view: the shelves in a sidebar, the shelf beside them between its tools and its keys. */
   .twelves {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-    padding: 32px 40px 0;
+    display: grid;
+    grid-template-columns: 19em minmax(0, 1fr);
+    height: 100%;
   }
-  .head {
-    display: flex;
-    align-items: baseline;
-    gap: 28px;
-    margin-bottom: 22px;
+  .sidebar {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+    min-height: 0;
+    padding: 24px 12px;
+    overflow-y: auto;
+    border-right: 1px solid var(--rule);
+    background: var(--surface);
+    user-select: none;
   }
-  .lede {
-    color: var(--fg-muted);
-  }
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: end;
-    gap: 24px 32px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--rule);
-  }
-  legend {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  .sidebar h1 {
+    padding-inline: 12px;
+    font-size: var(--text-lg);
   }
   label:has(:focus-visible) {
     outline: 2px solid var(--accent-mark);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
   .shelves {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 22px;
+    display: grid;
+    gap: 2px;
   }
   .shelves label {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 0;
-    border-bottom: 2px solid transparent;
+    gap: 10px;
+    min-width: 0;
+    padding: 6px 12px;
     color: var(--fg-muted);
-    cursor: pointer;
+  }
+  .shelf-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .shelves label:has(:checked) {
+    background: var(--bg);
+    box-shadow: inset 3px 0 0 var(--accent-mark);
     color: var(--fg);
-    border-bottom-color: var(--accent-mark);
   }
   .count {
+    margin-left: auto;
     color: var(--fg-faint);
+    font-size: var(--text-sm);
+  }
+  .shelves label:has(:checked) .count {
+    color: var(--fg-muted);
+  }
+  .pane {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-width: 0;
+    min-height: 0;
   }
   .tools {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 12px 28px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--rule);
     font-size: var(--text-sm);
     color: var(--fg-muted);
   }
@@ -544,67 +559,62 @@
   }
   .filter input {
     appearance: textfield;
-    width: 22em;
+    width: 21em;
   }
   .sort {
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    user-select: none;
   }
-  .sort label {
-    padding: 2px 0;
-    color: var(--fg-faint);
-    cursor: pointer;
+  .sort legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
-  .sort label:has(:checked) {
+  .segments {
+    display: flex;
+  }
+  .segments label {
+    padding: 3px 10px;
+    border: 1px solid var(--rule);
+    color: var(--fg-muted);
+  }
+  .segments label + label {
+    border-left: 0;
+  }
+  .segments label:first-child {
+    border-radius: var(--radius) 0 0 var(--radius);
+  }
+  .segments label:last-child {
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+  .segments label:has(:checked) {
+    background: var(--surface);
+    box-shadow: inset 0 -2px 0 var(--accent-mark);
     color: var(--fg);
-    text-decoration: underline;
-    text-decoration-color: var(--accent-mark);
-    text-underline-offset: 4px;
   }
-  .box {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
+  /* The notices and the records scroll between the tools and the keys. */
+  .shelf {
+    min-height: 0;
+    padding: 0 24px 24px;
+    overflow-y: auto;
   }
-  th {
-    padding: 0;
-  }
+  /* Column widths count characters of the rows' text; the headers' own text is smaller. */
   th.catno {
-    width: calc(9.5em + 26px);
+    width: calc(9.5 * var(--text-md) + 26px);
   }
   th.where {
-    width: calc(15em + 20px);
+    width: calc(15 * var(--text-md) + 20px);
   }
   th.market {
-    width: calc(8.5em + 20px);
+    width: calc(8.5 * var(--text-md) + 20px);
   }
   th.verdict {
-    width: calc(7.5em + 20px);
+    width: calc(7.5 * var(--text-md) + 20px);
   }
   th.day {
-    width: calc(5em + 26px);
-  }
-  tbody tr {
-    scroll-margin-bottom: var(--foot-height, 0px);
-  }
-  td {
-    padding: 12px 10px;
-    border-bottom: 1px solid var(--rule-soft);
-    vertical-align: middle;
-    cursor: default;
-  }
-  td:first-child {
-    padding-left: 16px;
-  }
-  td:last-child {
-    padding-right: 16px;
-  }
-  .selected {
-    background: var(--surface);
-  }
-  .selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--accent-mark);
+    width: calc(5 * var(--text-md) + 26px);
   }
   .catno {
     font-weight: 600;
@@ -661,14 +671,14 @@
     justify-content: space-between;
     gap: 10px 28px;
     padding: 12px 16px;
-    margin-block: var(--space-item) 20px;
+    margin-block: 16px 4px;
     border: 1px dashed var(--rule);
     color: var(--fg-muted);
     font-size: var(--text-sm);
   }
   /* A notice sits apart from the records below it, closer to the next notice. */
-  .handoff:has(+ .handoff) {
-    margin-bottom: 0;
+  .handoff + .handoff {
+    margin-top: var(--space-item);
   }
   .handoff p {
     max-width: 90ch;
@@ -687,7 +697,6 @@
   }
   .check:disabled {
     color: var(--fg-muted);
-    cursor: default;
   }
   .note-input {
     width: 100%;
@@ -706,7 +715,6 @@
     white-space: nowrap;
   }
   td.day {
-    text-align: right;
     font-size: var(--text-sm);
   }
   .quiet {
@@ -718,16 +726,14 @@
     max-width: 60ch;
   }
   .foot {
-    position: sticky;
-    bottom: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 20px;
-    margin: auto -40px 0;
-    padding: 12px 40px 14px;
+    padding: 12px 24px 14px;
     border-top: 1px solid var(--rule);
     background: var(--surface);
+    user-select: none;
   }
   .status {
     display: flex;
@@ -748,7 +754,7 @@
   }
   @media (max-width: 1100px) {
     th.catno {
-      width: calc(8em + 26px);
+      width: calc(8 * var(--text-md) + 26px);
     }
     .where,
     .market {

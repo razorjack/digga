@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { ApiRequestError, type Api } from "../src/client/api.ts";
 import { TwelvesShelf } from "../src/client/twelves/shelf.svelte.ts";
 import {
+  columnSort,
   compareNullable,
   countShelves,
   notOnWantlist,
@@ -327,5 +328,21 @@ describe("pages", () => {
     expect(shelf.page.index).toBe(2);
     shelf.turnPage(-1);
     expect(shelf.selected).toBe(items[PAGE_SIZE]);
+  });
+});
+
+describe("columnSort", () => {
+  it("marks the column each order sorts, and which way", () => {
+    expect(columnSort("newest", "decided")).toBe("descending");
+    expect(columnSort("artist", "record")).toBe("ascending");
+    expect(columnSort("label", "label")).toBe("ascending");
+    expect(columnSort("year", "label")).toBe("ascending");
+    expect(columnSort("price", "market")).toBe("ascending");
+    expect(columnSort("want", "market")).toBe("descending");
+  });
+
+  it("leaves the other columns unmarked", () => {
+    expect(columnSort("newest", "record")).toBeUndefined();
+    expect(columnSort("price", "label")).toBeUndefined();
   });
 });

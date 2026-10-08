@@ -17,8 +17,8 @@ an empty shelf (Grail) shows its text
 
 Priority: **P1**.
 
-`J`, `K`, `↓`, `↑` move `aria-current` and scroll the row into the window, above the shelf's sticky
-footer: with every small record snoozed, `J` to the last row leaves its middle uncovered
+`J`, `K`, `↓`, `↑` move `aria-current` and scroll the row into the window, below the sticky
+column headers and above the shelf's footer: with every small record snoozed, `J` to the last row leaves its middle uncovered
 (`document.elementFromPoint()`); on the Tracks shelf in a 480 px window, `J` to the fifth track does
 the same
 

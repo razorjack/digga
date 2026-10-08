@@ -1263,6 +1263,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        while artists, titles, notes and paths stay so; the app's links and images do not drag
        out of the window; and Cmd+A outside a text field does nothing instead of painting the
        whole page.
+     - Twelves is a split view: the shelves in a sidebar with their counts, the filter and the
+       order above the shelf, the keys below it, and only the shelf scrolls. The column headers
+       became visible and mark the sorted column with `aria-sort`. The order stays a radio group
+       with `S`, shown as a segmented control: the six orders do not map one to one onto the
+       columns (year sorts the label column, price and most wanted the market), and the Tracks
+       shelf has columns for two of them only, so clickable headers would hide orders.
      - The icon is the logo's cube on a flyer-yellow squircle: the one accent colour is what
        tells the app apart in the Dock at 32 px, where a dark squircle disappeared among others.
        A script draws it from the logo, so the binaries in `build/` have a source.

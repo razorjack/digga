@@ -96,10 +96,13 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   that match nothing, and the end of the queue: a large ALL DUG stamp with a way to go round the
   releases passed with `N` or to hear the snoozed records again. A round of snoozed records shows
   a strip above the desk (sleeve, with the flyer bar) counting what is left, with `Esc` back.
-- **Twelves** reads like a record box: one row per record with catalogue number, artist and
-  title, note, label and year, market, a verdict stamp and the day it was decided. Wants missing
-  from the Discogs wantlist and maybes missing from the Maybe list carry a small marker, with a
-  dashed banner above the shelf.
+- **Twelves** is a split view. A sidebar on sleeve lists the shelves with their keys and counts,
+  the selected one marked like a selected row; beside it the filter and the order (a segmented
+  control) sit above the shelf, and the keys below it, so only the shelf scrolls. The shelf reads
+  like a record box: one row per record with catalogue number, artist and title, note, label and
+  year, market, a verdict stamp and the day it was decided, under column headers that stay in
+  sight and mark the column the order sorts. Wants missing from the Discogs wantlist and maybes
+  missing from the Maybe list carry a small marker, with a dashed banner above the shelf.
 - **Settings** has a list of its tabs on the left, marked like a selected Twelves row, and the
   tab's sections beside it. Digging, Library and Discogs each render the part of the settings
   form they hold. A sticky save bar appears at the bottom only with a problem, a message or

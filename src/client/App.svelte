@@ -204,7 +204,7 @@
       <Triage active={route === "triage"} />
     </div>
     {#if route === "twelves"}
-      <div class="page scroll"><Twelves /></div>
+      <div class="page"><Twelves /></div>
     {:else if route === "settings"}
       <div class="page scroll"><Settings /></div>
     {:else if route === "setup"}

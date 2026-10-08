@@ -123,7 +123,7 @@ test(
     expect(await twelves.move("k")).toBe(keys[1]);
     expect(await twelves.move("ArrowUp")).toBe(keys[0]);
 
-    // The rows stop above the shelf's sticky footer, which covers the window's bottom edge.
+    // The rows stop below the sticky column headers and above the shelf's footer.
     await twelves.select(keys.at(-1)!);
     await expect(twelves.selected).toBeInViewport();
     await expect.poll(() => twelves.isUncovered(twelves.selected)).toBe(true);

@@ -5,10 +5,12 @@
   import { formatDay, formatDuration } from "../../shared/display.ts";
   import Stamp from "../components/Stamp.svelte";
   import { STATUS_COPY } from "../keymap.ts";
-  import { MARK_COPY, trackKey } from "./model.ts";
+  import { columnSort, MARK_COPY, type SortId, trackKey } from "./model.ts";
+  import "./box.css";
 
   let {
     tracks,
+    sort,
     selectedKey,
     editingKey,
     onselect,
@@ -16,6 +18,8 @@
     oncancel,
   }: {
     tracks: MarkedTrack[];
+    /** The shelf's order; the tracks have columns for two of them. */
+    sort: SortId;
     selectedKey: string | null;
     /** The track whose note is being edited. */
     editingKey: string | null;
@@ -57,12 +61,12 @@
   <caption class="visually-hidden">Marked tracks</caption>
   <thead>
     <tr>
-      <th scope="col" class="catno"><span class="visually-hidden">Cat no</span></th>
-      <th scope="col" class="pos"><span class="visually-hidden">Position</span></th>
-      <th scope="col"><span class="visually-hidden">Track</span></th>
-      <th scope="col" class="record"><span class="visually-hidden">Record</span></th>
-      <th scope="col" class="mark"><span class="visually-hidden">Mark</span></th>
-      <th scope="col" class="day"><span class="visually-hidden">Marked</span></th>
+      <th scope="col" class="catno">Cat no</th>
+      <th scope="col" class="pos" aria-label="Position">Pos</th>
+      <th scope="col">Track</th>
+      <th scope="col" class="record" aria-sort={columnSort(sort, "record")}>Record</th>
+      <th scope="col" class="mark">Mark</th>
+      <th scope="col" class="day" aria-sort={columnSort(sort, "decided")}>Marked</th>
     </tr>
   </thead>
   <tbody>
@@ -132,50 +136,21 @@
 </table>
 
 <style>
-  .box {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-  }
-  th {
-    padding: 0;
-  }
+  /* Column widths count characters of the rows' text; the headers' own text is smaller. */
   th.catno {
-    width: calc(9.5em + 26px);
+    width: calc(9.5 * var(--text-md) + 26px);
   }
   th.pos {
-    width: calc(3.5em + 20px);
+    width: calc(3.5 * var(--text-md) + 20px);
   }
   th.record {
     width: 34%;
   }
   th.mark {
-    width: calc(7.5em + 20px);
+    width: calc(7.5 * var(--text-md) + 20px);
   }
   th.day {
-    width: calc(5em + 26px);
-  }
-  /* The page's sticky footer covers the bottom of the window (Twelves.svelte). */
-  tbody tr {
-    scroll-margin-bottom: var(--foot-height, 0px);
-  }
-  td {
-    padding: 12px 10px;
-    border-bottom: 1px solid var(--rule-soft);
-    vertical-align: middle;
-    cursor: default;
-  }
-  td:first-child {
-    padding-left: 16px;
-  }
-  td:last-child {
-    padding-right: 16px;
-  }
-  .selected {
-    background: var(--surface);
-  }
-  .selected td:first-child {
-    box-shadow: inset 3px 0 0 var(--accent-mark);
+    width: calc(5 * var(--text-md) + 26px);
   }
   .catno,
   .pos {
@@ -238,12 +213,11 @@
     color: var(--fg-faint);
   }
   td.day {
-    text-align: right;
     font-size: var(--text-sm);
   }
   @media (max-width: 1100px) {
     th.catno {
-      width: calc(8em + 26px);
+      width: calc(8 * var(--text-md) + 26px);
     }
     .record {
       display: none;
