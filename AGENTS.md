@@ -24,11 +24,12 @@ that change without reloading data.
   `DIGGA_DATA_DIR` points elsewhere, so experiments set it to a throwaway folder. One process
   owns a library at a time (`digga.lock`): the server and the commands that change it; `stats`
   and `backup` run beside the server.
-- **Electron, unpackaged:** `vp run electron:dev` runs `electron/main.ts`, which imports
+- **Electron:** `vp run electron:dev` runs `electron/main.ts`, which imports
   `createServer` from `src/server/server.ts`, starts it on a free localhost port and opens a
   `BrowserWindow` at it, on the same library. `vp run e2e:electron` runs the E2E suite on it.
-  Packaging and signing come later and must be packaging work only, never a rewrite. See
-  `docs/ELECTRON_PLAN.md`.
+  `vp run electron:package` packages the same sources with electron-builder into an ad-hoc signed
+  macOS app; packaging stays packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
+  Never open a packaged build from Finder or with `open`: it runs on the owner's library.
 
 ## Commands
 
@@ -38,6 +39,7 @@ vp dev                           # Vite dev server on :5173, proxies /api to :34
 npm run digga -- serve           # Hono server on 127.0.0.1:3456, open http://localhost:3456 (serves dist/ after vp build)
 npm run digga -- serve --port 0  # pick a free port
 vp run electron:dev              # vp build, then the Electron app on the same library (macOS)
+vp run electron:package          # vp build, then the ad-hoc signed app and dmg in release/ (macOS arm64)
 vp build                         # build the client into dist/
 vp check                         # format + lint + type check (oxfmt, oxlint, tsgolint)
 vp test                          # vitest, tests/**/*.test.ts
@@ -104,7 +106,7 @@ digga.config.example.json  the schema defaults a new digga.config.json starts wi
 docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP ROADMAP DECISIONS ELECTRON_PLAN
                        FIRST_RUN (the setup's design) STYLE_CENSUS (what it is, how to refresh the shipped one)
                        E2E_TESTING (commands, rules and task routes), e2e/ (task-specific references and scenarios)
-scripts/check-portability.ts
+scripts/               check-portability.ts, package-electron.ts (electron-builder, see docs/ELECTRON_PLAN.md)
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
                        the decisions backup format (decisions-backup), the style census format (style-census).
@@ -149,6 +151,7 @@ tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwr
                        live-regions.ts, global-setup.ts); the fake services are
                        tools/dev/fake-services.ts
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
+release/               gitignored, the packaged app and dmg from `vp run electron:package`
 ```
 
 ## Conventions

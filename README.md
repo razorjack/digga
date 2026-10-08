@@ -113,9 +113,19 @@ npm run electron:dev
 ```
 
 This builds the frontend, starts the server on a free port and opens the window; quitting the
-app stops the server. One Digga uses a library at a time, so stop `npm run serve` first. The app is
-not packaged yet, so it runs from the repository. A terminal inside another Electron app may set
-`ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window; unset it there.
+app stops the server. One Digga uses a library at a time, so stop `npm run serve` first. A
+terminal inside another Electron app may set `ELECTRON_RUN_AS_NODE=1`, which stops Electron from
+opening a window; unset it there.
+
+To build the app for Macs with Apple silicon:
+
+```sh
+npm run electron:package
+```
+
+It builds the frontend and writes `release/Digga-0.0.0-arm64.dmg`, with the app itself in
+`release/mac-arm64/Digga.app`. The app is ad-hoc signed and not notarized, and it opens the same
+library as `npm run serve`.
 
 ### 2. Follow the setup
 

@@ -1050,3 +1050,23 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      ad-hoc signature its library validation can refuse the better-sqlite3 binary. Each ad-hoc
      build has a new signature, so macOS may ask whether a new build may read the "Digga Safe
      Storage" Keychain item; a token it cannot decrypt counts as none (decision 152).
+159. **electron-builder packages the app, for Apple silicon first.** `scripts/package-electron.ts`
+     calls electron-builder's `build()` with its configuration in the script, so the packaging
+     has one file and no configuration file beside `package.json`. The app id is
+     `io.github.razorjack.digga`, after the repository. The archive holds what the main process
+     and the workers import: `dist/`, `electron/`, `src/` without the client's sources,
+     `tools/dump/` and the production dependencies, with better-sqlite3 reduced to its
+     `darwin-arm64.node` prebuild, which electron-builder unpacks. `npmRebuild` is off, so the
+     repository's `node_modules` keeps the binary the CLI, vitest and the web suite load
+     (decision 153). Only the English locale ships. The build is arm64 only: an x64 build would
+     be one more target and the darwin-x64 prebuild, but Rosetta is not installed on the Mac that
+     builds it, so it could not be started, and an unstarted build should not ship.
+160. **The packaged app runs the TypeScript sources from `app.asar`.** Electron's archive support
+     covers its ES module loader and its workers, and Node strips types from `.ts` files outside
+     `node_modules`, so `electron/main.ts`, the server and both workers, which
+     `new Worker(new URL("./dump-load-worker.ts", import.meta.url))` and its backup counterpart
+     start inside the archive, run as they do unpackaged. A first build showed it: the server
+     answered `/api/health`, the dump-load worker loaded 1,500 releases, and Back up now wrote a
+     decisions backup through its worker. No transpile step and no `asarUnpack` for the sources
+     are needed, so the CLI, vitest and the web suite run as before. better-sqlite3 loads from
+     `app.asar.unpacked`, where Electron redirects the archive path of its `.node` file.

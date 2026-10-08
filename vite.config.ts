@@ -22,7 +22,7 @@ export default defineConfig({
     ignorePatterns: ["src/server/style-census.json"],
   },
   lint: {
-    ignorePatterns: ["dist/**", "data/**", "test-results/**", "playwright-report/**"],
+    ignorePatterns: ["dist/**", "data/**", "release/**", "test-results/**", "playwright-report/**"],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: {
       "vite-plus/prefer-vite-plus-imports": "error",

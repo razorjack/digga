@@ -16,3 +16,6 @@ digga.config.json
 # End-to-end test output
 test-results/
 playwright-report/
+
+# Packaged app (vp run electron:package)
+release/

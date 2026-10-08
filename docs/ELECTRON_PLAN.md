@@ -2,11 +2,11 @@
 
 For the test host, preload and release checks, read the [Electron E2E plan](e2e/ELECTRON.md).
 
-Digga runs in an Electron window on macOS, unpackaged, from this repository: `vp run electron:dev`
-builds the client and starts `electron .`. The main process wraps the server without changing it,
-and the app opens the library the browser version uses. The E2E suite runs on it
-(`vp run e2e:electron`). Packaging and ad-hoc signing are still to do; see
-[What is left](#what-is-left).
+Digga runs in an Electron window on macOS, from this repository with `vp run electron:dev`, which
+builds the client and starts `electron .`, or packaged with `vp run electron:package`, an ad-hoc
+signed app and dmg for Apple silicon ([Packaging](#packaging)). The main process wraps the server
+without changing it, and the app opens the library the browser version uses. The E2E suite runs
+on it (`vp run e2e:electron`). [What is left](#what-is-left) lists the rest.
 
 ## Main process
 
@@ -92,8 +92,9 @@ passes `safeStorage`, as base64 text (decision 152).
 - `better-sqlite3` 13 is a Node-API addon with prebuilt binaries. Electron 44.5.1 (Node 24.21.0,
   Node-API 10) loads the repository's prebuild in the main process and in the dump-load worker,
   so there is no rebuild and no separate install (decision 153). `db.ts` stays the only import.
-- Electron's Node strips types like Node 24, so the main process, the server and the dump-load
-  worker run from the `.ts` sources (decision 154).
+- Electron's Node strips types like Node 24, so the main process, the server and both workers
+  run from the `.ts` sources (decision 154), in the packaged app too, from inside `app.asar`
+  (decision 160).
 - `saxes`, `hono`, `@hono/node-server` and `zod` are pure JS.
 
 ## Running it
@@ -110,22 +111,42 @@ and fail with "does not provide an export named 'app'"; unset it first. The
 [2026-10-06 rehearsal](e2e/HISTORY.md#the-electron-main-process-electron-unpackaged) show how to
 start it against the fake services with the guard loaded.
 
+## Packaging
+
+`vp run electron:package` builds the client and runs `scripts/package-electron.ts`, which calls
+electron-builder's `build()` with its configuration in the script (decision 159). It writes
+`release/Digga-<version>-arm64.dmg` and the app in `release/mac-arm64/Digga.app`.
+
+- **Contents.** `app.asar` holds `package.json` (whose `main` is still `electron/main.ts`),
+  `dist/`, `electron/`, `src/` without `src/client/` (the migrations and the shipped style census
+  included), `tools/dump/` and the production dependencies. better-sqlite3 goes without its
+  sources and with only `prebuilds/darwin-arm64.node`, and electron-builder unpacks the package
+  into `app.asar.unpacked`, since a native module cannot load from an archive. `data/` and the
+  tests stay out; a new config starts from the schema defaults.
+- **TypeScript.** The main process, the server and both workers run from the `.ts` files inside
+  `app.asar`, with no transpile step (decision 160). `distDir`'s default, two folders above
+  `src/server/`, is `app.asar/dist`, which the static handler reads through Electron's archive
+  support.
+- **No rebuild.** `npmRebuild` is off: the repository's prebuild loads in Electron (decision
+  153), and a rebuild would replace the binary the CLI, vitest and the web suite load.
+- **Signing.** Ad-hoc (`identity: "-"`), the native module included, with no hardened runtime
+  and no notarization (decision 158). `codesign --verify --deep --strict` accepts the app.
+- **Architecture.** arm64 only. An x64 build costs one more target, but Rosetta is not installed
+  on the Mac that builds it, so it could not be started there (decision 159).
+- **Size.** The app is about 250 MB, the dmg about 118 MB; Electron's framework is most of it.
+  Only the English locale is kept. There is no icon yet; the app has Electron's.
+
+Never open a packaged build from Finder or with `open` while testing: with `productName` "Digga"
+it runs on the owner's library. Start it with `--user-data-dir` and every `DIGGA_*` path in a
+throwaway folder.
+
 ## What is left
 
-- **Packaging** with electron-builder: mac (dmg, arm64 and x64), win (nsis), linux (AppImage or
-  deb). Include `dist/**`, `electron/`, `src/`, `tools/dump/` (the loader the worker imports),
-  `src/server/db/migrations/` and `node_modules` with the better-sqlite3 prebuild for each
-  target. Exclude `data/`; a new config starts from the schema defaults. Set `distDir` from
-  `app.getAppPath()` if the default, two folders above `src/server/`, stops matching.
-- **TypeScript in a packaged app.** Node does not strip types from files under `node_modules`,
-  and loading `.ts` from an asar archive is untested. If either fails, transpile the main process,
-  server, worker and shared code to JavaScript (for example `vp pack` or tsdown, with
-  `electron/main.ts`, `src/server/jobs/dump-load-worker.ts`, `src/server/decisions-backup-worker.ts`
-  and `src/cli/digga.ts` as entries), keep each worker a separate entry so
-  `new Worker(new URL(...))` resolves, and point the URLs at the emitted `.js` files. Unpacking
-  the workers (`asarUnpack`) is the other option.
-- **Native module per platform.** Check that the prebuild loads in the packaged app on each
-  target, and that signing covers it.
+- **Other packages:** x64 for Intel Macs (one more target, once a Mac with Rosetta or an Intel
+  Mac can start it), win (nsis), linux (AppImage or deb), each with its better-sqlite3 prebuild,
+  checked to load in the packaged app. Node does not strip types from files under
+  `node_modules`, which matters only if the app moves there.
+- **An icon** for the app and the dmg.
 - **Signing** (decision 158): macOS builds are ad-hoc signed, the better-sqlite3 binary
   included, with no identity, no notarization and no hardened runtime. Windows: sign the
   installer only through a free service, if one qualifies. Linux: none.

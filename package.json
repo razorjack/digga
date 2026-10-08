@@ -13,6 +13,7 @@
     "digga": "node src/cli/digga.ts",
     "serve": "node src/cli/digga.ts serve",
     "electron:dev": "vp build && electron .",
+    "electron:package": "vp build && node scripts/package-electron.ts",
     "check:portability": "node scripts/check-portability.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
     "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@electron/fuses": "^2.1.3",
     "@fontsource-variable/martian-mono": "^5.3.0",
     "@fontsource/michroma": "^5.3.0",
     "@playwright/test": "1.63.0",
@@ -37,6 +39,7 @@
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.13.3",
     "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "svelte": "^5.57.0",
     "svelte-check": "^4.7.6",
     "typescript": "~6.0.2",
