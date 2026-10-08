@@ -89,6 +89,20 @@ which may be on a disk that is not connected; step 1 says when it or a chosen fi
 HTTP through `src/client/api.ts`, and nothing in it knows it runs in Electron. Switching to IPC
 later would mean replacing `createHttpApi()` in that one file.
 
+- **Title bar.** On macOS the page's toolbar is the title bar (decision 173): `titleBarStyle:
+"hidden"` with the traffic lights at (20, 19), centred on the 52 px toolbar, and
+  `titleBarOverlay: true`, which gives the page the Window Controls Overlay CSS variables. The
+  toolbar's padding reads `env(titlebar-area-x)` and `env(titlebar-area-width)`, whose fallbacks
+  add nothing in a browser, so the client has no platform code. The toolbar's empty space is an
+  `app-region: drag` area; its links are not. Windows and Linux keep the system's title bar for
+  now ([below](#title-bar-on-windows-and-linux)).
+- **Size and place.** The window opens where it was closed, from `userData/window-state.json`
+  (the normal bounds and whether it was maximised), unless no display shows enough of its top
+  edge to drag it; then, and on the first start, it opens at 1440 x 900, centred. Its minimum is
+  1080 x 680, so Triage keeps two columns and the toolbar one row.
+- **First paint.** The window shows on `ready-to-show`, over the page's ground colour for the
+  scheme `nativeTheme` uses, so it never flashes white.
+
 - `window.open` and `target="_blank"` links go to `shell.openExternal` when they are http(s)
   pages elsewhere and are refused otherwise (`electron/links.ts`). The app opens no windows of
   its own.
@@ -227,10 +241,64 @@ Later:
   Mac can start it), win (nsis, signed only through a free service, if one qualifies), linux
   (AppImage or deb), each with its better-sqlite3 prebuild, checked to load in the packaged app,
   and the E2E suite on each. Node does not strip types from files under `node_modules`, which
-  matters only if the app moves there.
+  matters only if the app moves there. The title bar on each is planned
+  [below](#title-bar-on-windows-and-linux).
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**
+
+### Title bar on Windows and Linux
+
+Read this before Windows or Linux work on the window. On macOS the app's toolbar is the title bar:
+the window hides macOS's bar, the traffic lights sit inside the toolbar, and the page keeps clear
+of them through the Window Controls Overlay CSS variables (`env(titlebar-area-x)`,
+`env(titlebar-area-width)`, `env(titlebar-area-height)`), which `titleBarOverlay` enables. The
+page has no platform code: in a browser, or under a system title bar, the variables are unset and
+their fallbacks give no inset. Each platform's window options belong in one function in
+`electron/window.ts`.
+
+**Windows: hide the title bar and overlay the caption buttons.** Use `titleBarStyle: "hidden"`
+with `titleBarOverlay: { color, symbolColor, height }`. Electron draws the native minimise,
+maximise and close buttons on the right, in the colours passed, and the window keeps its frame:
+resizing, the shadow, Windows 11's rounded corners and snapping. The same CSS variables keep the
+toolbar clear of the buttons; on Windows `titlebar-area-x` is 0 and the width stops before them.
+
+- The button colours follow the scheme. Pass the toolbar's colour (`--surface`) and text colour
+  for the scheme in use. An Appearance change in Settings applies in the page at once but reaches
+  the main process only at the next start ([Main process](#main-process), step 6), so the main
+  process must hear it and call `setTitleBarOverlay()`. The server reports every job change to
+  the `desktop`; an appearance change can reach it the same way.
+- The overlay's height is the toolbar's height. The three buttons take about 140 px on the right,
+  which the toolbar keeps free.
+- No Mica or Acrylic (`backgroundMaterial`). They are Windows' vibrancy and clash with the
+  photocopy look for the same reason vibrancy does on macOS.
+
+**Linux: keep the system title bar.** `titleBarOverlay` colours and `setTitleBarOverlay()` exist
+on Linux too, but Electron draws those buttons itself, and they are unlikely to follow the
+desktop's theme or the user's button layout (GNOME shows only a close button by default, and some
+users put the buttons on the left). Unverified; check it before deciding otherwise.
+
+- KDE draws the title bar itself (server-side decorations), so a system title bar above an app
+  toolbar is its normal look, with the user's theme and window rules.
+- Tiling window managers draw no title bar; a hidden one would leave caption buttons in the
+  toolbar.
+- GNOME apps use a header bar, which the hidden title bar resembles, so the overlay could be
+  enabled on GNOME later if its buttons look right. Electron under Wayland may draw the title bar
+  itself in either case. Telling GNOME apart reads `XDG_CURRENT_DESKTOP`, which goes through
+  `src/cli/environment.ts` like every other environment read.
+
+Under a system title bar the toolbar still reads as an app's toolbar; that is the part that
+matters on Linux.
+
+**Check in the Windows and Linux sessions:**
+
+- whether Electron still shows the menu bar under a hidden title bar; if it does,
+  `autoHideMenuBar: true` hides it until Alt is pressed, as browsers do;
+- whether Windows 11's Snap Layouts flyout appears on hovering maximise with the overlay;
+- that a double-click on the toolbar maximises the window, and that dragging empty toolbar space
+  moves it;
+- that the button colours change after an Appearance change in Settings;
+- how the Linux buttons look under GNOME and KDE, on Wayland and on X11, if the overlay is tried.
 
 ## What would break each rule
 

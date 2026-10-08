@@ -8,7 +8,7 @@ export interface LibraryState {
   recordsToDig: number;
 }
 
-/** Until something can be dug, the setup keeps the header to the wordmark and the page keys quiet. */
+/** Until something can be dug, the setup keeps the toolbar to its title and the page keys quiet. */
 export function pagesClosed(library: LibraryState): boolean {
   return library.firstRun && !library.loading && library.recordsToDig === 0;
 }

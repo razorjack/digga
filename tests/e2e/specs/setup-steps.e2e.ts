@@ -28,8 +28,7 @@ test(
     await setup.expectStep("catalogue");
 
     await expect(app.page).toHaveTitle(`${stepTitle("catalogue")} – Digga setup`);
-    await expect(header.root.getByRole("link")).toHaveCount(1);
-    await expect(header.root.getByRole("link")).toHaveAccessibleName("Digga, triage");
+    await expect(header.root.getByRole("link")).toHaveCount(0);
     await expect(header.pages).toBeHidden();
     // A page key sets the hash inside its keydown handler, so the hash is exact once the press returns.
     for (const route of ROUTES) {

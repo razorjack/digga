@@ -2,6 +2,7 @@ import type { MenuItemConstructorOptions } from "electron";
 import { describe, expect, it } from "vite-plus/test";
 import { linkTarget } from "../electron/links.ts";
 import { menuTemplate } from "../electron/menu.ts";
+import { parseWindowState, reachableBounds } from "../electron/window-state.ts";
 
 const APP = "http://localhost:51234";
 
@@ -51,5 +52,53 @@ describe("the menu", () => {
       "#/settings/backups",
       "#/settings",
     ]);
+  });
+});
+
+describe("the window's size and place", () => {
+  const display = { x: 0, y: 0, width: 1512, height: 944 };
+  const minimum = { width: 1080, height: 680 };
+
+  it("reads only a state the app wrote", () => {
+    const bounds = { x: 10, y: 40, width: 1200, height: 800 };
+    expect(parseWindowState({ bounds, maximized: true })).toEqual({ bounds, maximized: true });
+    expect(parseWindowState({ bounds, maximized: "yes" })).toBeNull();
+    expect(parseWindowState({ bounds: { ...bounds, width: "1200" }, maximized: false })).toBeNull();
+    expect(parseWindowState(null)).toBeNull();
+  });
+
+  it("restores the bounds while a display shows the window's top edge, at least the minimum size", () => {
+    expect(
+      reachableBounds({ x: 100, y: 50, width: 1200, height: 800 }, [display], minimum),
+    ).toEqual({
+      x: 100,
+      y: 50,
+      width: 1200,
+      height: 800,
+    });
+    expect(reachableBounds({ x: 100, y: 50, width: 600, height: 400 }, [display], minimum)).toEqual(
+      {
+        x: 100,
+        y: 50,
+        width: 1080,
+        height: 680,
+      },
+    );
+  });
+
+  it("forgets bounds on a display that is gone or with the top edge out of reach", () => {
+    expect(
+      reachableBounds({ x: 2000, y: 50, width: 1200, height: 800 }, [display], minimum),
+    ).toBeNull();
+    expect(
+      reachableBounds({ x: 1450, y: 50, width: 1200, height: 800 }, [display], minimum),
+    ).toBeNull();
+    expect(
+      reachableBounds({ x: 100, y: -500, width: 1200, height: 800 }, [display], minimum),
+    ).toBeNull();
+    const external = { x: 1512, y: 0, width: 2560, height: 1440 };
+    expect(
+      reachableBounds({ x: 2000, y: 50, width: 1200, height: 800 }, [display, external], minimum),
+    ).not.toBeNull();
   });
 });

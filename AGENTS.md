@@ -407,7 +407,8 @@ client TypeScript and CSS.
 - `docs/DESIGN_BRIEF.md` and `docs/KEYMAP.md` for the UI session.
 - `docs/FIRST_RUN.md` for the first run (the setup) being built, and `docs/STYLE_CENSUS.md` for
   refreshing the style census it ships.
-- `docs/ELECTRON_PLAN.md` for packaging.
+- `docs/ELECTRON_PLAN.md` for packaging, and its title bar section before Windows or Linux work
+  on the window.
 - [docs/E2E_TESTING.md](docs/E2E_TESTING.md) for E2E commands, binding rules and task-specific
   document routes; [docs/e2e/PLAN.md](docs/e2e/PLAN.md) when continuing the E2E implementation.
 - `docs/DECISIONS.md` for why things are the way they are.

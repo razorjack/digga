@@ -98,8 +98,8 @@ pace either way.
 - The setup shows while the library has no finished dump load (`dump_loads.finished_at`). That
   covers a new library, a first load that was interrupted and a deleted database. A library that
   has finished a load, however it was started, never sees it.
-- It lives at `#/setup`, outside the page keys. Until the load starts, the header holds only the
-  wordmark and the step list; the page links appear once there is something to dig.
+- It lives at `#/setup`, outside the page keys. Until the load starts, the toolbar holds only the
+  title "Setting up"; the page links and the counts appear once there is something to dig.
 - Once the load has started, or a load that stopped has left records to dig, `T`, `W` and `,`
   work again, and `#/setup` shows the loading screen until the load finishes. After that `#/setup` goes to Triage; monthly updates stay in Settings.
 - Nothing is chosen twice. Styles, years and formats go to `digga.config.json` when step 3 is

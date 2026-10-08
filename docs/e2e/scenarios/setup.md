@@ -18,7 +18,7 @@ shows a record
 
 Priority: **P1**.
 
-An empty library opens `#/setup/catalogue`; the header holds only the wordmark; `T`, `W` and `,` do
+An empty library opens `#/setup/catalogue`; the toolbar has no links; `T`, `W` and `,` do
 nothing; the step list marks step 1; the title is "Fetch the catalogue – Digga setup"
 
 ## SETUP-03

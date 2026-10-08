@@ -409,9 +409,9 @@ interface Box {
   height: number;
 }
 
-/** What the header shows, by name: the wordmark, each page link and each count. */
+/** What the toolbar shows, by name: each page link and each count. */
 function headerItems(header: HeaderPage): Map<string, Locator> {
-  const items = new Map([["wordmark", header.root.getByRole("link", { name: "Digga, triage" })]]);
+  const items = new Map<string, Locator>();
   for (const destination of ROUTES)
     items.set(`${destination.label} link`, header.link(destination.route));
   for (const count of ["dug", "to go", "this session"])

@@ -77,7 +77,11 @@ async function startDigga(): Promise<void> {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate(menuTemplate({ show: showRoute }, process.platform)),
   );
-  await openWindow(browserUrl, logger);
+  await openWindow({
+    url: browserUrl,
+    logger,
+    stateFile: path.join(app.getPath("userData"), "window-state.json"),
+  });
 }
 
 /**

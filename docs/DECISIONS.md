@@ -1240,3 +1240,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        step 1 the same way; before, the load's refusal reached step 4, which offered no way back.
      - Slow exits of the Electron app under test appeared only at load averages of 80 and above,
        and runs at low load killed no app, so the harness's exit handling stays as it is.
+173. **Digga looks and behaves like an app, in the browser too.** On 2026-10-08 the owner chose
+     to make the Electron window read as an app rather than a website in a window, keeping the
+     palette, stamps, grain and key caps. The changes apply to the browser version as well, which
+     needs no separate design, and the client still has no platform code.
+     - The page's header became a toolbar on sleeve: a segmented control for Triage and Twelves,
+       the counts in a recessed readout in the middle, Settings at the right end, and no
+       wordmark. On macOS it is the title bar: the window hides macOS's bar, and the toolbar keeps
+       clear of the traffic lights through the Window Controls Overlay CSS variables, a web
+       standard that `titleBarOverlay` enables and that is unset in a browser. Windows and Linux
+       keep the system title bar until a session on each checks the plan in
+       `docs/ELECTRON_PLAN.md`.
+     - The window opens at its last size and place, never below 1080 x 680, and shows only once
+       painted, over the page's ground colour.

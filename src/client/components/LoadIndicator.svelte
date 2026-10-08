@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * The running dump job in the header: a short label linking to where it is shown in full, and a
-   * thin bar along the header's lower edge. Without a size to go on, the bar shows no value.
+   * The running dump job in the toolbar: a short label linking to where it is shown in full, and a
+   * small meter beside it. Without a size to go on, the meter shows no value.
    */
   import { loadStatus } from "../load-status.svelte.ts";
 
@@ -16,18 +16,20 @@
   );
 </script>
 
-<a class="indicator" {href} title="{label}; see how it goes">
-  <span class="verb">{verb}</span>
-  {#if percent !== null}<b>{percent}%</b>{/if}
-</a>
-<progress
-  class="edge"
-  aria-label={label}
-  max="1"
-  value={loadStatus.fraction ?? undefined}
-></progress>
+<span class="job">
+  <a class="indicator" {href} title="{label}; see how it goes">
+    <span class="verb">{verb}</span>
+    {#if percent !== null}<b>{percent}%</b>{/if}
+  </a>
+  <progress aria-label={label} max="1" value={loadStatus.fraction ?? undefined}></progress>
+</span>
 
 <style>
+  .job {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
   .indicator {
     display: inline-flex;
     align-items: baseline;
@@ -36,6 +38,8 @@
     font-size: var(--text-sm);
     text-decoration: none;
     white-space: nowrap;
+    cursor: default;
+    -webkit-user-drag: none;
   }
   .indicator b {
     font-family: var(--display);
@@ -44,28 +48,22 @@
   }
   .indicator:hover .verb {
     color: var(--fg);
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
-  .edge {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
-    width: 100%;
-    height: 2px;
+  progress {
+    width: 64px;
+    height: 3px;
     appearance: none;
     border: 0;
-    background: transparent;
+    background: var(--rule);
     color: var(--accent-mark);
   }
-  .edge::-webkit-progress-bar {
-    background: transparent;
+  progress::-webkit-progress-bar {
+    background: var(--rule);
   }
-  .edge::-webkit-progress-value {
+  progress::-webkit-progress-value {
     background: var(--accent-mark);
   }
-  .edge::-moz-progress-bar {
+  progress::-moz-progress-bar {
     background: var(--accent-mark);
   }
 </style>

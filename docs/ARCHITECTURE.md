@@ -60,7 +60,7 @@ database and 5 min for requests that wait on a Discogs call. The exported `api` 
   and polls them, and resumes from what the server has; `model.ts` holds the estimate, the
   suggestions and the default years as pure functions; one component per step. `App.svelte`
   sends a library without a finished load to `#/setup` unless its first load runs, and until
-  the load starts the header keeps only the wordmark and the page keys stay quiet. While a load
+  the load starts the toolbar holds only its title and the page keys stay quiet. While a load
   runs, the triage session's `lookAgain()` asks the server again at the end of the queue every
   10 seconds, and once more when the load ends.
 - Twelves loads every shelf in one request and filters, sorts and counts in the browser

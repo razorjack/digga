@@ -74,7 +74,14 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
 - **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
   Mono (87.5% width) for everything else. Sizes run 10 / 11 / 12.5 / 14 / 17 / 22 / 30 / 40 /
   64 px.
-- **Triage layout:** top bar (wordmark, pages with keys, dug / to go / ETA / session count); left column with the catalogue-number stamp, label, artist, title, facts,
+- **Toolbar:** one bar on sleeve across the top of every page, which is also the window's title
+  bar in the desktop app (the traffic lights sit in its left end, and its empty space drags the
+  window). Triage and Twelves form a segmented control with their keys; the counts (dug / to go /
+  ETA / session) sit in a recessed readout in the middle; a running dump job shows a label and a
+  small meter, and Settings has its own button at the right end. There is no wordmark: the app
+  icon and the stamps carry the name. Chrome (toolbar, sidebars, bars pinned to the bottom) is on
+  sleeve, content on the ground.
+- **Triage layout:** the toolbar; left column with the catalogue-number stamp, label, artist, title, facts,
   market line, other versions and the scrolling tracklist; right column with the player, the
   now-playing line and progress bar (the start point is marked), player keys, the slip with the
   last verdict and "up next"; a verdict bar pinned to the bottom with filled key caps for
