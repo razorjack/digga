@@ -4,9 +4,11 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import type { Db } from "../src/server/db/db.ts";
 import { getRelease } from "../src/server/db/releases.ts";
+import { DiscogsApiError } from "../src/server/discogs/errors.ts";
 import { recordWantlistPush } from "../src/server/importers/seeds.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createSecrets, type Secrets } from "../src/server/secrets.ts";
+import { discogsErrorStatus } from "../src/server/routes/request.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import type { ApiError, DiscogsAccountResponse, TwelvesResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
@@ -139,7 +141,7 @@ describe("Discogs wantlist over HTTP", () => {
 
   it("explains a missing username or token, and a refused token", async () => {
     const refused = await send<ApiError>("POST", "/api/discogs/wantlist/1002", {});
-    expect(refused.status).toBe(502);
+    expect(refused.status).toBe(401);
     expect(refused.body.error).toMatch(/check the Discogs token in Settings/);
     token = undefined;
     const noToken = await send<ApiError>("POST", "/api/discogs/wantlist/1001", {});
@@ -240,5 +242,15 @@ describe("Discogs wantlist over HTTP", () => {
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/set in the environment/);
     expect(fs.existsSync(envFile)).toBe(false);
+  });
+});
+
+describe("a Discogs error the API answers", () => {
+  it("passes a refused token through, so the page does not try again, and is 502 otherwise", () => {
+    expect(discogsErrorStatus(new DiscogsApiError(401, "Unauthorized"))).toBe(401);
+    expect(discogsErrorStatus(new DiscogsApiError(403, "Forbidden"))).toBe(403);
+    expect(discogsErrorStatus(new DiscogsApiError(404, "Not Found"))).toBe(502);
+    expect(discogsErrorStatus(new DiscogsApiError(429, "Too Many Requests"))).toBe(502);
+    expect(discogsErrorStatus(new DiscogsApiError(503, "Unavailable"))).toBe(502);
   });
 });

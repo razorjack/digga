@@ -140,9 +140,10 @@ Given: `small` with the username `dj`, which holds no Discogs data, and the cloc
 the verdict.
 
 Saving `e2e-token-other` says "Token saved.", keeps the username `dj`, and Settings' token status
-shows the mismatch as a problem ("The token belongs to other, not dj."); a push then fails: the fake
-answers each of the four `PUT`s `403`, the page gets `502` (declared), and after the retries the
-message says Discogs answered `403` and to check the token. On `small-account`, which holds `dj`'s
+shows the mismatch as a problem ("The token belongs to other, not dj."); a push then fails at once:
+the fake answers the one `PUT` `403`, the page gets Discogs' `403` (declared), and the message says
+Discogs answered `403` and to check the token. With the clock run past every retry delay, the page
+sent no second push and the fake received no second `PUT`. On `small-account`, which holds `dj`'s
 Discogs data, the server refuses another account's token instead (decision 138, SET-22)
 
 ## TRI-17

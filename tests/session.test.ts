@@ -248,6 +248,22 @@ describe("triage session", () => {
     );
   });
 
+  it("ends at once a push Discogs refused for its token", async () => {
+    const { session, http } = await started([1, 2]);
+    const refusal =
+      "Discogs answered 403: check the Discogs token in Settings and that it belongs to your Discogs username";
+    const pushes = vi
+      .spyOn(http, "pushToWantlist")
+      .mockRejectedValue(new ApiRequestError(403, refusal));
+    session.judge("accepted");
+    await until(() => session.slip?.kind === "verdict" && session.slip.push === "failed");
+    await wait(20);
+    expect(pushes).toHaveBeenCalledTimes(1);
+    expect(session.flash).toBe(
+      `${queueItem(1).artistDisplay} – ${queueItem(1).title} is not on the Discogs wantlist: ${refusal}. A in Twelves tries again.`,
+    );
+  });
+
   it("does not try again a push the server refused", async () => {
     const { session, http } = await started([1, 2]);
     const pushes = vi

@@ -189,12 +189,12 @@ test.describe("with the username dj and the clock", () => {
   test.use({ diggaOptions: { config: { discogs: { username: DJ.username } }, clock: true } });
 
   test(
-    "TRI-16 another account's token keeps the username and reads as a problem; a want then fails at Discogs",
+    "TRI-16 another account's token keeps the username and reads as a problem; a want then fails at once at Discogs",
     { tag: ["@TRI-16", "@P2"] },
     async ({ app, fakes }) => {
       const settings = new SettingsPage(app);
       const triage = new TriagePage(app);
-      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 502$/] });
+      app.expectProblems({ apiErrors: [/^POST \/api\/discogs\/wantlist\/\d+ answered 403$/] });
       await settings.open("discogs");
 
       const saved = await settings.saveToken("e2e-token-other");
@@ -207,26 +207,25 @@ test.describe("with the username dj and the clock", () => {
 
       await new HeaderPage(app).goTo("triage");
       const releaseId = await triage.record.getAttribute("data-release-id");
-      // Paused, each try waits for runFor(), and the slip names the wait it has armed.
+      // Paused, a retry would wait for runFor().
       await app.clock.pause();
       await triage.judge("accepted");
-      for (const delayMs of PUSH_RETRY_DELAYS_MS) {
-        await expect(triage.lastAction).toContainText(`trying again in ${formatWait(delayMs)}.`);
-        await app.clock.runFor(delayMs);
-      }
 
       await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
       await expect(triage.messages).toContainText(
         "Discogs answered 403: check the Discogs token in Settings and that it belongs to your Discogs username.",
       );
-      // The first try and one after each wait; the fake refuses other's token on dj's wantlist.
-      const puts = fakes.requests("PUT /users/:user/wants/:id");
-      expect(puts).toHaveLength(PUSH_RETRY_DELAYS_MS.length + 1);
-      for (const put of puts)
-        expect(put).toMatchObject({
+      // A refused token is refused again, so no retry runs, however long the page waits.
+      await app.clock.runFor(PUSH_RETRY_DELAYS_MS.reduce((sum, delayMs) => sum + delayMs, 0));
+      expect(
+        app.apiRequests().filter((request) => request.startsWith("POST /api/discogs/wantlist/")),
+      ).toHaveLength(1);
+      expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([
+        expect.objectContaining({
           params: { user: DJ.username, id: releaseId },
           authenticatedAs: "other",
-        });
+        }),
+      ]);
       expect(fakes.wantlists.get(DJ.username)!.has(Number(releaseId))).toBe(false);
     },
   );

@@ -14,7 +14,7 @@ import { registerSetupRoutes } from "./routes/setup.ts";
 import { registerDesktopRoutes } from "./routes/desktop.ts";
 import { registerSessionRoutes } from "./routes/sessions.ts";
 import type { AppContext } from "./context.ts";
-import { discogsErrorMessage } from "./routes/request.ts";
+import { discogsErrorMessage, discogsErrorStatus } from "./routes/request.ts";
 import { localOnly } from "./local-only.ts";
 
 /** Room for the largest body the client sends: a session with 50,000 passed releases. */
@@ -52,7 +52,8 @@ export function createApp(context: AppContext): Hono {
     if (error instanceof JobInputError) return request.json({ error: error.message }, 400);
     if (error instanceof DiscogsApiError) {
       logger.warn(`${request.req.method} ${request.req.path}: Discogs answered ${error.status}`);
-      return request.json({ error: discogsErrorMessage(error) } satisfies ApiError, 502);
+      const status = discogsErrorStatus(error);
+      return request.json({ error: discogsErrorMessage(error) } satisfies ApiError, status);
     }
     logger.error(`${request.req.method} ${request.req.path} failed`, error);
     return request.json({ error: error.message } satisfies ApiError, 500);

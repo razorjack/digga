@@ -71,7 +71,8 @@ queue. Records passed with `N` return to whichever queue comes next.
 
 A want or grail that does not reach Discogs, because the network or Discogs failed, is tried
 again after 5 s, 30 s and 2 min, and the slip says when; after the last try it stays a want in
-Digga, and Twelves marks it for `A` or "add all".
+Digga, and Twelves marks it for `A` or "add all". A push Discogs refuses for its token (`401` or
+`403`) is not tried again: the message says to check the token at once.
 
 `Z` walks back through the whole session, one step per press. A verdict is undone with
 `DELETE /api/verdicts/:key` (in a round of snoozed records, by restoring the snooze); an `N` is

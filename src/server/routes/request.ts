@@ -69,6 +69,15 @@ export function parseQuery<T>(
     return { ok: false, response: badRequest(request, "Invalid query", result.error.issues) };
   return { ok: true, data: result.data };
 }
+/**
+ * What the API answers for a Discogs error: Discogs' own 401 or 403, a token it refused and will
+ * refuse again, so a page does not try once more; 502 for anything else, which may pass.
+ */
+export function discogsErrorStatus(error: DiscogsApiError): 401 | 403 | 502 {
+  if (error.status === 401 || error.status === 403) return error.status;
+  return 502;
+}
+
 export function discogsErrorMessage(error: DiscogsApiError): string {
   if (error.status === 401 || error.status === 403)
     return `Discogs answered ${error.status}: check the Discogs token in Settings and that it belongs to your Discogs username`;
