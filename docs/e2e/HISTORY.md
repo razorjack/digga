@@ -18,6 +18,8 @@ Search by scenario ID, error or date, or start with:
 - [CI on GitHub Actions](#ci-on-github-actions): Linux findings, workers and durations.
 - [The Electron main process](#the-electron-main-process-electron-unpackaged): the rehearsal of
   the unpackaged app, workers and the guard.
+- [The packaged app](#the-packaged-app-electron-packaged): electron-builder, fuses, the ad-hoc
+  signature, Gatekeeper, `-r` and the `DIGGA_E2E_HOLD` hook, and the suite on the packaged app.
 - [The Electron spike](#the-electron-spike-electron-unpackaged): the held start and navigation, the
   preload's guard in workers, quitting and userData.
 - [The Electron host and its scenarios](#the-electron-host-and-its-scenarios-electron-unpackaged):
@@ -1344,6 +1346,122 @@ only within this session.
   renderer processes, and four kept every page answering at loads up to 29. The load stayed far
   below the 150 expected, so a ×10 burn-in on a quiet machine is left to the owner
   ([PLAN](PLAN.md#electron)).
+
+### The packaged app (Electron, packaged)
+
+Built and measured on 2026-10-08, on the same 10-core Mac with 32 GB (macOS 27.0.1, 26A434), Node
+24.18.0, Electron 44.5.1, electron-builder 26.15.3, @electron/fuses 2.1.3 and Playwright 1.63.0;
+the final runs were at `fa2f5c0`. Another project shared the machine and at times used eight
+cores; the one-minute load averages are given with each run, and durations compare only within
+this session.
+
+Commits: the signing decision (`e79855a`), packaging with electron-builder, which needed no
+TypeScript step (`cc38a46`), the fuses and the inspectable variant (`0ccacd0`), the
+undecryptable-token tests and the drafted install steps (`d96b706`), the host's packaged mode and
+the `DIGGA_E2E_HOLD` hook (`5b64b3f`), the health check (`ae74ab5`), the workers' log lines and
+rotation (`71b1da2`), the plans (`9d78ed0`), the quit during the start (`61a280c`) and the health
+check's exit policy (`fa2f5c0`).
+
+- **Isolation.** Every start of a packaged build went through a launcher that refused to start
+  unless `--user-data-dir`, `HOME`, `TMPDIR`, the working folder and every `DIGGA_*` path lay in a
+  `mkdtemp` folder, and that printed the environment, built from nothing, and the command line
+  first: a scratch launcher in `/tmp` for the experiments, `scripts/electron-health-check.ts` and
+  the E2E host. Each passed `--use-mock-keychain` and `--password-store=basic`, and the service
+  URLs named fakes on loopback. No build was opened from Finder or with `open`, none was copied to
+  `/Applications`, and the fakes reported no violation. electron-builder downloaded Electron's
+  darwin-arm64 zip from GitHub into its cache; nothing reached Discogs, data.discogs.com or
+  YouTube.
+- **TypeScript in the archive** (decision 160). The first build, unfused, started from `app.asar`:
+  `electron/main.ts` and the server ran from their `.ts` files, `GET /api/health` answered
+  `{"ok":true,"name":"digga"}`, a dump-load job loaded the bulk dump's 1,500 releases through its
+  worker, and Back up now wrote a decisions backup through the backup worker. The fused builds
+  did the same. No transpile step and no `asarUnpack` for the sources.
+- **The native module.** electron-builder unpacked better-sqlite3 into `app.asar.unpacked` and
+  signed `darwin-arm64.node` ad-hoc (`flags=0x2(adhoc)`; the repository's copy is
+  `adhoc,linker-signed`); it loaded in the main process and in both workers.
+- **Signing.** `codesign --verify --deep --strict --verbose=2 release/mac-arm64/Digga.app`:
+  "valid on disk" and "satisfies its Designated Requirement", for the inspectable variant too.
+  `codesign -dv`: `Identifier=io.github.razorjack.digga`, `Format=app bundle with Mach-O thin
+(arm64)`, `flags=0x2(adhoc)`, `Signature=adhoc`, `TeamIdentifier=not set`.
+- **Fuses.** `npx @electron/fuses read --app release/mac-arm64/Digga.app`: RunAsNode,
+  EnableCookieEncryption, EnableNodeOptionsEnvironmentVariable, EnableNodeCliInspectArguments and
+  LoadBrowserProcessSpecificV8Snapshot disabled; EnableEmbeddedAsarIntegrityValidation,
+  OnlyLoadAppFromAsar, GrantFileProtocolExtraPrivileges and WasmTrapHandlers enabled. The
+  inspectable variant differs only in EnableNodeCliInspectArguments; both `Info.plist` files hold
+  the same `ElectronAsarIntegrity` hash. The release build ignored `--inspect=0` (no "Debugger
+  listening" line); the inspectable one printed it.
+- **Integrity.** A copy of the inspectable app with one byte of `app.asar` changed exited with 1
+  and "ASAR Integrity Violation: got a hash mismatch". A copy with a line added to a file in
+  `app.asar.unpacked` started and answered `/api/health`, while `codesign --verify` reported "a
+  sealed resource is missing or invalid" (decision 161).
+- **`-r`.** A probe preload that writes a line to stderr never ran in the unfused build, the
+  fused release build or the inspectable variant, with or without `--inspect=0`. The host now
+  prepares a packaged build through the `DIGGA_E2E_HOLD` hook (decision 162). A first version of
+  the hook waited with a top-level `await`; Electron then printed "Debugger listening" but never
+  "DevTools listening", and `_electron.launch()` timed out after 15 s, so the wait is a promise.
+- **GUARD-03 on the packaged app.** With the refused folder as `--user-data-dir`, Chromium had
+  written its `Chromium` folder there before the host could load the preload, which then exited
+  with 78; the library was not created. The test expects the folder on that configuration.
+- **Gatekeeper.** A `ditto` copy of the release app and a copy of the dmg, each given
+  `com.apple.quarantine` (`0083;…;Safari;…`), never opened: `spctl --assess --verbose` on the
+  app answered "rejected" (exit 3), also without the attribute; on the dmg,
+  `spctl --assess --verbose --type open --context context:primary-signature` answered "rejected,
+  source=no usable signature" (exit 3), since the dmg is not signed. `syspolicy_check
+distribution` failed the app with "Adhoc Signed App" (Warning) and "Notary Ticket Missing"
+  (Fatal). The README's install steps are a draft until the owner opens a downloaded copy.
+- **Rosetta** is not installed on the Mac (`arch -x86_64 /usr/bin/true`: "Bad CPU type in
+  executable"), so no x64 build was made (decision 159).
+- **Sizes.** `Digga.app` 249 MB (`du -sh`), of which `app.asar` 8.6 MB and `app.asar.unpacked`
+  2.0 MB; `Digga-0.0.0-arm64.dmg` 116,684,062 bytes. Keeping only the English locale took the
+  first build's 300 MB to 251 MB.
+- **Build durations.** The release build with its dmg took 15.6 to 43.8 s and the inspectable
+  variant 5.4 to 13.4 s (load 8 to 121); the first, unfused build 41.4 s (load 24).
+  `vp run electron:package`, with the client's build and the health check, took 43.1 s at load
+  21 to 25 and 54.2 s at load 5.7 to 78.
+- **A product bug the health check found.** At loads of 80 to 145 the check sent SIGTERM 0.6 s
+  after the start, while the window was still loading the app: the server stopped, `loadURL()`
+  failed with `ERR_CONNECTION_REFUSED`, and the start's error handler showed "Digga could not
+  start." as a modal dialog, which kept the app from exiting (still running 34 s later, then
+  killed). A quit during the start now shows no dialog (`61a280c`); three probes under load 104
+  to 129 then exited, one of them after a failed load.
+- **Slow exits under load.** After SIGTERM the server logged "stopped" within 1.6 s in every
+  health check, but the Electron process took 0.8 to 1.3 s at loads under 50 and 4 to 25 s at
+  loads around 100 to 130. The check kills it 10 s after its server stopped and says so, as the
+  host does (`fa2f5c0`). In the final run 1 below, the host killed 22 such apps at load up to 185.
+- **The health check.** `node scripts/electron-health-check.ts` on the release build: health
+  answered after 0.5 to 2.5 s, the server stopped after 0.7 to 2.8 s, and the app exited after 0.8
+  to 3.3 s, or was killed 10 s after its server stopped in two of four runs at load 45 to 67.
+- **Undecryptable token.** `tests/setup-http.test.ts` gives the server a `safeStorage` stand-in
+  that cannot decrypt the saved token: `GET /api/discogs/account` answered no token twice with one
+  decryption, `PUT /api/discogs/token` saved the new one encrypted, and the library kept its
+  releases; with encryption unavailable it saved the token as text. The real prompt is left to the
+  owner across two builds.
+- **Burn-ins before the commits,** `guard.e2e.ts` at `--repeat-each=10` with 4 workers, load 15
+  to 19: web 20 of 20 in 6.2 s, unpackaged Electron 30 of 30 in 7.2 s, packaged 30 of 30 in 8.9 s.
+- **First runs of the whole configuration** on the working tree that became `5b64b3f`: packaged
+  178 of 178 in 2.3 min (4 workers, load 6.8 to 22), unpackaged 178 of 178 in 2.4 min (4 workers,
+  load 19.8 to 16.6).
+- **Final runs at `fa2f5c0`,** after `vp run electron:package`:
+  - `vp run electron:package`: 54.2 s at load 5.7 to 78, then the health check (above).
+  - `npx playwright test --config tests/e2e/playwright.packaged.config.ts --workers 4`: 178 of 178
+    (167 shared, GUARD-03's two and the ELEC scenarios' nine) in 3.7 min, load 53 to 185; the
+    host killed 22 apps still running 10 s after their server stopped.
+  - The same with `--repeat-each=3`: a first attempt with 3 workers at load 146, while the other
+    project used eight cores, ran A11Y-01's setup test in 28.9 s of its 30 s and was stopped after
+    9 tests, before any failure. With 2 workers: 534 of 534 in 30.1 min, load 126 to 43; 151
+    kills of lingering apps, and no Electron process left afterwards.
+  - `vp build`, then `npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 4`
+    (unpackaged): 178 of 178 in 2.1 min, load 37 to 14, no kills.
+  - `vp run e2e` (web, 5 workers): 174 of 174 in 1.8 min with the build, load 59 to 31.
+  - `vp run verify` passed before each commit.
+- **The kills come from the load, not the package.** A second packaged run, 178 of 178 in
+  4.2 min while the load rose from 14 to 138, killed 45 apps, in Triage's tests, which play the
+  fake player. `triage.e2e.ts` and `triage-queue.e2e.ts` back to back, 4 workers: packaged 0 and 1
+  kills, unpackaged 0 and 14, the last at load 51 rising. ELEC-01 and ELEC-11 ×5 on 2 workers
+  killed none on either at load 86 to 128.
+- **Workers.** Four for single runs and burn-ins below a load of about 50; two for the ×3 run,
+  which kept every test within its timeout at loads to 126. The ×10 burn-in on a quiet machine
+  is still the owner's ([PLAN](PLAN.md#electron)).
 
 ## Original status on 2026-10-02
 

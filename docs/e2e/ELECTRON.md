@@ -223,9 +223,11 @@ requests meets a stopped server. It then calls `app.quit()` through `evaluate()`
 `before-quit` and waits for `server.stop()`. A server that has not logged "stopped" within 15 s is
 a bug: the host kills the app and fails the test. An app whose server has stopped but whose process
 is still running 10 s later is killed, and the host prints "digga-e2e: killed the Electron app …".
-In the measured runs no app needed it: the server stopped a median 90 ms after `app.quit()` and the
-process exited after 261 ms (at most 909 ms, 183 quits). The 20 s exits of the rehearsal followed
-`browser.close()` over CDP, not `app.quit()`.
+At loads up to about 30 no app needed it: the server stopped a median 90 ms after `app.quit()` and
+the process exited after 261 ms (at most 909 ms, 183 quits). At loads around 50 to 185 the
+servers still stopped at once, but many apps, packaged and unpackaged alike, lingered for more
+than 10 s and were killed (HISTORY, [The packaged app](HISTORY.md#the-packaged-app-electron-packaged)).
+The 20 s exits of the rehearsal followed `browser.close()` over CDP, not `app.quit()`.
 
 ## Product integration requirements
 
