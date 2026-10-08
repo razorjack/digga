@@ -33,7 +33,6 @@
     font-size: var(--text-sm);
   }
   summary {
-    cursor: pointer;
     color: var(--fg);
     text-decoration: underline;
     text-decoration-style: dotted;

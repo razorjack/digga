@@ -119,8 +119,27 @@ textarea {
   color: inherit;
 }
 
-button {
-  cursor: pointer;
+/*
+ * Controls behave as in a desktop app: the arrow over them, and their labels, the key caps and the
+ * table headers are not text to select. Content (artists, titles, notes, paths) stays selectable.
+ */
+:where(
+  button,
+  summary,
+  label,
+  legend,
+  select,
+  kbd,
+  th,
+  input:is([type="checkbox"], [type="radio"], [type="range"])
+) {
+  cursor: default;
+  user-select: none;
+}
+
+/* The app's own links and images are not things to drag out of the window. */
+:where(a[href^="#"], img) {
+  -webkit-user-drag: none;
 }
 
 /* Text fields and selects; checkboxes, radios and ranges keep their native look. */

@@ -259,10 +259,6 @@
     background:
       linear-gradient(var(--accent-mark), var(--accent-mark)) 0 50% / var(--progress) 4px no-repeat,
       linear-gradient(var(--rule), var(--rule)) 0 50% / 100% 4px no-repeat;
-    cursor: pointer;
-  }
-  .seek input:disabled {
-    cursor: default;
   }
   .seek input::-webkit-slider-thumb {
     appearance: none;

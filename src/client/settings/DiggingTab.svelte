@@ -318,9 +318,6 @@
   .skip .hint {
     margin-left: 26px;
   }
-  .option label {
-    cursor: pointer;
-  }
   /* The outcome of every filter above, so it stands apart from the last of them. */
   .preview {
     display: block;

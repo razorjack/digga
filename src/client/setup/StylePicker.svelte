@@ -228,7 +228,6 @@
   }
   summary {
     padding: 8px 0;
-    cursor: pointer;
   }
   fieldset {
     display: grid;

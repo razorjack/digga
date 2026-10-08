@@ -227,3 +227,10 @@ export function pastedVideoLink(event: ClipboardEvent): string | null {
 export function hasCommandModifier(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey || event.altKey;
 }
+
+/** Cmd+A on a Mac, Ctrl+A elsewhere. */
+export function isSelectAll(
+  event: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey">,
+): boolean {
+  return (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "a";
+}

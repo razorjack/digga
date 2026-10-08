@@ -118,7 +118,6 @@
   }
   button:disabled {
     opacity: 0.4;
-    cursor: default;
   }
   .verdict {
     display: grid;

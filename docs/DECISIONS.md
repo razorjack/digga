@@ -1258,6 +1258,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        out of the menu: on macOS Electron cannot show an accelerator without registering it, and
        a registered `A` would take the key from text fields. Right-click opens the native editing
        menu in text fields and Copy on selected text.
+     - Controls behave as in a desktop app: the arrow over buttons, labels and disclosure
+       triangles instead of the hand; labels, key caps and table headers are not selectable,
+       while artists, titles, notes and paths stay so; the app's links and images do not drag
+       out of the window; and Cmd+A outside a text field does nothing instead of painting the
+       whole page.
      - The icon is the logo's cube on a flyer-yellow squircle: the one accent colour is what
        tells the app apart in the Dock at 32 px, where a dark squircle disappeared among others.
        A script draws it from the logo, so the binaries in `build/` have a source.

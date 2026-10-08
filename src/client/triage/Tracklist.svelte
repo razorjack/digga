@@ -163,9 +163,6 @@
     text-align: left;
     line-height: 1.35;
   }
-  .row button:disabled {
-    cursor: default;
-  }
   .row button:not(:disabled):hover .name {
     text-decoration: underline;
     text-decoration-color: var(--fg-faint);

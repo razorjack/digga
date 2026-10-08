@@ -76,7 +76,6 @@
   }
   button:disabled {
     opacity: 0.4;
-    cursor: default;
   }
   .checkpoint {
     padding: 0 40px;

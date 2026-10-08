@@ -259,7 +259,6 @@
     font-size: var(--text-sm);
   }
   .username summary {
-    cursor: pointer;
     color: var(--fg-muted);
     font-size: var(--text-sm);
   }

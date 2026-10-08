@@ -244,7 +244,6 @@
     border-color: var(--accent-mark);
   }
   .load-years summary {
-    cursor: pointer;
     color: var(--fg-muted);
     font-size: var(--text-sm);
   }

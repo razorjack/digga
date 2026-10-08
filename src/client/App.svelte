@@ -7,6 +7,7 @@
   import {
     GLOBAL_KEYS,
     hasCommandModifier,
+    isSelectAll,
     isTyping,
     triageKeyGroups,
     TWELVES_KEY_GROUPS,
@@ -81,7 +82,13 @@
   });
 
   function onkeydown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || isTyping(event) || hasCommandModifier(event)) return;
+    if (event.defaultPrevented || isTyping(event)) return;
+    // Select All belongs to text fields; elsewhere it would paint the whole page, as in a browser.
+    if (isSelectAll(event)) {
+      event.preventDefault();
+      return;
+    }
+    if (hasCommandModifier(event)) return;
     if (event.key === "?") {
       ui.helpOpen = !ui.helpOpen;
       event.preventDefault();

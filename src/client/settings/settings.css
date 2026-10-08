@@ -62,7 +62,6 @@
 }
 .settings summary {
   width: fit-content;
-  cursor: pointer;
   color: var(--fg);
   text-decoration: underline;
   text-decoration-style: dotted;
@@ -164,5 +163,4 @@
 }
 .settings button:disabled {
   opacity: 0.4;
-  cursor: default;
 }
