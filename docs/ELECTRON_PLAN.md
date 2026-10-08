@@ -175,23 +175,30 @@ throwaway folder.
 
 ## What is left
 
+Before the first release:
+
+- **The owner's checks** on a downloaded copy: the Gatekeeper dialogs and the README's install
+  steps, which are a draft until then, and the Keychain prompt after a second build, declined and
+  allowed (decision 158).
+- **A version and an icon.** `package.json` says `0.0.0`, which names the dmg, and the app and
+  the dmg have Electron's icon.
+- **The ×10 burn-in** of the Electron configuration on a quiet machine ([PLAN](e2e/PLAN.md#electron)).
+
+Later:
+
 - **Other packages:** x64 for Intel Macs (one more target, once a Mac with Rosetta or an Intel
-  Mac can start it), win (nsis), linux (AppImage or deb), each with its better-sqlite3 prebuild,
-  checked to load in the packaged app. Node does not strip types from files under
-  `node_modules`, which matters only if the app moves there.
-- **An icon** for the app and the dmg.
-- **Signing** (decision 158): macOS builds are ad-hoc signed, the better-sqlite3 binary
-  included, with no identity, no notarization and no hardened runtime. Windows: sign the
-  installer only through a free service, if one qualifies. Linux: none.
+  Mac can start it), win (nsis, signed only through a free service, if one qualifies), linux
+  (AppImage or deb), each with its better-sqlite3 prebuild, checked to load in the packaged app,
+  and the E2E suite on each. Node does not strip types from files under `node_modules`, which
+  matters only if the app moves there.
 - **Browser history import:** on macOS the packaged app needs Full Disk Access to read Brave's
-  `History`; show the hint from `HistoryAccessError` in a dialog.
+  `History`; show the hint from `HistoryAccessError` in a dialog (ELEC-12).
 - **The setup's Electron parts** ([FIRST_RUN](FIRST_RUN.md#electron)): load progress on the Dock
   icon, a notification when a load finishes unseen, `powerSaveBlocker` during a download or
   load, asking before quitting during a download, "Use a dump file I have" with a file dialog, and
-  a folder picker when there is too little space.
-- **The Electron E2E scenarios that need packaging or the setup's Electron parts** (ELEC-03,
-  ELEC-07, ELEC-08, ELEC-09 and ELEC-12, [PLAN](e2e/PLAN.md#electron)), the suite on the
-  inspectable release candidate, and on Windows and Linux.
+  a folder picker when there is too little space (ELEC-07, ELEC-08, ELEC-09).
+- **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
+  ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**
 
 ## What would break each rule

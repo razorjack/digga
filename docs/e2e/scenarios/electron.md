@@ -4,9 +4,10 @@ Read this when working on electron only coverage. Follow the [E2E rules](../../E
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
 `tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10,
-ELEC-11 and ELEC-13 on the unpackaged app, tagged `@electron`, through the
-[Electron host](../ELECTRON.md). ELEC-03, ELEC-07, ELEC-08, ELEC-09 and ELEC-12 wait for packaging or
-for the setup's Electron features; [PLAN](../PLAN.md#electron) says what each waits for.
+ELEC-11 and ELEC-13, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
+unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-07, ELEC-08, ELEC-09
+and ELEC-12 wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
+says what each waits for.
 
 ## ELEC-01
 

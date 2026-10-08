@@ -89,8 +89,11 @@ Decisions 105 to 111; the design is `docs/FIRST_RUN.md`.
 Per `docs/ELECTRON_PLAN.md`. Done on 2026-10-06: the main process in `electron/` runs the server
 on a free port in a window, on the same library, unpackaged on macOS (`vp run electron:dev`),
 with the token in `safeStorage`, the menu, and the window kept to the app's pages; better-sqlite3's
-Node-API prebuilds need no rebuild. Left: packaging with electron-builder, signing and
-notarization, the setup's Electron parts, and the Electron E2E host (ELECTRON_PLAN, "What is left").
+Node-API prebuilds need no rebuild. On 2026-10-07 the Electron E2E host ran the suite on it, and on
+2026-10-08 electron-builder packaged it as an ad-hoc signed app for Apple silicon, with fuses, an
+inspectable variant the suite runs on, and a health check of the release build. Left: the owner's
+checks of Gatekeeper and the Keychain, a version and an icon, other platforms and the setup's
+Electron parts (ELECTRON_PLAN, "What is left").
 
 ## Known gaps to keep in mind
 

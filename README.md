@@ -367,8 +367,9 @@ This runs formatting, lint, type checks, tests, the portability checks, and Svel
 frontend uses Svelte 5; the server uses Hono and SQLite. Node runs the server's TypeScript sources
 directly.
 
-Digga runs as a local server and browser app, and unpackaged in an Electron window
-(`npm run electron:dev`, `electron/`). Packaging is planned.
+Digga runs as a local server and browser app, and in an Electron window, from the repository
+(`npm run electron:dev`, `electron/`) or packaged as an ad-hoc signed macOS app
+(`npm run electron:package`).
 
 - [Architecture](docs/ARCHITECTURE.md) and [data model](docs/DATA_MODEL.md)
 - [Discogs and YouTube integration notes](docs/DISCOGS_NOTES.md)

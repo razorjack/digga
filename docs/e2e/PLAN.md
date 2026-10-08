@@ -14,8 +14,8 @@ retired later with sandbox mode (decision 150 in `docs/DECISIONS.md`). On 2026-1
 remaining P2 scenarios completed the last family, and the cross-layer changes of 2026-10-03 got
 their rows ([history](HISTORY.md#the-triage-p2-scenarios-and-the-2026-10-03-changes-web)). The web
 host, the web P0 set and every specified web scenario are implemented. On 2026-10-07 the Electron
-host ran the shared suite on the unpackaged app, with the Electron scenarios it can meet
-([Electron](#electron)). No current spec uses
+host ran the shared suite on the unpackaged app, with the Electron scenarios it can meet, and on
+2026-10-08 on the packaged app's inspectable variant ([Electron](#electron)). No current spec uses
 `test.fail` or `test.fixme`; the two `test.skip` calls, in SETUP-12 and SET-23, skip on Windows or
 as root, where file permissions do not stop Digga. The observations below still need decisions.
 
@@ -99,14 +99,14 @@ ignores `-r`, so the host prepares it through the `DIGGA_E2E_HOLD` hook
 
 Waiting, with what each waits for:
 
-| Work                                                        | Waits for                                                                                                                                                           |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ELEC-03, the token in a real keychain                       | an `executablePath` build from packaging, launched without the mock-keychain switches on a runner with an unlocked keychain                                         |
-| ELEC-07, asking before quitting during a download           | the setup's Electron part that asks first ([FIRST_RUN](../FIRST_RUN.md#electron)); today `before-quit` stops the server without asking                              |
-| ELEC-08, Dock progress, notification and `powerSaveBlocker` | the setup's Electron parts; the preload already records `setProgressBar` and notifications                                                                          |
-| ELEC-09, "Use a dump file I have" with a file dialog        | the setup's file dialog; the preload already stubs `showOpenDialog`. Settings' "From a file" takes a path instead (decision 157)                                    |
-| ELEC-12, the Full Disk Access dialog                        | the packaged app, which needs Full Disk Access to read Brave's history, and the dialog for `HistoryAccessError` ([ELECTRON_PLAN](../ELECTRON_PLAN.md#what-is-left)) |
-| The suite on Windows and Linux                              | their packages; Linux needs `xvfb-run` and a check of `safeStorage` under the basic store                                                                           |
+| Work                                                        | Waits for                                                                                                                                                   |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ELEC-03, the token in a real keychain                       | the inspectable variant (`release/inspectable/`) launched without the mock-keychain switches, on a runner with an unlocked keychain that is not the owner's |
+| ELEC-07, asking before quitting during a download           | the setup's Electron part that asks first ([FIRST_RUN](../FIRST_RUN.md#electron)); today `before-quit` stops the server without asking                      |
+| ELEC-08, Dock progress, notification and `powerSaveBlocker` | the setup's Electron parts; the preload already records `setProgressBar` and notifications                                                                  |
+| ELEC-09, "Use a dump file I have" with a file dialog        | the setup's file dialog; the preload already stubs `showOpenDialog`. Settings' "From a file" takes a path instead (decision 157)                            |
+| ELEC-12, the Full Disk Access dialog                        | the dialog for `HistoryAccessError`; the packaged app needs Full Disk Access to read Brave's history ([ELECTRON_PLAN](../ELECTRON_PLAN.md#what-is-left))    |
+| The suite on Windows and Linux                              | their packages; Linux needs `xvfb-run` and a check of `safeStorage` under the basic store                                                                   |
 
 No `test.fail` stands for these: they are features not built yet, not gaps in built ones.
 Running Electron in CI is not planned.
