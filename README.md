@@ -127,6 +127,29 @@ It builds the frontend and writes `release/Digga-0.0.0-arm64.dmg`, with the app 
 `release/mac-arm64/Digga.app`. The app is ad-hoc signed and not notarized, and it opens the same
 library as `npm run serve`.
 
+#### Install a downloaded app on macOS
+
+> **Draft, to be confirmed on the first release.** These steps follow macOS 15 and later; the
+> dialogs have not been seen with a downloaded copy of this build yet.
+
+Digga is not notarized by Apple, so macOS refuses to open a downloaded copy until you allow it:
+
+1. Open the dmg and drag Digga to Applications.
+2. Open Digga. macOS says it could not verify that Digga is free of malware; choose **Done**.
+3. Open **System Settings > Privacy & Security**. Under Security, beside the message that Digga
+   was blocked, choose **Open Anyway**, then confirm with **Open Anyway** and your password.
+
+Instead of steps 2 and 3, you can remove the download mark in Terminal:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Digga.app
+```
+
+When the app first reads or saves your Discogs token, macOS asks whether Digga may use the
+"Digga Safe Storage" item in your Keychain; choose **Always Allow**. Every new build of the app
+asks again. If you choose **Deny**, Digga cannot read the saved token, and Settings asks for it
+again.
+
 ### 2. Follow the setup
 
 A new library opens the setup, which takes about 20 minutes, most of it waiting:

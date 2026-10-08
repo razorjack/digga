@@ -86,6 +86,14 @@ passes `safeStorage`, as base64 text (decision 152).
   saved as text in `secrets.env`, as the browser version saves it, and Settings says "saved
   unencrypted".
 - The CLI cannot decrypt the encrypted token; its imports then need `DISCOGS_TOKEN`.
+- A saved token that `safeStorage` cannot decrypt counts as none, and Settings asks for it: an
+  ad-hoc signature changes with every build, so macOS asks whether the new build may read the
+  "Digga Safe Storage" Keychain item, and the user may decline. The token is read once per start,
+  so a refusal does not repeat the question for each request, and the library is not touched.
+  The next save replaces the encrypted token, encrypted again when `safeStorage` can encrypt and
+  as text otherwise. `tests/setup-http.test.ts` covers both. What a declined prompt does to
+  `safeStorage.isEncryptionAvailable()` is unverified: the owner checks the prompt across two
+  builds.
 
 ## Native module and TypeScript
 
@@ -148,6 +156,14 @@ variant:
   on the Mac that builds it, so it could not be started there (decision 159).
 - **Size.** The app is about 250 MB, the dmg about 118 MB; Electron's framework is most of it.
   Only the English locale is kept. There is no icon yet; the app has Electron's.
+
+**Gatekeeper.** A downloaded copy carries `com.apple.quarantine`, and Gatekeeper refuses it:
+`spctl --assess --verbose` answers "rejected" for the app (also without the attribute), and
+"rejected, source=no usable signature" for the dmg, which is not signed. `syspolicy_check
+distribution` names the ad-hoc signature and the missing notarization ticket. A user opens it
+through "Open Anyway" in System Settings > Privacy & Security, or removes the attribute with
+`xattr -dr com.apple.quarantine`; the README has the steps, as a draft until the owner has seen
+the dialogs.
 
 Never open a packaged build from Finder or with `open` while testing: with `productName` "Digga"
 it runs on the owner's library. Start it with `--user-data-dir` and every `DIGGA_*` path in a

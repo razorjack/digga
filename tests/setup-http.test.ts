@@ -7,7 +7,7 @@ import { createDataDumpClient } from "../src/server/discogs/data-dumps.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
 import { type Paths, resolvePaths } from "../src/server/paths.ts";
-import { createSecrets } from "../src/server/secrets.ts";
+import { createSecrets, type SecretEncryption } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { readSetup } from "../src/server/setup.ts";
 import type {
@@ -251,5 +251,91 @@ describe("connecting Discogs", () => {
     const { body } = await send<DiscogsProfileResponse>("GET", "/api/discogs/profile");
 
     expect(body).toEqual({ username: "dj", collection: 312, wantlist: 1204, currency: null });
+  });
+});
+
+/**
+ * Stands in for safeStorage under one Keychain key: it decrypts only what it encrypted itself, as
+ * after a new build's Keychain prompt was declined or the "Digga Safe Storage" item was replaced.
+ */
+function keychainEncryption(key: string, available = true) {
+  const calls = { decrypt: 0 };
+  const encryption: SecretEncryption = {
+    isAvailable: () => available,
+    encrypt: (text) => Buffer.from(`${key}:${text}`).toString("base64"),
+    decrypt(stored) {
+      calls.decrypt += 1;
+      const text = Buffer.from(stored, "base64").toString();
+      if (!available || !text.startsWith(`${key}:`))
+        throw new Error(
+          "Error while decrypting the ciphertext provided to safeStorage.decryptString.",
+        );
+      return text.slice(key.length + 1);
+    },
+  };
+  return { encryption, calls };
+}
+
+describe("a saved token this build cannot decrypt", () => {
+  let secretsFile: string;
+
+  /** The app's server on the same library, with the Keychain as a new build finds it. */
+  async function restartWith(encryption: SecretEncryption): Promise<void> {
+    await server.stop();
+    server = createServer({
+      config: DEFAULT_CONFIG,
+      paths,
+      secrets: createSecrets({ envFile: secretsFile, env: {}, encryption }),
+      logger: silentLogger,
+      db,
+      serveStatic: false,
+      persistConfig: false,
+      fetchImpl: fakeFetch,
+    });
+  }
+
+  beforeEach(() => {
+    secretsFile = path.join(tmp, "secrets.env");
+    const earlierBuild = keychainEncryption("earlier-build").encryption;
+    fs.writeFileSync(secretsFile, `DISCOGS_TOKEN_ENCRYPTED=${earlierBuild.encrypt("right")}\n`);
+    importWant(1201, 1999, ["Techstep"]);
+  });
+
+  it("reads as no token once, so Settings asks for one, and saves the new one encrypted", async () => {
+    const keychain = keychainEncryption("new-key");
+    await restartWith(keychain.encryption);
+
+    const first = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
+    const second = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
+    expect(first.status).toBe(200);
+    expect(second.body).toMatchObject({ hasToken: false, tokenSource: null, error: null });
+    expect(keychain.calls.decrypt).toBe(1);
+
+    const saved = await send<DiscogsAccountResponse>("PUT", "/api/discogs/token", {
+      token: "right",
+    });
+    expect(saved.body).toMatchObject({
+      hasToken: true,
+      tokenSource: "saved",
+      tokenEncrypted: true,
+      tokenUsername: "dj",
+    });
+    expect(fs.readFileSync(secretsFile, "utf8")).toBe(
+      `DISCOGS_TOKEN_ENCRYPTED=${keychain.encryption.encrypt("right")}\n`,
+    );
+    expect(db.prepare("SELECT count(*) AS n FROM releases").get()).toEqual({ n: 1 });
+  });
+
+  it("saves the new token as text when the Keychain cannot be used at all", async () => {
+    await restartWith(keychainEncryption("declined", false).encryption);
+
+    const account = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
+    expect(account.body).toMatchObject({ hasToken: false, tokenSource: null });
+
+    const saved = await send<DiscogsAccountResponse>("PUT", "/api/discogs/token", {
+      token: "right",
+    });
+    expect(saved.body).toMatchObject({ tokenSource: "saved", tokenEncrypted: false });
+    expect(fs.readFileSync(secretsFile, "utf8")).toBe("DISCOGS_TOKEN=right\n");
   });
 });
