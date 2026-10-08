@@ -5,7 +5,7 @@ For the test host, preload and release checks, read the [Electron E2E plan](e2e/
 Digga runs in an Electron window on macOS, unpackaged, from this repository: `vp run electron:dev`
 builds the client and starts `electron .`. The main process wraps the server without changing it,
 and the app opens the library the browser version uses. The E2E suite runs on it
-(`vp run e2e:electron`). Packaging, signing and notarization are still to do; see
+(`vp run e2e:electron`). Packaging and ad-hoc signing are still to do; see
 [What is left](#what-is-left).
 
 ## Main process
@@ -126,9 +126,9 @@ start it against the fake services with the guard loaded.
   the workers (`asarUnpack`) is the other option.
 - **Native module per platform.** Check that the prebuild loads in the packaged app on each
   target, and that signing covers it.
-- **macOS:** hardened runtime; sign everything with one identity, the better-sqlite3 binary
-  included; notarize with `notarytool` (electron-builder's `afterSign` hook). Windows: sign the
-  installer to avoid SmartScreen. Linux: none.
+- **Signing** (decision 158): macOS builds are ad-hoc signed, the better-sqlite3 binary
+  included, with no identity, no notarization and no hardened runtime. Windows: sign the
+  installer only through a free service, if one qualifies. Linux: none.
 - **Fuses** for the release build, and an inspectable variant for the E2E suite
   ([Electron E2E plan](e2e/ELECTRON.md#launch-and-release-builds)).
 - **Browser history import:** on macOS the packaged app needs Full Disk Access to read Brave's

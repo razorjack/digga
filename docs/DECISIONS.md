@@ -1042,3 +1042,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      result; a job the main process started would be unknown to the page, which learns of the
      jobs it starts (decision 115). The tab's "From a file" field takes an absolute path, so the
      planned file dialog for dumps is not needed.
+158. **No paid code signing.** On 2026-10-07 the owner decided never to pay for code signing: no
+     Apple Developer ID, no notarization, and on Windows only a free signing service, if one
+     qualifies. macOS builds are ad-hoc signed, which arm64 needs for the app to start at all,
+     and a user opens a downloaded build through Gatekeeper's "Open Anyway" in System Settings >
+     Privacy & Security. The hardened runtime is off: it serves only notarization, and with an
+     ad-hoc signature its library validation can refuse the better-sqlite3 binary. Each ad-hoc
+     build has a new signature, so macOS may ask whether a new build may read the "Digga Safe
+     Storage" Keychain item; a token it cannot decrypt counts as none (decision 152).
