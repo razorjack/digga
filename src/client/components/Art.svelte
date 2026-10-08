@@ -1,16 +1,16 @@
 <script lang="ts" module>
   import crateDark from "../assets/crate-dark.png";
   import crateLight from "../assets/crate-light.png";
-  import logoDark from "../assets/logo-dark.png";
-  import logoLight from "../assets/logo-light.png";
+  import moleDark from "../assets/mole-dark.png";
+  import moleLight from "../assets/mole-light.png";
   import pressDark from "../assets/press-dark.png";
   import pressLight from "../assets/press-light.png";
   import safeDark from "../assets/safe-dark.png";
   import safeLight from "../assets/safe-light.png";
 
-  /** Each drawing twice: light lines for the dark scheme, dark lines for paper (docs/assets). */
+  /** Each drawing twice: one for the dark scheme, one for paper (docs/assets). */
   const ART = {
-    logo: { dark: logoDark, light: logoLight },
+    mole: { dark: moleDark, light: moleLight },
     crate: { dark: crateDark, light: crateLight },
     press: { dark: pressDark, light: pressLight },
     safe: { dark: safeDark, light: safeLight },

@@ -81,8 +81,8 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   small meter, and Settings has its own button at the right end. There is no wordmark: the app
   icon and the stamps carry the name. Chrome (toolbar, sidebars, bars pinned to the bottom) is on
   sleeve, content on the ground.
-- **Drawings:** the line drawings in `docs/assets` (logo, crate, press, safe), each in a dark and
-  a light version, mark the app's empty and waiting states: the logo heads the setup's sidebar,
+- **Drawings:** the drawings in `docs/assets` (the mole, crate, press, safe), each in a dark and a
+  light version, mark the app's empty and waiting states: the mole heads the setup's sidebar,
   the crate an empty Twelves shelf, the press Triage while nothing is loaded yet or the queue has
   caught up with a load, and the safe the Backups tab. They are decorative (`Art.svelte`) and
   never stand in for text.
@@ -114,7 +114,7 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   sections only with a problem, a message or unsaved changes, and saves all of them from any
   tab; a tab with unsaved fields carries a small flyer dot. Esc goes back to the page Settings
   was opened from.
-- **The setup** is a split view too: the logo and the four steps in a sidebar, numbered as
+- **The setup** is a split view too: the mole and the four steps in a sidebar, numbered as
   tracks (A1 and A2 on side A, B1 and B2 on side B), the current one marked like a selected shelf;
   the step fills the pane, with its actions in a bar at the pane's foot (docs/FIRST_RUN.md).
 

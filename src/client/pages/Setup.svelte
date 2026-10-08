@@ -57,7 +57,7 @@
 
 <div class="setup">
   <aside class="sidebar">
-    <Art name="logo" size={88} />
+    <Art name="mole" size={160} />
     <ol class="steps" aria-label="Setup">
       {#each SETUP_STEPS as entry, index (entry.step)}
         <li

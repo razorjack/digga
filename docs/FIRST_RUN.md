@@ -112,7 +112,7 @@ pace either way.
 
 ## The screen
 
-The setup is a split view like Twelves and Settings. A sidebar holds the logo and the four steps,
+The setup is a split view like Twelves and Settings. A sidebar holds the mole and the four steps,
 numbered as the tracks of a record: A1 and A2 on side A, B1 and B2 on side B. The current step is
 marked as a selected shelf is. The step fills the pane beside the sidebar, and its actions and
 alerts stay at the pane's foot while the step scrolls. Below 860 px wide the steps take one row
@@ -125,7 +125,7 @@ Says what Digga is and what setup will do, and starts the one long download.
 ```
                                Setting up
 -------------------------+----------------------------------------------------
-  (logo)                 |  Fetch the catalogue
+  (mole)                 |  Fetch the catalogue
                          |
   SIDE A                 |  Dig every record in your styles, by ear. Digga
   A1 Fetch the catalogue |  plays a few seconds of each track on every record
