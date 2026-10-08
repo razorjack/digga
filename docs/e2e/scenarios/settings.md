@@ -97,8 +97,10 @@ Priority: **P1**.
 Given: `small-account` with a saved token.
 
 Maybe list: the lists load when Settings opens; a failing read shows the hint and "Read my lists",
-which reads them again and fills the select with the private and the public list; choosing one and
-saving enables `M` in Triage; back in Settings the lists load again, the button reads "Reload lists"
+which reads them again and fills the select with the private and the public list; while the
+username field holds a username that is not saved, the button is disabled and described by "Save the
+username first: Digga reads the lists of the saved one.", and the saved username enables it again;
+choosing one and saving enables `M` in Triage; back in Settings the lists load again, the button reads "Reload lists"
 and the select shows the saved list
 
 ## SET-12

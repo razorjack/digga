@@ -151,6 +151,15 @@ test.describe("with a Discogs account", () => {
         `${MAYBE_LIST.name} (private)`,
         PUBLIC_LIST.name,
       ]);
+      // The server reads the saved username's lists, so a typed one waits for Save.
+      const savedUsername = await settings.username.inputValue();
+      await settings.username.fill("someone-else");
+      await expect(settings.listsButton).toBeDisabled();
+      await expect(settings.listsButton).toHaveAccessibleDescription(
+        "Save the username first: Digga reads the lists of the saved one.",
+      );
+      await settings.username.fill(savedUsername);
+      await expect(settings.listsButton).toBeEnabled();
 
       await settings.maybeList.selectOption({ label: `${MAYBE_LIST.name} (private)` });
       await settings.save();

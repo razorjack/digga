@@ -40,6 +40,10 @@
   const tokenSaved = $derived(discogs.account?.tokenSource === "saved");
   const tokenFromEnvironment = $derived(discogs.account?.tokenSource === "environment");
   const importJobs = $derived(recentJobs(jobs.items, TAB_JOBS.discogs));
+  /** The server reads the lists of the saved username, so one typed here has to be saved first. */
+  const usernameUnsaved = $derived(
+    draft.discogs.username === "" || draft.discogs.username !== settings.value?.discogs.username,
+  );
   const maybeListMissing = $derived(
     draft.discogs.maybeListId !== null && !discogs.lists.some((list) => list.id === draft.discogs.maybeListId),
   );
@@ -202,7 +206,8 @@
           <button
             type="button"
             class="secondary"
-            disabled={discogs.listsState === "loading" || draft.discogs.username === ""}
+            disabled={discogs.listsState === "loading" || usernameUnsaved}
+            aria-describedby={usernameUnsaved ? `${id}-lists-username-hint` : undefined}
             onclick={() => void discogs.loadLists()}
           >
             {#if discogs.listsState === "loading"}Reading lists…{:else if discogs.lists.length > 0}Reload lists{:else}Read my lists{/if}
@@ -215,6 +220,9 @@
             Where M files maybes. Discogs lets no app add to a list, so Twelves shows what to add.
           {/if}
         </span>
+        {#if usernameUnsaved}
+          <span class="hint" id="{id}-lists-username-hint">Save the username first: Digga reads the lists of the saved one.</span>
+        {/if}
       </div>
     </div>
   </section>
