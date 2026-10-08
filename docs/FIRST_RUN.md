@@ -333,9 +333,9 @@ Shows the load, and lets the user start digging as soon as there is enough to di
 
   Just pulled   UDFRLP04   Stakka And Skynet - Clockwork   2001
 
-  [ Start digging  T ]
-
   Keys while you dig:  Space listen   R skip   A want   C grail   N next   Z undo   ? all
+
+  [ Start digging  T ]
 ```
 
 - Two `<progress>` rows with text beside them: the download (received of total bytes) and the

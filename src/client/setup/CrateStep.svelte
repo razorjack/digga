@@ -202,26 +202,6 @@
     </p>
   {/if}
 
-  <div class="outcome">
-    <!-- In the page before its text, so screen readers announce it. -->
-    <p class="problem" role="alert">{flow.error ?? ""}</p>
-    {#if !flow.nothingMatches}
-      <div class="actions">
-        <Action primary keys="T" shortcuts="T Enter" onclick={startDigging} disabled={!flow.canDig}>
-          Start digging
-        </Action>
-        {#if !flow.canDig && !stopped}
-          <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
-        {/if}
-        {#if flow.loadRunning}
-          <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
-            Change your picks
-          </button>
-        {/if}
-      </div>
-    {/if}
-  </div>
-
   {#if !flow.nothingMatches}
     {#if flow.account?.tokenUsername}
       <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
@@ -261,6 +241,26 @@
   {:else}
     <p class="quiet">Closing this page does not stop the load while Digga's server runs.</p>
   {/if}
+
+  <div class="outcome">
+    <!-- In the page before its text, so screen readers announce it. -->
+    <p class="problem" role="alert">{flow.error ?? ""}</p>
+    {#if !flow.nothingMatches}
+      <div class="actions">
+        <Action primary keys="T" shortcuts="T Enter" onclick={startDigging} disabled={!flow.canDig}>
+          Start digging
+        </Action>
+        {#if !flow.canDig && !stopped}
+          <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
+        {/if}
+        {#if flow.loadRunning}
+          <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
+            Change your picks
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </section>
 
 <style>
