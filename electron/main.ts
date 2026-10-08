@@ -13,7 +13,7 @@ import {
 import { resolvePaths } from "../src/server/paths.ts";
 import { createSecrets, type SecretEncryption } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
-import { createDesktop } from "./desktop.ts";
+import { type AppDesktop, createDesktop } from "./desktop.ts";
 import { menuTemplate } from "./menu.ts";
 import { chromeUserAgent } from "./user-agent.ts";
 import { openWindow, secureSession } from "./window.ts";
@@ -65,7 +65,8 @@ async function startDigga(): Promise<void> {
     desktop,
     ...environment.services,
   });
-  stopServerBeforeQuit(server, logger);
+  const quit = stopServerBeforeQuit(server, desktop, logger);
+  quitOnWindowClose(quit);
 
   const { browserUrl } = await server.start(0, "127.0.0.1");
   logger.info(`library: ${paths.dataDir}, dumps: ${paths.dumpsDir}`);
@@ -112,19 +113,58 @@ function safeStorageEncryption(): SecretEncryption {
   };
 }
 
-/** Quitting waits for the server to stop, so running jobs end cancelled and the database closes. */
-function stopServerBeforeQuit(server: DiggaServer, logger: Logger): void {
-  let stopped = false;
+/** Where a quit is: none asked for, asking whether to quit, stopping the server, or stopped. */
+type QuitState = "open" | "asking" | "stopping" | "stopped";
+
+/**
+ * Quitting waits for the server to stop, so running jobs end cancelled and the database closes.
+ * During a download or load it asks first, since what quitting stops starts over; Cancel keeps
+ * them running. A quit asked for while the question is open, or the server stops, waits for it.
+ */
+function stopServerBeforeQuit(
+  server: DiggaServer,
+  desktop: AppDesktop,
+  logger: Logger,
+): { stopped(): boolean } {
+  let state: QuitState = "open";
   app.on("before-quit", (event) => {
-    if (stopped) return;
+    if (state === "stopped") return;
     event.preventDefault();
-    void server
+    if (state === "open") void quitWhenConfirmed();
+  });
+
+  async function quitWhenConfirmed(): Promise<void> {
+    state = "asking";
+    const confirmed = await desktop.confirmQuit().catch((error: unknown) => {
+      logger.warn("could not ask before quitting; quitting", error);
+      return true;
+    });
+    if (!confirmed) {
+      state = "open";
+      return;
+    }
+    state = "stopping";
+    await server
       .stop()
-      .catch((error: unknown) => logger.error("the server did not stop cleanly", error))
-      .finally(() => {
-        stopped = true;
-        app.quit();
-      });
+      .catch((error: unknown) => logger.error("the server did not stop cleanly", error));
+    state = "stopped";
+    app.quit();
+  }
+
+  return { stopped: () => state === "stopped" };
+}
+
+/**
+ * Closing the window quits the app (decision 156) through the same question, so a Cancel keeps
+ * the window as well as the download.
+ */
+function quitOnWindowClose(quit: { stopped(): boolean }): void {
+  app.on("browser-window-created", (_event, window) => {
+    window.on("close", (event) => {
+      if (quit.stopped()) return;
+      event.preventDefault();
+      app.quit();
+    });
   });
 }
 

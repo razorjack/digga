@@ -94,9 +94,10 @@ loads it while the app waits for it ([The packaged app](#the-packaged-app)). In 
    `import { Worker }` binding gets the subclass. A file worker inherits a guard loaded with
    `NODE_OPTIONS=--import` but not one a `-r` preload loaded;
 3. replaces `shell.openExternal` with a recorder, and `dialog.showMessageBox` and
-   `dialog.showOpenDialog` with stubs: the app's own message box answers with its first button
-   and is also printed to stderr (a startup error quits, after which nothing can read the
-   record), and an open dialog answers as cancelled. A page's `alert()` or `confirm()` also
+   `dialog.showOpenDialog` with stubs: the app's own message box answers with the button the test
+   named through `answerMessageBox(label)`, else with its first, and is also printed to stderr
+   with its answer (a startup error or a question before a quit is followed by the app's exit,
+   after which nothing can read the record), and an open dialog answers as cancelled. A page's `alert()` or `confirm()` also
    reaches `showMessageBox`, with an abort signal; the stub leaves it unanswered, and the test
    answers it through Playwright's `dialog` event, as in the web host;
 4. records `BrowserWindow.setProgressBar()` calls and passes them on, and records notifications
@@ -186,8 +187,10 @@ What differs from `-r`:
   need a main-process API the product does not plan.
 - `openPage()` throws: the app opens one window, and a second would need a product feature.
 - `expectExternalOpen()` reads the URL the stub of `shell.openExternal` recorded after the action.
-  An external open outside the helper, or a message box of the app's, fails the test like an
-  undeclared problem.
+  An external open outside the helper, or a message box of the app's outside `expectMessageBox()`,
+  fails the test like an undeclared problem.
+- `expectMessageBox(action, answer)` has the preload answer the app's next message box with the
+  button labelled `answer`, runs the action and returns the box once it is recorded (ELEC-07).
 - `expectDownload()` waits until the download the action started reaches `done`, and fails unless
   it completed; the file is in `<test folder>/downloads`.
 - `paste()`, `abortRequests()`, `apiRequests()`, `expectProblems()` and `cli()` work as in the web
@@ -229,7 +232,9 @@ on Electron (decision 151), so the test takes the name from the `host` fixture.
 
 The host blanks the page first, as the web host closes its context first, so none of the page's
 requests meets a stopped server. It then calls `app.quit()` through `evaluate()`, which runs
-`before-quit` and waits for `server.stop()`. A server that has not logged "stopped" within 15 s is
+`before-quit` and waits for `server.stop()`. During a download or load the app asks first; the
+preload answers with the first button, Quit, and prints the question to stderr, and the host has
+read the launch's problems before it quits, so the question is no problem (ELEC-07 reads it). A server that has not logged "stopped" within 15 s is
 a bug: the host kills the app and fails the test. An app whose server has stopped but whose process
 is still running 10 s later is killed, and the host prints "digga-e2e: killed the Electron app …".
 At loads up to about 30 no app needed it: the server stopped a median 90 ms after `app.quit()` and

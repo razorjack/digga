@@ -3,10 +3,10 @@
 Read this when working on electron only coverage. Follow the [E2E rules](../../E2E_TESTING.md#rules-for-agents-writing-e2e-tests)
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
-`tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10,
-ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
-unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-07, ELEC-08, ELEC-09
-and ELEC-12 wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
+`tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-07,
+ELEC-10, ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
+unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-08, ELEC-09 and
+ELEC-12 wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
 says what each waits for.
 
 ## ELEC-01
@@ -67,8 +67,13 @@ Back up now there says "Backup saved."; Settings… in the application menu open
 
 Priority: **P1**.
 
-Quitting during the download asks first (stubbed `dialog.showMessageBox`); cancel keeps it running;
-confirm waits for `server.stop()`, and the job ends cancelled
+Quitting during the download asks first (stubbed `dialog.showMessageBox`): "Quit while Digga
+downloads the catalogue?", where the download stopped at the fake's checkpoint and that Discogs does
+not resume it, with Quit and Cancel. Cancel keeps the download running, and the setup goes on to
+start the load. Quitting then, as the host's relaunch does, asks "Quit while Digga downloads and
+loads the catalogue?", answered Quit: the server cancels both jobs and stops, the relaunched app
+lists them cancelled, and the crate says "The catalogue stopped loading." with "Pick up". With no
+job running, quitting asks nothing
 
 ## ELEC-08
 

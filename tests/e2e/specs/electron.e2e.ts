@@ -5,12 +5,14 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SettingsTab } from "../../../src/client/settings/tabs.ts";
+import type { JobsResponse } from "../../../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../../../src/shared/config.ts";
 import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
 import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { DJ, FIRST_RECORD, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
 import { SettingsPage } from "../pages/settings.ts";
+import { SetupPage } from "../pages/setup.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import { ElectronApp } from "../support/hosts/electron.ts";
@@ -237,6 +239,61 @@ test.describe("with an account to import", () => {
   );
 });
 
+test.describe("on a new library", () => {
+  test.use({ diggaOptions: { template: "empty", listedDump: "bulk" } });
+
+  test(
+    "ELEC-07 quitting during the download and the load asks first; Cancel keeps them, Quit stops them",
+    { tag: ["@ELEC-07", "@P1", "@electron"] },
+    async ({ electron, fakes }) => {
+      const setup = new SetupPage(electron);
+      const point = fakes.dumps.checkpoint("100-to-dig");
+      fakes.dumps.holdAt(point.name);
+      await electron.open();
+      await setup.fetchCatalogue();
+      await expect.poll(() => downloadedBytes(electron)).toBe(point.offset);
+
+      const asked = await electron.expectMessageBox(() => requestQuit(electron), "Cancel");
+
+      expect(asked).toEqual({
+        type: "warning",
+        message: "Quit while Digga downloads the catalogue?",
+        detail: expect.stringMatching(
+          /^The download stops at [\d.]+ KB of [\d.]+ KB\. Discogs does not resume downloads, so the next one starts from the beginning\.$/,
+        ),
+        buttons: ["Quit", "Cancel"],
+        answer: "Cancel",
+      });
+      expect(await jobStatuses(electron)).toEqual([["dump_download", "running"]]);
+      await setup.skipDiscogs();
+      await setup.pickStyle("Drum n Bass");
+      await setup.fillCrate();
+      await setup.waitForRecordsToDig(point.recordsToDig);
+
+      // The host quits as Cmd+Q does; the preload answers the question with its first button, Quit.
+      await electron.relaunch();
+      const quitting = electron.servers[0]!;
+      expect(quitting.stderr).toMatch(
+        /message box: \{"type":"warning","message":"Quit while Digga downloads and loads the catalogue\?","detail":"The download stops at .*\. The load stops at \d+%\. The releases it has kept stay, and the next load reads the catalogue from the start\.","buttons":\["Quit","Cancel"\],"answer":"Quit"\}/,
+      );
+      expect(quitting.stdout).toContain("stopping: cancelled 2 running job(s)");
+      expect(await jobStatuses(electron)).toEqual([
+        ["dump_load", "cancelled"],
+        ["dump_download", "cancelled"],
+      ]);
+      await electron.open("#/setup");
+      await expect(
+        setup.root.getByText("The catalogue stopped loading.", { exact: true }),
+      ).toBeVisible();
+      await expect(setup.button("Pick up")).toBeVisible();
+
+      // With nothing running, quitting asks nothing.
+      await electron.relaunch();
+      expect(electron.servers[1]!.stderr).not.toContain("message box");
+    },
+  );
+});
+
 for (const scheme of ["light", "dark"] as const)
   test.describe(`with the ${scheme} scheme saved`, () => {
     const atHold = { themeSource: "" };
@@ -400,6 +457,24 @@ socket.on("connect", () => {
 });
 socket.on("error", (error) => parentPort.postMessage("refused: " + error.message));
 `;
+
+/** Quits as Cmd+Q does: before-quit runs, and the app may ask first. */
+async function requestQuit(electron: ElectronApp): Promise<void> {
+  await electron.electronApp.evaluate(({ app }) => app.quit());
+}
+
+/** The bytes the download job has reported, which stop at a checkpoint the fake holds. */
+async function downloadedBytes(electron: ElectronApp): Promise<number | null> {
+  const { jobs } = await electron.api.get<JobsResponse>("/api/jobs");
+  const download = jobs.find((job) => job.type === "dump_download");
+  return download?.type === "dump_download" ? (download.progress?.receivedBytes ?? null) : null;
+}
+
+/** Each job's type and status, newest first. */
+async function jobStatuses(electron: ElectronApp): Promise<[string, string][]> {
+  const { jobs } = await electron.api.get<JobsResponse>("/api/jobs");
+  return jobs.map((job) => [job.type, job.status]);
+}
 
 /** Clicks an item of the app's menu bar as a user would, through the main process. */
 async function clickMenuItem(electron: ElectronApp, menu: string, item: string): Promise<void> {

@@ -45,7 +45,12 @@ the library lock is held, the dialog says another Digga is using the library and
 
 Quitting waits for `server.stop()` in `before-quit`: running jobs end cancelled, the daily backup
 being written finishes, the database closes and the lock is released, and then the app quits.
-Closing the window quits, on macOS too. SIGTERM goes the same way, since Chromium handles it as a
+During a download or load it asks first (decision 166): "Quit while Digga downloads and loads
+the catalogue?", where the download stands and that Discogs does not resume it, how far the load
+has read and that the releases it kept stay (`quitQuestion()` in `electron/dump-jobs.ts`). Cancel
+keeps them running; Quit, the default, stops the server. A second quit while the question is open
+or the server stops waits for it. Closing the window quits, on macOS too, through the same
+question, so Cancel keeps the window. SIGTERM goes the same way, since Chromium handles it as a
 quit.
 
 ## Desktop
@@ -205,8 +210,8 @@ Later:
   `History`; show the hint from `HistoryAccessError` in a dialog (ELEC-12).
 - **The setup's Electron parts** ([FIRST_RUN](FIRST_RUN.md#electron)): load progress on the Dock
   icon, a notification when a load finishes unseen, `powerSaveBlocker` during a download or
-  load, asking before quitting during a download, "Use a dump file I have" with a file dialog, and
-  a folder picker when there is too little space (ELEC-07, ELEC-08, ELEC-09).
+  load, "Use a dump file I have" with a file dialog, and a folder picker when there is too little
+  space (ELEC-08, ELEC-09).
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**

@@ -366,15 +366,15 @@ above it reads "A want goes on your Discogs wantlist when you press A. Z takes i
 
 ## Failure and resume
 
-| Situation                         | The user sees                                                                                                               | Digga does                                                                                                  |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| data.discogs.com unreachable      | The reason and "Try again"                                                                                                  | Nothing has started                                                                                         |
-| Not enough space                  | Needed, free, and the folder                                                                                                | "Fetch" stays disabled; "Check again" rechecks                                                              |
-| The download stops                | "The download stopped at 4.1 GB of 10.5 GB: reason. Discogs does not allow resuming, so it starts again." and "Start again" | The load reading it stops too. The releases loaded so far stay, and can be dug                              |
-| The checksum does not match       | "The download does not match Discogs' checksum"                                                                             | Downloads once more by itself, then asks                                                                    |
-| Digga closed during download/load | "The catalogue stopped loading when Digga closed" and "Pick up"                                                             | The jobs are marked interrupted, as today. The download starts over; the load reads the dump from the start |
-| The picks match nothing           | "Nothing in the catalogue matches these picks" and "Change your picks"                                                      | Back to step 3                                                                                              |
-| An import fails (token, Discogs)  | The error on the import's line, with "Try again"                                                                            | The load does not wait for a failed import                                                                  |
+| Situation                         | The user sees                                                                                                               | Digga does                                                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| data.discogs.com unreachable      | The reason and "Try again"                                                                                                  | Nothing has started                                                                                                        |
+| Not enough space                  | Needed, free, and the folder                                                                                                | "Fetch" stays disabled; "Check again" rechecks                                                                             |
+| The download stops                | "The download stopped at 4.1 GB of 10.5 GB: reason. Discogs does not allow resuming, so it starts again." and "Start again" | The load reading it stops too. The releases loaded so far stay, and can be dug                                             |
+| The checksum does not match       | "The download does not match Discogs' checksum"                                                                             | Downloads once more by itself, then asks                                                                                   |
+| Digga closed during download/load | "The catalogue stopped loading when Digga closed" and "Pick up"; after a quit, "The catalogue stopped loading."             | A crash leaves the jobs interrupted; a quit cancels them. The download starts over; the load reads the dump from the start |
+| The picks match nothing           | "Nothing in the catalogue matches these picks" and "Change your picks"                                                      | Back to step 3                                                                                                             |
+| An import fails (token, Discogs)  | The error on the import's line, with "Try again"                                                                            | The load does not wait for a failed import                                                                                 |
 
 Verdicts made during an interrupted load stay: their keys are Discogs ids, and reloading upserts
 the same releases. A finished load takes over the rows of unfinished ones (`dump_loads`).
@@ -487,7 +487,10 @@ The flow is the same web page. The shell adds:
 - A system notification when the load finishes and the window is not focused.
 - `powerSaveBlocker.start("prevent-app-suspension")` while a download or load runs, so a
   sleeping laptop does not break the download.
-- Quitting during the download or load asks first, since the download starts over.
+- Quitting during the download or load asks first, since the download starts over (built on
+  2026-10-08, decision 166): the question says where the download stands, that Discogs does not
+  resume it, how far the load has read and that the releases it kept stay. Cancel keeps both
+  running. Closing the window asks the same.
 - "Use a dump file I have" in step 1, with a file dialog.
 - The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 

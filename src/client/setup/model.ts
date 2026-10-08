@@ -249,11 +249,14 @@ export function stoppedDownloadMessage(download: Job | null): string | null {
   );
 }
 
-/** What the crate says of a load that stopped: one Digga's closing interrupted, or its reason. */
+/**
+ * What the crate says of a load that stopped: one Digga's closing interrupted, or its reason. A
+ * cancelled load, such as one Digga's quit stopped, has none, whatever error the job recorded.
+ */
 export function stoppedLoadMessage(load: Job | null): string {
   if (load?.error === INTERRUPTED_JOB_ERROR)
     return "The catalogue stopped loading when Digga closed.";
-  if (!load?.error) return "The catalogue stopped loading.";
+  if (!load?.error || load.status === "cancelled") return "The catalogue stopped loading.";
   return `The catalogue stopped loading: ${load.error.replace(/\.$/, "")}.`;
 }
 

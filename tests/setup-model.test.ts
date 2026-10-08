@@ -285,5 +285,9 @@ describe("a load that stopped", () => {
       "The catalogue stopped loading: unexpected end of file.",
     );
     expect(stoppedLoadMessage(load("cancelled", null))).toBe("The catalogue stopped loading.");
+    // A load in a worker that a stopping server cancels records the worker's "Cancelled".
+    expect(stoppedLoadMessage(load("cancelled", "Cancelled"))).toBe(
+      "The catalogue stopped loading.",
+    );
   });
 });

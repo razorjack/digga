@@ -61,10 +61,19 @@ const EXIT_TIMEOUT_MS = 10_000;
 /** How often the host reads digga.log while it waits for a line; the app writes it synchronously. */
 const LOG_POLL_MS = 50;
 
+/** One of the app's own message boxes, and the button the preload answered it with. */
+export interface MessageBox {
+  type?: string;
+  message: string;
+  detail?: string;
+  buttons?: string[];
+  answer?: string;
+}
+
 /** What the preload records in the main process (tests/e2e/support/electron-preload.cjs). */
 export interface MainProcessRecord {
   externalOpens: string[];
-  messageBoxes: { type?: string; message: string; detail?: string; buttons?: string[] }[];
+  messageBoxes: MessageBox[];
   openDialogs: unknown[];
   progressBars: { progress: number; mode?: string }[];
   notifications: { title: string; body: string }[];
@@ -73,6 +82,7 @@ export interface MainProcessRecord {
 
 interface PreloadApi {
   recorded: MainProcessRecord;
+  answerMessageBox(label: string): void;
   start(): void;
   heldUrl: Promise<string>;
   release(url?: string): void;
@@ -115,6 +125,8 @@ interface Launch {
   heldUrl: string;
   /** Indices of the external opens a test expected through expectExternalOpen(). */
   expectedOpens: Set<number>;
+  /** Indices of the message boxes a test expected through expectMessageBox(). */
+  expectedBoxes: Set<number>;
   tracing: boolean;
 }
 
@@ -272,6 +284,29 @@ export class ElectronApp implements DiggaHost {
     return opened!;
   }
 
+  /**
+   * The app's own message box that the action makes it show, answered with the button labelled
+   * `answer`. The preload answers it at once; a box the test expects this way is no problem.
+   */
+  async expectMessageBox(action: () => Promise<void>, answer: string): Promise<MessageBox> {
+    const launch = this.#current;
+    const index = (await this.recorded()).messageBoxes.length;
+    await launch.electronApp.evaluate(
+      (_electron, label) => globalThis.diggaE2e!.answerMessageBox(label),
+      answer,
+    );
+    await action();
+    let box: MessageBox | undefined;
+    await expect
+      .poll(async () => {
+        box = (await this.recorded()).messageBoxes[index];
+        return box;
+      }, "the app's message box")
+      .toBeDefined();
+    launch.expectedBoxes.add(index);
+    return box!;
+  }
+
   /** The preload saves each download in the test's folder; this waits for its `done` state. */
   async expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }> {
     const index = (await this.recorded()).downloads.length;
@@ -371,6 +406,7 @@ export class ElectronApp implements DiggaHost {
         api,
         heldUrl,
         expectedOpens: new Set(),
+        expectedBoxes: new Set(),
         tracing: true,
       };
     } catch (error) {
@@ -473,7 +509,9 @@ export class ElectronApp implements DiggaHost {
     const opens = recorded.externalOpens.filter((_url, index) => !launch.expectedOpens.has(index));
     return [
       ...opens.map((url) => `the app opened ${url} outside expectExternalOpen()`),
-      ...recorded.messageBoxes.map((box) => `the app showed a message box: ${box.message}`),
+      ...recorded.messageBoxes
+        .filter((_box, index) => !launch.expectedBoxes.has(index))
+        .map((box) => `the app showed a message box: ${box.message}`),
     ];
   }
 

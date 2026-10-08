@@ -7,8 +7,8 @@
  * 1. exits unless userData and every DIGGA_* path lie inside the test's temp folder, so no run
  *    can write to the owner's library or Chromium profile;
  * 2. installs the Node socket guard, in this process and in every worker it starts;
- * 3. replaces the native dialogs and shell.openExternal with recorders, records the progress bar
- *    and notifications, and saves downloads in the test's folder;
+ * 3. replaces the native dialogs and shell.openExternal with recorders that answer as the test
+ *    asks, records the progress bar and notifications, and saves downloads in the test's folder;
  * 4. holds the app's start until the host calls globalThis.diggaE2e.start(), so the host prepares
  *    the browser context before the window exists: Playwright cannot install routes on a context
  *    whose window waits for its first navigation;
@@ -40,6 +40,9 @@ const recorded = {
   downloads: [],
 };
 
+/** The buttons the app's next message boxes are answered with, by label; the first button else. */
+const messageBoxAnswers = [];
+
 installGuard();
 stubShell();
 stubDialogs();
@@ -50,6 +53,8 @@ const navigation = holdFirstNavigation();
 
 globalThis.diggaE2e = {
   recorded,
+  /** Answers the app's next message box with the button labelled so. */
+  answerMessageBox: (label) => messageBoxAnswers.push(label),
   start,
   /** Resolves with the URL the window's first loadURL() asked for, once it has. */
   heldUrl: navigation.held,
@@ -121,9 +126,10 @@ function stubShell() {
 }
 
 /**
- * No native dialog opens. The app's own message boxes answer with their first button and an open
- * dialog as cancelled. A page's alert() or confirm() also reaches showMessageBox, with an abort
- * signal: it stays unanswered here, and the test answers it through Playwright's `dialog` event.
+ * No native dialog opens. The app's own message boxes answer with the button the test named
+ * through answerMessageBox(), else with their first, and an open dialog as cancelled. A page's
+ * alert() or confirm() also reaches showMessageBox, with an abort signal: it stays unanswered
+ * here, and the test answers it through Playwright's `dialog` event.
  */
 function stubDialogs() {
   dialog.showMessageBox = async (...args) => {
@@ -131,9 +137,11 @@ function stubDialogs() {
     if (options.signal instanceof AbortSignal) return pageDialogAnswer(options.signal);
     const box = messageBoxOptions(options);
     recorded.messageBoxes.push(box);
-    // A startup error's dialog is followed by a quit, after which nothing can read the record.
+    // A dialog before a quit, such as a startup error's, is printed: the record goes with the app.
     process.stderr.write(`digga-e2e preload: message box: ${JSON.stringify(box)}\n`);
-    return { response: 0, checkboxChecked: false };
+    const response = box.buttons?.indexOf(box.answer) ?? 0;
+    if (response < 0) throw new Error(`the message box has no button "${box.answer}"`);
+    return { response, checkboxChecked: false };
   };
   dialog.showOpenDialog = async (...args) => {
     recorded.openDialogs.push(args.at(-1));
@@ -149,7 +157,8 @@ function pageDialogAnswer(signal) {
 }
 
 function messageBoxOptions({ type, message, detail, buttons }) {
-  return { type, message, detail, buttons };
+  const answer = messageBoxAnswers.shift() ?? buttons?.[0];
+  return { type, message, detail, buttons, answer };
 }
 
 /** The progress bar is set as asked; a notification is recorded and never shown. */

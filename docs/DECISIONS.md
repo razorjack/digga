@@ -1125,3 +1125,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      review, and the main process would still have to learn the jobs from the page. With the
      interface the renderer stays the browser client, `src/client/api.ts` stays its one
      transport, and nothing in `src/` imports Electron.
+166. **Quitting during a download or load asks first, and closing the window asks the same.**
+     Discogs does not let a download resume, so a quit 9 GB into the catalogue costs the whole
+     download again, and a quit during the load means reading the dump from the start. During
+     either, `before-quit` asks "Quit while Digga downloads and loads the catalogue?" and says what
+     stops and what is lost: where the download stands, how far the load has read, and that the
+     releases it kept stay. Quit is the default button, since the user asked to quit; Cancel keeps
+     the jobs and the app running. Closing the window becomes a quit, so it asks the same and a
+     Cancel keeps the window: an app left without one would hold the library with nothing to
+     show (decision 156). With nothing of that running, quitting asks nothing. The question
+     comes from the jobs the server reports to the desktop (decision 165), so it does not depend
+     on the page. A quit during an import, a backup or a seller read does not ask: those end
+     cancelled, as before, and are quick to run again. The crate gives no reason for a cancelled
+     load, so after such a quit it says "The catalogue stopped loading." instead of the worker's
+     "Cancelled".

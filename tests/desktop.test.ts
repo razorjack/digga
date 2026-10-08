@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { runningDumpJobs } from "../electron/dump-jobs.ts";
+import { type DumpJob, quitQuestion, runningDumpJobs } from "../electron/dump-jobs.ts";
 import { openDb, type Db } from "../src/server/db/db.ts";
 import type { Desktop } from "../src/server/desktop.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
@@ -10,7 +10,12 @@ import { createLogger } from "../src/server/logger.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type { DumpDownloadProgress, DumpLoadProgress, Job } from "../src/shared/types.ts";
+import type {
+  DumpDownloadProgress,
+  DumpLoadProgress,
+  DumpUpdateProgress,
+  Job,
+} from "../src/shared/types.ts";
 import { silentLogger, testSecrets } from "./helpers.ts";
 
 /** What the server reported to the desktop: each job change as type, status and progress. */
@@ -117,11 +122,11 @@ describe("a job listener", () => {
 describe("the downloads and loads the app follows", () => {
   it("are the dump jobs running now, in the order they started", () => {
     const running = runningDumpJobs();
-    const download = dumpJob("download", "dump_download", "running");
-    const load = dumpJob("load", "dump_load", "running");
+    const download = downloadJob(null);
+    const load = loadJob(null);
 
     running.update(download);
-    running.update(importJob("running"));
+    running.update(importJob());
     running.update(load);
     expect(running.list()).toEqual([download, load]);
 
@@ -132,6 +137,53 @@ describe("the downloads and loads the app follows", () => {
   });
 });
 
+describe("quitting", () => {
+  const resume = "Discogs does not resume downloads, so the next one starts from the beginning.";
+  const keep =
+    "The releases it has kept stay, and the next load reads the catalogue from the start.";
+
+  it("asks nothing while no download or load runs", () => {
+    expect(quitQuestion([])).toBeNull();
+  });
+
+  it("says where a download stops, and that the next one starts from the beginning", () => {
+    expect(quitQuestion([downloadJob(downloading(4.1 * 1024 ** 3, 10.5 * 1024 ** 3))])).toEqual({
+      message: "Quit while Digga downloads the catalogue?",
+      detail: `The download stops at 4.1 GB of 10.5 GB. ${resume}`,
+    });
+    expect(quitQuestion([downloadJob(null)])?.detail).toBe(`The download stops. ${resume}`);
+  });
+
+  it("says how far a load has read, and that what it kept stays", () => {
+    expect(quitQuestion([loadJob(reading(272, 1000))])).toEqual({
+      message: "Quit while Digga loads the catalogue?",
+      detail: `The load stops at 27%. ${keep}`,
+    });
+    expect(quitQuestion([loadJob(reading(null, null))])?.detail).toBe(`The load stops. ${keep}`);
+  });
+
+  it("names both when the setup's load reads the download as it arrives", () => {
+    const jobs = [downloadJob(downloading(2048, 4096)), loadJob(reading(250, 1000))];
+
+    expect(quitQuestion(jobs)).toEqual({
+      message: "Quit while Digga downloads and loads the catalogue?",
+      detail: `The download stops at 2 KB of 4 KB. ${resume} The load stops at 25%. ${keep}`,
+    });
+  });
+
+  it("asks about the part of a monthly update that runs", () => {
+    const loadStep = updateJob({ step: "load", ...reading(500, 1000) });
+
+    expect(quitQuestion([updateJob(null)])?.message).toBe(
+      "Quit while Digga downloads the catalogue?",
+    );
+    expect(quitQuestion([loadStep])).toEqual({
+      message: "Quit while Digga loads the catalogue?",
+      detail: `The load stops at 50%. ${keep}`,
+    });
+  });
+});
+
 /** A job that runs until it is cancelled, as a download does when the server stops. */
 function untilAborted(signal: AbortSignal): Promise<never> {
   const stopped = Promise.withResolvers<never>();
@@ -139,29 +191,54 @@ function untilAborted(signal: AbortSignal): Promise<never> {
   return stopped.promise;
 }
 
-function dumpJob(id: string, type: "dump_download" | "dump_load", status: Job["status"]): Job {
-  const record = {
-    id,
-    status,
-    error: null,
-    createdAt: "2026-10-08T10:00:00.000Z",
-    startedAt: "2026-10-08T10:00:00.000Z",
-    finishedAt: null,
-  };
-  if (type === "dump_download")
-    return { ...record, type, progress: null as DumpDownloadProgress | null };
-  return { ...record, type, progress: null as DumpLoadProgress | null };
+const RUNNING = {
+  status: "running",
+  error: null,
+  createdAt: "2026-10-08T10:00:00.000Z",
+  startedAt: "2026-10-08T10:00:00.000Z",
+  finishedAt: null,
+} as const;
+
+function downloadJob(progress: DumpDownloadProgress | null): DumpJob {
+  return { ...RUNNING, id: "download", type: "dump_download", progress };
 }
 
-function importJob(status: Job["status"]): Job {
+function loadJob(progress: DumpLoadProgress | null): DumpJob {
+  return { ...RUNNING, id: "load", type: "dump_load", progress };
+}
+
+function updateJob(progress: DumpUpdateProgress | null): DumpJob {
+  return { ...RUNNING, id: "update", type: "dump_update", progress };
+}
+
+function importJob(): Job {
+  return { ...RUNNING, id: "import", type: "import_wantlist", progress: null };
+}
+
+function downloading(receivedBytes: number, totalBytes: number | null): DumpDownloadProgress {
   return {
-    id: "import",
-    type: "import_wantlist",
-    status,
-    error: null,
-    createdAt: "2026-10-08T10:00:00.000Z",
-    startedAt: "2026-10-08T10:00:00.000Z",
-    finishedAt: null,
-    progress: null,
+    phase: "downloading",
+    file: "discogs_20260901_releases.xml.gz",
+    receivedBytes,
+    totalBytes,
+    alreadyDownloaded: false,
+    checksumMismatches: 0,
+  };
+}
+
+function reading(bytesRead: number | null, totalBytes: number | null): DumpLoadProgress {
+  return {
+    phase: "scanning",
+    scanned: 0,
+    matched: 0,
+    coverage: 0,
+    upserted: 0,
+    elapsedSeconds: 0,
+    added: null,
+    missing: null,
+    bytesRead,
+    totalBytes,
+    latest: null,
+    keptByYear: {},
   };
 }
