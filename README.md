@@ -27,7 +27,7 @@ through, at a position you choose, and the next track and the next release are p
 listen. Mark a
 record as a want, skip it, flag a grail, or leave it for later. Undo walks back through your session.
 
-![Triage: The Code by Absolute Zero + Subphonics on Renegade Hardware playing, its tracklist and other videos beside the player, the last verdict on the slip, and the verdict keys along the bottom](docs/assets/screenshots/triage.webp)
+![Triage in the Digga window on macOS, digging the label Moving Shadow: the compilation Trans-Central Connection II playing Neil Trix's Zero Transfer, its tracklist with the track heard before marked, the last verdict on the slip, the next record buffered, and the verdict keys along the bottom](docs/assets/screenshots/triage.webp)
 
 | Key       | Action                                                  |
 | --------- | ------------------------------------------------------- |
@@ -55,7 +55,7 @@ and collection. Filter and sort the shelves, add notes, change a verdict, or ret
 records for another listen. The Tracks shelf lists every track you marked grail or keep, with a
 note of its own.
 
-![Twelves: the shelves, then records with their stamps: a grail with its note and price, a snoozed record, and records from the Discogs wantlist and collection](docs/assets/screenshots/twelves.webp)
+![Twelves sorted by artist: the shelves with their counts in a sidebar, and records with their stamps: wants with their prices, maybes, records from the Discogs wantlist, and three Rascal & Klone twelves from the collection](docs/assets/screenshots/twelves.webp)
 
 With your Discogs account configured, `A` and `C` add a record to your Discogs
 wantlist, with the tracks you marked and your note as the want's note. A grail stays a grail in
@@ -71,16 +71,17 @@ back. Sweep label by label in catalogue order,
 browse by country or year, or use a daily shuffle. Set where playback starts and how far
 the seek keys jump.
 
-![Settings on its Digging tab: years, formats, countries, format details, hidden labels and what to skip, beside the list of tabs](docs/assets/screenshots/settings.webp)
+![Settings on its Digging tab: years, formats, countries, format details, hidden labels, what to skip and how many records the filters match, beside the list of tabs](docs/assets/screenshots/settings.webp)
 
 Imports of your collection and wantlist can keep records you already know out of the queue. The session counter shows how many you have judged, how many remain, and an estimated
 time to finish once you have a listening pace.
 
 ## What stays local
 
-Digga runs on your computer and opens in a browser. The catalogue and saved listening decisions
-live in a local SQLite database. Playback uses YouTube, and account imports, fresh release data,
-and wantlist updates use Discogs, so those features need an internet connection.
+Digga runs on your computer, in a window of its own on macOS or in a browser. The catalogue and
+saved listening decisions live in a local SQLite database. Playback uses YouTube, and account
+imports, fresh release data, and wantlist updates use Discogs, so those features need an internet
+connection.
 
 Verdicts, notes, track marks, and listens are saved from the first one. `Z` undoes the last
 verdict, and takes a want back off your Discogs wantlist; Twelves lets you judge a record again.
@@ -168,9 +169,9 @@ A new library opens the setup, which takes about 20 minutes, most of it waiting:
    styles and years. It takes 15 to 20 minutes, but records arrive from the first seconds:
    "Start digging" lights up once 500 wait, and the header shows the load while you dig.
 
-![The setup's Pick your sound step: a style suggested from the Discogs wantlist, a style search, the years over a histogram of their releases, and an estimate of the library's size](docs/assets/screenshots/setup-sound.webp)
+![The setup's Pick your sound step beside its four steps: Drum n Bass picked from the Discogs collection and wantlist, a style search, and the years over a histogram of their releases](docs/assets/screenshots/setup-sound.webp)
 
-![The setup's Fill the crate step: the download and the read, the releases kept so far and the records to dig, the years filling in, and Start digging](docs/assets/screenshots/setup-crate.webp)
+![The setup's Fill the crate step: the read, the releases kept so far and the records to dig, the years filling in, the record just pulled, and Start digging while the load runs](docs/assets/screenshots/setup-crate.webp)
 
 Start digging digs for real, so your verdicts are kept from the first one.
 
