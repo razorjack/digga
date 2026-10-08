@@ -217,7 +217,11 @@ variant, and then the release build's health check, `scripts/electron-health-che
 - **Architecture.** arm64 only. An x64 build costs one more target, but Rosetta is not installed
   on the Mac that builds it, so it could not be started there (decision 159).
 - **Size.** The app is about 250 MB, the dmg about 118 MB; Electron's framework is most of it.
-  Only the English locale is kept. There is no icon yet; the app has Electron's.
+  Only the English locale is kept.
+- **Icon.** `build/icon.icns`, the logo's cube on a flyer-yellow squircle with the app's grain,
+  which `node scripts/make-icon.ts` draws from `docs/assets/digga-logo-light.png` (macOS only:
+  Playwright's Chromium, `sips` and `iconutil`). An unpackaged run sets `build/icon.png` as its
+  Dock icon, since it is Electron's app otherwise. `build/` is not packaged.
 
 **Gatekeeper.** A downloaded copy carries `com.apple.quarantine`, and Gatekeeper refuses it:
 `spctl --assess --verbose` answers "rejected" for the app (also without the attribute), and
@@ -238,8 +242,7 @@ Before the first release:
 - **The owner's checks** on a downloaded copy: the Gatekeeper dialogs and the README's install
   steps, which are a draft until then, and the Keychain prompt after a second build, declined and
   allowed (decision 158).
-- **A version and an icon.** `package.json` says `0.0.0`, which names the dmg, and the app and
-  the dmg have Electron's icon.
+- **A version.** `package.json` says `0.0.0`, which names the dmg.
 - **The ×10 burn-in** of the Electron configuration on a quiet machine ([PLAN](e2e/PLAN.md#electron)).
 
 Later:

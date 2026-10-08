@@ -79,6 +79,7 @@ function appConfig(variant: Variant): Configuration {
     // library validation can refuse an ad-hoc signed native module.
     mac: {
       target: variant.target,
+      icon: path.join(ROOT, "build", "icon.icns"),
       category: "public.app-category.music",
       identity: "-",
       hardenedRuntime: false,

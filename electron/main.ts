@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, nativeTheme, safeStorage, session } from "electron";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { readLaunchEnvironment, testHostHoldRequested } from "../src/cli/environment.ts";
 import { loadConfig } from "../src/server/config-file.ts";
 import { LibraryInUseError } from "../src/server/library-lock.ts";
@@ -47,6 +48,7 @@ waitForTestHost()
   });
 
 async function startDigga(): Promise<void> {
+  showDockIcon();
   const environment = readLaunchEnvironment();
   const logger = createLogger({ level: environment.logLevel, sink: logSink() });
   const paths = resolvePaths(environment.paths);
@@ -84,6 +86,12 @@ async function startDigga(): Promise<void> {
     logger,
     stateFile: path.join(app.getPath("userData"), "window-state.json"),
   });
+}
+
+/** A packaged app has its icon in its bundle; an unpackaged run is Electron's, with Electron's icon. */
+function showDockIcon(): void {
+  if (app.isPackaged) return;
+  app.dock?.setIcon(fileURLToPath(new URL("../build/icon.png", import.meta.url)));
 }
 
 /**

@@ -108,7 +108,9 @@ docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP
                        FIRST_RUN (the setup's design) STYLE_CENSUS (what it is, how to refresh the shipped one)
                        E2E_TESTING (commands, rules and task routes), e2e/ (task-specific references and scenarios)
 scripts/               check-portability.ts, package-electron.ts (electron-builder, see docs/ELECTRON_PLAN.md),
-                       electron-health-check.ts (the fused build starts, answers /api/health and stops)
+                       electron-health-check.ts (the fused build starts, answers /api/health and stops),
+                       make-icon.ts (draws build/icon.icns and build/icon.png from the logo)
+build/                 the app icon: icon.icns for the package, icon.png for an unpackaged run's Dock
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
                        the decisions backup format (decisions-backup), the style census format (style-census).
