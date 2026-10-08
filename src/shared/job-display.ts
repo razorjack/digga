@@ -2,6 +2,7 @@ import { formatBytes, formatCount, formatCounted, formatEta } from "./display.ts
 import type {
   DumpDownloadProgress,
   DumpLoadProgress,
+  ImportProgress,
   Job,
   JobType,
   SellerImportProgress,
@@ -56,15 +57,20 @@ function progressOf(job: Job): ProgressSummary {
         : loadProgress(job.progress);
     case "import_seller":
       return sellerProgress(job.progress);
-    default: {
-      const { page, pages, processed } = job.progress;
-      const total = pages ? ` of ${pages}` : "";
-      return {
-        text: `page ${page}${total}, ${formatCounted(processed, "item")}`,
-        fraction: pages ? page / pages : null,
-      };
-    }
+    default:
+      return importProgress(job.progress);
   }
+}
+
+/** Pages and items read, and the items a complete import no longer found on the account. */
+function importProgress(progress: ImportProgress): ProgressSummary {
+  const { page, pages, processed, removed } = progress;
+  const total = pages ? ` of ${pages}` : "";
+  const gone = removed > 0 ? `, ${formatCount(removed)} gone from Discogs` : "";
+  return {
+    text: `page ${page}${total}, ${formatCounted(processed, "item")}${gone}`,
+    fraction: pages ? page / pages : null,
+  };
 }
 
 /**

@@ -38,6 +38,17 @@ describe("job contracts", () => {
         removed: 0,
       });
       expect(jobProgress(getJob(db, one.id)!).text).toBe("page 1 of 1, 1 item");
+      updateJobProgress(db, one.id, {
+        page: 1,
+        pages: 1,
+        processed: 1,
+        stubs: 0,
+        added: 0,
+        removed: 1,
+      });
+      expect(jobProgress(getJob(db, one.id)!).text).toBe(
+        "page 1 of 1, 1 item, 1 gone from Discogs",
+      );
     } finally {
       db.close();
     }

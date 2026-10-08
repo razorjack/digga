@@ -282,6 +282,7 @@ test.describe("with a Discogs account", () => {
       );
       await settings.waitForJob(job, "done");
       expect((await app.api.get<Job>(`/api/jobs/${job}`)).progress).toMatchObject({ removed: 1 });
+      await expect(settings.job(job)).toContainText(", 1 gone from Discogs");
 
       // The hunt has ended: the want is on no shelf and not offered for the wantlist again.
       await twelves.open();

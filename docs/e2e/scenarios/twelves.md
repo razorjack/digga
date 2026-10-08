@@ -198,8 +198,8 @@ Priority: **P2**.
 Given: `small-account` with a saved token, and a want of the release `dj`'s wantlist holds.
 
 An import that misses an item ends it (decision 137). The release is taken off the fake's wantlist,
-as on discogs.com; Settings' Wantlist import ends done, and its job counts one item removed
-(`/api/jobs/:id`). Twelves then shows the record on none of Everything, Want and Discogs wantlist,
+as on discogs.com; Settings' Wantlist import ends done, its job counts one item removed
+(`/api/jobs/:id`), and its row ends "1 gone from Discogs", as `digga import wantlist` says it. Twelves then shows the record on none of Everything, Want and Discogs wantlist,
 so nothing offers to push it again; the export keeps the want, and the record stays out of the
 queue. `tests/importers.test.ts` and `tests/twelves.test.ts` cover the marking and the shelf rules;
 this row checks them together, from the job Settings starts to the shelves the server's
