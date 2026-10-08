@@ -113,7 +113,7 @@
       ui.replay = null;
       if (request.playback) player.restorePlayback(request.playback);
       session.startRound(request.items);
-      player.show(session.currentDetail, session.nextDetail);
+      player.show(session.currentDetail, session.nextDetail, session.videosChange);
     });
   });
 
@@ -185,7 +185,8 @@
   $effect(() => {
     const detail = session.currentDetail;
     const next = session.nextDetail;
-    untrack(() => player.show(detail, next));
+    const change = session.videosChange;
+    untrack(() => player.show(detail, next, change));
   });
 
   $effect(() => {

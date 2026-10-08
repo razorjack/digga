@@ -4,7 +4,7 @@ import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
 import { formatCount, formatPrice, formatWait } from "../../../src/shared/display.ts";
 import { PUSH_RETRY_DELAYS_MS } from "../../../src/shared/wantlist.ts";
 import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
-import { DJ, FIRST_RECORD } from "../fixtures/catalogue.ts";
+import { DJ, FIRST_RECORD, ONLY_VIDEO_REFUSED } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
@@ -106,7 +106,7 @@ test.describe("with a Discogs account", () => {
 });
 
 test(
-  "TRI-23 P asks Discogs for the market, busy until the answer, then shows it as checked just now, and plays a video Discogs has since the dump",
+  "TRI-23 P asks Discogs for the market, busy until the answer, then shows it as checked just now, and lists a video Discogs has since the dump",
   { tag: ["@TRI-23", "@P1"] },
   async ({ app, fakes }) => {
     const triage = new TriagePage(app);
@@ -141,12 +141,40 @@ test(
       }),
     ]);
 
-    // The player plays a video the open release gains, as it does a pasted one; P is the gesture.
-    await expect(triage.currentTrack).toHaveAttribute("data-position", lowTide!);
-    await expect(triage.playerStatus("playing")).toBeVisible();
-    expect(await app.youtube.audible()).toBe(FIRST_RECORD.laterVideos[0]!.id);
+    // The found video joins the tracklist; the player still waits for Space on the first track.
+    await expect(triage.track(lowTide!)).toContainText("has a video");
+    await expect(triage.currentTrack).toHaveAttribute("data-position", pressureDrop!);
+    await expect(triage.playerStatus("needs_gesture")).toBeVisible();
+    expect(await app.youtube.audible()).toBeNull();
+    await triage.startListening();
+    expect(await app.youtube.audible()).toBe(FIRST_RECORD.videos[0]!.id);
   },
 );
+
+test.describe("digging Echo Chamber", () => {
+  test.use({ diggaOptions: { labels: [ONLY_VIDEO_REFUSED.label.name] } });
+
+  test(
+    "TRI-23 P on a record with nothing playable plays the video Discogs has since the dump",
+    { tag: ["@TRI-23", "@P1"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const [track] = ONLY_VIDEO_REFUSED.tracks;
+      await app.open();
+      await triage.pass();
+      await triage.pass();
+      await expect(triage.record).toHaveAttribute("data-release-id", String(ONLY_VIDEO_REFUSED.id));
+      await expect(triage.playerStatus("no_audio")).toBeVisible();
+
+      await triage.askMarket();
+
+      // P is the gesture, so the video plays with sound.
+      await expect(triage.currentTrack).toHaveAttribute("data-position", track!.position);
+      await expect(triage.playerStatus("playing")).toBeVisible();
+      expect(await app.youtube.audible()).toBe(ONLY_VIDEO_REFUSED.laterVideos[0]!.id);
+    },
+  );
+});
 
 test(
   "TRI-24 P for a release Discogs no longer has says so, and the line and the tracklist stay as they were",

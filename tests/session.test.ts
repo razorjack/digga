@@ -830,9 +830,13 @@ describe("pricing with P", () => {
   it("shows the fresh videos of the record on screen and keeps its track marks", async () => {
     const { session } = await withTracks();
     session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
+    // A pasted link plays at once; the player adds what P found without moving to it.
+    await session.attachVideo("https://youtu.be/relicstatic");
+    expect(session.videosChange).toBe("attached");
     await session.price();
     expect(session.currentDetail?.videos.map((video) => video.videoId)).toEqual(["fresh-1"]);
     expect(session.currentDetail?.tracks[0]?.mark).not.toBeNull();
+    expect(session.videosChange).toBe("found");
     session.destroy();
   });
 

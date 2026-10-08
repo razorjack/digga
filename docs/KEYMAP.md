@@ -33,7 +33,9 @@ or Alt. Holding a key down never repeats a verdict.
 
 `P` asks Discogs once for the record on screen and shows the answer with its age ("checked 3
 days ago"); pressing it again refreshes it. Digga asks for nothing ahead, so the records you skip
-cost Discogs no requests.
+cost Discogs no requests. Videos Discogs has since the dump join the tracklist, and the player
+goes on as it was, playing or waiting for Space; only on a record with nothing playable does the
+first of them play at once, as a pasted link does.
 
 ## Triage: verdicts (one per release, undoable)
 

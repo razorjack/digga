@@ -126,7 +126,7 @@ prices can be added when a scenario needs to compare them.
 
 A release's `laterVideos` stand for videos added on Discogs after the dumps: the fake's
 `GET /releases/:id`, which `P` asks, lists them after the dump's, and no dump has them. The first
-record has one, for its track C (TRI-23).
+record has one, for its track C, and `ONLY_VIDEO_REFUSED` a playable one for its track A (TRI-23).
 
 `YOUTUBE_ONLY` supplies videos that no release lists: one matches the first record's unlinked
 track, one matches no track, and one matches the release without videos. Video IDs have

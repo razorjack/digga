@@ -203,11 +203,13 @@ Priority: **P1**.
 
 `P`: "asking Discogs…" with `aria-busy`, then price, for sale, want and have, the rating,
 "checked just now"; the fake got `GET /releases/{id}?curr_abbr=EUR`. Its answer also lists the
-video Discogs has for the first record's track C since the dump (`laterVideos`), and the open
-record takes it: the player, on track A and waiting for Space, moves to C and plays that video, as
-it plays a pasted one, with `P` as the gesture. `tests/session.test.ts` covers which parts of the
-loaded record the answer replaces; this row checks that its videos reach the tracklist and the
-player
+video Discogs has for the first record's track C since the dump (`laterVideos`): C's row reads "has
+a video", while the player stays on track A, waiting for Space, with nothing audible; Space then
+plays A. A second test digs Echo Chamber to `ONLY_VIDEO_REFUSED`, whose only video YouTube
+refuses, so the player reads "no audio"; `P` brings its later video, which plays at once with `P`
+as the gesture, and track A is current. `tests/session.test.ts` covers which parts of the loaded
+record the answer replaces, and `tests/triage-player.test.ts` when a new video plays; this row
+checks that the videos reach the tracklist and the player
 
 ## TRI-24
 

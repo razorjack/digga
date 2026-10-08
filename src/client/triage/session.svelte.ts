@@ -14,6 +14,7 @@ import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
 import { type Api, ApiRequestError, api as appApi, isConflict } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
+import type { VideosChange } from "../player/triage-player.svelte.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
 type VerdictEntry = {
@@ -94,6 +95,8 @@ export class TriageSession {
   passed = $state.raw<QueueItem[]>([]);
   history = $state.raw<HistoryEntry[]>([]);
   details = $state.raw<Map<number, ReleaseDetail>>(new Map());
+  /** Why a release's videos last changed, which decides whether the player plays what is new. */
+  videosChange = $state<VideosChange>("found");
   detailErrors = $state.raw<Map<number, string>>(new Map());
   status = $state<"loading" | "ready" | "error">("loading");
   error = $state<string | null>(null);
@@ -668,6 +671,7 @@ export class TriageSession {
     try {
       const detail = await this.#api.attachVideo(item.id, url);
       if (this.#destroyed) return;
+      this.videosChange = "attached";
       this.details = new Map(this.details).set(item.id, detail);
       this.#flash("Attached to this release; it plays here from now on.");
     } catch (error) {
@@ -998,6 +1002,7 @@ export class TriageSession {
     const loaded = this.details.get(id);
     if (!loaded) return;
     const detail = { ...loaded, release: enriched.release, videos: enriched.videos };
+    this.videosChange = "found";
     this.details = new Map(this.details).set(id, detail);
   }
 

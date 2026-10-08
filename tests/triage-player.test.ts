@@ -97,7 +97,7 @@ async function setup() {
   const http = { postListenLog: vi.fn(async () => ({})) } as unknown as Api;
   const player = new TriagePlayer(http, { startAtFraction: () => 0.5 });
   players.push(player);
-  player.show(detail(1), detail(2));
+  player.show(detail(1), detail(2), "found");
   await player.mount([{}, {}, {}] as Parameters<TriagePlayer["mount"]>[0]);
   return player;
 }
@@ -107,7 +107,7 @@ describe("player deck ownership", () => {
     const player = await setup();
     const [first, second] = fake.decks;
     expect(second!.load).toHaveBeenCalledWith(...deckLoad("video-2", "preload"));
-    player.show(detail(2), detail(3));
+    player.show(detail(2), detail(3), "found");
     expect(player.active).toBe(1);
     expect(player.entry?.video.videoId).toBe("video-2");
     expect(second!.load).toHaveBeenCalledTimes(1);
@@ -118,14 +118,14 @@ describe("player deck ownership", () => {
   it("keeps a promoted preload silent while the page is suspended", async () => {
     const player = await setup();
     player.suspend(true);
-    player.show(detail(2), null);
+    player.show(detail(2), null, "found");
     expect(player.status).toBe("paused");
     expect(fake.decks[1]!.play).not.toHaveBeenCalled();
   });
 
   it("ignores late errors for an earlier video and state from a parked release", async () => {
     const player = await setup();
-    player.show(detail(2), detail(3));
+    player.show(detail(2), detail(3), "found");
     const active = fake.decks[1]!;
     active.emitState(PlayerState.PLAYING);
     active.emitError("old-video");
@@ -133,7 +133,7 @@ describe("player deck ownership", () => {
     expect(player.status).toBe("playing");
     expect(player.entry?.video.videoId).toBe("video-2");
     expect(player.failed.has("old-video")).toBe(true);
-    player.show(null, null);
+    player.show(null, null, "found");
     active.emitState(PlayerState.PLAYING);
     expect(player.status).toBe("idle");
   });
@@ -154,23 +154,43 @@ describe("player deck ownership", () => {
     const active = fake.decks[0]!;
     const attached = detail(1);
     attached.videos.push({ ...attached.videos[0]!, videoId: "pasted" });
-    player.show(attached, detail(2));
+    player.show(attached, detail(2), "attached");
     expect(active.load).toHaveBeenLastCalledWith(...deckLoad("pasted", "play"));
     expect(player.entry?.video.videoId).toBe("pasted");
 
     const silent = { ...detail(3), videos: [] };
-    player.show(silent, null);
+    player.show(silent, null, "found");
     expect(player.status).toBe("no_audio");
-    player.show({ ...silent, videos: [{ ...detail(3).videos[0]!, videoId: "found" }] }, null);
+    player.show(
+      { ...silent, videos: [{ ...detail(3).videos[0]!, videoId: "found" }] },
+      null,
+      "found",
+    );
     expect(player.entry?.video.videoId).toBe("found");
     expect(player.status).toBe("loading");
+  });
+
+  it("adds a video P found to the tracklist of a release that plays, and goes on as it was", async () => {
+    const player = await setup();
+    const active = fake.decks[0]!;
+    const loads = active.load.mock.calls.length;
+    const status = player.status;
+    const found = detail(1);
+    found.videos.push({ ...found.videos[0]!, videoId: "found" });
+
+    player.show(found, detail(2), "found");
+
+    expect(player.entries.map((entry) => entry.video.videoId)).toContain("found");
+    expect(player.entry?.video.videoId).toBe("video-1");
+    expect(player.status).toBe(status);
+    expect(active.load).toHaveBeenCalledTimes(loads);
   });
 });
 
 describe("the track deck", () => {
   it("buffers the next track and swaps it in on J", async () => {
     const player = await setup();
-    player.show(withVideos(5, ["a", "b", "c"]), detail(6));
+    player.show(withVideos(5, ["a", "b", "c"]), detail(6), "found");
     const [first, second, third] = fake.decks;
     expect(first!.load).toHaveBeenLastCalledWith(...deckLoad("a", "play"));
     expect(third!.load).toHaveBeenLastCalledWith(...deckLoad("b", "preload"));
@@ -187,7 +207,7 @@ describe("the track deck", () => {
 
   it("buffers the track after one that fails to embed", async () => {
     const player = await setup();
-    player.show(withVideos(5, ["a", "b", "c"]), null);
+    player.show(withVideos(5, ["a", "b", "c"]), null, "found");
     fake.decks[2]!.emitError("b");
     expect(player.failed.has("b")).toBe(true);
     expect(fake.decks[2]!.load).toHaveBeenLastCalledWith(...deckLoad("c", "preload"));
@@ -198,9 +218,9 @@ describe("the track deck", () => {
 
   it("keeps the three decks apart when a verdict follows J", async () => {
     const player = await setup();
-    player.show(withVideos(5, ["a", "b"]), withVideos(6, ["x", "y"]));
+    player.show(withVideos(5, ["a", "b"]), withVideos(6, ["x", "y"]), "found");
     player.nextTrack();
-    player.show(withVideos(6, ["x", "y"]), detail(7));
+    player.show(withVideos(6, ["x", "y"]), detail(7), "found");
     expect(player.entry?.video.videoId).toBe("x");
     const holding = (videoId: string) => fake.decks.findIndex((deck) => deck.videoId === videoId);
     // Playing, next track and next release each sit on a deck of their own.

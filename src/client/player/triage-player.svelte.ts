@@ -17,6 +17,9 @@ import { Deck, type DeckListener } from "./deck.ts";
 import type { PlayerStatus } from "./status.ts";
 import { embedErrorReason, loadYouTubeApi, PlayerState } from "./youtube.ts";
 
+/** Why the open release's videos changed: a link pasted on it, or videos `P` found on Discogs. */
+export type VideosChange = "attached" | "found";
+
 /** A play turns the tune heard after this many seconds; a shorter one is logged as not heard. */
 const LOG_AFTER_SECONDS = 4;
 /** The log keeps seconds to a tenth; a play that rounds to nothing is not logged. */
@@ -84,9 +87,10 @@ export class TriagePlayer {
   #releaseDeck = 1;
   /** The hidden deck that buffers the track J moves to on the open release. */
   #trackDeck = 2;
-  #wanted: { detail: ReleaseDetail | null; next: ReleaseDetail | null } = {
+  #wanted: { detail: ReleaseDetail | null; next: ReleaseDetail | null; change: VideosChange } = {
     detail: null,
     next: null,
+    change: "found",
   };
   /** Release the decks were last pointed at; undefined before the first one. */
   #openedId: number | null | undefined = undefined;
@@ -154,9 +158,12 @@ export class TriagePlayer {
     this.#decks = [];
   }
 
-  /** The release under judgement and the one after it. Safe to call on every change. */
-  show(detail: ReleaseDetail | null, next: ReleaseDetail | null): void {
-    this.#wanted = { detail, next };
+  /**
+   * The release under judgement, the one after it, and why the open release's videos last
+   * changed. Safe to call on every change.
+   */
+  show(detail: ReleaseDetail | null, next: ReleaseDetail | null, change: VideosChange): void {
+    this.#wanted = { detail, next, change };
     this.#sync();
   }
 
@@ -336,27 +343,32 @@ export class TriagePlayer {
 
   #sync(): void {
     if (this.#decks.length === 0) return;
-    const { detail, next } = this.#wanted;
+    const { detail, next, change } = this.#wanted;
     if ((detail?.release.id ?? null) !== this.#openedId) this.#openRelease(detail);
     else if (detail && this.release && videosChanged(this.release, detail))
-      this.#refreshRelease(detail);
+      this.#refreshRelease(detail, change);
     this.#preload(next);
     this.#restorePlayback();
   }
 
-  /** The open release gained a video (a pasted link): play it, keeping what was heard. */
-  #refreshRelease(detail: ReleaseDetail): void {
+  /**
+   * The open release gained videos, keeping what was heard. A pasted link plays at once, as does a
+   * video P found for a record that had nothing playable; otherwise P's videos join the tracklist
+   * and the player goes on as it was, playing or waiting for Space.
+   */
+  #refreshRelease(detail: ReleaseDetail, change: VideosChange): void {
     const heardBefore = new Map(
       this.entries.map((entry) => [entry.video.videoId, entry.heardBefore]),
     );
     const playing = this.entry?.video.videoId ?? null;
+    const playsAdded = change === "attached" || this.status === "no_audio";
     this.release = detail;
     this.entries = buildPlaylist(detail, this.heardKeys).map((entry) => ({
       ...entry,
       heardBefore: heardBefore.get(entry.video.videoId) ?? entry.heardBefore,
     }));
     const added = this.entries.findIndex((entry) => !heardBefore.has(entry.video.videoId));
-    if (added !== -1) {
+    if (added !== -1 && playsAdded) {
       this.playEntry(added);
       return;
     }

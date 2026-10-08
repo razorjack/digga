@@ -230,7 +230,7 @@ export const WITHOUT_VIDEOS = release({
   videos: [],
 });
 
-/** Its only video YouTube refuses. */
+/** Its only video YouTube refuses; Discogs has a playable one since the dump (TRI-23). */
 export const ONLY_VIDEO_REFUSED = release({
   id: 1503,
   artists: ["Mirage"],
@@ -241,6 +241,7 @@ export const ONLY_VIDEO_REFUSED = release({
   styles: DNB,
   tracks: [track("A", "Second Sight", "6:36")],
   videos: [video("e150mirage1", "Mirage - Second Sight", 396)],
+  laterVideos: [video("miragesight", "Mirage - Second Sight", 396)],
 });
 
 /** Several videos, each refused, for one reason or another (TRI-28). */
