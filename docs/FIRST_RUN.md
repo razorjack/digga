@@ -146,8 +146,12 @@ digga                                                          1 2 3 4
   `alreadyDownloaded` path does the rest.
 - Not enough space: the button is disabled, and the text says what is needed, where and how much
   is free. "Check again" rechecks. In the browser version the text also says how to put the
-  catalogue on another disk: `DIGGA_DUMPS_DIR` in `.env`, then start Digga again. Electron gets a
-  folder picker instead.
+  catalogue on another disk: `DIGGA_DUMPS_DIR` in `.env`, then start Digga again. The desktop app
+  says "Free some space, or choose a folder on another disk." and offers "Choose a folder…", a
+  folder dialog (built on 2026-10-08, decision 169). The chosen folder is the dumps folder from
+  then on, also for the CLI and after a restart, and step 1 reads its free space again. While
+  `DIGGA_DUMPS_DIR` names the folder the app says what the browser says, since the variable wins;
+  while a download or load runs the server refuses.
 - data.discogs.com unreachable: the reason and "Try again (Enter)".
 - In the desktop app, "Use a dump file I have" opens a file dialog for a releases dump the user
   has, anywhere, under any name ending in `.xml.gz` (built on 2026-10-08, decision 168). It is
@@ -505,6 +509,7 @@ The flow is the same web page. The shell adds:
   resume it, how far the load has read and that the releases it kept stay. Cancel keeps both
   running. Closing the window asks the same.
 - "Use a dump file I have" in step 1, with a file dialog (built on 2026-10-08, see step 1).
+- A folder picker for the dumps when the disk is short of space (built on 2026-10-08, see step 1).
 - The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 
 ## Build order

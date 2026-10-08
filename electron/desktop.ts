@@ -22,7 +22,7 @@ import {
  * The server's desktop (src/server/desktop.ts, decisions 165 and 168): the main process follows
  * the jobs the server reports, so it shows the download and the load on the Dock, keeps the Mac
  * awake while they run, says when a load ends unseen, and knows what quitting would stop, without
- * asking the page; and it shows the file dialog the setup asks for.
+ * asking the page; and it shows the file and folder dialogs the setup asks for.
  */
 export interface AppDesktop extends Desktop {
   /** The downloads and loads running now, in the order they started. */
@@ -41,6 +41,12 @@ const DUMP_FILE_DIALOG: OpenDialogOptions = {
   properties: ["openFile"],
   // macOS filters on the last part of an extension, .gz, so the server checks for .xml.gz.
   filters: [{ name: "Discogs releases dump", extensions: ["xml.gz"] }],
+};
+
+const DUMPS_FOLDER_DIALOG: OpenDialogOptions = {
+  title: "Choose a folder for the catalogue",
+  buttonLabel: "Choose",
+  properties: ["openDirectory", "createDirectory"],
 };
 
 export function createDesktop(logger: Logger): AppDesktop {
@@ -69,6 +75,8 @@ export function createDesktop(logger: Logger): AppDesktop {
       return answer === QUIT;
     },
     chooseDumpFile: () => showOpenDialog(DUMP_FILE_DIALOG),
+    chooseDumpsFolder: (current) =>
+      showOpenDialog({ ...DUMPS_FOLDER_DIALOG, defaultPath: current }),
   };
 }
 

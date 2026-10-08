@@ -12,6 +12,8 @@ export interface Desktop {
   jobChanged(job: Job): void;
   /** Asks for a releases dump the user has, with the system's file dialog; null when cancelled. */
   chooseDumpFile(): Promise<string | null>;
+  /** Asks for a folder for the dumps, starting at the current one; null when cancelled. */
+  chooseDumpsFolder(current: string): Promise<string | null>;
 }
 
 /** The job runner's listener for the desktop, when there is one. */

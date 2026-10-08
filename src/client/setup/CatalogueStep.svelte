@@ -19,6 +19,10 @@
       catalogue.freeBytes < catalogue.neededBytes,
   );
   const canFetch = $derived(newest !== null && !shortOfSpace && !flow.busy);
+  /** The desktop app offers another folder, unless DIGGA_DUMPS_DIR names this one. */
+  const canChooseFolder = $derived(
+    shortOfSpace && flow.setup?.desktop === true && catalogue?.dumpsDirSource !== "environment",
+  );
   /** The desktop app offers a dump the user has, unless the download has begun. */
   const canChooseFile = $derived(
     flow.setup?.desktop === true && picked === null && flow.download?.status !== "running",
@@ -94,8 +98,13 @@
     <p class="problem" role="alert">
       {#if shortOfSpace && catalogue}
         The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} free, counting 1 GB to spare, and the disk with
-        <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(catalogue.freeBytes ?? 0)}. Free some space, or
-        put the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in <code>.env</code> and start Digga again.
+        <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(catalogue.freeBytes ?? 0)}.
+        {#if canChooseFolder}
+          Free some space, or choose a folder on another disk.
+        {:else}
+          Free some space, or put the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in <code>.env</code> and
+          start Digga again.
+        {/if}
       {/if}
     </p>
     <p class="problem" role="alert">{flow.error ?? ""}</p>
@@ -117,6 +126,9 @@
         <Action onclick={() => void flow.open()} disabled={flow.busy}>
           {shortOfSpace ? "Check again" : "Try again"}
         </Action>
+      {/if}
+      {#if canChooseFolder}
+        <Action onclick={() => void flow.chooseDumpsFolder()} disabled={flow.busy}>Choose a folder…</Action>
       {/if}
       {#if canChooseFile}
         <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}>Use a dump file I have</Action>

@@ -4,7 +4,7 @@ Read this when working on electron only coverage. Follow the [E2E rules](../../E
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
 `tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-07,
-ELEC-08, ELEC-09, ELEC-10, ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
+ELEC-08, ELEC-09, ELEC-10, ELEC-11, ELEC-13, ELEC-14 and ELEC-15, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
 unpackaged app and on the packaged app's inspectable variant. ELEC-03 and ELEC-12 wait
 for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
 says what each waits for.
@@ -144,3 +144,18 @@ for it, the app is asked to quit while its window's first navigation is held, an
 then goes to the app's page, which the stopping server refuses. Once the navigation has failed the
 import's page is released; the server logs that it cancelled the job and "stopped", the app
 exits with 0, and no message box was shown
+
+## ELEC-15
+
+Priority: **P2**.
+
+A disk short of space offers another dumps folder, which the app keeps. Without
+`DIGGA_DUMPS_DIR` (`diggaOptions.dumpsDirFromApp`) and with a listing larger than any disk, step 1
+names `dumps` in the library's data folder and says "Free some space, or choose a folder on
+another disk.", without `DIGGA_DUMPS_DIR`. "Choose a folder…" with no answer cancels the folder
+dialog and the folder stays; answered with a folder in the test's folder, the message names it,
+Fetch stays disabled, the dialogs recorded are "Choose a folder for the catalogue" for a folder
+that may be created, and `dumps-folder.json` in the library holds it. With the listing at the
+dump's own size, a relaunch logs the chosen folder as its dumps folder, step 1 names it, and
+Fetch downloads the dump into it; the default folder stays without a dump. SETUP-05 checks that
+the app offers no folder while `DIGGA_DUMPS_DIR` names one.

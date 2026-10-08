@@ -114,6 +114,7 @@ describe("GET /api/setup", () => {
       },
       error: null,
       dumpsDir: path.join(tmp, "dumps"),
+      dumpsDirSource: "default",
       neededBytes: Math.round(11.5 * 1024 ** 3),
     });
     expect(body.catalogue.freeBytes).toBeGreaterThan(0);

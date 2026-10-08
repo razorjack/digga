@@ -43,8 +43,9 @@ Environment (also read from a .env in the current folder; variables already set 
   DIGGA_DATA_DIR            Library folder: database, backups, config, saved token (default
                             ~/Library/Application Support/Digga on macOS, %APPDATA%\\Digga on
                             Windows, ~/.config/Digga elsewhere)
-  DIGGA_DUMPS_DIR           Dumps folder (default the OS cache folder, such as ~/Library/Caches/
-                            Digga/dumps; with DIGGA_DATA_DIR, dumps/ inside it)
+  DIGGA_DUMPS_DIR           Dumps folder (default the folder chosen in the desktop app, else the
+                            OS cache folder, such as ~/Library/Caches/Digga/dumps; with
+                            DIGGA_DATA_DIR, dumps/ inside it)
   DIGGA_CONFIG_FILE         Config file (default digga.config.json in the library folder)
   DISCOGS_TOKEN             Personal access token; overrides the one saved in Settings
   DIGGA_DUMPS_URL           Another address for data.discogs.com, to rehearse the setup with

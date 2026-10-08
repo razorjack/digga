@@ -419,6 +419,59 @@ test.describe("on a new library", () => {
   );
 });
 
+test.describe("on a new library without DIGGA_DUMPS_DIR", () => {
+  test.use({ diggaOptions: { template: "empty", listedDump: "bulk", dumpsDirFromApp: true } });
+
+  test(
+    "ELEC-15 a disk short of space offers another folder, which the app keeps and downloads into",
+    { tag: ["@ELEC-15", "@P2", "@electron"] },
+    async ({ electron, fakes, testFolder }) => {
+      const setup = new SetupPage(electron);
+      const alert = setup.alert(/^The catalogue needs/);
+      const dump = fakes.dumps.listed;
+      const chosen = path.join(testFolder, "other disk", "Digga dumps");
+      fs.mkdirSync(chosen, { recursive: true });
+      // More than any disk has, so the real free space is short whatever the machine.
+      fakes.dumps.list(dump, { listedBytes: 900 * 1024 ** 4 });
+      await electron.open();
+      await expect(alert).toContainText(homeRelative(electron.library.dumpsDir));
+      await expect(alert).toContainText("Free some space, or choose a folder on another disk.");
+      await expect(alert).not.toContainText("DIGGA_DUMPS_DIR");
+
+      // The preload cancels a dialog it has no answer for, and the folder stays.
+      await setup.chooseDumpsFolder();
+      await expect(alert).toContainText(homeRelative(electron.library.dumpsDir));
+      await electron.answerOpenDialog([chosen]);
+      await setup.chooseDumpsFolder();
+      await expect(alert).toContainText(homeRelative(chosen));
+      await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+
+      const dialog = {
+        title: "Choose a folder for the catalogue",
+        properties: ["openDirectory", "createDirectory"],
+      };
+      expect((await electron.recorded()).openDialogs).toEqual([
+        { ...dialog, filePaths: [] },
+        { ...dialog, filePaths: [chosen] },
+      ]);
+      const saved = path.join(electron.library.dataDir, "dumps-folder.json");
+      expect(JSON.parse(fs.readFileSync(saved, "utf8"))).toEqual({ dumpsDir: chosen });
+
+      // The next launch reads the listing again, now at the dump's own size, and keeps the folder.
+      fakes.dumps.list(dump);
+      await electron.relaunch();
+      expect(electron.server.stdout).toContain(`dumps: ${chosen}`);
+      await electron.open();
+      await expect(
+        setup.root.getByText(/^Discogs publishes every release in one file a month\./),
+      ).toContainText(homeRelative(chosen));
+      await setup.fetchCatalogue();
+      await expect.poll(() => fs.existsSync(path.join(chosen, dump.name))).toBe(true);
+      expect(dumpsIn(electron.library.dumpsDir)).toEqual([]);
+    },
+  );
+});
+
 for (const scheme of ["light", "dark"] as const)
   test.describe(`with the ${scheme} scheme saved`, () => {
     const atHold = { themeSource: "" };

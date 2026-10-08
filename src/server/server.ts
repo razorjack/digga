@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import type { Config } from "../shared/config.ts";
 import { createApp } from "./app.ts";
 import { saveConfig } from "./config-file.ts";
+import type { AppContext } from "./context.ts";
 import { type DailyBackups, startDailyBackups } from "./daily-backups.ts";
 import { type Db, openDb } from "./db/db.ts";
 import { type Desktop, desktopJobListener } from "./desktop.ts";
@@ -12,7 +13,7 @@ import { createDataDumpClient } from "./discogs/data-dumps.ts";
 import { createJobRunner, type JobRunner } from "./jobs/runner.ts";
 import { type LibraryLock, lockLibrary } from "./library-lock.ts";
 import type { Logger } from "./logger.ts";
-import type { Paths } from "./paths.ts";
+import { type Paths, saveChosenDumpsDir } from "./paths.ts";
 import type { Secrets } from "./secrets.ts";
 import { createVideoTitleLookup } from "./youtube.ts";
 
@@ -66,7 +67,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   const backups = lock ? startDailyBackups(db, { ...options, getConfig: () => config }) : null;
   const jobs = createJobRunner(db, logger.child("jobs"), desktopJobListener(options.desktop));
 
-  const app = createApp({
+  const context: AppContext = {
     db,
     paths: options.paths,
     secrets: options.secrets,
@@ -78,20 +79,16 @@ export function createServer(options: CreateServerOptions): DiggaServer {
       config = next;
       logger.info(`settings updated (${options.paths.configFile})`);
     },
-    getDiscogs: discogsProvider(options),
-    dataDumps: createDataDumpClient({
-      fetchImpl: options.fetchImpl,
-      baseUrl: options.dataDumpsUrl,
-    }),
-    lookupVideoTitle: createVideoTitleLookup({
-      fetchImpl: options.fetchImpl,
-      logger: logger.child("youtube"),
-      baseUrl: options.youtubeOembedUrl,
-    }),
+    ...serviceClients(options),
     desktop: options.desktop ?? null,
     serveStatic: options.serveStatic ?? true,
     backupFailure: () => backups?.failure() ?? null,
-  });
+    useChosenDumpsDir: (folder) => {
+      context.paths = saveChosenDumpsDir(context.paths, folder);
+      logger.info(`dumps folder chosen: ${folder}`);
+    },
+  };
+  const app = createApp(context);
 
   const listener = new HttpListener(app, logger);
   let stopping: Promise<void> | null = null;
@@ -119,6 +116,24 @@ function openLibrary(options: CreateServerOptions): { db: Db; lock: LibraryLock 
     lock.release();
     throw error;
   }
+}
+
+/** The clients of the services Digga reads: Discogs, data.discogs.com and YouTube's oEmbed. */
+function serviceClients(
+  options: CreateServerOptions,
+): Pick<AppContext, "getDiscogs" | "dataDumps" | "lookupVideoTitle"> {
+  return {
+    getDiscogs: discogsProvider(options),
+    dataDumps: createDataDumpClient({
+      fetchImpl: options.fetchImpl,
+      baseUrl: options.dataDumpsUrl,
+    }),
+    lookupVideoTitle: createVideoTitleLookup({
+      fetchImpl: options.fetchImpl,
+      logger: options.logger.child("youtube"),
+      baseUrl: options.youtubeOembedUrl,
+    }),
+  };
 }
 
 function discogsProvider(options: CreateServerOptions): () => DiscogsClient {

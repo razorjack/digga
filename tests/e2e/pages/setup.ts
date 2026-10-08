@@ -214,6 +214,17 @@ export class SetupPage {
     await answered(chosen);
   }
 
+  /**
+   * Step 1 in the desktop app, short of space: opens the folder dialog, which the Electron host
+   * answers or cancels; returns once the setup has read the catalogue again or the server refused.
+   */
+  async chooseDumpsFolder(): Promise<void> {
+    const chosen = this.#response("POST", "/api/desktop/dumps-folder");
+    await this.button("Choose a folder…").click();
+    await answered(chosen);
+    await expect(this.button("Choose a folder…")).toBeEnabled();
+  }
+
   /** Step 1's "Try again" or "Check again": returns once the setup has read the catalogue again. */
   async readCatalogueAgain(button: "Try again" | "Check again"): Promise<void> {
     const read = this.#response("GET", "/api/setup");

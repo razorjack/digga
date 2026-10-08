@@ -104,6 +104,8 @@ test(
     await expect(alert).toContainText(homeRelative(app.library.dumpsDir));
     await expect(alert).toContainText("set DIGGA_DUMPS_DIR in .env and start Digga again");
     await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+    // The desktop app offers no other folder while DIGGA_DUMPS_DIR names this one.
+    await expect(setup.button("Choose a folder…")).toBeHidden();
 
     await setup.readCatalogueAgain("Check again");
     await expect(alert).toBeVisible();

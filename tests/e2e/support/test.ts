@@ -65,6 +65,11 @@ export interface DiggaOptions {
   /** Small dumps in the library's dumps folder before the server starts. */
   dumpFiles: SmallDumpMonth[];
   /**
+   * No DIGGA_DUMPS_DIR: the app takes the dumps folder chosen in it, else `dumps` in the data
+   * folder, which library.dumpsDir then names (ELEC-15).
+   */
+  dumpsDirFromApp: boolean;
+  /**
    * Decisions too many to give through the API, restored with `digga restore` before the server
    * starts, as the README says to restore: with the server stopped.
    */
@@ -93,6 +98,7 @@ const DEFAULT_OPTIONS: DiggaOptions = {
   clock: false,
   listedDump: null,
   dumpFiles: [],
+  dumpsDirFromApp: false,
   decisionsBackup: null,
   browserHistory: [],
   unreadableBrowsers: [],
@@ -238,10 +244,13 @@ async function prepareEnvironment(
   test: { folder: string; runRoot: string; fakes: FakeServices; templates: Templates },
 ): Promise<DiggaEnvironment> {
   const { folder, fakes } = test;
-  const library = copyTemplate(
+  const copied = copyTemplate(
     await test.templates.folder(options.template),
     path.join(folder, "library"),
   );
+  const library = options.dumpsDirFromApp
+    ? { ...copied, dumpsDir: path.join(copied.dataDir, "dumps") }
+    : copied;
   if (options.template !== "empty")
     updateConfig(library.configFile, (config) => testConfig(config, options));
   for (const month of options.dumpFiles) writeDump(library.dumpsDir, smallDump(month));
@@ -258,6 +267,7 @@ async function prepareEnvironment(
     allowedPort: fakes.port,
     serviceUrls: { ...fakes.urls, ...options.serviceUrls },
     token: checkedToken(options.environmentToken),
+    dumpsDirFromApp: options.dumpsDirFromApp,
   };
   if (options.decisionsBackup) {
     const file = writeDecisionsBackup(path.join(folder, "given"), options.decisionsBackup);

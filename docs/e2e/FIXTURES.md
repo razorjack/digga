@@ -54,7 +54,9 @@ Per-test state goes on top, through documented paths only:
 - **Dump files.** `diggaOptions.dumpFiles` names small dumps by month (`july`, `august`,
   `september`), which the fixture writes into the library's dumps folder before the server
   starts (SET-16). The templates load their dump from a fixtures folder of their own, so a test's
-  dumps folder is otherwise empty.
+  dumps folder is otherwise empty. `diggaOptions.dumpsDirFromApp` leaves `DIGGA_DUMPS_DIR` out,
+  so the app resolves the dumps folder itself, `dumps` in the library's data folder until a
+  folder is chosen in it; `library.dumpsDir` names that folder (ELEC-15).
 - **Jobs as given state.** A seller's shop is read through the job Settings' "Read shop" starts
   (`POST /api/jobs/import/seller`), and `given.sellerShop()` returns once `GET /api/jobs/:id`
   says `done`; a job that ends otherwise fails the test with its error.

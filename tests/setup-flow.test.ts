@@ -16,6 +16,7 @@ const SETUP: SetupResponse = {
     newest: { date: "2026-09-01", file: FILE, bytes: 1000, downloaded: false },
     error: null,
     dumpsDir: "/dumps",
+    dumpsDirSource: "default",
     freeBytes: null,
     neededBytes: null,
   },

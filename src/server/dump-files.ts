@@ -26,6 +26,17 @@ export function isDumpFileElsewhere(file: string): boolean {
   return fs.statSync(file, { throwIfNoEntry: false })?.isFile() === true;
 }
 
+/** A folder the downloads can go to: it exists, and Digga may write to it. */
+export function canHoldDumps(folder: string): boolean {
+  if (!path.isAbsolute(folder)) return false;
+  try {
+    fs.accessSync(folder, fs.constants.W_OK);
+    return fs.statSync(folder).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Deletes a releases dump the folder lists; false when it has none by that name. Only listed
  * names are accepted, so the name cannot reach outside the folder.

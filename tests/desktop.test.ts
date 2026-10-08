@@ -16,10 +16,10 @@ import type { Desktop } from "../src/server/desktop.ts";
 import { createDataDumpClient } from "../src/server/discogs/data-dumps.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
 import { createLogger } from "../src/server/logger.ts";
-import { resolvePaths } from "../src/server/paths.ts";
+import { type Paths, resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { readSetup } from "../src/server/setup.ts";
-import type { ApiError, DumpFileResponse } from "../src/shared/api.ts";
+import type { ApiError, DumpFileResponse, DumpsFolderResponse } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import {
   DOWNLOAD_RETRIED_ERROR,
@@ -52,8 +52,9 @@ describe("the server's reports to the desktop", () => {
       jobChanged: ({ type, status, progress, error }) =>
         reports.push({ type, status, progress, error }),
       chooseDumpFile: async () => null,
+      chooseDumpsFolder: async () => null,
     };
-    server = serverIn(tmp, db, desktop);
+    server = serverWith({ paths: resolvePaths({ dataDir: tmp }), db, desktop });
   });
 
   afterEach(async () => {
@@ -82,7 +83,7 @@ describe("the server's reports to the desktop", () => {
       throw new Error("Discogs answered 503");
     });
     await expect(failed).rejects.toThrow("Discogs answered 503");
-    server.jobs.run("dump_download", ({ signal }) => untilAborted(signal));
+    runDownloadUntilStopped(server);
 
     await server.stop();
 
@@ -98,16 +99,29 @@ describe("the server's reports to the desktop", () => {
   });
 });
 
-describe("the setup's file dialog", () => {
+describe("the setup's dialogs", () => {
   let tmp: string;
   let db: Db;
+  /** What the user picks in the next dialog; null cancels it. */
   let chosen: string | null;
-  const desktop: Desktop = { jobChanged: () => {}, chooseDumpFile: async () => chosen };
+  let asked: string[];
+  const desktop: Desktop = {
+    jobChanged: () => {},
+    chooseDumpFile: async () => {
+      asked.push("dump file");
+      return chosen;
+    },
+    chooseDumpsFolder: async (current) => {
+      asked.push(`dumps folder from ${current}`);
+      return chosen;
+    },
+  };
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-desktop-"));
     db = openDb(":memory:");
     chosen = null;
+    asked = [];
   });
 
   afterEach(() => {
@@ -115,16 +129,20 @@ describe("the setup's file dialog", () => {
     fs.rmSync(tmp, { recursive: true, force: true });
   });
 
-  async function chooseDumpFile(server: DiggaServer): Promise<{ status: number; body: unknown }> {
-    const response = await server.app.request("/api/desktop/dump-file", { method: "POST" });
+  async function send(
+    server: DiggaServer,
+    method: "GET" | "POST",
+    route: string,
+  ): Promise<{ status: number; body: unknown }> {
+    const response = await server.app.request(route, { method });
     return { status: response.status, body: await response.json() };
   }
 
   async function withServer(
-    serverDesktop: Desktop | undefined,
+    options: { desktop?: Desktop; paths?: Paths },
     use: (server: DiggaServer) => Promise<void>,
   ): Promise<void> {
-    const server = serverIn(tmp, db, serverDesktop);
+    const server = serverWith({ paths: resolvePaths({ dataDir: tmp }), db, ...options });
     try {
       await use(server);
     } finally {
@@ -132,7 +150,7 @@ describe("the setup's file dialog", () => {
     }
   }
 
-  it("is offered by the app's server, which answers the dump the user chose, anywhere", async () => {
+  it("are offered by the app's server, which answers the dump the user chose, anywhere", async () => {
     chosen = path.join(tmp, "elsewhere", "my releases.xml.gz");
     fs.mkdirSync(path.dirname(chosen));
     fs.writeFileSync(chosen, "");
@@ -144,26 +162,29 @@ describe("the setup's file dialog", () => {
       desktop,
     });
     expect(setup.desktop).toBe(true);
-    await withServer(desktop, async (server) => {
-      expect(await chooseDumpFile(server)).toEqual({
+    await withServer({ desktop }, async (server) => {
+      expect(await send(server, "POST", "/api/desktop/dump-file")).toEqual({
         status: 200,
         body: { file: chosen } satisfies DumpFileResponse,
       });
     });
   });
 
-  it("answers no file when the user cancels", async () => {
-    await withServer(desktop, async (server) => {
-      expect(await chooseDumpFile(server)).toEqual({ status: 200, body: { file: null } });
+  it("answer no file when the user cancels", async () => {
+    await withServer({ desktop }, async (server) => {
+      expect(await send(server, "POST", "/api/desktop/dump-file")).toEqual({
+        status: 200,
+        body: { file: null },
+      });
     });
   });
 
-  it("refuses a file that is not a gzipped dump, or is gone", async () => {
+  it("refuse a file that is not a gzipped dump, or is gone", async () => {
     chosen = path.join(tmp, "discogs_20260901_releases.tar.gz");
     fs.writeFileSync(chosen, "");
 
-    await withServer(desktop, async (server) => {
-      expect(await chooseDumpFile(server)).toEqual({
+    await withServer({ desktop }, async (server) => {
+      expect(await send(server, "POST", "/api/desktop/dump-file")).toEqual({
         status: 400,
         body: {
           error:
@@ -171,14 +192,74 @@ describe("the setup's file dialog", () => {
         } satisfies ApiError,
       });
       chosen = path.join(tmp, "discogs_20260901_releases.xml.gz");
-      expect((await chooseDumpFile(server)).status).toBe(400);
+      expect((await send(server, "POST", "/api/desktop/dump-file")).status).toBe(400);
     });
   });
 
-  it("is not there in the CLI's server", async () => {
-    await withServer(undefined, async (server) => {
-      expect((await chooseDumpFile(server)).status).toBe(404);
+  it("are not there in the CLI's server", async () => {
+    await withServer({}, async (server) => {
+      expect((await send(server, "POST", "/api/desktop/dump-file")).status).toBe(404);
+      expect((await send(server, "POST", "/api/desktop/dumps-folder")).status).toBe(404);
     });
+  });
+
+  it("keep the dumps folder the user chose, for this server and every later start", async () => {
+    chosen = path.join(tmp, "other disk");
+    fs.mkdirSync(chosen);
+
+    await withServer({ desktop }, async (server) => {
+      expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
+        status: 200,
+        body: { folder: chosen } satisfies DumpsFolderResponse,
+      });
+      expect(await send(server, "GET", "/api/dumps")).toEqual({
+        status: 200,
+        body: { directory: chosen, files: [] },
+      });
+    });
+
+    expect(asked).toEqual([`dumps folder from ${path.join(tmp, "dumps")}`]);
+    expect(resolvePaths({ dataDir: tmp })).toMatchObject({
+      dumpsDir: chosen,
+      dumpsDirSource: "chosen",
+    });
+  });
+
+  it("keep the dumps folder when the user cancels or picks one Digga cannot write to", async () => {
+    await withServer({ desktop }, async (server) => {
+      expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
+        status: 200,
+        body: { folder: null },
+      });
+      chosen = path.join(tmp, "gone");
+      expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
+        status: 400,
+        body: { error: `Digga cannot write to ${chosen}` },
+      });
+    });
+
+    expect(resolvePaths({ dataDir: tmp }).dumpsDirSource).toBe("default");
+  });
+
+  it("ask for no dumps folder while a download runs, or when DIGGA_DUMPS_DIR names one", async () => {
+    chosen = tmp;
+
+    await withServer({ desktop }, async (server) => {
+      runDownloadUntilStopped(server);
+      expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
+        status: 400,
+        body: { error: 'Wait until "Download dump" has finished' },
+      });
+    });
+    const named = resolvePaths({ dataDir: tmp, dumpsDir: path.join(tmp, "named") });
+    await withServer({ desktop, paths: named }, async (server) => {
+      expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
+        status: 409,
+        body: { error: "DIGGA_DUMPS_DIR names the dumps folder; change it there" },
+      });
+    });
+
+    expect(asked).toEqual([]);
   });
 });
 
@@ -320,22 +401,25 @@ describe("the notification when a load ends", () => {
   });
 });
 
-function serverIn(dataDir: string, db: Db, desktop: Desktop | undefined): DiggaServer {
+function serverWith(options: { paths: Paths; db: Db; desktop?: Desktop }): DiggaServer {
   return createServer({
     config: DEFAULT_CONFIG,
-    paths: resolvePaths({ dataDir }),
     secrets: testSecrets(),
     logger: silentLogger,
-    db,
     serveStatic: false,
     persistConfig: false,
-    desktop,
+    ...options,
   });
 }
 
 /** data.discogs.com out of reach: the tests never ask the real one. */
 async function offline(): Promise<Response> {
   throw new Error("offline");
+}
+
+/** A download that runs until the server stops and cancels it. */
+function runDownloadUntilStopped(server: DiggaServer): void {
+  server.jobs.run("dump_download", ({ signal }) => untilAborted(signal));
 }
 
 /** A job that runs until it is cancelled, as a download does when the server stops. */

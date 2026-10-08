@@ -83,7 +83,7 @@ server, the template builds and `app.cli()`. They all get the same isolation.
 - The environment is built, never inherited. From the parent it takes only `PATH`; on Windows
   `SYSTEMROOT`, `WINDIR`, `TEMP` and `TMP`; on Linux `DISPLAY`, `XAUTHORITY` and
   `WAYLAND_DISPLAY` when present, which `xvfb-run` sets. Then it sets `DIGGA_DATA_DIR`,
-  `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE`; the fake service URLs (see [Service configuration](#service-configuration));
+  `DIGGA_DUMPS_DIR` (unless `diggaOptions.dumpsDirFromApp`, ELEC-15) and `DIGGA_CONFIG_FILE`; the fake service URLs (see [Service configuration](#service-configuration));
   `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` inside
   a fake home; `TZ=UTC`, `LANG=en_US.UTF-8`, `DIGGA_LOG_LEVEL=debug`; the network guard and its
   allowed port; and `DISCOGS_TOKEN` only when the test asks for the environment token.

@@ -154,6 +154,14 @@ export class SetupFlow {
     });
   }
 
+  /** Step 1 in the desktop app, short of space: another folder for the catalogue, for good. */
+  async chooseDumpsFolder(): Promise<void> {
+    await this.#act(async () => {
+      const { folder } = await api.chooseDumpsFolder();
+      if (folder !== null) this.setup = await api.getSetup();
+    });
+  }
+
   /** After the download stopped, on steps 2 and 3: it starts again from the first byte. */
   async restartDownload(): Promise<void> {
     await this.#act(async () => {

@@ -1,6 +1,9 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
+import type { DumpsDirSource } from "../shared/api.ts";
 
 export interface Paths {
   /** The library: database, backups, config, saved token, temp files. */
@@ -8,6 +11,10 @@ export interface Paths {
   dbFile: string;
   configFile: string;
   dumpsDir: string;
+  /** What named dumpsDir: DIGGA_DUMPS_DIR, the user in the desktop app, or nothing (the default). */
+  dumpsDirSource: DumpsDirSource;
+  /** The dumps folder the user chose in the desktop app, which DIGGA_DUMPS_DIR overrides. */
+  dumpsFolderFile: string;
   /** Daily copies of the database, written when the server starts. */
   backupsDir: string;
   tempDir: string;
@@ -22,7 +29,10 @@ export interface Paths {
 export interface PathOptions {
   /** Where the library lives; by default the per-user app folder (see appFolders). */
   dataDir?: string;
-  /** By default "dumps" in a dataDir given here, else in the OS cache folder. */
+  /**
+   * DIGGA_DUMPS_DIR, which wins over the folder chosen in the desktop app. Without either,
+   * "dumps" in a dataDir given here, else in the OS cache folder.
+   */
   dumpsDir?: string;
   configFile?: string;
   distDir?: string;
@@ -52,23 +62,73 @@ export const DEFAULT_DIST_DIR = path.resolve(MODULE_DIR, "..", "..", "dist");
  * Resolves every filesystem location the app uses. This is the only module that decides where
  * user data lives; everything else receives a Paths object.
  */
-export function resolvePaths(options: PathOptions = {}): Paths {
-  const folders = appFolders({ platform: process.platform, env: process.env, home: os.homedir() });
+export function resolvePaths(options: PathOptions = {}, system: System = currentSystem()): Paths {
+  const folders = appFolders(system);
   const dataDir = path.resolve(options.dataDir ?? folders.data);
-  // A library placed by hand keeps its dumps with it, so a throwaway one never touches the cache.
-  const defaultDumpsDir =
-    options.dataDir === undefined ? path.join(folders.cache, "dumps") : path.join(dataDir, "dumps");
+  const dumpsFolderFile = path.join(dataDir, "dumps-folder.json");
+  const dumps = resolveDumpsDir(options, { dataDir, dumpsFolderFile, cacheDir: folders.cache });
   return {
     dataDir,
     dbFile: path.join(dataDir, "digga.sqlite"),
     configFile: path.resolve(options.configFile ?? path.join(dataDir, "digga.config.json")),
-    dumpsDir: path.resolve(options.dumpsDir ?? defaultDumpsDir),
+    dumpsDir: dumps.dir,
+    dumpsDirSource: dumps.source,
+    dumpsFolderFile,
     backupsDir: path.join(dataDir, "backups"),
     tempDir: path.join(dataDir, "tmp"),
     distDir: path.resolve(options.distDir ?? DEFAULT_DIST_DIR),
     secretsFile: path.join(dataDir, "secrets.env"),
     lockFile: path.join(dataDir, "digga.lock"),
   };
+}
+
+/**
+ * Saves the dumps folder the user chose in the desktop app, which every later resolvePaths()
+ * takes unless DIGGA_DUMPS_DIR names one, and returns the paths with it.
+ */
+export function saveChosenDumpsDir(paths: Paths, folder: string): Paths {
+  const tmp = `${paths.dumpsFolderFile}.tmp`;
+  fs.mkdirSync(path.dirname(paths.dumpsFolderFile), { recursive: true });
+  fs.writeFileSync(tmp, `${JSON.stringify({ dumpsDir: folder }, null, 2)}\n`);
+  fs.renameSync(tmp, paths.dumpsFolderFile);
+  return { ...paths, dumpsDir: folder, dumpsDirSource: "chosen" };
+}
+
+function currentSystem(): System {
+  return { platform: process.platform, env: process.env, home: os.homedir() };
+}
+
+/** DIGGA_DUMPS_DIR first, then the folder the user chose in the desktop app, then the default. */
+function resolveDumpsDir(
+  options: PathOptions,
+  library: { dataDir: string; dumpsFolderFile: string; cacheDir: string },
+): { dir: string; source: DumpsDirSource } {
+  if (options.dumpsDir !== undefined)
+    return { dir: path.resolve(options.dumpsDir), source: "environment" };
+  const chosen = readChosenDumpsDir(library.dumpsFolderFile);
+  if (chosen !== null) return { dir: chosen, source: "chosen" };
+  // A library placed by hand keeps its dumps with it, so a throwaway one never touches the cache.
+  const dir =
+    options.dataDir === undefined
+      ? path.join(library.cacheDir, "dumps")
+      : path.join(library.dataDir, "dumps");
+  return { dir, source: "default" };
+}
+
+const ChosenDumpsDirSchema = z.object({
+  dumpsDir: z.string().refine((dir) => path.isAbsolute(dir)),
+});
+
+/** The folder dumps-folder.json names; a missing, unreadable or invalid file is no choice. */
+function readChosenDumpsDir(file: string): string | null {
+  let saved: unknown;
+  try {
+    saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+  const parsed = ChosenDumpsDirSchema.safeParse(saved);
+  return parsed.success ? parsed.data.dumpsDir : null;
 }
 
 /**

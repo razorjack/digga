@@ -1166,3 +1166,17 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      download that ran before the choice is no longer the setup's. The file is the user's: the
      load reads it where it is, without copying it into the dumps folder, and the crate offers no
      "Delete it" for it.
+169. **The dumps folder chosen in the app is saved in the library, and `DIGGA_DUMPS_DIR` wins.**
+     When the disk is short of space, step 1 of the desktop app offers a folder dialog
+     (`POST /api/desktop/dumps-folder`, decision 168). The server writes the folder to
+     `dumps-folder.json` in the library, `{ "dumpsDir": "/absolute/folder" }`, and uses it from
+     then on; `resolvePaths()` reads the file on every start, so the app, the CLI and later
+     launches agree, and `paths.ts` stays the one place that resolves the dumps folder. The
+     order is `DIGGA_DUMPS_DIR`, then the chosen folder, then the default; a file that cannot be
+     read or names no absolute folder counts as no choice. `digga.config.json` was the other
+     place: the paths are resolved before the config is read, and `DIGGA_CONFIG_FILE` can put the
+     config outside the library, so the dumps folder would depend on a file the paths locate.
+     While `DIGGA_DUMPS_DIR` names the folder, the server refuses another (409) and step 1 keeps
+     the browser's message about the variable; while a download or load runs, it refuses too,
+     since that job writes or reads the folder it started with. The setup only offers the
+     dialog; Settings shows the folder but does not change it.

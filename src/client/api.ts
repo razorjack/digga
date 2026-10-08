@@ -6,6 +6,7 @@ import {
   type DiscogsListsResponse,
   type DiscogsProfileResponse,
   type DumpFileResponse,
+  type DumpsFolderResponse,
   type DumpLoadJobInput,
   type DumpsResponse,
   type ExpectedVerdict,
@@ -109,6 +110,8 @@ export interface Api {
   forgetFirstLoad(): Promise<{ deleted: number }>;
   /** The desktop app's file dialog, for a releases dump the user has; only where setup says desktop. */
   chooseDumpFile(): Promise<DumpFileResponse>;
+  /** The desktop app's folder dialog, for another dumps folder, which the server keeps. */
+  chooseDumpsFolder(): Promise<DumpsFolderResponse>;
   /** Where the browser downloads an export of the saved decisions. */
   exportUrl(file: ExportFile): string;
 }
@@ -219,6 +222,7 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getDiscogsProfile: () => callDiscogs("GET", "/discogs/profile"),
     forgetFirstLoad: () => call("DELETE", "/setup/load"),
     chooseDumpFile: () => callDialog("POST", "/desktop/dump-file"),
+    chooseDumpsFolder: () => callDialog("POST", "/desktop/dumps-folder"),
     exportUrl: (file) => `${baseUrl}/export/${file}`,
   };
 }

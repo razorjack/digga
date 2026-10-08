@@ -45,6 +45,11 @@ export interface DiggaEnvironment {
   serviceUrls: ServiceUrls;
   /** DISCOGS_TOKEN, for the "token from the environment" state and template imports. */
   token?: string;
+  /**
+   * Leaves DIGGA_DUMPS_DIR out, so Digga resolves the dumps folder itself: the one chosen in the
+   * app, else `dumps` in the data folder, which library.dumpsDir names (ELEC-15).
+   */
+  dumpsDirFromApp?: boolean;
 }
 
 export interface DiggaRun {
@@ -170,7 +175,6 @@ export function diggaVariables(environment: DiggaEnvironment): NodeJS.ProcessEnv
   return {
     ...Object.fromEntries(inherited),
     DIGGA_DATA_DIR: library.dataDir,
-    DIGGA_DUMPS_DIR: library.dumpsDir,
     DIGGA_CONFIG_FILE: library.configFile,
     DIGGA_DISCOGS_API_URL: serviceUrls.discogsApi,
     DIGGA_YOUTUBE_OEMBED_URL: serviceUrls.youtubeOembed,
@@ -186,6 +190,7 @@ export function diggaVariables(environment: DiggaEnvironment): NodeJS.ProcessEnv
     DIGGA_LOG_LEVEL: "debug",
     DIGGA_E2E_ALLOWED_PORT: String(environment.allowedPort),
     ...(environment.token === undefined ? {} : { DISCOGS_TOKEN: environment.token }),
+    ...(environment.dumpsDirFromApp ? {} : { DIGGA_DUMPS_DIR: library.dumpsDir }),
   };
 }
 

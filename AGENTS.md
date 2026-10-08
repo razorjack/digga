@@ -381,7 +381,8 @@ client TypeScript and CSS.
    imports Electron (decisions 165, 168). 127.0.0.1 only.
 2. **One transport seam.** `src/client/api.ts` is the only file in `src/client` that may call `fetch`.
 3. **One place for paths.** `src/server/paths.ts` resolves data dir, db file, config, dumps, temp, dist,
-   by default in the per-user app folder Electron's `userData` names. The CLI and the Electron app
+   by default in the per-user app folder Electron's `userData` names, and reads the dumps folder
+   chosen in the app from the library (decision 169). The CLI and the Electron app
    pass `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` from the environment or a
    `.env` in the cwd, read by `src/cli/environment.ts`. No `process.cwd()` outside `src/cli/`.
 4. **One place for secrets.** `src/server/secrets.ts` (`secrets.env` in the library, encrypted with

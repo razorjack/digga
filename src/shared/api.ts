@@ -425,6 +425,17 @@ export interface SetupResponse {
   desktop: boolean;
 }
 
+/**
+ * What named the dumps folder: DIGGA_DUMPS_DIR, the user in the desktop app (saved in the
+ * library), or nothing, so it is the default.
+ */
+export type DumpsDirSource = "environment" | "chosen" | "default";
+
+/** The dumps folder the user chose with the desktop app's folder dialog; null when cancelled. */
+export interface DumpsFolderResponse {
+  folder: string | null;
+}
+
 /** The releases dump the user chose with the desktop app's file dialog; null when cancelled. */
 export interface DumpFileResponse {
   file: string | null;
@@ -449,6 +460,8 @@ export interface SetupCatalogue {
   /** Why the listing could not be read. */
   error: string | null;
   dumpsDir: string;
+  /** What named the dumps folder; the desktop app offers another only unless DIGGA_DUMPS_DIR did. */
+  dumpsDirSource: DumpsDirSource;
   /** Free space on the disk that holds the dumps folder; null when it cannot be read. */
   freeBytes: number | null;
   /** What the download needs free: the dump and 1 GB to spare; null while its size is unknown. */

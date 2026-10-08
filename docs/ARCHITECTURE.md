@@ -234,7 +234,9 @@ app opens the same library. Dumps default to the OS cache folder, which backups 
 clear; a dump can be downloaded again. The CLI and the Electron app read `.env` from the working
 directory into the environment (variables already set win) through `src/cli/environment.ts` and
 pass `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR` and `DIGGA_CONFIG_FILE` to `resolvePaths()`; a library placed with `DIGGA_DATA_DIR` keeps its dumps
-inside it. `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `secrets.env` in
+inside it. Without `DIGGA_DUMPS_DIR`, a dumps folder chosen in the desktop app, which
+`resolvePaths()` reads from `dumps-folder.json` in the library, comes before the default
+(decision 169). `src/server/secrets.ts` reads `DISCOGS_TOKEN` from the environment or `secrets.env` in
 the library; Settings saves the token there through `PUT /api/discogs/token`, unless the
 environment sets it. The Electron app passes `safeStorage` as the encryption, which stores it as
 `DISCOGS_TOKEN_ENCRYPTED`; without one, or where the system cannot encrypt, it is saved as text. The route asks Discogs whose token it is first: it keeps the previous token

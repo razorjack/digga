@@ -11,6 +11,7 @@ import type { Secrets } from "./secrets.ts";
 import type { VideoTitleLookup } from "./youtube.ts";
 export interface AppContext {
   db: Db;
+  /** Replaced when the user chooses another dumps folder, so read it on each use. */
   paths: Paths;
   secrets: Secrets;
   logger: Logger;
@@ -28,4 +29,6 @@ export interface AppContext {
   serveStatic: boolean;
   /** The latest scheduled backup that failed, until a later one succeeds. */
   backupFailure(): BackupFailure | null;
+  /** Saves the dumps folder the user chose in the desktop app and uses it from now on. */
+  useChosenDumpsDir(folder: string): void;
 }

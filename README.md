@@ -188,7 +188,9 @@ To keep the library elsewhere, set `DIGGA_DATA_DIR`, and `DIGGA_DUMPS_DIR` or
 `DIGGA_CONFIG_FILE` if needed, in the environment or in a `.env` in the folder you run Digga from
 ([`.env.example`](.env.example) lists them). A library placed with `DIGGA_DATA_DIR` keeps its
 dumps inside it unless `DIGGA_DUMPS_DIR` says otherwise. `DIGGA_DUMPS_DIR` also puts the dumps on
-another disk when the one with the cache folder is short of space.
+another disk when the one with the cache folder is short of space. In the desktop app, the setup
+offers another folder then; Digga keeps that choice in `dumps-folder.json` in the library, and
+`DIGGA_DUMPS_DIR` overrides it.
 
 ### Digga and the Discogs API
 

@@ -75,7 +75,9 @@ The page reaches the app's native dialogs through `/api/desktop` routes, which o
 a `desktop` registers (`src/server/routes/desktop.ts`, decision 168). `GET /api/setup` reports
 `desktop: true` there, and only then does the setup offer them; in the browser they are not
 there. `POST /api/desktop/dump-file` shows "Use a dump file you have", an open dialog for one
-`.xml.gz` file, and answers the path, or null when cancelled.
+`.xml.gz` file, and answers the path, or null when cancelled. `POST /api/desktop/dumps-folder`
+shows "Choose a folder for the catalogue" and saves the folder as the dumps folder (decision 169),
+unless `DIGGA_DUMPS_DIR` names it or a download or load runs.
 
 ## Window
 
@@ -225,8 +227,6 @@ Later:
   matters only if the app moves there.
 - **Browser history import:** on macOS the packaged app needs Full Disk Access to read Brave's
   `History`; show the hint from `HistoryAccessError` in a dialog (ELEC-12).
-- **The setup's Electron parts** ([FIRST_RUN](FIRST_RUN.md#electron)): a folder picker when
-  there is too little space.
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**

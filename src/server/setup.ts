@@ -59,7 +59,7 @@ async function readCatalogue(
   deps: SetupDeps,
   freeBytesOf: (dir: string) => Promise<number>,
 ): Promise<SetupCatalogue> {
-  const dumpsDir = deps.paths.dumpsDir;
+  const { dumpsDir, dumpsDirSource } = deps.paths;
   const freeBytes = await freeBytesNear(dumpsDir, freeBytesOf);
   try {
     const dump = await newestDump(deps.dataDumps);
@@ -68,12 +68,13 @@ async function readCatalogue(
       newest: { date: dump.date, file: dump.file, bytes: dump.bytes, downloaded },
       error: null,
       dumpsDir,
+      dumpsDirSource,
       freeBytes,
       neededBytes: dump.bytes === null || downloaded ? null : dump.bytes + SPARE_BYTES,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { newest: null, error: message, dumpsDir, freeBytes, neededBytes: null };
+    return { newest: null, error: message, dumpsDir, dumpsDirSource, freeBytes, neededBytes: null };
   }
 }
 
