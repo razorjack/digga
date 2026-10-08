@@ -11,8 +11,10 @@ const CHECKPOINT_MS = 15 * 60 * 1000;
 export interface DailyBackups {
   /** Stops checking and waits for a backup that is being written. */
   stop(): Promise<void>;
-  /** The latest scheduled check that failed, until a later one succeeds; for Settings. */
+  /** The latest scheduled check that failed, until a later one or Back up now succeeds; for Settings. */
   failure(): BackupFailure | null;
+  /** Back up now wrote every backup a check writes, so a check's failure no longer stands. */
+  backedUp(): void;
 }
 
 interface BackupDeps {
@@ -57,6 +59,9 @@ export function startDailyBackups(
       await writeCheckpoint(db, deps, now());
     },
     failure: () => failure,
+    backedUp() {
+      failure = null;
+    },
   };
 }
 

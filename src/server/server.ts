@@ -83,6 +83,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     desktop: options.desktop ?? null,
     serveStatic: options.serveStatic ?? true,
     backupFailure: () => backups?.failure() ?? null,
+    backedUpNow: () => backups?.backedUp(),
     useChosenDumpsDir: (folder) => {
       context.paths = saveChosenDumpsDir(context.paths, folder);
       logger.info(`dumps folder chosen: ${folder}`);

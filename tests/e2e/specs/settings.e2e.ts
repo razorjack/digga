@@ -493,7 +493,7 @@ test(
 );
 
 test(
-  "SET-23 a scheduled backup that fails shows in Settings",
+  "SET-23 a scheduled backup that fails shows in Settings until Back up now succeeds",
   { tag: ["@SET-23", "@P2"] },
   async ({ app }) => {
     test.skip(
@@ -523,6 +523,16 @@ test(
     } finally {
       unprotect();
     }
+
+    // With the folder writable again, Back up now writes every backup the check could not.
+    const backedUp = app.page.waitForResponse((response) =>
+      isRequest(response, "POST", "/api/backups"),
+    );
+    await settings.backups.getByRole("button", { name: "Back up now" }).click();
+    expect((await backedUp).ok()).toBe(true);
+    await expect(settings.backups.getByText("Backup saved.", { exact: true })).toBeVisible();
+    await expect(settings.backups.getByText(/^A scheduled backup failed /)).toBeHidden();
+    expect((await backups(app)).failure).toBeNull();
   },
 );
 

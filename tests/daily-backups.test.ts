@@ -12,7 +12,10 @@ import {
   readDecisionsBackup,
 } from "../src/server/decisions-backup.ts";
 import { resolvePaths } from "../src/server/paths.ts";
-import { silentLogger } from "./helpers.ts";
+import { createServer } from "../src/server/server.ts";
+import type { BackupsResponse } from "../src/shared/api.ts";
+import { DEFAULT_CONFIG } from "../src/shared/config.ts";
+import { silentLogger, testSecrets } from "./helpers.ts";
 
 let tmp: string;
 let db: Db;
@@ -93,5 +96,36 @@ describe("daily backups", () => {
     // A check that succeeds copies the database, which can outlast poll's 1 s on a busy machine.
     await expect.poll(() => backups.failure(), { timeout: 5000 }).toBeNull();
     await backups.stop();
+  });
+
+  it("forgets a failed check once Back up now has written every backup", async () => {
+    db.close();
+    const paths = resolvePaths({ dataDir: tmp });
+    fs.mkdirSync(paths.dataDir, { recursive: true });
+    // A file where the backups folder belongs makes the start's check fail.
+    fs.writeFileSync(paths.backupsDir, "");
+    const server = createServer({
+      config: DEFAULT_CONFIG,
+      paths,
+      secrets: testSecrets(),
+      logger: silentLogger,
+      serveStatic: false,
+      persistConfig: false,
+    });
+    const read = async (method: "GET" | "POST") =>
+      (await (await server.app.request("/api/backups", { method })).json()) as BackupsResponse;
+    try {
+      await expect.poll(async () => (await read("GET")).failure).not.toBeNull();
+      fs.rmSync(paths.backupsDir);
+
+      const backedUp = await read("POST");
+
+      expect(backedUp.failure).toBeNull();
+      expect(backedUp.decisions.backups).toHaveLength(1);
+      expect((await read("GET")).failure).toBeNull();
+    } finally {
+      await server.stop();
+      db = openDb(":memory:");
+    }
   });
 });

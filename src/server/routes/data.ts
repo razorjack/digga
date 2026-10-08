@@ -19,7 +19,10 @@ export function registerDataRoutes(api: Hono, context: AppContext): void {
   api.get("/export/:file", (request) => exportFile(request, context));
 }
 
-/** Writes the day's decisions backup, a checkpoint and the database copy, replacing today's. */
+/**
+ * Writes the day's decisions backup, a checkpoint and the database copy, replacing today's; once
+ * all three are written, a scheduled backup's failure is over.
+ */
 async function backUpNow(request: Context, context: AppContext) {
   const now = new Date();
   const options = {
@@ -32,6 +35,7 @@ async function backUpNow(request: Context, context: AppContext) {
   await backUpDecisionsInWorker(db, paths.dbFile, { backup: "now", options }, logger);
   await backUpDecisionsInWorker(db, paths.dbFile, { backup: "checkpoint", options }, logger);
   await writeBackup(db, options);
+  context.backedUpNow();
   return backups(request, context);
 }
 

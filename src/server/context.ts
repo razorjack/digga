@@ -27,8 +27,10 @@ export interface AppContext {
   desktop: Desktop | null;
   /** Serve dist/ for non-API routes (production). */
   serveStatic: boolean;
-  /** The latest scheduled backup that failed, until a later one succeeds. */
+  /** The latest scheduled backup that failed, until a later one or Back up now succeeds. */
   backupFailure(): BackupFailure | null;
+  /** Back up now has written every backup a scheduled check writes. */
+  backedUpNow(): void;
   /** Saves the dumps folder the user chose in the desktop app and uses it from now on. */
   useChosenDumpsDir(folder: string): void;
 }

@@ -220,8 +220,9 @@ library's `backups` folder loses its write permission (POSIX, not as root, given
 database copy and cannot write the decisions backup or the checkpoint, `/api/backups` reports the
 failure, and the Backups tab reads "A scheduled backup failed just now: the daily decisions backup
 failed: EACCES…; the decisions checkpoint failed: EACCES…. Digga tries again every fifteen
-minutes; Back up now tries at once." That a later check that succeeds clears it stays with
-`tests/daily-backups.test.ts`: the next scheduled check runs 15 minutes later on the server's
+minutes; Back up now tries at once." With the permission given back, Back up now says "Backup
+saved.", the failure leaves the tab and `/api/backups` reports none. That a later check that
+succeeds clears it too stays with `tests/daily-backups.test.ts`: the next scheduled check runs 15 minutes later on the server's
 clock, which a test cannot move, and a relaunch starts without the failure in any case
 
 ## Completion contracts
