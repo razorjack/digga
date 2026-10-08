@@ -194,8 +194,12 @@ test(
     const styles = FIRST_RECORD.styles.join(", ");
     await expect(triage.record.getByText(styles, { exact: true })).toBeVisible();
 
-    const [playing, withVideo, withoutVideo] = FIRST_RECORD.tracks.map((track) => track.position);
-    await expect(triage.currentTrack).toHaveAttribute("data-position", playing!);
+    const [cued, withVideo, withoutVideo] = FIRST_RECORD.tracks.map((track) => track.position);
+    // Before Space the current track is cued: marked current, without the playing glyph.
+    await expect(triage.playerStatus("needs_gesture")).toBeVisible();
+    await expect(triage.currentTrack).toHaveAttribute("data-position", cued!);
+    await expect(triage.currentTrack).toContainText("cued");
+    await expect(triage.currentTrack).not.toContainText("▶");
     await expect(triage.track(withVideo!)).toContainText("has a video");
     await expect(triage.track(withoutVideo!)).toContainText("no video");
     for (const track of FIRST_RECORD.tracks)
@@ -205,6 +209,10 @@ test(
     await expect(triage.upNext).toContainText(
       `${SECOND_RECORD.artists.join(", ")} – ${SECOND_RECORD.title}`,
     );
+
+    await triage.startListening();
+    await expect(triage.currentTrack).toHaveAttribute("data-position", cued!);
+    await expect(triage.currentTrack).toContainText("▶playing");
   },
 );
 

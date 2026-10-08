@@ -26,20 +26,24 @@
     ),
   );
   const mine = $derived(player.release?.release.id === detail.release.id);
-  const playingIndex = $derived(mine ? player.current : null);
+  const currentIndex = $derived(mine ? player.current : null);
+  /** The current entry plays, or waits: cued before Space, loading or paused. */
+  const currentState = $derived(player.status === "playing" ? "playing" : "cued");
   const releaseArtist = $derived(detail.release.artistDisplay);
 
   let list = $state<HTMLOListElement | null>(null);
 
   $effect(() => {
-    void playingIndex;
-    list?.querySelector(".playing")?.scrollIntoView({ block: "nearest" });
+    void currentIndex;
+    list?.querySelector("[aria-current]")?.scrollIntoView({ block: "nearest" });
   });
 
-  function videoState(position: string): "playing" | "video" | "failed" | "blocked" | "none" {
+  type VideoState = "playing" | "cued" | "video" | "failed" | "blocked" | "none";
+
+  function videoState(position: string): VideoState {
     const index = entryForPosition(entries, position);
     if (index === null) return blockedPositions.has(position) ? "blocked" : "none";
-    if (index === playingIndex) return "playing";
+    if (index === currentIndex) return currentState;
     const entry = entries[index]!;
     const allFailed = entries
       .filter((e) => e.track?.position === position)
@@ -47,14 +51,17 @@
     return allFailed || player.failed.has(entry.video.videoId) ? "failed" : "video";
   }
 
-  function strayState(playing: boolean, failed: boolean): "playing" | "failed" | "video" {
-    if (playing) return "playing";
+  function strayState(index: number, failed: boolean): "playing" | "cued" | "failed" | "video" {
+    if (index === currentIndex) return currentState;
     return failed ? "failed" : "video";
   }
 
-  const GLYPH = { playing: "▶", video: "●", failed: "×", blocked: "×", none: "" } as const;
+  const isCurrent = (state: VideoState) => state === "playing" || state === "cued";
+
+  const GLYPH = { playing: "▶", cued: "●", video: "●", failed: "×", blocked: "×", none: "" } as const;
   const HINT = {
     playing: "playing",
+    cued: "cued",
     video: "has a video",
     failed: "video would not play",
     blocked: "video blocks embedding",
@@ -71,17 +78,12 @@
       {@const index = entryForPosition(entries, track.position)}
       {@const heardNow = mine && player.heardNow.has(track.position)}
       {@const heard = track.heard || (player.heardKeys.has(track.heardKey) && !heardNow)}
-      <li
-        data-position={track.position}
-        class="row {state}"
-        class:heard={heard && state !== "playing"}
-        class:playing={state === "playing"}
-      >
+      <li data-position={track.position} class="row {state}" class:heard={heard && !isCurrent(state)}>
         <button
           type="button"
           tabindex="-1"
           disabled={index === null || state === "failed"}
-          aria-current={state === "playing" ? "true" : undefined}
+          aria-current={isCurrent(state) ? "true" : undefined}
           onmousedown={(e) => e.preventDefault()}
           onclick={() => index !== null && onplay(index)}
         >
@@ -97,7 +99,7 @@
           </span>
           <span class="tags">
             {#if heard && !heardNow}<span class="note">heard</span>{/if}
-            {#if heardNow && state !== "playing"}<span class="note">played</span>{/if}
+            {#if heardNow && !isCurrent(state)}<span class="note">played</span>{/if}
             {#if state === "failed" || state === "blocked"}<span class="note">no embed</span>{/if}
             {#if track.mark}<Stamp text={MARK_COPY[track.mark]} tone={track.mark === "meh" ? "muted" : "accent"} size="sm" seed={track.seq + detail.release.id} />{/if}
           </span>
@@ -109,15 +111,14 @@
   {#if strays.length > 0}
     <li class="heading strays">Other videos</li>
     {#each strays as { entry, index } (entry.video.videoId)}
-      {@const playing = index === playingIndex}
       {@const failed = player.failed.has(entry.video.videoId)}
-      {@const stray = strayState(playing, failed)}
-      <li data-video-id={entry.video.videoId} class="row" class:playing class:failed>
+      {@const stray = strayState(index, failed)}
+      <li data-video-id={entry.video.videoId} class="row" class:failed>
         <button
           type="button"
           tabindex="-1"
           disabled={failed}
-          aria-current={playing ? "true" : undefined}
+          aria-current={isCurrent(stray) ? "true" : undefined}
           onmousedown={(ev) => ev.preventDefault()}
           onclick={() => onplay(index)}
         >
@@ -174,7 +175,7 @@
     text-decoration-color: var(--fg-faint);
     text-underline-offset: 3px;
   }
-  /* Indented to clear the playing row's accent bar, so the position does not shift. */
+  /* Indented to clear the current row's accent bar, so the position does not shift. */
   .pos {
     padding-left: 12px;
     color: var(--fg-muted);
@@ -222,13 +223,13 @@
   .blocked .glyph {
     color: var(--fg-faint);
   }
-  .playing button {
+  button[aria-current="true"] {
     box-shadow: inset 3px 0 0 var(--accent-mark);
   }
-  .playing .glyph {
+  button[aria-current="true"] .glyph {
     color: var(--fg-accent);
   }
-  .playing .name {
+  button[aria-current="true"] .name {
     color: var(--fg);
     font-weight: 600;
   }

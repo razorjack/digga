@@ -12,7 +12,9 @@ them; scenarios with pushes use `small-account` with a saved token.
 Priority: **P1**.
 
 The first record in label-sweep order shows its facts (catalogue number, label, artist heading,
-title, year and country, format, styles), a tracklist with each track's video state, and "Up next"
+title, year and country, format, styles), a tracklist with each track's video state, and "Up next".
+While the player waits for Space, the first track is current (`aria-current`) and its hidden text
+says "cued", without the ▶ glyph; once Space plays it, it reads "▶" and "playing"
 
 ## TRI-02
 

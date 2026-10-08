@@ -79,10 +79,10 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   now-playing line and progress bar (the start point is marked), player keys, the slip with the
   last verdict and "up next"; a verdict bar pinned to the bottom with filled key caps for
   R / A / M / C and outlined ones for N / D / Z / ?. Below 980 px the columns stack.
-- **Tracklist rows:** position, a glyph (▶ playing, ● has a video, × won't embed, blank for no
-  video), `artist – title` for compilation credits, notes (heard, played, no embed), the track
-  mark as a small stamp, and the duration. Heard tunes are set in dust; the playing row gets the
-  flyer bar.
+- **Tracklist rows:** position, a glyph (▶ playing, ● has a video or is cued, × won't embed,
+  blank for no video), `artist – title` for compilation credits, notes (heard, played, no embed),
+  the track mark as a small stamp, and the duration. Heard tunes are set in dust; the current row,
+  playing or cued, gets the flyer bar.
 - **States:** loading, "Space: start listening" before the first gesture, no videos / none will
   play (with `S` and `D`), a notice for a skipped embed, pending, retried and done wantlist pushes on
   the slip, undo ("undone" stamp), queue failed (`Enter` retries), no releases loaded, filters
