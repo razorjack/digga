@@ -6,6 +6,7 @@ import { hasLoadedCatalogue } from "./db/dump-loads.ts";
 import { tallySeedReleases } from "./db/seed-tally.ts";
 import type { DataDump, DataDumpClient } from "./discogs/data-dumps.ts";
 import { freeBytesIn, SPARE_BYTES } from "./jobs/dump-download.ts";
+import { chosenDumpsDirMissing } from "./paths.ts";
 
 /** A new dump appears once a month; the listing is read again after an hour. */
 const LISTING_TTL_MS = 60 * 60 * 1000;
@@ -13,7 +14,7 @@ const LISTING_TIMEOUT_MS = 20_000;
 
 const listings = new WeakMap<DataDumpClient, { dump: DataDump; readAt: number }>();
 
-export type SetupDeps = Pick<AppContext, "db" | "paths" | "dataDumps" | "desktop">;
+export type SetupDeps = Pick<AppContext, "db" | "paths" | "dataDumps" | "desktop" | "getConfig">;
 
 export interface SetupOptions {
   /** Free bytes on the disk of a folder that exists; the default asks the filesystem. */
@@ -38,21 +39,24 @@ async function readCatalogue(
   freeBytesOf: (dir: string) => Promise<number>,
 ): Promise<SetupCatalogue> {
   const { dumpsDir, dumpsDirSource } = deps.paths;
-  const freeBytes = await freeBytesNear(dumpsDir, freeBytesOf);
+  const dumpsDirMissing = chosenDumpsDirMissing(deps.paths);
+  // The nearest folder of a missing one is on another disk than the one it names.
+  const freeBytes = dumpsDirMissing ? null : await freeBytesNear(dumpsDir, freeBytesOf);
+  const dumpFile = deps.getConfig().setup.dumpFile;
+  const dumpFileMissing = dumpFile !== null && !fs.existsSync(dumpFile);
+  const folder = { dumpsDir, dumpsDirSource, dumpsDirMissing, dumpFileMissing, freeBytes };
   try {
     const dump = await newestDump(deps.dataDumps);
     const downloaded = fs.existsSync(path.join(dumpsDir, dump.file));
     return {
       newest: { date: dump.date, file: dump.file, bytes: dump.bytes, downloaded },
       error: null,
-      dumpsDir,
-      dumpsDirSource,
-      freeBytes,
+      ...folder,
       neededBytes: dump.bytes === null || downloaded ? null : dump.bytes + SPARE_BYTES,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { newest: null, error: message, dumpsDir, dumpsDirSource, freeBytes, neededBytes: null };
+    return { newest: null, error: message, ...folder, neededBytes: null };
   }
 }
 

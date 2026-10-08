@@ -454,6 +454,10 @@ export interface SetupCatalogue {
   dumpsDir: string;
   /** What named the dumps folder; the desktop app offers another only unless DIGGA_DUMPS_DIR did. */
   dumpsDirSource: DumpsDirSource;
+  /** The folder the user chose in the app is not there, as when its disk is not connected. */
+  dumpsDirMissing: boolean;
+  /** The dump file the user chose in step 1 of the app (`setup.dumpFile`) is not there. */
+  dumpFileMissing: boolean;
   /** Free space on the disk that holds the dumps folder; null when it cannot be read. */
   freeBytes: number | null;
   /** What the download needs free: the dump and 1 GB to spare; null while its size is unknown. */

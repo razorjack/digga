@@ -6,7 +6,7 @@ import { openDb, setMeta, type Db } from "../src/server/db/db.ts";
 import { createDataDumpClient } from "../src/server/discogs/data-dumps.ts";
 import { applySeedItem } from "../src/server/importers/seeds.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
-import { type Paths, resolvePaths } from "../src/server/paths.ts";
+import { type Paths, resolvePaths, saveChosenDumpsDir } from "../src/server/paths.ts";
 import { createSecrets, type SecretEncryption } from "../src/server/secrets.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { readSetup } from "../src/server/setup.ts";
@@ -115,6 +115,7 @@ describe("GET /api/setup", () => {
       error: null,
       dumpsDir: path.join(tmp, "dumps"),
       dumpsDirSource: "default",
+      dumpsDirMissing: false,
       neededBytes: Math.round(11.5 * 1024 ** 3),
     });
     expect(body.catalogue.freeBytes).toBeGreaterThan(0);
@@ -123,7 +124,13 @@ describe("GET /api/setup", () => {
   it("says nothing of the free space when the filesystem cannot tell it", async () => {
     const asked: string[] = [];
     const setup = await readSetup(
-      { db, paths, dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }), desktop: null },
+      {
+        db,
+        paths,
+        dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }),
+        desktop: null,
+        getConfig: () => DEFAULT_CONFIG,
+      },
       {
         freeBytes: async (dir) => {
           asked.push(dir);
@@ -140,6 +147,55 @@ describe("GET /api/setup", () => {
       freeBytes: null,
       neededBytes: Math.round(11.5 * 1024 ** 3),
     });
+  });
+
+  it("says when the folder chosen in the app is not there, and asks no disk for its space", async () => {
+    const chosen = saveChosenDumpsDir(paths, path.join(tmp, "ejected disk", "dumps"));
+    const asked: string[] = [];
+    const deps = {
+      db,
+      paths: chosen,
+      dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }),
+      desktop: null,
+      getConfig: () => DEFAULT_CONFIG,
+    };
+    const freeBytes = async (dir: string) => {
+      asked.push(dir);
+      return 1024 ** 4;
+    };
+
+    expect((await readSetup(deps, { freeBytes })).catalogue).toMatchObject({
+      dumpsDir: chosen.dumpsDir,
+      dumpsDirSource: "chosen",
+      dumpsDirMissing: true,
+      freeBytes: null,
+    });
+    expect(asked).toEqual([]);
+
+    fs.mkdirSync(chosen.dumpsDir, { recursive: true });
+    expect((await readSetup(deps, { freeBytes })).catalogue).toMatchObject({
+      dumpsDirMissing: false,
+      freeBytes: 1024 ** 4,
+    });
+  });
+
+  it("says when the dump file chosen in the app is not there", async () => {
+    const dumpFile = path.join(tmp, "ejected disk", "discogs_20260901_releases.xml.gz");
+    const deps = {
+      db,
+      paths,
+      dataDumps: createDataDumpClient({ fetchImpl: fakeFetch }),
+      desktop: null,
+      getConfig: () => ({ ...DEFAULT_CONFIG, setup: { ...DEFAULT_CONFIG.setup, dumpFile } }),
+    };
+
+    expect((await readSetup(deps)).catalogue.dumpFileMissing).toBe(true);
+    fs.mkdirSync(path.dirname(dumpFile));
+    fs.writeFileSync(dumpFile, "");
+    expect((await readSetup(deps)).catalogue.dumpFileMissing).toBe(false);
+    expect((await send<SetupResponse>("GET", "/api/setup")).body.catalogue.dumpFileMissing).toBe(
+      false,
+    );
   });
 
   it("says why the listing could not be read, and is not needed once a load has finished", async () => {

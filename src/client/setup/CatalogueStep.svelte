@@ -11,17 +11,22 @@
   const catalogue = $derived(flow.setup?.catalogue ?? null);
   const newest = $derived(catalogue?.newest ?? null);
   const picked = $derived(flow.pickedDump);
+  const pickedMissing = $derived(picked !== null && catalogue?.dumpFileMissing === true);
+  const folderMissing = $derived(picked === null && catalogue?.dumpsDirMissing === true);
   const shortOfSpace = $derived(
     picked === null &&
+      !folderMissing &&
       catalogue !== null &&
       catalogue.neededBytes !== null &&
       catalogue.freeBytes !== null &&
       catalogue.freeBytes < catalogue.neededBytes,
   );
-  const canFetch = $derived(newest !== null && !shortOfSpace && !flow.busy);
+  const canFetch = $derived(newest !== null && !shortOfSpace && !folderMissing && !flow.busy);
   /** The desktop app offers another folder, unless DIGGA_DUMPS_DIR names this one. */
   const canChooseFolder = $derived(
-    shortOfSpace && flow.setup?.desktop === true && catalogue?.dumpsDirSource !== "environment",
+    (shortOfSpace || folderMissing) &&
+      flow.setup?.desktop === true &&
+      catalogue?.dumpsDirSource !== "environment",
   );
   /** The desktop app offers a dump the user has, unless the download has begun. */
   const canChooseFile = $derived(
@@ -29,8 +34,8 @@
   );
 
   function fetchCatalogue(): void {
-    if (picked !== null) flow.goTo("discogs");
-    else if (canFetch) void flow.fetchCatalogue();
+    if (picked !== null && !pickedMissing) flow.goTo("discogs");
+    else if (picked === null && canFetch) void flow.fetchCatalogue();
   }
 
   function onkeydown(event: KeyboardEvent): void {
@@ -108,14 +113,27 @@
           Free some space, or put the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in <code>.env</code> and
           start Digga again.
         {/if}
+      {:else if pickedMissing && picked}
+        Digga can't find <code>{homeRelative(picked)}</code>, the file you chose. Connect its disk, or choose another
+        file.
+      {:else if folderMissing && catalogue}
+        Digga can't find <code>{homeRelative(catalogue.dumpsDir)}</code>, the folder you chose for the catalogue.
+        {#if canChooseFolder}
+          Connect its disk, or choose another folder.
+        {:else}
+          Connect its disk, or choose another folder in the Digga app.
+        {/if}
       {/if}
     </p>
     <p class="problem" role="alert">{flow.error ?? ""}</p>
 
     <div class="actions">
       {#if picked}
-        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy || pickedMissing}>Continue</Action>
         <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}>Choose another file</Action>
+        {#if pickedMissing}
+          <Action onclick={() => void flow.checkCatalogueAgain()} disabled={flow.busy}>Check again</Action>
+        {/if}
       {:else if flow.download?.status === "running"}
         <p class="quiet">The catalogue is downloading.</p>
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
@@ -125,9 +143,9 @@
       {:else if newest}
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}>Fetch the catalogue</Action>
       {/if}
-      {#if picked === null && (catalogue?.error || shortOfSpace)}
-        <Action onclick={() => void flow.open()} disabled={flow.busy}>
-          {shortOfSpace ? "Check again" : "Try again"}
+      {#if picked === null && (catalogue?.error || shortOfSpace || folderMissing)}
+        <Action onclick={() => void flow.checkCatalogueAgain()} disabled={flow.busy}>
+          {shortOfSpace || folderMissing ? "Check again" : "Try again"}
         </Action>
       {/if}
       {#if canChooseFolder}

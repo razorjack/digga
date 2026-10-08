@@ -120,7 +120,7 @@ describe("downloading the newest dump", () => {
   const download = (freeBytes = plenty, signal?: AbortSignal) =>
     downloadDump(
       { dumps: createDataDumpClient({ fetchImpl: fetchFrom(site) }), logger: silentLogger },
-      { dumpsDir, freeBytes, signal },
+      { dumpsDir, createDumpsDir: true, freeBytes, signal },
       (update) => progress.push(update),
     );
 
@@ -176,7 +176,7 @@ describe("downloading the newest dump", () => {
     };
     const result = await downloadDump(
       { dumps: createDataDumpClient({ fetchImpl: flaky }), logger: silentLogger },
-      { dumpsDir, freeBytes: plenty },
+      { dumpsDir, createDumpsDir: true, freeBytes: plenty },
       (update) => progress.push(update),
     );
 
@@ -193,6 +193,23 @@ describe("downloading the newest dump", () => {
       /needs 1 GB free in .*, counting 1 GB to spare; it has 1 KB/,
     );
     expect(fs.readdirSync(dumpsDir)).toEqual([]);
+  });
+
+  it("never creates a folder the user chose, and downloads into it once it is there", async () => {
+    const chosen = () =>
+      downloadDump(
+        { dumps: createDataDumpClient({ fetchImpl: fetchFrom(site) }), logger: silentLogger },
+        { dumpsDir, createDumpsDir: false, freeBytes: plenty },
+      );
+
+    await expect(chosen()).rejects.toThrow(
+      `The folder chosen for the catalogue, ${dumpsDir}, is not there: connect its disk, or choose another folder`,
+    );
+    expect(fs.existsSync(dumpsDir)).toBe(false);
+    expect(site.requests).toEqual([]);
+
+    fs.mkdirSync(dumpsDir);
+    expect(await chosen()).toMatchObject({ phase: "done", receivedBytes: BODY.length });
   });
 
   it("reports how much had arrived when the transfer stops", async () => {
@@ -216,7 +233,7 @@ describe("downloading the newest dump", () => {
     };
     const stopped = downloadDump(
       { dumps: createDataDumpClient({ fetchImpl: dropped }), logger: silentLogger },
-      { dumpsDir, freeBytes: plenty },
+      { dumpsDir, createDumpsDir: true, freeBytes: plenty },
       (update) => progress.push(update),
     );
 
@@ -249,7 +266,7 @@ describe("downloading the newest dump", () => {
     };
     const cancelled = downloadDump(
       { dumps, logger: silentLogger },
-      { dumpsDir, freeBytes: plenty, signal: controller.signal },
+      { dumpsDir, createDumpsDir: true, freeBytes: plenty, signal: controller.signal },
     );
     await expect(cancelled).rejects.toThrow("aborted");
     expect(fs.readdirSync(dumpsDir)).toEqual([]);

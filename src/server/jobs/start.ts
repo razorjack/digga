@@ -5,7 +5,7 @@ import type { DumpLoadJobInput, ImportJobInput, ImportKind } from "../../shared/
 import { JOB_LABEL } from "../../shared/job-display.ts";
 import type { DumpLoadProgress, Job, JobType } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
-import { resolveDumpFile } from "../paths.ts";
+import { dumpsDirOptions, resolveDumpFile } from "../paths.ts";
 import type { DumpLoadJobResult } from "./dump-load.ts";
 import {
   downloadDump,
@@ -29,7 +29,7 @@ export function startDumpDownload(context: AppContext): Job {
   refuseWhileDumpJobRuns(context);
   const deps = { dumps: context.dataDumps, logger: context.logger };
   return context.jobs.run("dump_download", ({ signal, onProgress }) =>
-    downloadDump(deps, { dumpsDir: context.paths.dumpsDir, signal }, onProgress),
+    downloadDump(deps, { ...dumpsDirOptions(context.paths), signal }, onProgress),
   );
 }
 
@@ -47,7 +47,7 @@ export function startDumpUpdate(context: AppContext): Job {
   return context.jobs.run("dump_update", async ({ signal, onProgress }) => {
     const download = await downloadDump(
       deps,
-      { dumpsDir: context.paths.dumpsDir, signal },
+      { ...dumpsDirOptions(context.paths), signal },
       (progress) => onProgress({ step: "download", ...progress }),
     );
     const workerData = prepareDumpLoad(context, { file: download.path, dryRun: false });

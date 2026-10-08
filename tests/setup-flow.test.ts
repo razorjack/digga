@@ -22,6 +22,8 @@ const SETUP: SetupResponse = {
     error: null,
     dumpsDir: "/dumps",
     dumpsDirSource: "default",
+    dumpsDirMissing: false,
+    dumpFileMissing: false,
     freeBytes: null,
     neededBytes: null,
   },
@@ -125,6 +127,21 @@ describe("where the setup resumes", () => {
     expect(flow.step).toBe("sound");
     expect(flow.picks).toEqual(PICKS);
     expect(await resumedStep("discogs")).toBe("discogs");
+  });
+
+  it("opens step 2 on a dump file the user chose, and step 1 once the file has gone", async () => {
+    const file = "/Volumes/Crate/discogs_20260901_releases.xml.gz";
+    const config = { ...DEFAULT_CONFIG, setup: { ...DEFAULT_CONFIG.setup, dumpFile: file } };
+    serverHas([], false, config);
+    expect(await resumedStep(null)).toBe("discogs");
+
+    vi.spyOn(api, "getSetup").mockResolvedValue({
+      ...SETUP,
+      catalogue: { ...SETUP.catalogue, dumpFileMissing: true },
+    });
+    const flow = await resumed(null);
+    expect(flow.step).toBe("catalogue");
+    expect(flow.pickedDump).toBe(file);
   });
 
   it("opens step 3 for confirmed picks also on a catalogue that was in the dumps folder", async () => {
@@ -389,5 +406,31 @@ describe("the picks step 3 confirms", () => {
     expect(
       confirmedPicks(withChange(DEFAULT_CONFIG, { username: "dj", currency: "GBP" })),
     ).toBeNull();
+  });
+});
+
+describe("fetching the catalogue into a folder chosen in the app", () => {
+  const CHOSEN = {
+    ...SETUP.catalogue,
+    dumpsDir: "/Volumes/Crate/dumps",
+    dumpsDirSource: "chosen" as const,
+  };
+
+  it("reads the setup again first, and downloads nothing once the folder has gone", async () => {
+    const getSetup = vi
+      .spyOn(api, "getSetup")
+      .mockResolvedValue({ ...SETUP, catalogue: { ...CHOSEN, dumpsDirMissing: true } });
+    const startDumpDownload = vi.spyOn(api, "startDumpDownload").mockResolvedValue(DOWNLOAD);
+    const flow = new SetupFlow();
+    flow.setup = { ...SETUP, catalogue: CHOSEN };
+
+    await flow.fetchCatalogue();
+    flow.close();
+
+    expect(getSetup).toHaveBeenCalledOnce();
+    expect(startDumpDownload).not.toHaveBeenCalled();
+    expect(flow.setup.catalogue.dumpsDirMissing).toBe(true);
+    expect(flow.step).toBe("catalogue");
+    expect(flow.error).toBeNull();
   });
 });

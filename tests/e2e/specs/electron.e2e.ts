@@ -435,6 +435,20 @@ test.describe("on a new library", () => {
       await setup.back("catalogue");
       await expect(setup.root.getByText(chosenLine)).toBeVisible();
       await expect(setup.button("Use a dump file I have")).toBeHidden();
+
+      // A file that has gone, as on a disk that is not connected, keeps the setup on step 1.
+      const ejected = `${file}.ejected`;
+      fs.renameSync(file, ejected);
+      await setup.reload("catalogue");
+      const missing = setup.alert(/^Digga can't find/);
+      await expect(missing).toHaveText(
+        `Digga can't find ${homeRelative(file)}, the file you chose. Connect its disk, or choose another file.`,
+      );
+      await expect(setup.button("Continue")).toBeDisabled();
+      await expect(setup.button("Choose another file")).toBeEnabled();
+      fs.renameSync(ejected, file);
+      await setup.readCatalogueAgain("Check again");
+      await expect(missing).toBeHidden();
       await setup.continueFromCatalogue();
       await setup.skipDiscogs();
       await setup.pickStyle("Drum n Bass");
@@ -511,6 +525,23 @@ test.describe("on a new library without DIGGA_DUMPS_DIR", () => {
       await expect(
         setup.root.getByText(/^Discogs publishes every release in one file a month\./),
       ).toContainText(homeRelative(chosen));
+
+      // The folder goes, as a disk does when it is ejected; Fetch looks again and downloads nothing.
+      const ejected = `${chosen} ejected`;
+      fs.renameSync(chosen, ejected);
+      await electron.page.keyboard.press("Enter");
+      const missing = setup.alert(/^Digga can't find/);
+      await expect(missing).toHaveText(
+        `Digga can't find ${homeRelative(chosen)}, the folder you chose for the catalogue. Connect its disk, or choose another folder.`,
+      );
+      await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+      await expect(setup.button("Choose a folder…")).toBeEnabled();
+      expect(await jobStatuses(electron)).toEqual([]);
+      expect(fs.existsSync(chosen)).toBe(false);
+
+      fs.renameSync(ejected, chosen);
+      await setup.readCatalogueAgain("Check again");
+      await expect(missing).toBeHidden();
       await setup.fetchCatalogue();
       await expect.poll(() => fs.existsSync(path.join(chosen, dump.name))).toBe(true);
       expect(dumpsIn(electron.library.dumpsDir)).toEqual([]);

@@ -161,6 +161,7 @@ describe("the setup's dialogs", () => {
       paths: resolvePaths({ dataDir: tmp }),
       dataDumps: createDataDumpClient({ fetchImpl: offline }),
       desktop,
+      getConfig: () => DEFAULT_CONFIG,
     });
     expect(setup.desktop).toBe(true);
     await withServer({ desktop }, async (server) => {

@@ -79,7 +79,8 @@ a `desktop` registers (`src/server/routes/desktop.ts`, decision 168). `GET /api/
 there. `POST /api/desktop/dump-file` shows "Use a dump file you have", an open dialog for one
 `.xml.gz` file, and answers the path, or null when cancelled. `POST /api/desktop/dumps-folder`
 shows "Choose a folder for the catalogue" and saves the folder as the dumps folder (decision 169),
-unless `DIGGA_DUMPS_DIR` names it or a download or load runs.
+unless `DIGGA_DUMPS_DIR` names it or a download or load runs. Digga never creates a chosen folder,
+which may be on a disk that is not connected; step 1 says when it or a chosen file is not there.
 
 ## Window
 

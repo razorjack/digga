@@ -13,6 +13,8 @@ export interface DumpDownloadDeps {
 
 export interface DumpDownloadOptions {
   dumpsDir: string;
+  /** False for a folder the user chose: a missing one fails the download instead (paths.ts). */
+  createDumpsDir: boolean;
   signal?: AbortSignal;
   /** Free bytes in dumpsDir; the default asks the filesystem. */
   freeBytes?: (dir: string) => Promise<number>;
@@ -40,6 +42,7 @@ export async function downloadDump(
   options: DumpDownloadOptions,
   onProgress?: (progress: DumpDownloadProgress) => void,
 ): Promise<DumpDownloadResult> {
+  ensureDumpsDir(options);
   onProgress?.({ ...emptyProgress(), phase: "finding" });
   const dump = await deps.dumps.newestReleasesDump(options.signal);
   const target = path.join(options.dumpsDir, dump.file);
@@ -150,8 +153,16 @@ function doneProgress(
   };
 }
 
+/** Creates the dumps folder, unless the user chose it: a chosen folder that is gone fails the download. */
+function ensureDumpsDir(options: DumpDownloadOptions): void {
+  if (options.createDumpsDir) fs.mkdirSync(options.dumpsDir, { recursive: true });
+  else if (!fs.existsSync(options.dumpsDir))
+    throw new DataDumpError(
+      `The folder chosen for the catalogue, ${options.dumpsDir}, is not there: connect its disk, or choose another folder`,
+    );
+}
+
 async function ensureRoom(options: DumpDownloadOptions, bytes: number | null): Promise<void> {
-  fs.mkdirSync(options.dumpsDir, { recursive: true });
   if (bytes === null) return;
   const free = await (options.freeBytes ?? freeBytesIn)(options.dumpsDir);
   if (free >= bytes + SPARE_BYTES) return;

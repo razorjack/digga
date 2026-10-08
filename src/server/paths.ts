@@ -92,6 +92,19 @@ export function saveChosenDumpsDir(paths: Paths, folder: string): Paths {
   return { ...paths, dumpsDir: folder, dumpsDirSource: "chosen" };
 }
 
+/**
+ * Where a download writes. A folder the user chose may be on a disk that is not connected, so
+ * Digga never creates it.
+ */
+export function dumpsDirOptions(paths: Paths): { dumpsDir: string; createDumpsDir: boolean } {
+  return { dumpsDir: paths.dumpsDir, createDumpsDir: paths.dumpsDirSource !== "chosen" };
+}
+
+/** The dumps folder the user chose in the app is not there, as when its disk is not connected. */
+export function chosenDumpsDirMissing(paths: Paths): boolean {
+  return paths.dumpsDirSource === "chosen" && !fs.existsSync(paths.dumpsDir);
+}
+
 function currentSystem(): System {
   return { platform: process.platform, env: process.env, home: os.homedir() };
 }

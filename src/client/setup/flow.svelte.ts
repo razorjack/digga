@@ -140,10 +140,20 @@ export class SetupFlow {
   async fetchCatalogue(): Promise<void> {
     await this.#act(async () => {
       const fetching = this.setup?.catalogue.newest?.downloaded || isRunning(this.download);
-      if (!fetching) this.download = await api.startDumpDownload();
+      if (!fetching) {
+        if (await this.#chosenDumpsDirGone()) return;
+        this.download = await api.startDumpDownload();
+      }
       void loadStatus.check();
       this.goTo("discogs");
       this.#poll();
+    });
+  }
+
+  /** Step 1: reads the listing, the free space and the chosen folder or file again, and stays. */
+  async checkCatalogueAgain(): Promise<void> {
+    await this.#act(async () => {
+      this.setup = await api.getSetup();
     });
   }
 
@@ -295,12 +305,25 @@ export class SetupFlow {
     return fetched ? "discogs" : "catalogue";
   }
 
-  /** Step 1 is done: the user chose a file, or the download runs, has finished or has stopped. */
+  /**
+   * Step 1 is done: the user chose a file that is still there, or the download runs, has finished
+   * or has stopped.
+   */
   #catalogueChosen(): boolean {
-    if (this.pickedDump !== null) return true;
+    if (this.pickedDump !== null) return this.setup?.catalogue.dumpFileMissing !== true;
     return (
       isRunning(this.download) || this.download?.status === "done" || this.downloadStopped !== null
     );
+  }
+
+  /**
+   * A folder chosen in the app can have gone since step 1 opened, as when its disk was ejected;
+   * step 1 then says so instead of starting a download that would fail.
+   */
+  async #chosenDumpsDirGone(): Promise<boolean> {
+    if (this.setup?.catalogue.dumpsDirSource !== "chosen") return false;
+    this.setup = await api.getSetup();
+    return this.setup.catalogue.dumpsDirMissing;
   }
 
   /** A load needs a download unless the user chose a file, or the folder has the dump or will. */

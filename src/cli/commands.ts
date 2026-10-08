@@ -14,6 +14,7 @@ import { restoreBackedUpData } from "../server/db/user-data.ts";
 import { readDecisionsBackup, writeDecisionsBackup } from "../server/decisions-backup.ts";
 import { createDataDumpClient } from "../server/discogs/data-dumps.ts";
 import { createJobRunner } from "../server/jobs/runner.ts";
+import { dumpsDirOptions } from "../server/paths.ts";
 import { createServer } from "../server/server.ts";
 import { SHIPPED_CENSUS_FILE } from "../server/style-census.ts";
 import { type Config, validateConfig } from "../shared/config.ts";
@@ -62,7 +63,7 @@ export async function cmdDumpDownload(runtime: Runtime): Promise<void> {
   const { result } = await withOwnedDatabase(runtime, "digga dump download", (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     return jobs.runAndWait("dump_download", ({ signal, onProgress }) =>
-      downloadDump(deps, { dumpsDir: runtime.paths.dumpsDir, signal }, (progress) => {
+      downloadDump(deps, { ...dumpsDirOptions(runtime.paths), signal }, (progress) => {
         onProgress(progress);
         report(progress);
       }),
@@ -81,8 +82,8 @@ export async function cmdDumpUpdate(runtime: Runtime): Promise<void> {
   const { result } = await withOwnedDatabase(runtime, "digga dump update", (db) => {
     const jobs = createJobRunner(db, runtime.logger);
     return jobs.runAndWait("dump_update", async ({ signal, onProgress }) => {
-      const dumpsDir = runtime.paths.dumpsDir;
-      const download = await downloadDump(deps, { dumpsDir, signal }, (progress) => {
+      const folder = dumpsDirOptions(runtime.paths);
+      const download = await downloadDump(deps, { ...folder, signal }, (progress) => {
         onProgress({ step: "download", ...progress });
         report(progress);
       });

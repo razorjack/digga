@@ -152,13 +152,24 @@ digga                                                          1 2 3 4
   then on, also for the CLI and after a restart, and step 1 reads its free space again. While
   `DIGGA_DUMPS_DIR` names the folder the app says what the browser says, since the variable wins;
   while a download or load runs the server refuses.
+- The chosen folder is not there, as when its disk is not connected (`dumpsDirMissing` in
+  `GET /api/setup`): step 1 says "Digga can't find …, the folder you chose for the catalogue.
+  Connect its disk, or choose another folder." with "Check again" and "Choose a folder…", and
+  Fetch is disabled. Fetch reads the setup again first when the folder was chosen, so a folder
+  that went after step 1 opened is caught too. A download never creates a chosen folder: one that
+  is gone fails the job before any request (`createDumpsDir` in `downloadDump`); the default folder
+  and one `DIGGA_DUMPS_DIR` names are created as before.
 - data.discogs.com unreachable: the reason and "Try again (Enter)".
 - In the desktop app, "Use a dump file I have" opens a file dialog for a releases dump the user
   has, anywhere, under any name ending in `.xml.gz` (built on 2026-10-08, decision 168). It is
   offered whatever the listing says, unless the download has begun. The setup saves the file in
   `setup.dumpFile`, moves on to step 2 and loads it in step 4 as it would load a download, reading
   it where it is; nothing downloads. Step 1 then names the file, with "Continue" and "Choose
-  another file". Cancelling the dialog leaves step 1 as it was.
+  another file". Cancelling the dialog leaves step 1 as it was. A chosen file that is not there
+  (`dumpFileMissing`) keeps the setup on step 1, which says "Digga can't find …, the file you
+  chose. Connect its disk, or choose another file." with "Check again" and Continue disabled. A
+  file that goes while the user is on steps 2 and 3 is found only by the load, whose refusal
+  ("Dump file not found") step 4 shows; reopening the setup then returns to step 1.
 - From step 2 on, a download strip stays at the foot of the screen: "Fetching the catalogue · 2.9
   of 10.5 GB · 5 min left", a native `<progress>`.
 

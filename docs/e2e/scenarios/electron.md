@@ -94,8 +94,11 @@ Priority: **P2**.
 "Use a dump file I have" in step 1 loads a dump the user keeps outside the dumps folder: the
 bulk dump is written to a folder in the test's folder. With no answer the preload cancels the
 open dialog, and step 1 stays as it was, with Fetch enabled. Answered with the file, the setup
-moves on to step 2; back on step 1 it names the file and no longer offers the button. Skip, a
-style and Fill the crate load it: the open dialogs recorded are "Use a dump file you have" for
+moves on to step 2; back on step 1 it names the file and no longer offers the button. With the
+file moved away, a reload stays on step 1, which says "Digga can't find …, the file you chose.
+Connect its disk, or choose another file." with Continue disabled and "Choose another file"
+enabled; with the file back, "Check again" clears it. Continue, Skip, a style and Fill the crate
+load it: the open dialogs recorded are "Use a dump file you have" for
 one file filtered to `xml.gz`, cancelled and then answered; the settings hold the file in
 `setup.dumpFile`; the fake dumps service sent no transfer, and the only job is the finished load.
 The crate says Digga read the catalogue from the file and leaves it where it is, with no "Delete
@@ -153,8 +156,12 @@ another disk.", without `DIGGA_DUMPS_DIR`. "Choose a folder…" with no answer c
 dialog and the folder stays; answered with a folder in the test's folder, the message names it,
 Fetch stays disabled, the dialogs recorded are "Choose a folder for the catalogue" for a folder
 that may be created, and `dumps-folder.json` in the library holds it. With the listing at the
-dump's own size, a relaunch logs the chosen folder as its dumps folder, step 1 names it, and
-Fetch downloads the dump into it; the default folder stays without a dump. SETUP-05 checks that
+dump's own size, a relaunch logs the chosen folder as its dumps folder and step 1 names it. With
+the folder then moved away, as a disk is ejected, Fetch reads the setup again and starts nothing:
+step 1 says "Digga can't find …, the folder you chose for the catalogue. Connect its disk, or
+choose another folder.", Fetch is disabled, "Choose a folder…" is offered, no job ran and the
+folder was not created. With the folder back, "Check again" clears it, and Fetch downloads the
+dump into it; the default folder stays without a dump. SETUP-05 checks that
 the app offers no folder while `DIGGA_DUMPS_DIR` names one.
 
 ## ELEC-16
