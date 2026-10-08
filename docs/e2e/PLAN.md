@@ -91,8 +91,8 @@ The [Electron host](ELECTRON.md) runs the shared suite and the Electron-only sce
 unpackaged app on macOS (`vp run e2e:electron`), built on 2026-10-07 after the
 [spike](HISTORY.md#the-electron-spike-electron-unpackaged). 167 of the 174 shared tests run on
 Electron; the seven `@web` tests and their reasons are in [ELECTRON](ELECTRON.md#the-shared-suite-on-electron).
-ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10, ELEC-11 and ELEC-13 are implemented, and
-GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
+ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10, ELEC-11, ELEC-13 and ELEC-14 are
+implemented, and GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
 The same tests run on the packaged app's inspectable variant (`vp run e2e:packaged`), which
 ignores `-r`, so the host prepares it through the `DIGGA_E2E_HOLD` hook
 ([ELECTRON](ELECTRON.md#the-packaged-app)).

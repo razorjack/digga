@@ -4,7 +4,7 @@ Read this when working on electron only coverage. Follow the [E2E rules](../../E
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
 `tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-10,
-ELEC-11 and ELEC-13, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
+ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
 unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-07, ELEC-08, ELEC-09
 and ELEC-12 wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
 says what each waits for.
@@ -113,3 +113,14 @@ and the fakes logged no request, while the server answers `/api/health`; the mai
 worker it starts cannot connect to a loopback port other than the fakes'; after release the page
 loads with the routes and fake YouTube in place: the player is the fake, and a page request to the
 other port is refused (declared) and never reaches it
+
+## ELEC-14
+
+Priority: **P1**.
+
+A quit during the start shows no startup error, and the app exits (the regression of `61a280c`,
+which the health check found): with a wantlist import held at the fake, so the server's stop waits
+for it, the app is asked to quit while its window's first navigation is held, and the navigation
+then goes to the app's page, which the stopping server refuses. Once the navigation has failed the
+import's page is released; the server logs that it cancelled the job and "stopped", the app
+exits with 0, and no message box was shown

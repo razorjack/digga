@@ -191,7 +191,8 @@ function holdStart() {
 
 /**
  * The first loadURL() waits for release(), so the host can give the state and size the window
- * before the app's first request. Later calls go through at once.
+ * before the app's first request. Later calls go through at once. A failure of the held
+ * navigation is printed to stderr, which the host reads after the app has exited (ELEC-14).
  */
 function holdFirstNavigation() {
   // oxlint-disable-next-line typescript/unbound-method -- called with the window through call().
@@ -203,7 +204,11 @@ function holdFirstNavigation() {
     if (holding) return loadURL.call(this, url, options);
     holding = true;
     held.resolve(url);
-    return released.promise.then((target) => loadURL.call(this, target ?? url, options));
+    const loading = released.promise.then((target) => loadURL.call(this, target ?? url, options));
+    loading.catch((error) => {
+      process.stderr.write(`digga-e2e preload: the first navigation failed: ${error.message}\n`);
+    });
+    return loading;
   };
   return { held: held.promise, release: (url) => released.resolve(url) };
 }
