@@ -1,7 +1,7 @@
 import { SHELVES } from "../../../src/client/twelves/model.ts";
 import type { DiscogsAccountResponse, QueueResponse } from "../../../src/shared/api.ts";
 import type { Config } from "../../../src/shared/config.ts";
-import { formatPrice } from "../../../src/shared/display.ts";
+import { formatCounted, formatPrice } from "../../../src/shared/display.ts";
 import type { Job } from "../../../src/shared/types.ts";
 import { MARKET } from "../../../tools/dev/fake-services.ts";
 import {
@@ -296,7 +296,7 @@ test.describe("with an account to import", () => {
       await settings.waitForJob(collection, "done");
       await expect(settings.job(collection)).toContainText("Import collection");
       await expect(settings.job(collection)).toContainText(
-        `page 1 of 1, ${DJ.collection.length} items`,
+        `page 1 of 1, ${formatCounted(DJ.collection.length, "item")}`,
       );
 
       const wantlist = await settings.startJob(
@@ -304,7 +304,7 @@ test.describe("with an account to import", () => {
       );
       await settings.waitForJob(wantlist, "done");
       await expect(settings.job(wantlist)).toContainText(
-        `page 1 of 1, ${DJ.wantlist.length} items`,
+        `page 1 of 1, ${formatCounted(DJ.wantlist.length, "item")}`,
       );
       await settings.showTab("library");
       await expect(settings.libraryCount("on the Discogs wantlist")).toHaveText(

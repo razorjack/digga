@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { QueueItem, ReleaseDetail } from "../../shared/api.ts";
-  import { formatAge, formatCount, formatPrice } from "../../shared/display.ts";
+  import { formatAge, formatCounted, formatCount, formatPrice } from "../../shared/display.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
 
@@ -85,8 +85,7 @@
             <span>
               {#if item.ratingAverage !== null && item.ratingCount}
                 <span class="strong">{item.ratingAverage.toFixed(2)}</span> of 5 from
-                {formatCount(item.ratingCount)}
-                {item.ratingCount === 1 ? "rating" : "ratings"}
+                {formatCounted(item.ratingCount, "rating")}
               {:else}
                 not rated
               {/if}
@@ -116,7 +115,7 @@
 
     {#if siblings.length > 0}
       <p class="versions">
-        {siblings.length === 1 ? "1 other version" : `${siblings.length} other versions`} on this master:
+        {formatCounted(siblings.length, "other version")} on this master:
         {siblings
           .slice(0, 3)
           .map((s) => [s.year, s.country, s.formatSummary.split(" (")[0]].filter(Boolean).join(" "))

@@ -8,7 +8,7 @@
     QUEUE_STRATEGIES,
     type QueueStrategy,
   } from "../../shared/config.ts";
-  import { formatCount } from "../../shared/display.ts";
+  import { formatCount, nounFor } from "../../shared/display.ts";
   import { parseInteger } from "../../shared/integer.ts";
   import Key from "../components/Key.svelte";
   import { stats } from "../stores.svelte.ts";
@@ -212,7 +212,8 @@
     </div>
     <output class="preview">
       {#if filterPreview.value}
-        These filters match <b>{formatCount(filterPreview.value.universe.filteredKeys)}</b> records,
+        These filters match <b>{formatCount(filterPreview.value.universe.filteredKeys)}</b>
+        {nounFor(filterPreview.value.universe.filteredKeys, "record")},
         <b>{formatCount(filterPreview.value.remaining)}</b> still to dig.
       {/if}
     </output>

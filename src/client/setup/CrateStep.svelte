@@ -3,7 +3,7 @@
    * Step 4: the download and the load, what the load keeps as it goes, and "Start digging" once
    * enough records wait; then READY TO DIG.
    */
-  import { formatBytes, formatCount } from "../../shared/display.ts";
+  import { formatBytes, formatCount, formatCounted, nounFor } from "../../shared/display.ts";
   import { UNDATED_YEAR, type DumpLoadProgress, type KeptRelease } from "../../shared/types.ts";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
@@ -25,6 +25,9 @@
   );
   const stopped = $derived(flow.loadStopped);
   const toDig = $derived(stats.value?.remaining ?? 0);
+  /** At 20 seconds a record. */
+  const digHours = $derived(Math.max(1, Math.round((toDig * 20) / 3600)));
+  const releasesKept = $derived((loadProgress?.matched ?? 0) + (loadProgress?.coverage ?? 0));
   const picks = $derived(settings.value?.universe.styles ?? []);
   const span = $derived<[number, number] | null>(
     settings.value?.filters.yearFrom != null && settings.value.filters.yearTo != null
@@ -107,8 +110,8 @@
     <div class="ready">
       <Stamp text="ready to dig" tone="accent" size="xl" seed={4} slam />
       <h1 id="crate-title" class="headline">
-        The catalogue is in: {formatCount(stats.value?.universe.releases ?? loadProgress?.upserted ?? 0)} releases,
-        {formatCount(toDig)} records to dig.
+        The catalogue is in: {formatCounted(stats.value?.universe.releases ?? loadProgress?.upserted ?? 0, "release")},
+        {formatCounted(toDig, "record")} to dig.
       </h1>
     </div>
   {:else}
@@ -167,10 +170,10 @@
     {/if}
     <ProgressRow label="Read" fraction={flow.loadDone ? 1 : readFraction} text={readText()} />
     <p class="counts">
-      <span><b>{formatCount((loadProgress?.matched ?? 0) + (loadProgress?.coverage ?? 0))}</b> releases kept</span>
-      <span><b>{formatCount(toDig)}</b> records to dig</span>
+      <span><b>{formatCount(releasesKept)}</b> {nounFor(releasesKept, "release")} kept</span>
+      <span><b>{formatCount(toDig)}</b> {nounFor(toDig, "record")} to dig</span>
       {#if toDig > 0}
-        <span class="quiet">At 20 seconds a record, that is {Math.max(1, Math.round((toDig * 20) / 3600))} hours. Pace yourself.</span>
+        <span class="quiet">At 20 seconds a record, that is {formatCounted(digHours, "hour")}. Pace yourself.</span>
       {/if}
     </p>
   </div>

@@ -1,4 +1,4 @@
-import { formatBytes, formatCount, formatEta } from "./display.ts";
+import { formatBytes, formatCount, formatCounted, formatEta } from "./display.ts";
 import type {
   DumpDownloadProgress,
   DumpLoadProgress,
@@ -60,7 +60,7 @@ function progressOf(job: Job): ProgressSummary {
       const { page, pages, processed } = job.progress;
       const total = pages ? ` of ${pages}` : "";
       return {
-        text: `page ${page}${total}, ${formatCount(processed)} items`,
+        text: `page ${page}${total}, ${formatCounted(processed, "item")}`,
         fraction: pages ? page / pages : null,
       };
     }
@@ -103,13 +103,16 @@ function sellerProgress(progress: SellerImportProgress): ProgressSummary {
   if (records === null) {
     const total = pages ? ` of ${pages}` : "";
     return {
-      text: `${username}: page ${page}${total}, ${formatCount(read)} listings`,
+      text: `${username}: page ${page}${total}, ${formatCounted(read, "listing")}`,
       fraction: pages ? page / pages : null,
     };
   }
-  const cut = listings !== null && read < listings ? ` of ${formatCount(listings)}` : "";
+  const cut = listings !== null && read < listings;
+  const listingsRead = cut
+    ? `${formatCount(read)} of ${formatCounted(listings, "listing")}`
+    : formatCounted(read, "listing");
   return {
-    text: `${username}: ${formatCount(read)}${cut} listings, ${formatCount(records)} loaded records${shopChanges(progress)}`,
+    text: `${username}: ${listingsRead}, ${formatCounted(records, "loaded record")}${shopChanges(progress)}`,
     fraction: 1,
   };
 }
@@ -118,7 +121,7 @@ function sellerProgress(progress: SellerImportProgress): ProgressSummary {
 function shopChanges(progress: SellerImportProgress): string {
   const { gone, added } = progress;
   if (gone === null || added === null) return "";
-  return `; ${formatCount(gone)} releases gone, ${formatCount(added)} new since the last read`;
+  return `; ${formatCounted(gone, "release")} gone, ${formatCount(added)} new since the last read`;
 }
 
 export const JOB_LABEL: Record<JobType, string> = {

@@ -1,4 +1,4 @@
-import { formatCount } from "../shared/display.ts";
+import { formatCounted } from "../shared/display.ts";
 import type { Stats } from "../shared/api.ts";
 import type { Job } from "../shared/types.ts";
 import { api, type Api } from "./api.ts";
@@ -70,7 +70,7 @@ export class LoadStatusStore {
     if (finished?.status !== "done" || finished.type === "dump_download") return;
     const loaded = this.#stats.value?.universe.releases ?? 0;
     const toDig = this.#stats.value?.remaining ?? 0;
-    this.announcement = `The catalogue is in: ${formatCount(loaded)} releases, ${formatCount(toDig)} records to dig.`;
+    this.announcement = `The catalogue is in: ${formatCounted(loaded, "release")}, ${formatCounted(toDig, "record")} to dig.`;
   }
 }
 

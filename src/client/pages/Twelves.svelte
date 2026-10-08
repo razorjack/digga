@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-  import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+  import { formatCount, formatCounted, formatDay, formatPrice } from "../../shared/display.ts";
   import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
@@ -216,7 +216,7 @@
   <header class="head">
     <h1>Twelves</h1>
     <p class="lede">
-      {formatCount(shelfState.counts.all)} records you want, own, or put aside.
+      {formatCounted(shelfState.counts.all, "record")} you want, own, or put aside.
     </p>
   </header>
 

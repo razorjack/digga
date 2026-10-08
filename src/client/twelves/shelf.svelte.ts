@@ -2,7 +2,7 @@ import { expectedVerdict, type MarkedTrack, type TwelvesItem } from "../../share
 import type { Verdict, VerdictStatus } from "../../shared/types.ts";
 import { api as appApi, type Api, isConflict } from "../api.ts";
 import { waitForJob } from "../jobs.ts";
-import { formatCount } from "../../shared/display.ts";
+import { formatCount, formatCounted } from "../../shared/display.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import { errorMessage, stats, settings } from "../stores.svelte.ts";
 import {
@@ -404,7 +404,7 @@ export class TwelvesShelf {
       await this.load();
       void stats.refresh();
       this.showFlash(
-        `Your Discogs Maybe list has ${formatCount(progress.processed)} records; ${formatCount(progress.added)} new here.`,
+        `Your Discogs Maybe list has ${formatCounted(progress.processed, "record")}; ${formatCount(progress.added)} new here.`,
       );
     } catch (error) {
       this.showFlash(`The list check failed: ${errorMessage(error)}`);

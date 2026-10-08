@@ -1,7 +1,7 @@
 <script lang="ts">
   /** Step 3: the styles and years the load keeps and Triage digs, with what they come to. */
   import { tick, untrack } from "svelte";
-  import { formatBytes, formatCount } from "../../shared/display.ts";
+  import { formatBytes, formatCount, nounFor } from "../../shared/display.ts";
   import Action from "./Action.svelte";
   import type { SetupFlow } from "./flow.svelte.ts";
   import {
@@ -45,6 +45,7 @@
       ? estimateCatalogue(census, picks, { span, vinylOnly, loadYears })
       : null,
   );
+  const estimatedReleases = $derived(estimate ? roundEstimate(estimate.releases) : 0);
 
   // The imports' styles are the first picks, once, as they arrive.
   $effect(() => {
@@ -169,7 +170,7 @@
 
     <p class="estimate" role="status">
       {#if estimate && span}
-        About <b>{formatCount(roundEstimate(estimate.releases))}</b> releases, {formatBytes(estimate.bytes)};
+        About <b>{formatCount(estimatedReleases)}</b> {nounFor(estimatedReleases, "release")}, {formatBytes(estimate.bytes)};
         {formatCount(roundEstimate(estimate.dug))} of them from {span[0]}–{span[1]}{vinylOnly ? " on vinyl" : ""}.
         The load reads all {formatCount(roundEstimate(census.releases))} releases on Discogs whatever you pick, so it
         takes 15 to 20 minutes either way.

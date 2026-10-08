@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type Config, DISCOGS_CURRENCIES } from "../../shared/config.ts";
-  import { formatCount } from "../../shared/display.ts";
+  import { formatCounted } from "../../shared/display.ts";
   import type { Job } from "../../shared/types.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
@@ -78,7 +78,7 @@
     if (!confirm(question)) return;
     try {
       const forgotten = await discogs.forgetData();
-      showFlash(`Forgot ${formatCount(forgotten)} Discogs items of ${account}.`);
+      showFlash(`Forgot ${formatCounted(forgotten, "Discogs item")} of ${account}.`);
       void stats.refresh();
     } catch (error) {
       showFlash(`Not forgotten: ${errorMessage(error)}`);

@@ -28,6 +28,16 @@ describe("job contracts", () => {
       expect(result.completed).toBe(2);
       expect(job.status).toBe("done");
       expect(jobProgress(job)).toEqual({ text: "page 2 of 3, 150 items", fraction: 2 / 3 });
+      const one = createJob(db, "import_collection");
+      updateJobProgress(db, one.id, {
+        page: 1,
+        pages: 1,
+        processed: 1,
+        stubs: 0,
+        added: 1,
+        removed: 0,
+      });
+      expect(jobProgress(getJob(db, one.id)!).text).toBe("page 1 of 1, 1 item");
     } finally {
       db.close();
     }
@@ -52,6 +62,11 @@ describe("job contracts", () => {
       updateJobProgress(db, job.id, { ...reading, listings: 300, records: 5, gone: 3, added: 12 });
       expect(jobProgress(getJob(db, job.id)!).text).toBe(
         "Shop: 300 listings, 5 loaded records; 3 releases gone, 12 new since the last read",
+      );
+      const single = { ...reading, page: 1, pages: 1, listings: 1, read: 1 };
+      updateJobProgress(db, job.id, { ...single, records: 1, gone: 1, added: 0 });
+      expect(jobProgress(getJob(db, job.id)!).text).toBe(
+        "Shop: 1 listing, 1 loaded record; 1 release gone, 0 new since the last read",
       );
     } finally {
       db.close();

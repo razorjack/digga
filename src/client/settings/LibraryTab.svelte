@@ -2,7 +2,7 @@
   import { onDestroy, untrack } from "svelte";
   import type { DumpFile } from "../../shared/api.ts";
   import type { Config } from "../../shared/config.ts";
-  import { formatBytes, formatCount, formatDay } from "../../shared/display.ts";
+  import { formatBytes, formatCount, formatCounted, formatDay, nounFor } from "../../shared/display.ts";
   import { parseInteger } from "../../shared/integer.ts";
   import type { Job } from "../../shared/types.ts";
   import { api } from "../api.ts";
@@ -90,11 +90,11 @@
         <dt class="name" id="{id}-catalogue">Catalogue</dt>
         <dd>
           <ul class="counts" aria-labelledby="{id}-catalogue">
-            <li><b>{formatCount(summary.universe.releases)}</b> releases</li>
-            <li><b>{formatCount(summary.universe.keys)}</b> records</li>
+            <li><b>{formatCount(summary.universe.releases)}</b> {nounFor(summary.universe.releases, "release")}</li>
+            <li><b>{formatCount(summary.universe.keys)}</b> {nounFor(summary.universe.keys, "record")}</li>
             <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
             <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
-            <li><b>{formatCount(summary.heardTracks)}</b> {summary.heardTracks === 1 ? "tune" : "tunes"} heard</li>
+            <li><b>{formatCount(summary.heardTracks)}</b> {nounFor(summary.heardTracks, "tune")} heard</li>
           </ul>
         </dd>
       </div>
@@ -123,9 +123,9 @@
               {@const load = summary.dump.lastLoad}
               {@const missing = missingReleasesNote(load.missing)}
               The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
-              added {formatCount(load.added)} {load.added === 1 ? "release" : "releases"}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
+              added {formatCounted(load.added, "release")}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
               {#if load.toDig > 0}
-                {formatCount(load.toDig)} records among them are still to dig; <Key label="F" size="sm" /> in Triage offers them.
+                {formatCount(load.toDig)} {nounFor(load.toDig, "record among them is", "records among them are")} still to dig; <Key label="F" size="sm" /> in Triage offers them.
               {/if}
               {#if missing}{missing}{/if}
             {/if}

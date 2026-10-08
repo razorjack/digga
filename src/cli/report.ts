@@ -1,5 +1,5 @@
 import type { Stats } from "../shared/api.ts";
-import { formatBytes } from "../shared/display.ts";
+import { formatBytes, formatCount, formatCounted, nounFor } from "../shared/display.ts";
 import type { DumpDownloadProgress } from "../shared/types.ts";
 import type { DumpDownloadResult } from "../server/jobs/dump-download.ts";
 import type { BackupFile } from "../server/db/backup.ts";
@@ -56,24 +56,27 @@ export function showDump(result: DumpLoadJobResult): void {
 export function showImport(result: ImportResult): void {
   if (result.kind === "seller") {
     const cut = result.listings !== null && result.read < result.listings;
-    const read = cut ? `${result.read} of ${result.listings}` : `${result.read}`;
+    const read = cut
+      ? `${formatCount(result.read)} of ${formatCounted(result.listings ?? 0, "listing")}`
+      : formatCounted(result.read, "listing");
     const changes =
       result.gone === null
         ? ""
-        : `; ${result.gone} releases gone and ${result.added} new since the last read`;
+        : `; ${formatCounted(result.gone, "release")} gone and ${formatCount(result.added ?? 0)} new since the last read`;
+    const records = result.records ?? 0;
     console.log(
-      `import seller ${result.username}: ${read} listings read, ${result.records ?? 0} of their records are loaded${changes}; F in Triage digs them`,
+      `import seller ${result.username}: ${read} read, ${formatCount(records)} of their ${nounFor(records, "records is", "records are")} loaded${changes}; F in Triage digs them`,
     );
     return;
   }
   if (result.kind === "list") {
     console.log(
-      `import list "${result.listName}": ${result.processed} items, ${result.stubs} stub releases, ${result.added} new, ${result.removed} gone from Discogs`,
+      `import list "${result.listName}": ${formatCounted(result.processed, "item")}, ${formatCounted(result.stubs, "stub release")}, ${formatCount(result.added)} new, ${formatCount(result.removed)} gone from Discogs`,
     );
     return;
   }
   console.log(
-    `import ${result.kind}: ${result.processed} items over ${result.pages ?? 0} page(s), ${result.stubs} stub releases, ${result.added} new, ${result.removed} gone from Discogs`,
+    `import ${result.kind}: ${formatCounted(result.processed, "item")} over ${formatCounted(result.pages ?? 0, "page")}, ${formatCounted(result.stubs, "stub release")}, ${formatCount(result.added)} new, ${formatCount(result.removed)} gone from Discogs`,
   );
 }
 

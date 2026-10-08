@@ -1,7 +1,7 @@
 <script lang="ts">
   /** Step 2 (optional): the Discogs token, what Digga does with it, and the imports to run. */
   import { DISCOGS_CURRENCIES } from "../../shared/config.ts";
-  import { formatCount } from "../../shared/display.ts";
+  import { formatCount, formatCounted } from "../../shared/display.ts";
   import { tick } from "svelte";
   import { isTyping } from "../keymap.ts";
   import { settings } from "../stores.svelte.ts";
@@ -101,7 +101,7 @@
       {#if connectedAs}
         <p>
           Connected as <b>{connectedAs}</b>{#if flow.profile?.collection !== null && flow.profile?.collection !== undefined}:
-            {formatCount(flow.profile.collection)} in your collection, {formatCount(flow.profile.wantlist ?? 0)} wants{/if}.
+            {formatCount(flow.profile.collection)} in your collection, {formatCounted(flow.profile.wantlist ?? 0, "want")}{/if}.
           {#if fromEnvironment}The token comes from <code>DISCOGS_TOKEN</code>.{/if}
         </p>
       {/if}

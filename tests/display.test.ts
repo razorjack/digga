@@ -3,17 +3,26 @@ import {
   formatAge,
   formatBytes,
   formatCount,
+  formatCounted,
   formatDay,
   formatTime,
   formatDuration,
   formatEta,
   formatPrice,
+  nounFor,
   stampTilt,
 } from "../src/shared/display.ts";
 
 describe("display formatting", () => {
   it("formats counts, durations and prices", () => {
     expect(formatCount(4312)).toBe("4,312");
+    expect(formatCounted(1, "record")).toBe("1 record");
+    expect(formatCounted(0, "record")).toBe("0 records");
+    expect(formatCounted(1204, "record")).toBe("1,204 records");
+    expect(formatCounted(1, "more copy", "more copies")).toBe("1 more copy");
+    expect(formatCounted(3, "more copy", "more copies")).toBe("3 more copies");
+    expect(nounFor(1, "record is", "records are")).toBe("record is");
+    expect(nounFor(2, "record is", "records are")).toBe("records are");
     expect(formatDuration(372)).toBe("6:12");
     expect(formatDuration(3723)).toBe("1:02:03");
     expect(formatDuration(null)).toBe("");

@@ -197,7 +197,7 @@ test.describe("with Neurofunk in the universe beside Drum n Bass", () => {
 
       await settings.styleFilter("Drum n Bass").uncheck();
       // Of the small dump's records, only the second carries Neurofunk.
-      await expect(settings.preview).toHaveText("These filters match 1 records, 1 still to dig.");
+      await expect(settings.preview).toHaveText("These filters match 1 record, 1 still to dig.");
       await settings.save();
 
       expect((await app.api.get<Config>("/api/settings")).filters.styles).toEqual(["Neurofunk"]);

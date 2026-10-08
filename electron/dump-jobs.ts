@@ -1,4 +1,4 @@
-import { formatBytes, formatCount } from "../src/shared/display.ts";
+import { formatBytes, formatCounted } from "../src/shared/display.ts";
 import {
   DOWNLOAD_RETRIED_ERROR,
   type DumpDownloadProgress,
@@ -135,7 +135,7 @@ export function loadEndNotice(job: Job): Notice | null {
   if (job.status !== "done") return null;
   const progress = job.progress && "matched" in job.progress ? job.progress : null;
   const kept = (progress?.matched ?? 0) + (progress?.coverage ?? 0);
-  return { title: "The catalogue is in", body: `${formatCount(kept)} releases kept.` };
+  return { title: "The catalogue is in", body: `${formatCounted(kept, "release")} kept.` };
 }
 
 function receivedFraction(progress: DumpDownloadProgress | null): number | null {

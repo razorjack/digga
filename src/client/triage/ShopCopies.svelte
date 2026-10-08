@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ShopListing } from "../../shared/api.ts";
-  import { formatPrice } from "../../shared/display.ts";
+  import { formatCounted, formatPrice } from "../../shared/display.ts";
   import { type GradeTone, listingGrade, type SellerCopies } from "../../shared/listings.ts";
   import Stamp from "../components/Stamp.svelte";
   import type { StampTone } from "../keymap.ts";
@@ -42,7 +42,7 @@
       {/each}
     </ul>
     {#if hidden > 0}
-      <p class="quiet">and {hidden === 1 ? "1 more copy" : `${hidden} more copies`} on Discogs</p>
+      <p class="quiet">and {formatCounted(hidden, "more copy", "more copies")} on Discogs</p>
     {/if}
   {/if}
 </section>

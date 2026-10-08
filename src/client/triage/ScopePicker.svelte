@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ScopeMatch } from "../../shared/api.ts";
-  import { formatCount } from "../../shared/display.ts";
+  import { formatCount, formatCounted } from "../../shared/display.ts";
   import { type QueueScope, scopeKey } from "../../shared/scope.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
@@ -45,14 +45,14 @@
     if (search.searching) return "Searching…";
     if (options.length === 0)
       return `Nothing matches “${search.text.trim()}”. A seller's shop is read in Settings, under Discogs.`;
-    return `${formatCount(options.length)} ${options.length === 1 ? "match" : "matches"}, most records first.`;
+    return `${formatCounted(options.length, "match", "matches")}, most records first.`;
   });
 
   /** "label" for a label on the record, "label, 303 records" for a match, "12 to dig" for new records. */
   function optionNote(option: QueueScope | ScopeMatch): string {
     if (!("records" in option)) return option.kind;
     if (option.kind === "load") return `${formatCount(option.records)} to dig`;
-    return `${option.kind}, ${formatCount(option.records)} ${option.records === 1 ? "record" : "records"}`;
+    return `${option.kind}, ${formatCounted(option.records, "record")}`;
   }
 
   /** The native modal traps focus, closes on Esc and returns focus to where it was. */

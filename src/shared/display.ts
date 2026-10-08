@@ -1,9 +1,23 @@
 /** Formatting for the UI. Fixed "en-GB" locale so the counters read the same everywhere. */
 
 const counts = new Intl.NumberFormat("en-GB");
+const plurals = new Intl.PluralRules("en-GB");
 
 export function formatCount(count: number): string {
   return counts.format(count);
+}
+
+/**
+ * The noun for a count: "record" for 1, "records" otherwise. A plural other than the noun and
+ * "s" is given, as is a phrase whose verb agrees ("record is", "records are").
+ */
+export function nounFor(count: number, singular: string, plural = `${singular}s`): string {
+  return plurals.select(count) === "one" ? singular : plural;
+}
+
+/** "1 record", "1,204 records". */
+export function formatCounted(count: number, singular: string, plural?: string): string {
+  return `${formatCount(count)} ${nounFor(count, singular, plural)}`;
 }
 
 /** 372 -> "6:12", 3723 -> "1:02:03". */

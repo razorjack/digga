@@ -2,7 +2,7 @@
   import { onDestroy, untrack } from "svelte";
   import { type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-  import { formatCount } from "../../shared/display.ts";
+  import { formatCount, nounFor } from "../../shared/display.ts";
   import { sellerCopies } from "../../shared/listings.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
   import { replayItemOf } from "../../shared/replay.ts";
@@ -175,6 +175,7 @@
 
   const snoozedCount = $derived(stats.value?.verdicts.snoozed ?? 0);
   const noReleases = $derived(stats.value !== null && stats.value.universe.releases === 0);
+  const loadedRecords = $derived(stats.value?.universe.keys ?? 0);
   const nothingMatches = $derived(
     stats.value !== null &&
       stats.value.universe.releases > 0 &&
@@ -410,7 +411,7 @@
         <div class="state">
           <h1 class="headline">Your filters match no records.</h1>
           <p class="quiet">
-            {formatCount(stats.value?.universe.keys ?? 0)} records are loaded. Widen the years, formats or
+            {formatCount(loadedRecords)} {nounFor(loadedRecords, "record is", "records are")} loaded. Widen the years, formats or
             countries in settings{settings.value?.filters.skipWithoutVideos
               ? ", or let in releases without videos"
               : ""}.
