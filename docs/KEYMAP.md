@@ -158,8 +158,9 @@ radio button or slider has focus; text fields and menus take the keys for themse
   when the listener leaves the track. The track then counts as heard everywhere it appears. A
   shorter play is sent when the listener leaves it, as not heard: the log keeps it, and the tune
   stays unheard.
-- Videos with `embeddable = 0`, and videos YouTube refuses (error 100, 101, 150), are skipped
-  with a notice. When nothing on a release plays, the player shows the `no_audio` state: `S`
+- Videos with `embeddable = 0` are left out of the playlist, and the tracklist marks their track
+  "no embed". Videos YouTube refuses (error 100, 101, 150) are skipped with a notice. When
+  nothing on a release plays, the player shows the `no_audio` state: `S`
   searches YouTube, `⌘V` with a copied video link attaches it and plays it, `D` records
   `no_audio`, and the verdict keys still work. A pasted link works on any release, not only in
   that state.

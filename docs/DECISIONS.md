@@ -1204,3 +1204,39 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      still restores them. Since no import can bring them back, the daily decisions backup now
      counts any verdict as worth keeping. Rows of the import's jobs stay in the `jobs` table
      and are not listed, so Settings and the job runner read the other jobs as before.
+172. **The open observations before the first release, as the owner decided them on 2026-10-08.**
+     Each was reproduced against the code first.
+     - A video with `embeddable = 0` is left out of the playlist, and the tracklist marks its
+       track "no embed"; only videos YouTube refuses (error 100, 101, 150) are skipped with a
+       notice. KEYMAP said both had a notice, and now says what the code does.
+     - Before Space, the cued track keeps `aria-current`, its hidden text says "cued", and ▶ shows
+       only while it plays, so a screen reader no longer hears "playing" from a waiting player.
+     - Keys pressed in Settings give the page user activation, so a video cued later reads
+       "paused" and Space resumes it. That is the browser's rule for sound and stays as it is.
+     - "Read my lists" is disabled while the username is unsaved, and says to save it first,
+       since the server reads the lists of the saved username.
+     - A count of one reads in the singular everywhere, through `nounFor()` and
+       `formatCounted()` in `src/shared/display.ts`.
+     - A cancelled import keeps the page that was in flight when the user cancelled: the items it
+       read are real, and Cancel stops what comes after it.
+     - A setup resumed with a saved token opens at once and says the account is being checked;
+       `/oauth/identity` no longer holds the page while an import fills the request queue.
+     - A Discogs `401` or `403` on a want ends the push at once with the token message: the
+       server passes the status through (`discogsErrorStatus()`), and the session tries again
+       after 5 s, 30 s and 2 min only on the `502` of a temporary failure.
+     - The Settings import row says "N gone from Discogs" when an import ended wants or owned
+       records, as the CLI does.
+     - A successful Back up now clears the scheduled backup's failure, since it shows that the
+       backups folder takes files again.
+     - A video `P` finds joins the tracklist and plays at once only on a record that had nothing
+       playable; otherwise the player goes on as it was. A pasted link still plays at once.
+     - After a quit stopped the download before any load, step 1 says the download stopped when
+       Digga quit and starts over. The job runner records `QUIT_JOB_ERROR` ("Digga quit") on the
+       jobs it cancels while the server stops, the smallest change that tells a quit from a
+       Cancel the user pressed, which keeps its own error and says nothing new.
+     - A dumps folder chosen in the app may be on a disk that is not connected, so a download
+       never creates it: step 1 says when it is gone and offers "Choose a folder…" again, and Fetch
+       reads the setup again first. A dump file chosen in step 1 that is gone keeps the setup on
+       step 1 the same way; before, the load's refusal reached step 4, which offered no way back.
+     - Slow exits of the Electron app under test appeared only at load averages of 80 and above,
+       and runs at low load killed no app, so the harness's exit handling stays as it is.
