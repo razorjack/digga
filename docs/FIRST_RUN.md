@@ -510,6 +510,8 @@ The flow is the same web page. The shell adds:
   running. Closing the window asks the same.
 - "Use a dump file I have" in step 1, with a file dialog (built on 2026-10-08, see step 1).
 - A folder picker for the dumps when the disk is short of space (built on 2026-10-08, see step 1).
+- On macOS, a history import that Digga may not read shows a message box explaining Full Disk
+  Access, with "Open Privacy & Security" and "Not Now" (built on 2026-10-08, decision 170).
 - The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 
 ## Build order

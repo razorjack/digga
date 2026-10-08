@@ -10,7 +10,7 @@ import type { AppContext } from "./context.ts";
 import { hasLoadedCatalogue } from "./db/dump-loads.ts";
 import { tallySeedReleases } from "./db/seed-tally.ts";
 import type { DataDump, DataDumpClient } from "./discogs/data-dumps.ts";
-import { discoverHistoryFiles } from "./importers/history.ts";
+import { discoverHistoryFiles, isAccessDenied } from "./importers/history.ts";
 import { freeBytesIn, SPARE_BYTES } from "./jobs/dump-download.ts";
 
 /** A new dump appears once a month; the listing is read again after an hour. */
@@ -48,11 +48,6 @@ function historyBrowsers(): HistoryBrowser[] {
       return isAccessDenied(error) ? [{ name, readable: false }] : [];
     }
   });
-}
-
-function isAccessDenied(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException | null)?.code;
-  return code === "EPERM" || code === "EACCES";
 }
 
 async function readCatalogue(

@@ -3,11 +3,9 @@
 Read this when working on electron only coverage. Follow the [E2E rules](../../E2E_TESTING.md#rules-for-agents-writing-e2e-tests)
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
-`tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-07,
-ELEC-08, ELEC-09, ELEC-10, ELEC-11, ELEC-13, ELEC-14 and ELEC-15, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
-unpackaged app and on the packaged app's inspectable variant. ELEC-03 and ELEC-12 wait
-for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
-says what each waits for.
+`tests/e2e/specs/electron.e2e.ts` implements every ELEC scenario but ELEC-03, tagged `@electron`,
+through the [Electron host](../ELECTRON.md), on the unpackaged app and on the packaged app's
+inspectable variant. ELEC-03 waits for a keychain runner; [PLAN](../PLAN.md#electron) says which.
 
 ## ELEC-01
 
@@ -122,7 +120,15 @@ tokens, names neither Electron nor Digga, and is the one the page's requests sen
 
 Priority: **P2**.
 
-The history import's permission error shows the Full Disk Access dialog (macOS)
+A history import that Digga may not read explains Full Disk Access (macOS only, and not as root).
+Brave's history is in the fake home, and its folder has no permissions
+(`diggaOptions.unreadableBrowsers`). History in Settings' Discogs tab fails, and the app shows an
+"info" message box, "Digga may not read the browser's history", whose detail says where to turn
+on Full Disk Access, with "Open Privacy & Security" and "Not Now". Answered "Not Now", nothing
+opens; a second import answered "Open Privacy & Security" opens
+`x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`, which the preload
+records. The job's row keeps the import's own message, "Cannot read <the fake home's Brave
+folder>: EACCES: permission denied …"
 
 ## ELEC-13
 

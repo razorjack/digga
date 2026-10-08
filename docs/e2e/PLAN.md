@@ -91,8 +91,7 @@ The [Electron host](ELECTRON.md) runs the shared suite and the Electron-only sce
 unpackaged app on macOS (`vp run e2e:electron`), built on 2026-10-07 after the
 [spike](HISTORY.md#the-electron-spike-electron-unpackaged). 167 of the 174 shared tests run on
 Electron; the seven `@web` tests and their reasons are in [ELECTRON](ELECTRON.md#the-shared-suite-on-electron).
-ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-07, ELEC-08, ELEC-09, ELEC-10, ELEC-11,
-ELEC-13, ELEC-14 and ELEC-15 are implemented, and GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
+Every ELEC scenario but ELEC-03 is implemented, and GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
 The same tests run on the packaged app's inspectable variant (`vp run e2e:packaged`), which
 ignores `-r`, so the host prepares it through the `DIGGA_E2E_HOLD` hook
 ([ELECTRON](ELECTRON.md#the-packaged-app)).
@@ -102,7 +101,6 @@ Waiting, with what each waits for:
 | Work                                  | Waits for                                                                                                                                                   |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ELEC-03, the token in a real keychain | the inspectable variant (`release/inspectable/`) launched without the mock-keychain switches, on a runner with an unlocked keychain that is not the owner's |
-| ELEC-12, the Full Disk Access dialog  | the dialog for `HistoryAccessError`; the packaged app needs Full Disk Access to read Brave's history ([ELECTRON_PLAN](../ELECTRON_PLAN.md#what-is-left))    |
 | The suite on Windows and Linux        | their packages; Linux needs `xvfb-run` and a check of `safeStorage` under the basic store                                                                   |
 
 No `test.fail` stands for these: they are features not built yet, not gaps in built ones.

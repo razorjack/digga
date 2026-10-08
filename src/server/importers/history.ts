@@ -105,6 +105,13 @@ function profileHistoryFiles(root: string, browser: Browser): HistoryFile[] {
     .filter((source) => fs.existsSync(source.path));
 }
 
+/** The system refused Digga a file or folder, as macOS does without Full Disk Access. */
+export function isAccessDenied(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error && "code" in error && (error.code === "EPERM" || error.code === "EACCES")
+  );
+}
+
 export class HistoryAccessError extends Error {
   constructor(file: string, cause: unknown) {
     super(
@@ -253,17 +260,27 @@ function historySources(options: HistoryImportOptions): HistoryFile[] {
           path: options.path,
         },
       ]
-    : discoverHistoryFiles({
-        browser: options.browser,
-        homeDir: options.homeDir,
-        platform: options.platform,
-      });
+    : discoverReadableHistoryFiles(options);
   if (sources.length === 0) {
     throw new Error(
       `No browser history found for ${options.browser ?? "brave/chrome/firefox"}; pass --path to the History file.`,
     );
   }
   return sources;
+}
+
+/** A browser folder the system keeps Digga out of fails the import as a copy it may not read does. */
+function discoverReadableHistoryFiles(options: HistoryImportOptions): HistoryFile[] {
+  try {
+    return discoverHistoryFiles({
+      browser: options.browser,
+      homeDir: options.homeDir,
+      platform: options.platform,
+    });
+  } catch (error) {
+    if (isAccessDenied(error)) throw new HistoryAccessError(error.path ?? "the history", error);
+    throw error;
+  }
 }
 
 function applySeenKeys(db: Db, keys: Map<string, SeenKey>): number {

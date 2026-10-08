@@ -7,6 +7,7 @@ import { getVerdict } from "../src/server/db/verdicts.ts";
 import {
   discoverHistoryFiles,
   firefoxTimeToIso,
+  HistoryAccessError,
   historyUrlsToSeenKeys,
   importHistory,
   webkitTimeToIso,
@@ -169,6 +170,28 @@ describe("importHistory", () => {
       discoverHistoryFiles({ homeDir: home, platform: "darwin", browser: "firefox" }),
     ).toHaveLength(0);
   });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "fails with the access error when the system keeps it out of the browser's folder",
+    async () => {
+      const brave = path.join(tmp, "Library", "Application Support", "BraveSoftware");
+      const profiles = path.join(brave, "Brave-Browser");
+      makeChromiumHistory(path.join(profiles, "Default", "History"), []);
+      fs.chmodSync(profiles, 0o000);
+      const db = await fixtureDb();
+      try {
+        const imported = importHistory(
+          { db, logger: silentLogger },
+          { browser: "brave", homeDir: tmp, platform: "darwin", tempDir: tmp },
+        );
+        await expect(imported).rejects.toThrow(HistoryAccessError);
+        await expect(imported).rejects.toThrow(`Cannot read ${profiles}: EACCES`);
+      } finally {
+        fs.chmodSync(profiles, 0o755);
+        db.close();
+      }
+    },
+  );
 
   it("fails clearly when nothing is found", async () => {
     const db = await fixtureDb();

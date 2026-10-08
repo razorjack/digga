@@ -1180,3 +1180,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      the browser's message about the variable; while a download or load runs, it refuses too,
      since that job writes or reads the folder it started with. The setup only offers the
      dialog; Settings shows the folder but does not change it.
+170. **A history import that macOS keeps Digga out of explains Full Disk Access in a dialog.**
+     The desktop gets `historyAccessDenied()`, which the server's job listener calls when a
+     history import fails with `HistoryAccessError`; the server knows its error types, and the
+     main process decides what to show. On macOS the app shows a message box that says where to
+     turn on Full Disk Access, with "Open Privacy & Security", which opens
+     `x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`, and "Not Now".
+     macOS offers no way for an app to ask for the permission, and it applies after the app
+     starts again, which the box says. Other platforms show nothing more. The job keeps its own
+     message, which the page shows as before. A browser folder the import may not list now fails
+     with `HistoryAccessError` too, as a file it may not copy did; before, it failed with the bare
+     `EACCES` error, which no hint followed.

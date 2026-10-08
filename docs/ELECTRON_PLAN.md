@@ -69,6 +69,9 @@ downloads and loads that run (`electron/dump-jobs.ts`), without asking the page,
 - notifies when a load or update finishes or fails while no window of the app is focused, after
   logging the notification ("notification: The catalogue is in: 1,500 releases kept."); clicking
   it shows the window;
+- explains Full Disk Access on macOS when a history import fails with `HistoryAccessError`, which
+  the server reports through `historyAccessDenied()`: a message box with "Open Privacy & Security",
+  which opens Full Disk Access in System Settings, and "Not Now" (decision 170);
 - asks before quitting (below).
 
 The page reaches the app's native dialogs through `/api/desktop` routes, which only a server with
@@ -225,8 +228,6 @@ Later:
   (AppImage or deb), each with its better-sqlite3 prebuild, checked to load in the packaged app,
   and the E2E suite on each. Node does not strip types from files under `node_modules`, which
   matters only if the app moves there.
-- **Browser history import:** on macOS the packaged app needs Full Disk Access to read Brave's
-  `History`; show the hint from `HistoryAccessError` in a dialog (ELEC-12).
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**

@@ -5,6 +5,7 @@ import {
   Notification,
   type OpenDialogOptions,
   powerSaveBlocker,
+  shell,
 } from "electron";
 import type { Desktop } from "../src/server/desktop.ts";
 import type { Logger } from "../src/server/logger.ts";
@@ -22,7 +23,8 @@ import {
  * The server's desktop (src/server/desktop.ts, decisions 165 and 168): the main process follows
  * the jobs the server reports, so it shows the download and the load on the Dock, keeps the Mac
  * awake while they run, says when a load ends unseen, and knows what quitting would stop, without
- * asking the page; and it shows the file and folder dialogs the setup asks for.
+ * asking the page; it shows the file and folder dialogs the setup asks for, and explains Full
+ * Disk Access when a history import may not read a browser's history.
  */
 export interface AppDesktop extends Desktop {
   /** The downloads and loads running now, in the order they started. */
@@ -48,6 +50,11 @@ const DUMPS_FOLDER_DIALOG: OpenDialogOptions = {
   buttonLabel: "Choose",
   properties: ["openDirectory", "createDirectory"],
 };
+
+/** Privacy & Security › Full Disk Access in System Settings. */
+const FULL_DISK_ACCESS_URL =
+  "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles";
+const OPEN_SETTINGS = 0;
 
 export function createDesktop(logger: Logger): AppDesktop {
   const running = runningDumpJobs();
@@ -77,6 +84,12 @@ export function createDesktop(logger: Logger): AppDesktop {
     chooseDumpFile: () => showOpenDialog(DUMP_FILE_DIALOG),
     chooseDumpsFolder: (current) =>
       showOpenDialog({ ...DUMPS_FOLDER_DIALOG, defaultPath: current }),
+    historyAccessDenied() {
+      if (process.platform !== "darwin") return;
+      askToOpenFullDiskAccess(logger).catch((error: unknown) =>
+        logger.warn("the Full Disk Access dialog failed", error),
+      );
+    },
   };
 }
 
@@ -139,6 +152,27 @@ function showWindow(): void {
   const window = appWindow();
   if (window?.isMinimized()) window.restore();
   window?.focus();
+}
+
+/**
+ * macOS lets an app read another app's data only with Full Disk Access, which the user grants in
+ * System Settings; the app cannot ask for it. Settings' job row keeps the import's own message.
+ */
+async function askToOpenFullDiskAccess(logger: Logger): Promise<void> {
+  const answer = await showMessageBox({
+    type: "info",
+    message: "Digga may not read the browser's history",
+    detail:
+      "macOS lets Digga read another app's data only with Full Disk Access. Turn on Digga under " +
+      "Privacy & Security › Full Disk Access in System Settings, open Digga again, and import " +
+      "the history once more.",
+    buttons: ["Open Privacy & Security", "Not Now"],
+    defaultId: OPEN_SETTINGS,
+    cancelId: 1,
+  });
+  if (answer !== OPEN_SETTINGS) return;
+  logger.info("opening Full Disk Access in System Settings");
+  await shell.openExternal(FULL_DISK_ACCESS_URL);
 }
 
 /** The app's open dialog, a sheet on its window when there is one; the file chosen, or null. */
