@@ -20,6 +20,9 @@ Search by scenario ID, error or date, or start with:
   the unpackaged app, workers and the guard.
 - [The packaged app](#the-packaged-app-electron-packaged): electron-builder, fuses, the ad-hoc
   signature, Gatekeeper, `-r` and the `DIGGA_E2E_HOLD` hook, and the suite on the packaged app.
+- [The setup's Electron parts](#the-setups-electron-parts-electron-unpackaged-and-packaged): the
+  desktop interface, the quit question, the Dock, the dump file and folder dialogs, Full Disk
+  Access, and ELEC-07, -08, -09, -12, -14 and -15 on both configurations.
 - [The Electron spike](#the-electron-spike-electron-unpackaged): the held start and navigation, the
   preload's guard in workers, quitting and userData.
 - [The Electron host and its scenarios](#the-electron-host-and-its-scenarios-electron-unpackaged):
@@ -1462,6 +1465,65 @@ distribution` failed the app with "Adhoc Signed App" (Warning) and "Notary Ticke
 - **Workers.** Four for single runs and burn-ins below a load of about 50; two for the ×3 run,
   which kept every test within its timeout at loads to 126. The ×10 burn-in on a quiet machine
   is still the owner's ([PLAN](PLAN.md#electron)).
+
+### The setup's Electron parts (Electron, unpackaged and packaged)
+
+Built and measured on 2026-10-08, on the same Mac (macOS 27.0.1, 26A434), Node 24.18.0, Electron
+44.5.1 and Playwright 1.63.0; the final runs were at `d2bfb33`. Another project shared the
+machine, at times heavily; the one-minute load averages are given with each run, and durations
+compare only within this session.
+
+Commits: the regression test for `61a280c` (`886068d`), the desktop interface (`1ba7dcd`), the
+quit question (`c41539a`), the Dock's progress bar, the power save blocker and the notification
+(`35ee816`), "Use a dump file I have" (`3820ad0`), the dumps folder picker (`6c7f825`) and the
+Full Disk Access dialog (`d2bfb33`); decisions 165 to 170.
+
+- **Isolation.** Every start of the app went through the E2E host or
+  `scripts/electron-health-check.ts`, with the mock-keychain switches. Once, `npx electron
+--version` started the repository's Electron binary with no app to read its version; it printed
+  `v24.21.0` and exited, loaded no Digga code and opened no window, and
+  `~/Library/Application Support/Electron` kept its date of 2026-10-06. A throwaway spec, deleted
+  afterwards, read the main process's functions on the unpackaged app (the preload) and on the
+  packaged one (the hold path) and found the preload's: before ELEC-08's first run,
+  `Notification.isSupported` (which answers false, so the app creates no notification),
+  `BrowserWindow.prototype.setProgressBar` and `powerSaveBlocker.start` and `stop`; before
+  ELEC-09's, `dialog.showOpenDialog`; before ELEC-12's, `shell.openExternal` and
+  `dialog.showMessageBox`. The quit question used the message box stub that already recorded the
+  startup error's box. No native dialog, notification or System Settings pane appeared. ELEC-12's history import read
+  the fake home, whose Brave folder the job's message names.
+- **ELEC-14** (`886068d`) holds the wantlist import, quits during the start and checks that the
+  held navigation failed, that no message box was shown and that the app exited with 0. With
+  `61a280c`'s `if (quitting) return;` taken out, it failed on the "Digga could not start." box.
+- **Burn-ins** (`--repeat-each=10`), each before its commit:
+  - ELEC-14: unpackaged 10 of 10 in 11.8 s, 2 workers, load 48 to 53; packaged 10 of 10 in
+    12.9 s, 2 workers, load 54 to 57.
+  - ELEC-07: unpackaged 10 of 10 in 105 s, 3 workers, load 81 to 128; ELEC-07 and ELEC-14
+    packaged 20 of 20 in 1.0 min, 2 workers, load 150 to 132.
+  - ELEC-08's two tests: unpackaged 20 of 20 in 53.3 s, 3 workers, load 38 to 26; packaged 20 of
+    20 in 54.3 s, 3 workers, load 16 to 8.
+  - ELEC-09: unpackaged 10 of 10 in 14.8 s, packaged 10 of 10 in 15.1 s, 3 workers, load 6 to 8.
+  - ELEC-15 and SETUP-05: unpackaged 20 of 20 in 15.6 s, load 2 to 5; packaged 20 of 20 in
+    17.5 s, load 12 to 19; 3 workers.
+  - ELEC-12: unpackaged 10 of 10 in 7.3 s, packaged 10 of 10 in 9.1 s, 3 workers, load 6 to 8.
+- **Other runs.** The three setup spec files on the unpackaged app, after the quit question:
+  36 of 36 in 2.1 min, 3 workers, load 130 to 225. With step 1's new controls, the setup spec
+  files and `accessibility.e2e.ts` on the unpackaged app: 49 of 49 in 1.2 min, 3 workers, load 7
+  to 5. Each `vp run electron:package` took 35 to 52 s, and its health check answered after 2.2
+  to 3.1 s and exited with 0.
+- **Slow exits.** At loads of 80 to 225, during ELEC-07's burn-in and the setup specs, the host
+  killed at least 21 apps still running 10 s after their server stopped; no test failed. No run
+  below a load of about 60 killed one.
+- **Product bugs found and fixed,** each with a vitest test: after a quit cancelled the load, the
+  crate said "The catalogue stopped loading: Cancelled." (`c41539a`); a browser folder the
+  history import may not list failed with the bare `EACCES` error instead of
+  `HistoryAccessError` (`d2bfb33`).
+- **Final runs at `d2bfb33`,** each once, 5 workers:
+  - `vp run e2e`: 174 of 174 in 1.5 min, 92 s with the build, load 7.8 to 7.6.
+  - `vp run e2e:electron`: 185 of 185 (167 shared, GUARD-03's two and the ELEC scenarios' 16) in
+    2.0 min, 120 s with the build, load 7.3 to 17.6, no kills.
+  - `vp run e2e:packaged`: the package and its health check (2.3, 2.5 and 2.6 s, exit 0), then
+    185 of 185 in 2.0 min, 153 s in all, load 17.1 to 28.0, no kills.
+  - `vp run verify` passed before each commit, in 22 to 23 s.
 
 ## Original status on 2026-10-02
 
