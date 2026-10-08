@@ -23,6 +23,9 @@ Search by scenario ID, error or date, or start with:
 - [The setup's Electron parts](#the-setups-electron-parts-electron-unpackaged-and-packaged): the
   desktop interface, the quit question, the Dock, the dump file and folder dialogs, Full Disk
   Access, and ELEC-07, -08, -09, -12, -14 and -15 on both configurations.
+- [The owner's decisions of 2026-10-08](#the-owners-decisions-of-2026-10-08-web-electron-unpackaged-and-packaged):
+  the browser history import removed, the open observations settled, and the three configurations'
+  final runs.
 - [The Electron spike](#the-electron-spike-electron-unpackaged): the held start and navigation, the
   preload's guard in workers, quitting and userData.
 - [The Electron host and its scenarios](#the-electron-host-and-its-scenarios-electron-unpackaged):
@@ -1524,6 +1527,60 @@ Full Disk Access dialog (`d2bfb33`); decisions 165 to 170.
   - `vp run e2e:packaged`: the package and its health check (2.3, 2.5 and 2.6 s, exit 0), then
     185 of 185 in 2.0 min, 153 s in all, load 17.1 to 28.0, no kills.
   - `vp run verify` passed before each commit, in 22 to 23 s.
+
+### The owner's decisions of 2026-10-08 (web, Electron unpackaged and packaged)
+
+Built and measured on 2026-10-08, on the same Mac (macOS 27.0.1, 26A434), Node 24.18.0, Electron
+44.5.1 and Playwright 1.63.0; the final runs were at `84ffcca`. Other work shared the machine,
+Spotlight's indexing among it; the one-minute load averages are given with each run.
+
+Commits, each passing `vp run verify` (about 22 s): the browser history import removed
+(`c79a3b1`) and the docs without it (`ed1ddf4`); the cued track (`2c4ab28`), Read my lists
+(`a57f535`), the singular count (`342597f`), the account check (`4c2b35f`), the refused token
+(`ed98f0e`), "N gone from Discogs" (`5856024`), Back up now (`e29603f`), the track of a second
+video (`34d2651`, a bug found on the way), `P`'s videos (`75dc14e`), the quit-stopped download
+(`5046738`), the chosen folder or file that is gone (`7131879`), and the decisions (`84ffcca`);
+decisions 171 and 172.
+
+- **The removal** took out, in `c79a3b1`, 617 lines of production code (63 added), 740 of tests
+  (252 added, among them `tests/library-with-history.test.ts` for libraries from before it) and
+  70 of docs (32 added); `ed1ddf4` changed 45 more lines of docs into 30. SETUP-12 and ELEC-12
+  are retired; TRI-47 is two tests, one of them for a library with no `seen` verdict, where
+  Settings shows no toggle.
+- **Isolation.** Every start of the app went through the E2E host or
+  `scripts/electron-health-check.ts`, with the mock-keychain switches; the Electron version came
+  from `node_modules/electron/package.json`. No native dialog or notification appeared, and every
+  run used a throwaway library and the fakes.
+- **Burn-ins** (`--repeat-each=10`), web with 4 workers and unpackaged Electron with 3, each
+  before its commit:
+
+  | Tests                                   | Web             | Electron        | Load         |
+  | --------------------------------------- | --------------- | --------------- | ------------ |
+  | TRI-47 and SET-15                       | 30 in 25.2 s    | 30 in 34.2 s    | 5.9 to 11.9  |
+  | TRI-01                                  | 10 in 5.4 s     | 10 in 7.6 s     | 11.7 to 20   |
+  | SET-11                                  | 10 in 17.6 s    | 10 in 24.0 s    | about 9      |
+  | SET-05 and SET-13                       | 20 in 22.5 s    | 20 in 31.4 s    | 8.6 to 13    |
+  | SETUP-28                                | 20 in 48.6 s    | 20 in 1.1 min   | 5.1 to 5.2   |
+  | TRI-16                                  | 10 in 23.2 s    | 10 in 31.2 s    | 7.8 to 9.4   |
+  | TWL-24                                  | 10 in 16.6 s    | 10 in 22.3 s    | 7.6 to 7.7   |
+  | SET-23                                  | 10 in 8.0 s     | 10 in 12.0 s    | 6.1 to 8.7   |
+  | TRI-23                                  | 20 in 9.6 s     | 20 in 13.0 s    | 4.5 to 13.2  |
+  | ELEC-16                                 | (Electron only) | 10 in 13.5 s    | 7.4 to 9.6   |
+  | SETUP-04 and SETUP-05                   | 20 in 8.9 s     | in the next row | 11.6 to 15.9 |
+  | SETUP-04, SETUP-05, ELEC-09 and ELEC-15 | (Electron only) | 40 in 36.6 s    | 15.0 to 20.9 |
+
+- **Other runs.** ELEC-07 and ELEC-14 after the runner's change, 2 of 2 in 9.0 s, load 9.6 to
+  9.8; the setup spec files and `accessibility.e2e.ts` on the web, 47 of 47 in 46.7 s; the
+  Triage specs, 55 of 55; `electron.e2e.ts` on Electron, 15 of 15 in 15.5 s.
+- **Final runs at `84ffcca`,** each once, one after the other, with the configurations' workers:
+  - `vp run e2e`: 175 of 175 in 1.7 min, 101 s with the build, load 33.9 to 66.7.
+  - `vp run e2e:electron`, started once the load had fallen below 15: 186 of 186 (168 shared,
+    GUARD-03's two and the ELEC scenarios' 16) in 2.2 min, 130 s with the build, load 12.7 to
+    39.7, no kills.
+  - `vp run e2e:packaged`: the package and its health check (answered after 2.4 s, exit 0 after
+    2.8 s), then 186 of 186 in 2.3 min, 175 s in all, load 39.7 to 48.6. The host killed five
+    apps still running 10 s after their server stopped, all in the first `accessibility.e2e.ts`
+    tests, which started as packaging ended; no test failed.
 
 ## Original status on 2026-10-02
 

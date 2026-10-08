@@ -17,7 +17,7 @@ host, the web P0 set and every specified web scenario are implemented. On 2026-1
 host ran the shared suite on the unpackaged app, with the Electron scenarios it can meet, and on
 2026-10-08 on the packaged app's inspectable variant ([Electron](#electron)). No current spec uses
 `test.fail` or `test.fixme`; the one `test.skip` call, in SET-23, skips on Windows or as root,
-where file permissions do not stop Digga. No observation awaits a decision.
+where file permissions do not stop Digga. One observation below awaits a decision.
 
 ## Next work
 
@@ -46,8 +46,12 @@ These are observations from earlier runs, not approved implementation tasks or e
 coverage. Reproduce against current code when taking one up. Resolved observations, including
 Triage's stale queue and Twelves' re-judging copy, remain in history only.
 
-None. The owner decided every observation recorded here on 2026-10-08
-([decision 172](../DECISIONS.md)); their evidence stays in history.
+The owner decided every earlier observation on 2026-10-08 ([decision 172](../DECISIONS.md));
+their evidence stays in history. One was made after that:
+
+| Observation                                            | Evidence and decision needed                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The packaged app outlived its server at loads below 80 | The final `vp run e2e:packaged` at `84ffcca` ([history](HISTORY.md#the-owners-decisions-of-2026-10-08-web-electron-unpackaged-and-packaged)): the host killed five apps still running 10 s after their server stopped, in the first `accessibility.e2e.ts` tests, which started as packaging ended, at loads of 39.7 to 48.6; no test failed. Decision 172 kept the exit handling on evidence of slow exits only at 80 and above. Decide whether this changes that. |
 
 ## Breadth and release checks
 
@@ -79,7 +83,7 @@ None. The owner decided every observation recorded here on 2026-10-08
 
 The [Electron host](ELECTRON.md) runs the shared suite and the Electron-only scenarios on the
 unpackaged app on macOS (`vp run e2e:electron`), built on 2026-10-07 after the
-[spike](HISTORY.md#the-electron-spike-electron-unpackaged). 167 of the 174 shared tests run on
+[spike](HISTORY.md#the-electron-spike-electron-unpackaged). 168 of the 175 shared tests run on
 Electron; the seven `@web` tests and their reasons are in [ELECTRON](ELECTRON.md#the-shared-suite-on-electron).
 Every ELEC scenario but ELEC-03 is implemented, and GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
 The same tests run on the packaged app's inspectable variant (`vp run e2e:packaged`), which
@@ -104,7 +108,7 @@ vp build
 npx playwright test --config tests/e2e/playwright.electron.config.ts --repeat-each=10 --workers 4
 ```
 
-That is 1,780 tests, about 22 minutes on four workers at the measured rate. Record the outcome in
+That is 1,860 tests, about 23 minutes on four workers at the measured rate. Record the outcome in
 HISTORY with the revision, load and duration.
 
 Where `safeStorage` cannot encrypt, the product saves the token as text and Settings says so

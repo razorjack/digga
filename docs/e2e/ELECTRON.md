@@ -225,7 +225,7 @@ without a browser, Electron's, which also scans the fake player's frames.
 ## The shared suite on Electron
 
 Every shared test runs on Electron unless it is tagged `@web`, and each `@web` test says why in
-a comment. On 2026-10-07 the web project had 174 tests and the Electron project ran 167 of
+a comment. On 2026-10-08 the web project had 175 tests and the Electron project ran 168 of
 them. The seven `@web` tests cannot apply to the app:
 
 | Test                 | Why it is web only                                                                                              |
