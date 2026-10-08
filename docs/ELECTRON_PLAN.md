@@ -114,8 +114,14 @@ start it against the fake services with the guard loaded.
 ## Packaging
 
 `vp run electron:package` builds the client and runs `scripts/package-electron.ts`, which calls
-electron-builder's `build()` with its configuration in the script (decision 159). It writes
-`release/Digga-<version>-arm64.dmg` and the app in `release/mac-arm64/Digga.app`.
+electron-builder's `build()` with its configuration in the script (decision 159), once for each
+variant:
+
+- the release build: `release/Digga-<version>-arm64.dmg` and the app in
+  `release/mac-arm64/Digga.app`;
+- the inspectable variant, which the E2E suite runs on: `release/inspectable/mac-arm64/Digga.app`,
+  with no dmg. It differs from the release build only in the inspect-arguments fuse; both have the
+  same `app.asar`.
 
 - **Contents.** `app.asar` holds `package.json` (whose `main` is still `electron/main.ts`),
   `dist/`, `electron/`, `src/` without `src/client/` (the migrations and the shipped style census
@@ -129,6 +135,13 @@ electron-builder's `build()` with its configuration in the script (decision 159)
   support.
 - **No rebuild.** `npmRebuild` is off: the repository's prebuild loads in Electron (decision
   153), and a rebuild would replace the binary the CLI, vitest and the web suite load.
+- **Fuses** (decision 161), flipped by electron-builder before it signs: `RunAsNode`,
+  `EnableNodeOptionsEnvironmentVariable` and `EnableNodeCliInspectArguments` off,
+  `OnlyLoadAppFromAsar` and `EnableEmbeddedAsarIntegrityValidation` on; the inspectable variant
+  keeps `EnableNodeCliInspectArguments` on. The others keep Electron's defaults. The release
+  build ignores `--inspect`, and neither variant honours `-r`. Integrity covers `app.asar` only:
+  a changed byte in it stops the app ("ASAR Integrity Violation"), while a changed file in
+  `app.asar.unpacked` still runs, and only the signature's seal notices it.
 - **Signing.** Ad-hoc (`identity: "-"`), the native module included, with no hardened runtime
   and no notarization (decision 158). `codesign --verify --deep --strict` accepts the app.
 - **Architecture.** arm64 only. An x64 build costs one more target, but Rosetta is not installed
@@ -150,8 +163,6 @@ throwaway folder.
 - **Signing** (decision 158): macOS builds are ad-hoc signed, the better-sqlite3 binary
   included, with no identity, no notarization and no hardened runtime. Windows: sign the
   installer only through a free service, if one qualifies. Linux: none.
-- **Fuses** for the release build, and an inspectable variant for the E2E suite
-  ([Electron E2E plan](e2e/ELECTRON.md#launch-and-release-builds)).
 - **Browser history import:** on macOS the packaged app needs Full Disk Access to read Brave's
   `History`; show the hint from `HistoryAccessError` in a dialog.
 - **The setup's Electron parts** ([FIRST_RUN](FIRST_RUN.md#electron)): load progress on the Dock

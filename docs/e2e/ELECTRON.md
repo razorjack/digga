@@ -209,8 +209,8 @@ for writing.
 
 **Fuses.** `_electron.launch()` starts Electron with inspector arguments to attach to it, so a
 build with the `EnableNodeCliInspectArguments` fuse off cannot be launched by Playwright at
-all. The suite will run on an inspectable variant of each release candidate that differs only in
-that fuse. The final fused artifact gets a smaller check without Playwright: launched with the
+all. `vp run electron:package` builds an inspectable variant beside the release build that
+differs only in that fuse (`release/inspectable/`, [ELECTRON_PLAN](../ELECTRON_PLAN.md#packaging)). The final fused artifact gets a smaller check without Playwright: launched with the
 isolated environment, `--user-data-dir`, an empty library and the fake service URLs, with no
 preload and no hold, it must write its "listening on" line to its log and answer
 `GET /api/health`, and it is then stopped. Nothing guards it but the environment, so the check

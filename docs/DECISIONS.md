@@ -1070,3 +1070,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      decisions backup through its worker. No transpile step and no `asarUnpack` for the sources
      are needed, so the CLI, vitest and the web suite run as before. better-sqlite3 loads from
      `app.asar.unpacked`, where Electron redirects the archive path of its `.node` file.
+161. **The release build has its fuses set, and an inspectable variant differs in one.** The
+     release build turns off `RunAsNode`, `EnableNodeOptionsEnvironmentVariable` and
+     `EnableNodeCliInspectArguments`, and turns on `OnlyLoadAppFromAsar` and
+     `EnableEmbeddedAsarIntegrityValidation`, so nothing runs the app's Node as plain Node, loads
+     code into it from the environment or the command line, or replaces its archive.
+     `EnableCookieEncryption` stays off: it would read the Keychain at every start, and the app
+     keeps no cookies of its own. Playwright attaches to Electron through `--inspect`, so the
+     E2E suite runs on a second build, `release/inspectable/`, with only that fuse on; both
+     builds have the same `app.asar`. Integrity covers the archive only: electron-builder writes
+     its hash into `Info.plist`, which the ad-hoc signature seals, and the unpacked better-sqlite3
+     package is covered by the signature alone. An ad-hoc signature can be made again by anyone
+     who can write the app, so the two keep a copy from being damaged or changed by accident, not
+     from someone who means to change it.

@@ -39,7 +39,7 @@ vp dev                           # Vite dev server on :5173, proxies /api to :34
 npm run digga -- serve           # Hono server on 127.0.0.1:3456, open http://localhost:3456 (serves dist/ after vp build)
 npm run digga -- serve --port 0  # pick a free port
 vp run electron:dev              # vp build, then the Electron app on the same library (macOS)
-vp run electron:package          # vp build, then the ad-hoc signed app and dmg in release/ (macOS arm64)
+vp run electron:package          # vp build, then the ad-hoc signed app, dmg and inspectable variant in release/
 vp build                         # build the client into dist/
 vp check                         # format + lint + type check (oxfmt, oxlint, tsgolint)
 vp test                          # vitest, tests/**/*.test.ts
@@ -151,7 +151,7 @@ tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwr
                        live-regions.ts, global-setup.ts); the fake services are
                        tools/dev/fake-services.ts
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
-release/               gitignored, the packaged app and dmg from `vp run electron:package`
+release/               gitignored, the packaged app and dmg, and inspectable/, from `vp run electron:package`
 ```
 
 ## Conventions
