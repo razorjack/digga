@@ -4,6 +4,7 @@
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
   import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
+  import Art from "../components/Art.svelte";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
@@ -212,6 +213,17 @@
 
 <svelte:window {onkeydown} {onpaste} />
 
+{#snippet emptyShelf()}
+  {#if shelfState.query}
+    <p class="empty">Nothing matches “{shelfState.query}”.</p>
+  {:else}
+    <div class="empty">
+      <Art name="crate" size={160} />
+      <p>{EMPTY[shelfState.shelf]}</p>
+    </div>
+  {/if}
+{/snippet}
+
 <div class="twelves">
   <aside class="sidebar">
     <h1>Twelves</h1>
@@ -335,7 +347,7 @@
   {:else if shelfState.error}
     <p class="empty">Twelves did not load: {shelfState.error}</p>
   {:else if onTracks && shelfState.visibleTracks.length === 0}
-    <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY.tracks}</p>
+    {@render emptyShelf()}
   {:else if onTracks}
     <TrackTable
       tracks={shelfState.trackPage.items}
@@ -350,7 +362,7 @@
       oncancel={() => (editingKey = null)}
     />
   {:else if shelfState.visible.length === 0}
-    <p class="empty">{shelfState.query ? `Nothing matches “${shelfState.query}”.` : EMPTY[shelfState.shelf]}</p>
+    {@render emptyShelf()}
   {:else}
     <table class="box" bind:this={table}>
       <caption class="visually-hidden">
@@ -721,6 +733,9 @@
     color: var(--fg-muted);
   }
   .empty {
+    display: grid;
+    justify-items: start;
+    gap: 20px;
     padding: 40px 0;
     color: var(--fg-muted);
     max-width: 60ch;

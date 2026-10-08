@@ -3,6 +3,7 @@
   import type { BackupSummary, BackupsResponse } from "../../shared/api.ts";
   import { formatAge, formatBytes, formatDay } from "../../shared/display.ts";
   import { api } from "../api.ts";
+  import Art from "../components/Art.svelte";
   import { errorMessage } from "../stores.svelte.ts";
   import { checkpointTime } from "./backups.ts";
 
@@ -62,36 +63,39 @@
         {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at once.
       </p>
     {/if}
-    <div class="block">
-      <table class="backups">
-        <caption class="visually-hidden">The newest backup of each kind</caption>
-        <thead>
-          <tr>
-            <th scope="col"><span class="visually-hidden">Backup</span></th>
-            <th scope="col">Latest</th>
-            <th scope="col">Size</th>
-            <th scope="col">Keeps</th>
-          </tr>
-        </thead>
-        <tbody>
-          {@render dailyRow("Your decisions", backups.decisions.backups[0], backups.decisions.kept)}
-          {@render dailyRow("The database", backups.backups[0], backups.kept)}
-          <tr>
-            <th scope="row">Checkpoints</th>
-            {#if latestCheckpoint}
-              <td>
-                {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time>{:else}{latestCheckpoint.day}{/if}
-              </td>
-              <td>{formatBytes(latestCheckpoint.bytes)}</td>
-            {:else}
-              <td>none yet</td>
-              <td></td>
-            {/if}
-            <td>last {backups.checkpoints.kept}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="hint">In <code>{backups.directory}</code>.</p>
+    <div class="vault">
+      <div class="block">
+        <table class="backups">
+          <caption class="visually-hidden">The newest backup of each kind</caption>
+          <thead>
+            <tr>
+              <th scope="col"><span class="visually-hidden">Backup</span></th>
+              <th scope="col">Latest</th>
+              <th scope="col">Size</th>
+              <th scope="col">Keeps</th>
+            </tr>
+          </thead>
+          <tbody>
+            {@render dailyRow("Your decisions", backups.decisions.backups[0], backups.decisions.kept)}
+            {@render dailyRow("The database", backups.backups[0], backups.kept)}
+            <tr>
+              <th scope="row">Checkpoints</th>
+              {#if latestCheckpoint}
+                <td>
+                  {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time>{:else}{latestCheckpoint.day}{/if}
+                </td>
+                <td>{formatBytes(latestCheckpoint.bytes)}</td>
+              {:else}
+                <td>none yet</td>
+                <td></td>
+              {/if}
+              <td>last {backups.checkpoints.kept}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="hint">In <code>{backups.directory}</code>.</p>
+      </div>
+      <Art name="safe" size={128} />
     </div>
   {/if}
   <div class="inline">
@@ -138,6 +142,12 @@
   a {
     color: var(--fg);
     text-underline-offset: 3px;
+  }
+  .vault {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 24px 72px;
   }
   .backups {
     max-width: 46em;

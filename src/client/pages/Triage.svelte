@@ -9,6 +9,7 @@
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
+  import Art from "../components/Art.svelte";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
@@ -388,6 +389,7 @@
         </div>
       {:else if session.finished && loadStatus.loading}
         <div class="state">
+          <Art name="press" size={160} />
           <h1 class="headline">You have dug everything loaded so far.</h1>
           <p class="quiet">
             {loadStatus.fraction === null ? "The catalogue is loading" : `${Math.floor(loadStatus.fraction * 100)}% of the catalogue is read`};
@@ -396,6 +398,7 @@
         </div>
       {:else if session.finished && noReleases}
         <div class="state">
+          <Art name="press" size={160} />
           <h1 class="headline">No releases loaded yet.</h1>
           <p class="quiet">
             Digga digs a Discogs releases dump. In settings, under Library, "Update from the newest dump"

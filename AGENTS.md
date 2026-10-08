@@ -137,8 +137,9 @@ electron/              the Electron main process: main.ts (server, quit), window
 src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css
-                       (tokens), components/ (Key, Stamp, Flash, HelpOverlay, LoadIndicator), setup/ (the first run),
-                       player/ (YouTube decks, status copy), triage/ (session + components), twelves/ (shelf + pure model),
+                       (tokens), components/ (Key, Stamp, Flash, HelpOverlay, LoadIndicator, Art), assets/ (the
+                       drawings Art shows), setup/ (the first run), player/ (YouTube decks, status copy),
+                       triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (one component per tab, preview, jobs, Discogs state), pages/
 tools/dump/            streaming loader (parse.ts, convert.ts, load.ts, growing.ts), worker-compatible; census.ts
 tools/dev/             fake-services.ts: the fake Discogs API, oEmbed and data.discogs.com, which the E2E harness

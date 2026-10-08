@@ -81,6 +81,11 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   small meter, and Settings has its own button at the right end. There is no wordmark: the app
   icon and the stamps carry the name. Chrome (toolbar, sidebars, bars pinned to the bottom) is on
   sleeve, content on the ground.
+- **Drawings:** the line drawings in `docs/assets` (logo, crate, press, safe), each in a dark and
+  a light version, mark the app's empty and waiting states: the logo heads the setup's sidebar,
+  the crate an empty Twelves shelf, the press Triage while nothing is loaded yet or the queue has
+  caught up with a load, and the safe the Backups tab. They are decorative (`Art.svelte`) and
+  never stand in for text.
 - **Triage layout:** the toolbar; left column with the catalogue-number stamp, label, artist, title, facts,
   market line, other versions and the scrolling tracklist; right column with the player, the
   now-playing line and progress bar (the start point is marked), player keys, the slip with the
