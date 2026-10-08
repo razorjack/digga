@@ -483,10 +483,15 @@ under 150 KB gzipped.
 
 The flow is the same web page. The shell adds:
 
-- Load progress on the Dock icon or taskbar button (`BrowserWindow.setProgressBar`).
-- A system notification when the load finishes and the window is not focused.
+- Load progress on the Dock icon or taskbar button (`BrowserWindow.setProgressBar`), built on
+  2026-10-08: how far the load has read while one runs, else how much of the download has
+  arrived, indeterminate while the size is unknown, and none once neither runs.
+- A system notification when the load finishes or fails and no window of the app is focused:
+  "The catalogue is in" with the releases kept, or "The catalogue stopped loading" with the
+  reason. A load the setup starts again after a checksum mismatch, and a cancelled one, say
+  nothing. Clicking it shows the window.
 - `powerSaveBlocker.start("prevent-app-suspension")` while a download or load runs, so a
-  sleeping laptop does not break the download.
+  sleeping laptop does not break the download; it stops however they end.
 - Quitting during the download or load asks first, since the download starts over (built on
   2026-10-08, decision 166): the question says where the download stands, that Discogs does not
   resume it, how far the load has read and that the releases it kept stay. Cancel keeps both

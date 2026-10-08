@@ -2,7 +2,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import { type DumpJob, quitQuestion, runningDumpJobs } from "../electron/dump-jobs.ts";
+import {
+  type DumpJob,
+  loadEndNotice,
+  NO_PROGRESS,
+  progressBarValue,
+  quitQuestion,
+  runningDumpJobs,
+  UNKNOWN_PROGRESS,
+} from "../electron/dump-jobs.ts";
 import { openDb, type Db } from "../src/server/db/db.ts";
 import type { Desktop } from "../src/server/desktop.ts";
 import { createJobRunner } from "../src/server/jobs/runner.ts";
@@ -10,11 +18,12 @@ import { createLogger } from "../src/server/logger.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import type {
-  DumpDownloadProgress,
-  DumpLoadProgress,
-  DumpUpdateProgress,
-  Job,
+import {
+  DOWNLOAD_RETRIED_ERROR,
+  type DumpDownloadProgress,
+  type DumpLoadProgress,
+  type DumpUpdateProgress,
+  type Job,
 } from "../src/shared/types.ts";
 import { silentLogger, testSecrets } from "./helpers.ts";
 
@@ -181,6 +190,54 @@ describe("quitting", () => {
       message: "Quit while Digga loads the catalogue?",
       detail: `The load stops at 50%. ${keep}`,
     });
+  });
+});
+
+describe("the Dock's progress bar", () => {
+  it("follows the load while one runs, else the download, and goes when neither runs", () => {
+    const download = downloadJob(downloading(1024, 4096));
+
+    expect(progressBarValue([])).toBe(NO_PROGRESS);
+    expect(progressBarValue([download])).toBe(0.25);
+    expect(progressBarValue([download, loadJob(reading(100, 1000))])).toBe(0.1);
+    expect(progressBarValue([updateJob({ step: "load", ...reading(500, 1000) })])).toBe(0.5);
+  });
+
+  it("is indeterminate while the size is unknown", () => {
+    expect(progressBarValue([downloadJob(null)])).toBe(UNKNOWN_PROGRESS);
+    expect(progressBarValue([downloadJob(downloading(1024, null))])).toBe(UNKNOWN_PROGRESS);
+    expect(progressBarValue([loadJob(reading(null, null))])).toBe(UNKNOWN_PROGRESS);
+  });
+});
+
+describe("the notification when a load ends", () => {
+  const done = { ...reading(1000, 1000), matched: 7139, coverage: 1200 };
+
+  it("says what a finished load kept, and why a load failed", () => {
+    expect(loadEndNotice({ ...loadJob(done), status: "done" })).toEqual({
+      title: "The catalogue is in",
+      body: "8,339 releases kept.",
+    });
+    expect(loadEndNotice({ ...updateJob({ step: "load", ...done }), status: "done" })?.title).toBe(
+      "The catalogue is in",
+    );
+    const failed = {
+      ...loadJob(null),
+      status: "failed",
+      error: "The download stopped: reset",
+    } as const;
+    expect(loadEndNotice(failed)).toEqual({
+      title: "The catalogue stopped loading",
+      body: "The download stopped: reset",
+    });
+  });
+
+  it("says nothing of a running or cancelled load, a download, or a load the setup starts again", () => {
+    expect(loadEndNotice(loadJob(done))).toBeNull();
+    expect(loadEndNotice({ ...loadJob(done), status: "cancelled", error: "Cancelled" })).toBeNull();
+    expect(loadEndNotice({ ...downloadJob(null), status: "failed", error: "reset" })).toBeNull();
+    const retried = { ...loadJob(null), status: "failed", error: DOWNLOAD_RETRIED_ERROR } as const;
+    expect(loadEndNotice(retried)).toBeNull();
   });
 });
 

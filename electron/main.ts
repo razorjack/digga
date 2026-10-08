@@ -55,7 +55,7 @@ async function startDigga(): Promise<void> {
     envFile: paths.secretsFile,
     encryption: safeStorageEncryption(),
   });
-  const desktop = createDesktop();
+  const desktop = createDesktop(logger);
   const server = createServer({
     config,
     paths,

@@ -100,8 +100,12 @@ loads it while the app waits for it ([The packaged app](#the-packaged-app)). In 
    after which nothing can read the record), and an open dialog answers as cancelled. A page's `alert()` or `confirm()` also
    reaches `showMessageBox`, with an abort signal; the stub leaves it unanswered, and the test
    answers it through Playwright's `dialog` event, as in the web host;
-4. records `BrowserWindow.setProgressBar()` calls and passes them on, and records notifications
-   without showing them;
+4. records `BrowserWindow.setProgressBar()` calls and `powerSaveBlocker.start()` and `stop()`
+   calls and passes them on, and answers `Notification.isSupported()` with false: that call and
+   the `Notification` constructor create Electron's notification presenter, which asks macOS for
+   permission to notify. The app asks `isSupported()` first and logs each notification before,
+   so ELEC-08 reads the log; a notification shown all the same is recorded, never shown, and fails
+   the test;
 5. sets each download's save path in `DIGGA_E2E_DOWNLOADS_DIR` from `will-download`, so no save
    dialog opens, and records its `done` state;
 6. holds the app's start: the app's `app.whenReady()` resolves once Electron is ready and the host
@@ -199,6 +203,9 @@ What differs from `-r`:
   where the server logs (a packaged app prints nothing, and an unpackaged one prints the same
   lines), and `stderr` the process's, where the guard reports. GUARD-01, PER-03 and the ELEC
   scenarios read them there; quitting waits for the log's "stopped" line.
+- `setFocused(focused)` replaces `BrowserWindow.getFocusedWindow()` in the main process, so the
+  app finds its window focused or not without taking focus from the developer's other apps
+  (ELEC-08).
 - `ElectronApp` also has `electronApp`, `windowUrl`, `userDataDir`, `downloadsDir` and
   `recorded()` for the ELEC scenarios.
 

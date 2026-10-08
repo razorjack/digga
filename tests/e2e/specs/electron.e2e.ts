@@ -7,7 +7,9 @@ import { pathToFileURL } from "node:url";
 import type { SettingsTab } from "../../../src/client/settings/tabs.ts";
 import type { JobsResponse } from "../../../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../../../src/shared/config.ts";
+import { formatCount } from "../../../src/shared/display.ts";
 import { discogsReleaseUrl } from "../../../src/shared/discogs-urls.ts";
+import type { DumpLoadProgress } from "../../../src/shared/types.ts";
 import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { DJ, FIRST_RECORD, SECOND_RECORD, triageKeyOf } from "../fixtures/catalogue.ts";
@@ -292,6 +294,78 @@ test.describe("on a new library", () => {
       expect(electron.servers[1]!.stderr).not.toContain("message box");
     },
   );
+
+  test(
+    "ELEC-08 the Dock shows the download and the load, the Mac stays awake while they run, and a load that ends unseen is announced",
+    { tag: ["@ELEC-08", "@P2", "@electron"] },
+    async ({ electron, fakes }) => {
+      const setup = new SetupPage(electron);
+      const point = fakes.dumps.checkpoint("100-to-dig");
+      fakes.dumps.holdAt(point.name);
+      await electron.open();
+      expect((await electron.recorded()).powerSaveBlockers).toEqual([]);
+
+      await setup.fetchCatalogue();
+      await expect.poll(() => downloadedBytes(electron)).toBe(point.offset);
+      await expect
+        .poll(() => lastProgressBar(electron))
+        .toBe(point.offset / fakes.dumps.listed.bytes);
+      const [blocker] = (await electron.recorded()).powerSaveBlockers;
+      expect(blocker).toEqual({
+        call: "start",
+        type: "prevent-app-suspension",
+        id: expect.any(Number),
+      });
+      await setup.skipDiscogs();
+      await setup.pickStyle("Drum n Bass");
+      await setup.fillCrate();
+      await setup.waitForRecordsToDig(point.recordsToDig);
+      await electron.setFocused(false);
+      fakes.dumps.release();
+      await setup.waitForCatalogue();
+
+      await expect.poll(() => lastProgressBar(electron)).toBe(-1);
+      expect((await electron.recorded()).powerSaveBlockers).toEqual([
+        blocker,
+        { call: "stop", id: blocker!.id },
+      ]);
+      const kept = await loadKept(electron);
+      await expect
+        .poll(() => electron.server.stdout)
+        .toContain(`notification: The catalogue is in: ${formatCount(kept)} releases kept.`);
+    },
+  );
+
+  test(
+    "ELEC-08 a load that fails while the window is focused clears the Dock, lets the Mac sleep and announces nothing",
+    { tag: ["@ELEC-08", "@P2", "@electron"] },
+    async ({ electron, fakes }) => {
+      const setup = new SetupPage(electron);
+      const point = fakes.dumps.checkpoint("100-to-dig");
+      fakes.dumps.holdAt(point.name);
+      await electron.open();
+      await setup.fetchCatalogue();
+      await setup.skipDiscogs();
+      await setup.pickStyle("Drum n Bass");
+      await setup.fillCrate();
+      await setup.waitForRecordsToDig(point.recordsToDig);
+
+      await electron.setFocused(true);
+      fakes.dumps.set({ failAfterBytes: point.offset });
+      fakes.dumps.release();
+      await expect(setup.downloadStopped).toBeVisible();
+
+      expect(await jobStatuses(electron)).toEqual([
+        ["dump_load", "failed"],
+        ["dump_download", "failed"],
+      ]);
+      await expect.poll(() => lastProgressBar(electron)).toBe(-1);
+      const blockers = (await electron.recorded()).powerSaveBlockers;
+      expect(blockers.map((blocker) => blocker.call)).toEqual(["start", "stop"]);
+      expect(electron.server.stdout).toContain("the computer may sleep again");
+      expect(electron.server.stdout).not.toContain("notification:");
+    },
+  );
 });
 
 for (const scheme of ["light", "dark"] as const)
@@ -468,6 +542,23 @@ async function downloadedBytes(electron: ElectronApp): Promise<number | null> {
   const { jobs } = await electron.api.get<JobsResponse>("/api/jobs");
   const download = jobs.find((job) => job.type === "dump_download");
   return download?.type === "dump_download" ? (download.progress?.receivedBytes ?? null) : null;
+}
+
+/** The value the app last gave the Dock's progress bar; undefined before it gave one. */
+async function lastProgressBar(electron: ElectronApp): Promise<number | undefined> {
+  return (await electron.recorded()).progressBars.at(-1)?.progress;
+}
+
+/** The releases the load kept, as the crate counts them. */
+async function loadKept(electron: ElectronApp): Promise<number> {
+  const progress = await loadProgress(electron);
+  return (progress?.matched ?? 0) + (progress?.coverage ?? 0);
+}
+
+async function loadProgress(electron: ElectronApp): Promise<DumpLoadProgress | null> {
+  const { jobs } = await electron.api.get<JobsResponse>("/api/jobs");
+  const load = jobs.find((job) => job.type === "dump_load");
+  return load?.type === "dump_load" ? load.progress : null;
 }
 
 /** Each job's type and status, newest first. */

@@ -1,9 +1,15 @@
-import { formatBytes } from "../src/shared/display.ts";
-import type { DumpDownloadProgress, DumpLoadProgress, Job } from "../src/shared/types.ts";
+import { formatBytes, formatCount } from "../src/shared/display.ts";
+import {
+  DOWNLOAD_RETRIED_ERROR,
+  type DumpDownloadProgress,
+  type DumpLoadProgress,
+  type Job,
+} from "../src/shared/types.ts";
 
 /**
  * What the downloads and loads the server reports mean for the app: whether one runs, for the
- * quit question, the Dock's progress bar and keeping the Mac awake. Pure, so vitest covers it.
+ * quit question, the Dock's progress bar, keeping the Mac awake and the notification when a load
+ * ends. Pure, so vitest covers it.
  */
 
 /** A job that downloads the catalogue, loads it, or does both. */
@@ -92,6 +98,49 @@ function loadLoss(progress: DumpLoadProgress | null): string {
   const fraction = readFraction(progress);
   if (fraction === null) return `The load stops. ${keep}`;
   return `The load stops at ${Math.floor(fraction * 100)}%. ${keep}`;
+}
+
+/** setProgressBar() removes the bar below 0 and shows an indeterminate one above 1. */
+export const NO_PROGRESS = -1;
+export const UNKNOWN_PROGRESS = 2;
+
+/**
+ * The Dock's progress bar: how far the load has read while one runs, which the setup waits for,
+ * else how much of the download has arrived; none while neither runs.
+ */
+export function progressBarValue(jobs: DumpJob[]): number {
+  const parts = jobs.map(runningPart);
+  const load = parts.find((part) => part.kind === "load");
+  if (load) return readFraction(load.progress) ?? UNKNOWN_PROGRESS;
+  const download = parts.find((part) => part.kind === "download");
+  if (download) return receivedFraction(download.progress) ?? UNKNOWN_PROGRESS;
+  return NO_PROGRESS;
+}
+
+/** What the notification says when a load ends while no window of the app is focused. */
+export interface Notice {
+  title: string;
+  body: string;
+}
+
+/**
+ * A load or update that finished or failed; null for any other job change, and for a load that
+ * stopped because its download runs once more after a checksum mismatch, which the setup starts
+ * again by itself. A cancelled load was the user's doing.
+ */
+export function loadEndNotice(job: Job): Notice | null {
+  if (job.type !== "dump_load" && job.type !== "dump_update") return null;
+  if (job.status === "failed" && job.error !== DOWNLOAD_RETRIED_ERROR)
+    return { title: "The catalogue stopped loading", body: job.error ?? "No reason was given." };
+  if (job.status !== "done") return null;
+  const progress = job.progress && "matched" in job.progress ? job.progress : null;
+  const kept = (progress?.matched ?? 0) + (progress?.coverage ?? 0);
+  return { title: "The catalogue is in", body: `${formatCount(kept)} releases kept.` };
+}
+
+function receivedFraction(progress: DumpDownloadProgress | null): number | null {
+  if (!progress?.totalBytes) return null;
+  return Math.min(1, progress.receivedBytes / progress.totalBytes);
 }
 
 /** How much of the dump the load has read; null before it knows the dump's size. */

@@ -8,7 +8,8 @@
  *    can write to the owner's library or Chromium profile;
  * 2. installs the Node socket guard, in this process and in every worker it starts;
  * 3. replaces the native dialogs and shell.openExternal with recorders that answer as the test
- *    asks, records the progress bar and notifications, and saves downloads in the test's folder;
+ *    asks, records the progress bar and the power save blockers, keeps the app from creating a
+ *    notification, and saves downloads in the test's folder;
  * 4. holds the app's start until the host calls globalThis.diggaE2e.start(), so the host prepares
  *    the browser context before the window exists: Playwright cannot install routes on a context
  *    whose window waits for its first navigation;
@@ -27,7 +28,14 @@ refuseOutsideTestFolder();
 const { pathToFileURL } = require("node:url");
 const moduleApi = require("node:module");
 const workerThreads = require("node:worker_threads");
-const { BrowserWindow, Notification, dialog, session, shell } = require("electron");
+const {
+  BrowserWindow,
+  Notification,
+  dialog,
+  powerSaveBlocker,
+  session,
+  shell,
+} = require("electron");
 
 const GUARD = path.join(__dirname, "guard.ts");
 
@@ -36,6 +44,7 @@ const recorded = {
   messageBoxes: [],
   openDialogs: [],
   progressBars: [],
+  powerSaveBlockers: [],
   notifications: [],
   downloads: [],
 };
@@ -47,6 +56,7 @@ installGuard();
 stubShell();
 stubDialogs();
 recordProgressAndNotifications();
+recordPowerSaveBlockers();
 saveDownloads(requiredPath("DIGGA_E2E_DOWNLOADS_DIR"));
 const start = holdStart();
 const navigation = holdFirstNavigation();
@@ -161,7 +171,12 @@ function messageBoxOptions({ type, message, detail, buttons }) {
   return { type, message, detail, buttons, answer };
 }
 
-/** The progress bar is set as asked; a notification is recorded and never shown. */
+/**
+ * The progress bar is set as asked. Notifications are not supported here: isSupported() and the
+ * constructor create Electron's notification presenter, which asks macOS for permission
+ * (electron_api_notification.cc), so the app, which asks isSupported() first, creates none and
+ * only logs what it would say. A notification shown all the same is recorded, never shown.
+ */
 function recordProgressAndNotifications() {
   // oxlint-disable-next-line typescript/unbound-method -- called with the window through call().
   const setProgressBar = BrowserWindow.prototype.setProgressBar;
@@ -169,8 +184,24 @@ function recordProgressAndNotifications() {
     recorded.progressBars.push({ progress, mode: options?.mode });
     return setProgressBar.call(this, progress, options);
   };
+  Notification.isSupported = () => false;
   Notification.prototype.show = function recordNotification() {
     recorded.notifications.push({ title: this.title, body: this.body });
+  };
+}
+
+/** A power save blocker keeps only the Mac from sleeping while the test runs, so it is passed on. */
+function recordPowerSaveBlockers() {
+  const start = powerSaveBlocker.start.bind(powerSaveBlocker);
+  const stop = powerSaveBlocker.stop.bind(powerSaveBlocker);
+  powerSaveBlocker.start = (type) => {
+    const id = start(type);
+    recorded.powerSaveBlockers.push({ call: "start", type, id });
+    return id;
+  };
+  powerSaveBlocker.stop = (id) => {
+    recorded.powerSaveBlockers.push({ call: "stop", id });
+    return stop(id);
   };
 }
 

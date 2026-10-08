@@ -1139,3 +1139,16 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      cancelled, as before, and are quick to run again. The crate gives no reason for a cancelled
      load, so after such a quit it says "The catalogue stopped loading." instead of the worker's
      "Cancelled".
+167. **The Dock follows the load, the Mac stays awake while the catalogue arrives, and a load that
+     ends unseen is announced.** From the jobs the server reports (decision 165), the main process
+     sets the window's progress bar to how far the load has read while one runs, since that is
+     what the setup waits for, and to the download's progress before it; the bar goes once
+     neither runs. `powerSaveBlocker.start("prevent-app-suspension")` runs from the first download
+     or load until none runs, so a laptop left alone does not sleep and break the 10.5 GB
+     download; the display may still sleep. A notification says that a load or update finished,
+     with the releases kept, or why it failed, only while no window of the app is focused, and not
+     for a cancelled load or one the setup starts again after a checksum mismatch. The app logs
+     each notification before it asks `Notification.isSupported()`: that call and the
+     constructor create Electron's notification presenter, which asks macOS for permission to
+     notify, so the E2E preload answers it with false and the tests read the log instead of
+     creating one.

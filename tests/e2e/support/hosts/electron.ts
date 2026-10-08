@@ -76,6 +76,8 @@ export interface MainProcessRecord {
   messageBoxes: MessageBox[];
   openDialogs: unknown[];
   progressBars: { progress: number; mode?: string }[];
+  powerSaveBlockers: { call: "start" | "stop"; type?: string; id: number }[];
+  /** Notifications shown although the preload answers Notification.isSupported() with false. */
   notifications: { title: string; body: string }[];
   downloads: { name: string; path: string; state: string }[];
 }
@@ -307,6 +309,17 @@ export class ElectronApp implements DiggaHost {
     return box!;
   }
 
+  /**
+   * Whether the main process finds one of its windows focused. A real focus change would take
+   * focus from the developer's other apps, so this replaces BrowserWindow.getFocusedWindow().
+   */
+  async setFocused(focused: boolean): Promise<void> {
+    await this.#current.electronApp.evaluate(({ BrowserWindow }, isFocused) => {
+      const window = BrowserWindow.getAllWindows()[0] ?? null;
+      BrowserWindow.getFocusedWindow = () => (isFocused ? window : null);
+    }, focused);
+  }
+
   /** The preload saves each download in the test's folder; this waits for its `done` state. */
   async expectDownload(action: () => Promise<void>): Promise<{ name: string; path: string }> {
     const index = (await this.recorded()).downloads.length;
@@ -512,6 +525,9 @@ export class ElectronApp implements DiggaHost {
       ...recorded.messageBoxes
         .filter((_box, index) => !launch.expectedBoxes.has(index))
         .map((box) => `the app showed a message box: ${box.message}`),
+      ...recorded.notifications.map(
+        (notification) => `the app showed a notification: ${notification.title}`,
+      ),
     ];
   }
 

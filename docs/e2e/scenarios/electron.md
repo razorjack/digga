@@ -4,9 +4,9 @@ Read this when working on electron only coverage. Follow the [E2E rules](../../E
 and [authoring guidance](../AUTHORING.md). [Scenario conventions and other families](README.md).
 
 `tests/e2e/specs/electron.e2e.ts` implements ELEC-01, ELEC-02, ELEC-04, ELEC-05, ELEC-06, ELEC-07,
-ELEC-10, ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
-unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-08, ELEC-09 and
-ELEC-12 wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
+ELEC-08, ELEC-10, ELEC-11, ELEC-13 and ELEC-14, tagged `@electron`, through the [Electron host](../ELECTRON.md), on the
+unpackaged app and on the packaged app's inspectable variant. ELEC-03, ELEC-09 and ELEC-12
+wait for a keychain runner or for features not built yet; [PLAN](../PLAN.md#electron)
 says what each waits for.
 
 ## ELEC-01
@@ -79,8 +79,15 @@ job running, quitting asks nothing
 
 Priority: **P2**.
 
-The load's progress reaches `BrowserWindow.setProgressBar`; a notification when it ends unfocused;
-`powerSaveBlocker` runs only during download and load
+The progress reaches `BrowserWindow.setProgressBar`, and `powerSaveBlocker` runs only while a
+download or load runs: before the download no blocker has started; with the download held at a
+checkpoint the bar shows the part that has arrived and one `prevent-app-suspension` blocker runs;
+with the window unfocused (`setFocused(false)`), once the download and the load have finished the
+bar is cleared (-1), that blocker has stopped and the log has the notification "The catalogue is
+in: N releases kept.", N as the load's job counts them. With the window focused, a download that
+fails at the checkpoint fails the load reading it: the bar is cleared, the blocker stopped, and
+nothing is announced. The preload answers `Notification.isSupported()` with false, so the app logs
+the notification and creates none ([ELECTRON](../ELECTRON.md#the-harness-preload))
 
 ## ELEC-09
 

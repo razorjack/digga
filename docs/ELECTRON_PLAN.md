@@ -58,7 +58,18 @@ quit.
 `createServer` takes an optional `desktop` (`src/server/desktop.ts`, decision 165), which
 `electron/desktop.ts` implements and the CLI's server leaves out. The job runner reports each
 change of a job to it: its start, every progress report and its end. The main process keeps the
-downloads and loads that run (`electron/dump-jobs.ts`), without asking the page.
+downloads and loads that run (`electron/dump-jobs.ts`), without asking the page, and from them
+(decision 167):
+
+- sets the window's progress bar, on the Dock icon: how far the load has read while one runs,
+  else how much of the download has arrived, indeterminate while the size is unknown, and none
+  once neither runs;
+- keeps the Mac awake with `powerSaveBlocker.start("prevent-app-suspension")` from the first
+  download or load until none runs, however they end;
+- notifies when a load or update finishes or fails while no window of the app is focused, after
+  logging the notification ("notification: The catalogue is in: 1,500 releases kept."); clicking
+  it shows the window;
+- asks before quitting (below).
 
 ## Window
 
@@ -208,10 +219,8 @@ Later:
   matters only if the app moves there.
 - **Browser history import:** on macOS the packaged app needs Full Disk Access to read Brave's
   `History`; show the hint from `HistoryAccessError` in a dialog (ELEC-12).
-- **The setup's Electron parts** ([FIRST_RUN](FIRST_RUN.md#electron)): load progress on the Dock
-  icon, a notification when a load finishes unseen, `powerSaveBlocker` during a download or
-  load, "Use a dump file I have" with a file dialog, and a folder picker when there is too little
-  space (ELEC-08, ELEC-09).
+- **The setup's Electron parts** ([FIRST_RUN](FIRST_RUN.md#electron)): "Use a dump file I have"
+  with a file dialog, and a folder picker when there is too little space (ELEC-09).
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**
