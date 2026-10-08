@@ -20,7 +20,9 @@ userData is `~/Library/Application Support/Digga`, the default library folder). 
    CLI's code: `DIGGA_DATA_DIR`, `DIGGA_DUMPS_DIR`, `DIGGA_CONFIG_FILE`, `DIGGA_LOG_LEVEL`, the
    three service URLs, and a `.env` in the working directory (decision 151);
 3. logs to `userData/digga.log` through `createFileSink()`, and to the terminal as well when
-   unpackaged;
+   unpackaged. A log over 10 MB at the start becomes `digga.log.1`, replacing the one there. The
+   dump-load and backup workers log through `workerLogger()`, which posts each line to the main
+   process's logger, so their lines reach the log of a packaged app too (decision 164);
 4. resolves the paths with `resolvePaths()`, loads the config, and creates the secrets with
    `safeStorage` as their encryption (below);
 5. calls `createServer({ ..., libraryHolder: "the Digga app" })`, which takes the library lock,
@@ -187,9 +189,6 @@ throwaway folder.
   icon, a notification when a load finishes unseen, `powerSaveBlocker` during a download or
   load, asking before quitting during a download, "Use a dump file I have" with a file dialog, and
   a folder picker when there is too little space.
-- **Logs.** `digga.log` grows without rotation. The dump-load and backup workers log to their
-  own console, which an unpackaged run prints and a packaged app loses; forwarding their lines to
-  the main process's logger is left for packaging.
 - **The Electron E2E scenarios that need packaging or the setup's Electron parts** (ELEC-03,
   ELEC-07, ELEC-08, ELEC-09 and ELEC-12, [PLAN](e2e/PLAN.md#electron)), the suite on the
   inspectable release candidate, and on Windows and Linux.

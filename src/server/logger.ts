@@ -42,9 +42,19 @@ export const consoleSink: LogSink = {
   },
 };
 
-/** Appends each line to `file`, for a process without a terminal, such as the Electron app. */
-export function createFileSink(file: string): LogSink {
+/** A log that has grown past this at the start moves aside; see createFileSink(). */
+const ROTATE_AT_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Appends each line to `file`, for a process without a terminal, such as the Electron app. A file
+ * larger than `rotateAtBytes` when the sink is created becomes `<file>.1`, replacing the one there,
+ * so the log keeps the current start's lines and at most two files.
+ */
+export function createFileSink(file: string, options: { rotateAtBytes?: number } = {}): LogSink {
   fs.mkdirSync(path.dirname(file), { recursive: true });
+  const rotateAtBytes = options.rotateAtBytes ?? ROTATE_AT_BYTES;
+  if (fs.existsSync(file) && fs.statSync(file).size > rotateAtBytes)
+    fs.renameSync(file, `${file}.1`);
   return {
     write(level, scope, message, data) {
       fs.appendFileSync(file, `${formatLine(level, scope, message, data)}\n`);

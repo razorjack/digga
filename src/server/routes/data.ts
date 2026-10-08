@@ -28,9 +28,9 @@ async function backUpNow(request: Context, context: AppContext) {
     now,
     config: context.getConfig(),
   };
-  const { db, paths } = context;
-  await backUpDecisionsInWorker(db, paths.dbFile, { backup: "now", options });
-  await backUpDecisionsInWorker(db, paths.dbFile, { backup: "checkpoint", options });
+  const { db, paths, logger } = context;
+  await backUpDecisionsInWorker(db, paths.dbFile, { backup: "now", options }, logger);
+  await backUpDecisionsInWorker(db, paths.dbFile, { backup: "checkpoint", options }, logger);
   await writeBackup(db, options);
   return backups(request, context);
 }

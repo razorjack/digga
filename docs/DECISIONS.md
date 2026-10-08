@@ -1104,3 +1104,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      with an environment built from nothing, the mock keychain and the fake services, refuses to
      start if any path or URL points elsewhere, and passes when the app logs "listening on",
      answers `GET /api/health` and stops on SIGTERM.
+164. **Workers log through the thread that started them, and the log rotates at the start.** A
+     packaged app has no terminal, so what a worker printed to its console was lost. A worker's
+     `workerLogger()` posts each line to the thread that started it, where `runWorker()` writes it
+     through the caller's logger, so the line has the main log's level, scope and file. The
+     dump-load worker logs through it; the backup worker logs nothing of its own, and its result
+     and errors already reach the main thread as messages. Logged data must survive
+     `postMessage`, as errors and plain objects do. `createFileSink()` moves a log larger than
+     10 MB at the start to `digga.log.1`, replacing the one there: a few lines that bound the log
+     to two files for ordinary use, without rotating while the app runs.

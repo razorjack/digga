@@ -80,7 +80,11 @@ function runDumpLoad(
 ): Promise<DumpLoadJobResult> {
   if (context.paths.dbFile === ":memory:")
     return dumpLoad({ db: context.db, logger: context.logger }, workerData.options, job.onProgress);
-  return runWorker<DumpLoadJobResult, DumpLoadProgress>(DUMP_LOAD_WORKER, workerData, job);
+  return runWorker<DumpLoadJobResult, DumpLoadProgress>(DUMP_LOAD_WORKER, {
+    workerData,
+    job,
+    logger: context.logger,
+  });
 }
 
 function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoadWorkerData {

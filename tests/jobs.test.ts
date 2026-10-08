@@ -202,7 +202,11 @@ it("finishes a worker step only once the worker has exited", async () => {
   );
   let result: number | null = null;
   const job = runner.run("import_wantlist", async (context) => {
-    result = await runWorker<number>(script, {}, context);
+    result = await runWorker<number>(script, {
+      workerData: {},
+      job: context,
+      logger: silentLogger,
+    });
   });
   try {
     await expect.poll(() => runner.get(job.id)?.progress).toMatchObject({ page: 1 });
@@ -216,13 +220,45 @@ it("finishes a worker step only once the worker has exited", async () => {
   }
 });
 
+it("writes a worker's log lines to the logger of the thread that started it", async () => {
+  const lines: unknown[][] = [];
+  const logger = createLogger({
+    level: "info",
+    scope: "digga",
+    sink: { write: (...line) => lines.push(line) },
+  });
+  const workerModule = new URL("../src/server/jobs/worker.ts", import.meta.url).href;
+  const script = new URL(
+    `data:text/javascript,${encodeURIComponent(`
+    import { parentPort } from 'node:worker_threads';
+    import { workerLogger } from '${workerModule}';
+    const logger = workerLogger(parentPort, 'dump-load-worker');
+    logger.debug('below the level');
+    logger.info('scanned', { releases: 3 });
+    logger.child('coverage').warn('a label is missing');
+    parentPort.postMessage({ type: 'done', result: 1 });
+  `)}`,
+  );
+  const job = { signal: new AbortController().signal, onProgress: () => {} };
+
+  expect(await runWorker<number, never>(script, { workerData: {}, job, logger })).toBe(1);
+  expect(lines).toEqual([
+    ["info", "digga:dump-load-worker", "scanned", { releases: 3 }],
+    ["warn", "digga:dump-load-worker:coverage", "a label is missing", undefined],
+  ]);
+});
+
 it("reports an unexpected worker exit as failure and a stopped worker as cancelled", async () => {
   const db = openDb(":memory:");
   const runner = createJobRunner(db, silentLogger);
   const crash = new URL("data:text/javascript,process.exit(2)");
   const hang = new URL("data:text/javascript,setInterval(() => {}, 1000)");
-  const crashed = runner.run("dump_load", (context) => runWorker(crash, {}, context));
-  const hanging = runner.run("dump_load", (context) => runWorker(hang, {}, context));
+  const run = (script: URL) =>
+    runner.run("dump_load", (job) =>
+      runWorker(script, { workerData: {}, job, logger: silentLogger }),
+    );
+  const crashed = run(crash);
+  const hanging = run(hang);
   try {
     await expect.poll(() => runner.get(crashed.id)?.status).toBe("failed");
     expect(runner.get(crashed.id)?.error).toBe("Worker exited with code 2");

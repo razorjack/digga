@@ -72,7 +72,7 @@ async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<s
   const failures = await Promise.all([
     attempt(logger, "the daily decisions backup", async () => {
       const task = { backup: "daily", options } as const;
-      const backup = await backUpDecisionsInWorker(db, deps.paths.dbFile, task);
+      const backup = await backUpDecisionsInWorker(db, deps.paths.dbFile, task, logger);
       if (backup) logger.info(`backed up your decisions to ${backup.file}`);
     }),
     attempt(logger, "the daily database backup", async () => {
@@ -87,7 +87,7 @@ async function writeDailyBackups(db: Db, deps: BackupDeps, now: Date): Promise<s
 function writeCheckpoint(db: Db, deps: BackupDeps, now: Date): Promise<string | null> {
   const task = { backup: "checkpoint", options: backupOptions(deps, now) } as const;
   return attempt(deps.logger, "the decisions checkpoint", () =>
-    backUpDecisionsInWorker(db, deps.paths.dbFile, task),
+    backUpDecisionsInWorker(db, deps.paths.dbFile, task, deps.logger),
   );
 }
 

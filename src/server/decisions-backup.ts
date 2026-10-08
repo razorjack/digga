@@ -17,6 +17,7 @@ import { type BackupFile, listDatedFiles } from "./db/backup.ts";
 import type { Db } from "./db/db.ts";
 import { readBackedUpData } from "./db/user-data.ts";
 import { runWorker } from "./jobs/worker.ts";
+import type { Logger } from "./logger.ts";
 
 /** Daily decisions backups kept; older ones are deleted. */
 export const DECISIONS_BACKUPS_KEPT = 30;
@@ -81,10 +82,12 @@ export function backUpDecisionsInWorker(
   db: Db,
   dbFile: string,
   task: DecisionsBackupTask,
+  logger: Logger,
 ): Promise<BackupFile | null> {
   if (dbFile === ":memory:") return runDecisionsBackupTask(db, task);
   const job = { signal: new AbortController().signal, onProgress: () => {} };
-  return runWorker<BackupFile | null, never>(BACKUP_WORKER, { ...task, dbFile }, job);
+  const workerData = { ...task, dbFile };
+  return runWorker<BackupFile | null, never>(BACKUP_WORKER, { workerData, job, logger });
 }
 
 export function runDecisionsBackupTask(

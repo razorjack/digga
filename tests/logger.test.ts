@@ -26,4 +26,20 @@ describe("the file log", () => {
     expect(lines.at(-1)).toBe("");
     expect(fs.readFileSync(file, "utf8")).not.toContain("not written");
   });
+
+  it("moves a log that has grown too large aside when it starts, replacing the earlier one", () => {
+    const file = path.join(tmp, "digga.log");
+    fs.writeFileSync(`${file}.1`, "the oldest start\n");
+    fs.writeFileSync(file, "the last start\n");
+
+    createLogger({ sink: createFileSink(file, { rotateAtBytes: 100 }) }).info("a small log stays");
+    expect(fs.readFileSync(`${file}.1`, "utf8")).toBe("the oldest start\n");
+    expect(fs.readFileSync(file, "utf8")).toMatch(/^the last start\n.* a small log stays\n$/);
+
+    createLogger({ sink: createFileSink(file, { rotateAtBytes: 10 }) }).info("a new start");
+    expect(fs.readFileSync(`${file}.1`, "utf8")).toMatch(
+      /^the last start\n.* a small log stays\n$/,
+    );
+    expect(fs.readFileSync(file, "utf8")).toMatch(/^\S+Z INFO  \[digga\] a new start\n$/);
+  });
 });
