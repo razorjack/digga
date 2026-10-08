@@ -252,7 +252,9 @@ gets a smaller check without Playwright, `scripts/electron-health-check.ts`, whi
 environment built from nothing, `--user-data-dir`, the mock-keychain switches, the resolver rule,
 an empty library and the URLs of fake services it starts, with no preload and no hold, the app
 must write its "listening on" line to `digga.log` and answer `GET /api/health`, and it is then
-stopped with SIGTERM, after which the log says "stopped". The script prints the environment and
+stopped with SIGTERM, after which the log must say "stopped" within 15 s. As in the host, an
+Electron process still running 10 s after its server stopped is killed, and the check says so;
+at loads around 100 the exit took 4 to 25 s, at low loads under 1.5 s. The script prints the environment and
 the command line first, and refuses to start unless every path lies in the temp folder and every
 service URL is a loopback one. Nothing guards the app but the environment, so the check does
 nothing more.

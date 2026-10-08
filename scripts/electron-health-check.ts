@@ -19,7 +19,13 @@ import { FakeServices } from "../tools/dev/fake-services.ts";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RELEASE_APP = path.join(ROOT, "release", "mac-arm64", "Digga.app");
 const START_TIMEOUT_MS = 30_000;
+/** As in the E2E host: a server that does not stop is a failure. */
 const STOP_TIMEOUT_MS = 15_000;
+/**
+ * Electron's own exit after its server has stopped, which took seconds at high loads; the check
+ * kills it after this and says so, as the E2E host does (docs/e2e/ELECTRON.md#quitting).
+ */
+const EXIT_TIMEOUT_MS = 10_000;
 const POLL_MS = 100;
 const STARTED = performance.now();
 
@@ -143,27 +149,49 @@ async function checkHealth(launch: Launch): Promise<void> {
 
 /** The packaged app logs to userData/digga.log only; its first line names the server's address. */
 async function waitForListening(logFile: string, child: ChildProcess): Promise<string> {
-  const deadline = Date.now() + START_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`the app exited with ${child.exitCode}`);
-    const log = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : "";
-    const listening = /listening on (http:\/\/127\.0\.0\.1:\d+)$/m.exec(log);
-    if (listening) return listening[1]!;
-    await sleep(POLL_MS);
-  }
-  throw new Error(`the app logged no "listening on" within ${START_TIMEOUT_MS / 1000} s`);
+  const listening = await waitForLogLine(logFile, /listening on (http:\/\/127\.0\.0\.1:\d+)$/m, {
+    child,
+    timeoutMs: START_TIMEOUT_MS,
+  });
+  return listening[1]!;
 }
 
-/** SIGTERM quits through before-quit, which stops the server; the log then says "stopped". */
+/**
+ * SIGTERM quits through before-quit, which stops the server, closes the database and logs
+ * "stopped"; then Electron exits.
+ */
 async function stop(child: ChildProcess, logFile: string): Promise<void> {
   const exited = new Promise<number | null>((resolve) => child.once("exit", resolve));
   child.kill("SIGTERM");
-  const code = await Promise.race([exited, sleep(STOP_TIMEOUT_MS, "timeout" as const)]);
-  if (code === "timeout")
-    throw new Error(`the app did not exit within ${STOP_TIMEOUT_MS / 1000} s`);
-  if (!/\] stopped$/m.test(fs.readFileSync(logFile, "utf8")))
-    throw new Error(`the app exited with ${code} without logging "stopped"`);
-  console.log(`electron-health-check: the app stopped and exited with ${code} after ${elapsed()}`);
+  await waitForLogLine(logFile, /\] stopped$/m, { child: null, timeoutMs: STOP_TIMEOUT_MS });
+  console.log(`electron-health-check: the server stopped after ${elapsed()}`);
+  const code = await Promise.race([exited, sleep(EXIT_TIMEOUT_MS, "timeout" as const)]);
+  if (code !== "timeout") {
+    console.log(`electron-health-check: the app exited with ${code} after ${elapsed()}`);
+    return;
+  }
+  child.kill("SIGKILL");
+  console.warn(
+    `electron-health-check: killed the app, still running ${EXIT_TIMEOUT_MS / 1000} s after its server stopped`,
+  );
+}
+
+/** Reads the log until a line matches; a given child that exits first fails the wait. */
+async function waitForLogLine(
+  logFile: string,
+  pattern: RegExp,
+  wait: { child: ChildProcess | null; timeoutMs: number },
+): Promise<RegExpExecArray> {
+  const deadline = Date.now() + wait.timeoutMs;
+  while (Date.now() < deadline) {
+    if (wait.child && wait.child.exitCode !== null)
+      throw new Error(`the app exited with ${wait.child.exitCode}`);
+    const log = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : "";
+    const match = pattern.exec(log);
+    if (match) return match;
+    await sleep(POLL_MS);
+  }
+  throw new Error(`the app logged no line matching ${pattern} within ${wait.timeoutMs / 1000} s`);
 }
 
 function elapsed(): string {
