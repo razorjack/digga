@@ -16,8 +16,9 @@ export async function importWantlist(
   onProgress?: (p: ImportProgress) => void,
 ): Promise<SeedImportResult> {
   const perPage = options.perPage ?? 100;
+  const discogs = deps.discogs.withSignal(options.signal);
   const readPage = async (page: number) => {
-    const data = await deps.discogs.getWantlistPage(options.username, page, perPage);
+    const data = await discogs.getWantlistPage(options.username, page, perPage);
     return { pages: data.pagination.pages, items: data.wants.map(wantlistItem) };
   };
   return importSeedPages(

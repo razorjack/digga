@@ -321,7 +321,7 @@ test.describe("with an account to import", () => {
   );
 
   test(
-    "SET-14 a cancelled import reads running until its page in flight returns, then cancelled",
+    "SET-14 cancelling an import interrupts its held page",
     { tag: ["@SET-14", "@P1"] },
     async ({ app, fakes }) => {
       const settings = new SettingsPage(app);
@@ -333,13 +333,11 @@ test.describe("with an account to import", () => {
       await page.received;
 
       await settings.cancelJob(collection);
-      await expect(settings.jobStatus(collection, "running")).toBeVisible();
-      expect((await app.api.get<Job>(`/api/jobs/${collection}`)).status).toBe("running");
-
-      page.release();
       await settings.waitForJob(collection, "cancelled");
+      expect((await app.api.get<Job>(`/api/jobs/${collection}`)).status).toBe("cancelled");
       await expect(settings.job(collection).getByRole("button", { name: "Cancel" })).toHaveCount(0);
       expect(fakes.requests(COLLECTION_PAGE)).toHaveLength(1);
+      page.release();
     },
   );
 });

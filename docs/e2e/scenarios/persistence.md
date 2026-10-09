@@ -28,10 +28,9 @@ Priority: **P2**.
 Given: `small` with the username `dj` and a saved token.
 
 `relaunch({ crash: true })` during an import marks the job failed as interrupted; a graceful
-`relaunch()` during one records it cancelled once its page in flight has returned; Settings shows
-each. The collection import's page is held at the fake. The graceful stop aborts the job and then
-waits for that page, so the test releases it once the stopping server has logged the abort, while
-`relaunch()` is still pending; the job's row then reads cancelled, after one page request
+`relaunch()` during one interrupts the request and records the job cancelled; Settings shows
+each. The collection import's page remains held at the fake until after relaunch has finished
+and the job's row reads cancelled. Only one page request reaches the fake.
 
 ## PER-04
 

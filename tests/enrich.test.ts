@@ -20,6 +20,9 @@ function fakeDiscogs(handler: (id: number) => Promise<DiscogsRelease>): DiscogsC
     removeFromWantlist: () => Promise.reject(new Error("unused")),
     getUser: () => Promise.reject(new Error("unused")),
     getInventoryPage: () => Promise.reject(new Error("unused")),
+    withSignal() {
+      return this;
+    },
     hasToken: () => true,
   };
 }

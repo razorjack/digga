@@ -21,15 +21,19 @@ export interface DiscogsClientOptions {
   userAgent?: string;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   now?: () => number;
   /** Minimum gap between requests. 1100 ms keeps an authenticated client under 60/min. */
   minIntervalMs?: number;
   maxRetries?: number;
+  /** Deadline for each HTTP attempt, including reading its response body. */
+  timeoutMs?: number;
   logger?: Logger;
 }
 
 export interface DiscogsClient {
+  /** Shares the request queue and quota, with cancellation for this caller's requests. */
+  withSignal(signal?: AbortSignal): DiscogsClient;
   getRelease(id: number, currency: string): Promise<DiscogsRelease>;
   getCollectionPage(
     username: string,
@@ -56,8 +60,17 @@ export interface DiscogsClient {
 
 export function createDiscogsClient(options: DiscogsClientOptions = {}): DiscogsClient {
   const transport = new DiscogsTransport(options);
-  const request = transport.request.bind(transport);
+  return clientFor(transport, { authenticated: Boolean(options.token) });
+}
+
+function clientFor(
+  transport: DiscogsTransport,
+  options: { authenticated: boolean; signal?: AbortSignal },
+): DiscogsClient {
+  const request: DiscogsTransport["request"] = (path, query, requestOptions) =>
+    transport.request(path, query, { ...requestOptions, signal: options.signal });
   return {
+    withSignal: (signal) => clientFor(transport, { ...options, signal }),
     getRelease: (id, currency) =>
       request<DiscogsRelease>(`/releases/${id}`, { curr_abbr: currency }),
     getCollectionPage: (username, page, perPage = 100) =>
@@ -90,20 +103,20 @@ export function createDiscogsClient(options: DiscogsClientOptions = {}): Discogs
       }),
     getList: (id) => request<DiscogsList>(`/lists/${id}`),
     addToWantlist: (username, releaseId, options = {}) =>
-      addToWantlist(transport, username, releaseId, options),
-    removeFromWantlist: (username, releaseId) => removeFromWantlist(transport, username, releaseId),
-    hasToken: () => Boolean(options.token),
+      addToWantlist(request, username, releaseId, options),
+    removeFromWantlist: (username, releaseId) => removeFromWantlist(request, username, releaseId),
+    hasToken: () => options.authenticated,
   };
 }
 
 async function addToWantlist(
-  transport: DiscogsTransport,
+  request: DiscogsTransport["request"],
   username: string,
   releaseId: number,
   options: { notes?: string },
 ): Promise<void> {
   const body = options.notes === undefined ? undefined : { notes: options.notes };
-  await transport.request(
+  await request(
     `/users/${encodeURIComponent(username)}/wants/${releaseId}`,
     {},
     { method: "PUT", body },
@@ -111,12 +124,12 @@ async function addToWantlist(
 }
 
 async function removeFromWantlist(
-  transport: DiscogsTransport,
+  request: DiscogsTransport["request"],
   username: string,
   releaseId: number,
 ): Promise<void> {
   try {
-    await transport.request(
+    await request(
       `/users/${encodeURIComponent(username)}/wants/${releaseId}`,
       {},
       { method: "DELETE" },

@@ -127,8 +127,8 @@ Priority: **P1**.
 
 Given: `small` with the username `dj` and a saved token.
 
-Imports: an import cancelled while its page is held at the fake reads running until the page has
-returned, then cancelled
+Imports: cancelling while its page is held at the fake interrupts the request. The job reaches
+cancelled and loses its Cancel button before the fake releases that page.
 
 ## SET-15
 

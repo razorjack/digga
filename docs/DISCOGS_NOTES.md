@@ -69,6 +69,10 @@ Rate limits: 60 requests/minute authenticated, 25 unauthenticated, reported in
 a 1.1 s gap between requests, pauses 60 s when `Remaining` reaches 1 and honours `Retry-After` on
 `429` (three retries).
 
+Each HTTP attempt has a 30-second deadline, including its response body. Import cancellation
+interrupts requests and quota or retry waits. A caller scoped with `withSignal()` shares the
+client's request queue and rate-limit state; cancelling it does not cancel other callers.
+
 Endpoints used:
 
 - `GET /releases/{id}?curr_abbr=EUR`: `lowest_price`, `num_for_sale`, `community.have/want`,

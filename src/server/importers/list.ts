@@ -69,6 +69,7 @@ export async function resolveListEntries(
   items: DiscogsListItem[],
   options: { currency: string; signal?: AbortSignal },
 ): Promise<ResolvedListEntry[]> {
+  const reading = { ...deps, discogs: deps.discogs.withSignal(options.signal) };
   const entries: ResolvedListEntry[] = [];
   for (const item of items) {
     options.signal?.throwIfAborted();
@@ -80,7 +81,7 @@ export async function resolveListEntries(
       comment: item.comment && item.comment.trim() !== "" ? item.comment.trim() : null,
     } as const;
     try {
-      const resolved = await resolveListItem(deps, item, options.currency);
+      const resolved = await resolveListItem(reading, item, options.currency);
       entries.push({ ...base, ...resolved });
     } catch (err) {
       options.signal?.throwIfAborted();
@@ -130,7 +131,7 @@ export async function importList(
 ): Promise<ListImportResult> {
   options.signal?.throwIfAborted();
   const accountVersion = accountDataVersion(deps.db);
-  const list = await deps.discogs.getList(options.listId);
+  const list = await deps.discogs.withSignal(options.signal).getList(options.listId);
   const entries = await resolveListEntries(deps, list.items, options);
   options.signal?.throwIfAborted();
   assertAccountDataVersion(deps.db, accountVersion);

@@ -37,8 +37,9 @@ export async function importSeller(
   options: SellerImportOptions,
   onProgress?: (progress: SellerImportProgress) => void,
 ): Promise<SellerImportResult> {
-  const seller = await findSeller(deps.discogs, options.username);
-  const inventory = await readInventory(deps, seller.username, options, onProgress);
+  const reading = { ...deps, discogs: deps.discogs.withSignal(options.signal) };
+  const seller = await findSeller(reading.discogs, options.username);
+  const inventory = await readInventory(reading, seller.username, options, onProgress);
   if (options.signal?.aborted)
     return { kind: "seller", sellerId: seller.id, saved: false, ...inventory.progress };
 

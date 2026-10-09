@@ -225,7 +225,7 @@ test.describe("with an account to import", () => {
   );
 
   test(
-    "PER-03 a graceful relaunch during an import cancels the job once its page in flight has returned",
+    "PER-03 a graceful relaunch cancels an import without waiting for its held page",
     { tag: ["@PER-03", "@P2"] },
     async ({ app, fakes }) => {
       const settings = new SettingsPage(app);
@@ -233,23 +233,14 @@ test.describe("with an account to import", () => {
       const job = await startHeldImport(settings, page);
       const stopping = app.servers.at(-1)!;
 
-      let relaunched = false;
-      const relaunching = app.relaunch().then(() => {
-        relaunched = true;
-      });
-      // The stop aborts the job, then waits for it: a Discogs request takes no abort signal.
-      await expect
-        .poll(() => stopping.stdout)
-        .toContain("stopping: cancelled 1 running job(s), waiting for them");
-      expect(relaunched).toBe(false);
-      page.release();
-      await relaunching;
+      await app.relaunch();
       await settings.open("discogs");
 
       await settings.waitForJob(job, "cancelled");
       expect((await app.api.get<Job>(`/api/jobs/${job}`)).status).toBe("cancelled");
       expect(fakes.requests(COLLECTION_PAGE)).toHaveLength(1);
       expect(stopping.stdout).toMatch(/waiting for them\n(.*\n)*.*job \S+ cancelled\n/);
+      page.release();
     },
   );
 });

@@ -116,7 +116,8 @@ class Runner implements JobRunner {
       const status = controller.signal.aborted ? "cancelled" : "failed";
       markJobFinished(this.#db, job.id, status, this.#recordedError(controller, message));
       this.#report(job.id);
-      log.error(`job ${job.id} failed: ${message}`);
+      if (status === "cancelled") log.info(`job ${job.id} cancelled`);
+      else log.error(`job ${job.id} failed: ${message}`);
       throw error;
     }
   }
@@ -151,7 +152,6 @@ class Runner implements JobRunner {
     this.#stopping = true;
     const active = [...this.#active.values()];
     for (const job of active) job.abort();
-    // A Discogs request in flight takes no abort signal, so the wait can take seconds.
     if (active.length > 0)
       this.#logger.info(`stopping: cancelled ${active.length} running job(s), waiting for them`);
     await Promise.allSettled(active.map((job) => job.finished));
