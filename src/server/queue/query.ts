@@ -116,7 +116,8 @@ function scopeClause(scope: ScopeRef | null | undefined): SqlFragment | null {
 }
 
 function styleClause(filters: Filters): SqlFragment | null {
-  if (!filters.styles || filters.styles.length === 0) return null;
+  if (filters.styles === null) return null;
+  if (filters.styles.length === 0) return { sql: "0", params: [] };
   return {
     sql: `EXISTS (SELECT 1 FROM json_each(r.styles_json) WHERE json_each.value IN (${placeholders(filters.styles.length)}))`,
     params: filters.styles,

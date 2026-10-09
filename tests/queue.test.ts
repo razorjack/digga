@@ -122,6 +122,9 @@ describe("queue query", () => {
       limit: 200,
     });
     expect(styles.map((i) => i.id)).toEqual([1001]);
+    const noStyles = filters({ styles: [] });
+    expect(queryQueue(db, { filters: noStyles, strategy: "label_sweep", limit: 100 })).toEqual([]);
+    expect(countRemaining(db, noStyles)).toBe(0);
     expect(
       queryQueue(db, { filters: filters({}), strategy: "label_sweep", limit: 1 }),
     ).toHaveLength(1);

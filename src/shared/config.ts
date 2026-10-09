@@ -38,7 +38,7 @@ export type HiddenLabel = z.infer<typeof HiddenLabelSchema>;
 // Genre/style defaults for the owner's use case live here and in
 // digga.config.json only. Nothing else in the codebase may assume them.
 export const FiltersSchema = z.object({
-  /** Query-time style subset; null means every loaded style. */
+  /** Query-time style subset; null means every loaded style, an empty array means none. */
   styles: z.array(z.string().min(1)).nullable().default(null),
   yearFrom: z.number().int().nullable().default(1998),
   yearTo: z.number().int().nullable().default(2002),

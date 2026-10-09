@@ -258,3 +258,10 @@ Priority: **P1**.
 
 Given: `small`. Clear both load years and save: the API keeps no load-year restriction.
 Enter a new lower and upper bound, save and reload: both controls and the API keep the range.
+
+## SET-26
+
+Priority: **P1**.
+
+Given: `small` with two selectable styles. Uncheck both and save: the preview matches no records
+and the saved styles are an empty array. Selecting one style restores its matches.
