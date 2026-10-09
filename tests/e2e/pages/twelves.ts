@@ -346,6 +346,7 @@ export class TwelvesPage {
     await expect(this.selected).toHaveCount(1);
     await this.app.page.keyboard.press("Enter");
     const triage = new TriagePage(this.app);
+    await expect(triage.record).toBeVisible();
     await expect(triage.banner).toContainText("Replaying Twelves");
     await expect(triage.record).toHaveAttribute("data-release-id", String(releaseId));
   }
@@ -355,6 +356,7 @@ export class TwelvesPage {
     const key = await this.selectedKey();
     await this.app.page.keyboard.press("Enter");
     const triage = new TriagePage(this.app);
+    await expect(triage.record).toBeVisible();
     await expect(triage.banner).toContainText("Hearing snoozed records again");
     await expect(triage.record).toHaveAttribute("data-triage-key", key);
   }
