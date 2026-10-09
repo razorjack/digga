@@ -218,10 +218,13 @@ variant, and then the release build's health check, `scripts/electron-health-che
   on the Mac that builds it, so it could not be started there (decision 159).
 - **Size.** The app is about 250 MB, the dmg about 118 MB; Electron's framework is most of it.
   Only the English locale is kept.
-- **Icon.** `build/icon.icns`, the logo's cube on a flyer-yellow squircle with the app's grain,
-  which `node scripts/make-icon.ts` draws from `docs/assets/digga-logo-light.png` (macOS only:
-  Playwright's Chromium, `sips` and `iconutil`). An unpackaged run sets `build/icon.png` as its
-  Dock icon, since it is Electron's app otherwise. `build/` is not packaged.
+- **Icon.** `build/icon.icns`: the mole from the waist up in front of a flyer-yellow disc, on the
+  app's dark ground with its grain and a faint light rim. It follows Apple's grid, an 824 px body
+  with 185 px corners in the 1024 px canvas and the drop shadow macOS's own icons carry; both were
+  measured against the system's icons. `node scripts/make-icon.ts` draws it from
+  `docs/assets/digga-mole-dark.png` (macOS only: Playwright's Chromium, `sips` and `iconutil`).
+  An unpackaged run sets `build/icon.png` as its Dock icon, since it is Electron's app otherwise.
+  `build/` is not packaged. Windows and Linux need another image ([below](#icon-on-windows-and-linux)).
 
 **Gatekeeper.** A downloaded copy carries `com.apple.quarantine`, and Gatekeeper refuses it:
 `spctl --assess --verbose` answers "rejected" for the app (also without the attribute), and
@@ -251,8 +254,8 @@ Later:
   Mac can start it), win (nsis, signed only through a free service, if one qualifies), linux
   (AppImage or deb), each with its better-sqlite3 prebuild, checked to load in the packaged app,
   and the E2E suite on each. Node does not strip types from files under `node_modules`, which
-  matters only if the app moves there. The title bar on each is planned
-  [below](#title-bar-on-windows-and-linux).
+  matters only if the app moves there. The title bar and the icon on each are planned below
+  ([title bar](#title-bar-on-windows-and-linux), [icon](#icon-on-windows-and-linux)).
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
 - **Auto-update.**
@@ -309,6 +312,47 @@ matters on Linux.
   moves it;
 - that the button colours change after an Appearance change in Settings;
 - how the Linux buttons look under GNOME and KDE, on Wayland and on X11, if the overlay is tried.
+
+### Icon on Windows and Linux
+
+Read this before packaging for Windows or Linux. `build/icon.icns` follows Apple's grid: the body
+fills 824 px of the 1024 px canvas, and the margin holds a drop shadow. Neither Windows nor Linux
+masks or shadows app icons, so the same image there would make Digga about a fifth smaller than
+its neighbours, with a shadow no other icon has. `scripts/make-icon.ts` should draw a second
+master for both from the same layers (dark ground, flyer-yellow disc, the mole from the waist up,
+the grain, the rim) and write each platform's files from it.
+
+- **Keep the plate.** Neither platform prescribes a shape, and an icon cut to the mole's outline
+  is a common choice there. Digga's mole is dark, so without the dark ground and the yellow disc
+  it disappears on a dark taskbar or panel. Use a rounded square with smaller corners than
+  macOS's, about an eighth of the size, and no shadow.
+- **Fill the canvas.** About 4% margin on each side for Windows, whose taskbar and Start menu
+  show icons nearly edge to edge. Linux icon themes usually leave a little more; check GNOME's app
+  icon template before fixing the number.
+- **Windows files.** One `.ico` with 16, 20, 24, 32, 40, 48, 64 and 256 px images: 16, 24, 32, 48
+  and 256 at least, and the others for 125% and 150% scaling. electron-builder takes `win.icon` as
+  a `.ico` or a 256 px PNG that it converts; the NSIS installer and uninstaller take the same
+  icon (`nsis.installerIcon`, `nsis.uninstallerIcon`).
+- **Linux files.** PNGs at 16, 22, 24, 32, 48, 64, 128, 256 and 512 px for the hicolor theme.
+  electron-builder's `linux.icon` takes a folder of them named by size (`512x512.png`) and
+  writes the `.desktop` entry; an AppImage uses the largest.
+- **Unpackaged runs.** On Linux, and on Windows before packaging, the window and the taskbar show
+  Electron's icon unless the `BrowserWindow` gets an `icon`, the counterpart of `showDockIcon()`
+  in `electron/main.ts`.
+- **Small sizes.** At 16 px the mole is a dark shape; the yellow disc on the dark ground is what
+  identifies the app. On macOS, tighter crops for 16 and 32 px only made a darker blob, so one
+  drawing serves every size. Windows' 16 and 24 px taskbar sizes may still need a simpler drawing
+  (the disc and the mole's head) if they read badly on a real taskbar.
+
+**Check in the Windows and Linux sessions:** the icon on the taskbar, in Alt-Tab and in the Start
+menu at 100% and 150% scaling, in light and dark themes; in GNOME's dash and KDE's panel, in
+light and dark themes; and the installer's icon.
+
+**macOS later.** macOS 26 added layered icons made with Icon Composer (`.icon`), which the system
+renders in its Liquid Glass style with dark, tinted and clear appearances. An `.icns` that fills
+the rounded square, as Digga's does, is shown unchanged; one that does not is put on a grey plate.
+Digga's layers map onto an `.icon` directly (ground, disc, mole), but check that electron-builder
+can package one before trying.
 
 ## What would break each rule
 

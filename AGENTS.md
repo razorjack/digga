@@ -109,7 +109,7 @@ docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP
                        E2E_TESTING (commands, rules and task routes), e2e/ (task-specific references and scenarios)
 scripts/               check-portability.ts, package-electron.ts (electron-builder, see docs/ELECTRON_PLAN.md),
                        electron-health-check.ts (the fused build starts, answers /api/health and stops),
-                       make-icon.ts (draws build/icon.icns and build/icon.png from the logo)
+                       make-icon.ts (draws build/icon.icns and build/icon.png from the mole)
 build/                 the app icon: icon.icns for the package, icon.png for an unpackaged run's Dock
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
@@ -410,8 +410,8 @@ client TypeScript and CSS.
 - `docs/DESIGN_BRIEF.md` and `docs/KEYMAP.md` for the UI session.
 - `docs/FIRST_RUN.md` for the first run (the setup) being built, and `docs/STYLE_CENSUS.md` for
   refreshing the style census it ships.
-- `docs/ELECTRON_PLAN.md` for packaging, and its title bar section before Windows or Linux work
-  on the window.
+- `docs/ELECTRON_PLAN.md` for packaging, and its title bar and icon sections before Windows or
+  Linux work on the window or the package.
 - [docs/E2E_TESTING.md](docs/E2E_TESTING.md) for E2E commands, binding rules and task-specific
   document routes; [docs/e2e/PLAN.md](docs/e2e/PLAN.md) when continuing the E2E implementation.
 - `docs/DECISIONS.md` for why things are the way they are.

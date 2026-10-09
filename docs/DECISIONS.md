@@ -1281,6 +1281,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        the setup's sidebar, the crate on an empty shelf, the press while Triage waits for records,
        the safe beside the backups. The app ships 320 px copies (about 500 KB), enough for twice
        their largest size.
-     - The icon is the logo's cube on a flyer-yellow squircle: the one accent colour is what
-       tells the app apart in the Dock at 32 px, where a dark squircle disappeared among others.
-       A script draws it from the logo, so the binaries in `build/` have a source.
+     - The icon is the mole, Digga's mascot, from the waist up in front of a flyer-yellow disc on
+       the app's dark ground; it replaced the cube logo the first icon used. The disc keeps the one
+       accent colour dominant, which is what tells the app apart in the Dock at 32 px, where a
+       plain dark squircle disappeared among others. The mole fills the body down to its waist:
+       at full height it was small at Dock sizes. One drawing serves every size, since tighter
+       crops for 16 and 32 px made a darker blob while the disc still reads at 16 px. The shape
+       and shadow follow Apple's grid, measured against the system's icons. A script draws it
+       from the drawing, so the binaries in `build/` have a source.
