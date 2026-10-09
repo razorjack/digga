@@ -212,3 +212,10 @@ Priority: **P1**.
 Given: `small` with two snoozed records. Holding the reject key changes only the first record,
 even after the shelf selects the next one. Repeated keydown events send no further verdicts;
 the remaining record stays snoozed in the shelf and the API. Navigation keys may still repeat.
+
+## TWL-26
+
+Priority: **P1**.
+
+Given: `small` with a snoozed record. Replay it, save a note in Triage, leave the round and edit
+that note in Twelves. Replaying again shows the latest note, including in the note editor.

@@ -880,6 +880,44 @@ describe("pricing with P", () => {
 });
 
 describe("notes in Triage", () => {
+  it("refreshes saved notes and clears local note overrides when a replay starts", async () => {
+    const { session, releaseNotes } = await started([1]);
+    session.setNote(session.current!, "written in Triage");
+    await until(() => session.noteStatus === "Note saved.");
+    releaseNotes.set(1, "edited in Twelves");
+    session.startRound([snoozed(1, "2026-01-01T00:00:00.000Z")]);
+    await until(() => session.currentDetail !== null);
+    expect(session.noteFor(session.current!)).toBe("edited in Twelves");
+    session.destroy();
+  });
+
+  it("rejects a detail response from an earlier replay", async () => {
+    const server = fakeServer([1]);
+    const first = Promise.withResolvers<ReleaseDetail>();
+    const second = Promise.withResolvers<ReleaseDetail>();
+    const detail = await server.http.getRelease(5);
+    let reads = 0;
+    server.http.getRelease = async () => (++reads === 1 ? first.promise : second.promise);
+    const session = new TriageSession(server.app);
+    try {
+      session.startRound([snoozed(5, "2026-01-01T00:00:00.000Z")]);
+      await until(() => reads === 1);
+      session.endRound();
+      session.startRound([snoozed(5, "2026-01-01T00:00:00.000Z")]);
+      await until(() => reads === 2);
+      second.resolve({ ...detail, note: "new note" });
+      await until(() => session.currentDetail?.note === "new note");
+      first.resolve({ ...detail, note: "old note" });
+      await first.promise;
+      await wait();
+      expect(session.noteFor(session.current!)).toBe("new note");
+    } finally {
+      session.destroy();
+      first.resolve(detail);
+      second.resolve(detail);
+    }
+  });
+
   it("saves a note on the release, apart from the verdicts made after it", async () => {
     const { session, calls, notes } = await started([1, 2]);
     session.setNote(session.current!, "  the Kool FM tune  ");

@@ -130,7 +130,7 @@ export class TriageSession {
   #seed: number | null = null;
   /** Market data fetched this session, by release id, for records that moved on before it came. */
   #marketData = new Map<number, ReleaseSnapshot>();
-  readonly #loading = new Set<number>();
+  readonly #loading = new Map<number, symbol>();
   /** The latest note write by triage key; an older write's answer must not change the note. */
   #noteVersions = new Map<string, number>();
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
@@ -441,6 +441,7 @@ export class TriageSession {
       exhausted: this.exhausted,
     };
     for (const record of records) this.#rememberRoundRecord(record);
+    this.#refreshRoundDetails(records);
     const allSnoozed = records.every((record) => record.verdict?.status === "snoozed");
 
     this.upcoming = records.map((record) => record.release);
@@ -450,6 +451,27 @@ export class TriageSession {
     this.status = "ready";
     this.slip = null;
     this.#afterMove();
+  }
+
+  /** Twelves may have edited these records while Triage kept its cached details. */
+  #refreshRoundDetails(records: (ReplayItem & { release: QueueItem })[]): void {
+    const details = new Map(this.details);
+    const errors = new Map(this.detailErrors);
+    const notes = new Map(this.notes);
+    for (const { release } of records) {
+      details.delete(release.id);
+      errors.delete(release.id);
+      notes.delete(release.triageKey);
+      this.#loading.delete(release.id);
+      this.#noteVersions.set(
+        release.triageKey,
+        (this.#noteVersions.get(release.triageKey) ?? 0) + 1,
+      );
+    }
+    this.details = details;
+    this.detailErrors = errors;
+    this.notes = notes;
+    this.noteStatus = null;
   }
 
   /** The saved verdict and wantlist state a verdict in the round replaces, and undo restores. */
@@ -1015,16 +1037,20 @@ export class TriageSession {
   }
 
   async #loadDetail(id: number): Promise<void> {
-    this.#loading.add(id);
+    const request = Symbol();
+    this.#loading.set(id, request);
+    const current = () => !this.#destroyed && this.#loading.get(id) === request;
     try {
+      await this.#writes;
+      if (!current()) return;
       const detail = await this.#api.getRelease(id);
-      if (this.#destroyed) return;
+      if (!current()) return;
       this.details = new Map(this.details).set(id, detail);
     } catch (error) {
-      if (this.#destroyed) return;
+      if (!current()) return;
       this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(error));
     } finally {
-      this.#loading.delete(id);
+      if (this.#loading.get(id) === request) this.#loading.delete(id);
     }
   }
 
