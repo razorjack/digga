@@ -33,6 +33,16 @@
   let dumpLimit = $state<number | null>(null);
   let dumpDryRun = $state(false);
   let deletingDump = $state(false);
+  let loadFrom = $state<number | null>(null);
+  let loadTo = $state<number | null>(null);
+
+  $effect(() => {
+    const current = draft;
+    untrack(() => {
+      loadFrom = current.universe.loadYears?.[0] ?? null;
+      loadTo = current.universe.loadYears?.[1] ?? null;
+    });
+  });
 
   /** The server runs one dump download, load or update at a time. */
   const dumpJobRunning = $derived(
@@ -77,6 +87,8 @@
 
   /** Both years or neither: a load either keeps a range of years or every year. */
   function setLoadYears(from: number | null, to: number | null): void {
+    loadFrom = from;
+    loadTo = to;
     draft.universe.loadYears = from !== null && to !== null ? [from, to] : null;
   }
 </script>
@@ -162,18 +174,18 @@
             type="number"
             aria-label="Load from year"
             aria-describedby="{id}-load-years-hint"
-            value={draft.universe.loadYears?.[0] ?? ""}
+            value={loadFrom ?? ""}
             oninput={(event) =>
-              setLoadYears(parseInteger(event.currentTarget.value), draft.universe.loadYears?.[1] ?? null)}
+              setLoadYears(parseInteger(event.currentTarget.value), loadTo)}
           />
           <span class="quiet">to</span>
           <input
             type="number"
             aria-label="Load to year"
             aria-describedby="{id}-load-years-hint"
-            value={draft.universe.loadYears?.[1] ?? ""}
+            value={loadTo ?? ""}
             oninput={(event) =>
-              setLoadYears(draft.universe.loadYears?.[0] ?? null, parseInteger(event.currentTarget.value))}
+              setLoadYears(loadFrom, parseInteger(event.currentTarget.value))}
           />
           <span class="hint" id="{id}-load-years-hint">Leave either empty to load every year.</span>
         </div>

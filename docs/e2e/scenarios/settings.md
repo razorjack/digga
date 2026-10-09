@@ -251,3 +251,10 @@ Priority: **P2**.
 Esc in Settings goes back to the page Settings was opened from (decision 173): opened from Twelves
 with `,` and moved to the Discogs tab, Esc in the username field leaves the hash at
 `#/settings/discogs`, and Esc once the field has lost focus shows Twelves
+
+## SET-25
+
+Priority: **P1**.
+
+Given: `small`. Clear both load years and save: the API keeps no load-year restriction.
+Enter a new lower and upper bound, save and reload: both controls and the API keep the range.
