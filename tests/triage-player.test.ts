@@ -34,6 +34,7 @@ const fake = vi.hoisted(() => {
       decks.push(this);
     }
     emitState(state: number): void {
+      this.state = state;
       this.listener.onState(this as unknown as Deck, state);
     }
     emitError(videoId: string): void {
@@ -56,6 +57,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   for (const player of players.splice(0)) player.destroy();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -103,6 +105,34 @@ async function setup() {
 }
 
 describe("player deck ownership", () => {
+  it("counts actual playback before and after buffering, without counting the buffer", async () => {
+    vi.useFakeTimers();
+    const postListenLog = vi.fn(async () => ({}));
+    const player = new TriagePlayer({ postListenLog } as unknown as Api, {
+      startAtFraction: () => 0.5,
+    });
+    players.push(player);
+    player.show(detail(1), null, "found");
+    await player.mount([{}, {}, {}] as Parameters<TriagePlayer["mount"]>[0]);
+    const active = fake.decks[player.active]!;
+
+    active.emitState(PlayerState.PLAYING);
+    await vi.advanceTimersByTimeAsync(1000);
+    active.emitState(PlayerState.BUFFERING);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(postListenLog).not.toHaveBeenCalled();
+
+    active.emitState(PlayerState.PLAYING);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(postListenLog).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ seconds: 4, heard: true }),
+    );
+    active.emitState(PlayerState.PAUSED);
+    await vi.advanceTimersByTimeAsync(5000);
+    player.destroy();
+    expect(postListenLog).toHaveBeenCalledTimes(1);
+  });
+
   it("adopts the next release's preload without loading it again", async () => {
     const player = await setup();
     const [first, second] = fake.decks;

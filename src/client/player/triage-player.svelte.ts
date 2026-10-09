@@ -549,7 +549,7 @@ export class TriagePlayer {
     ) {
       this.status = "needs_gesture";
     }
-    this.#countListen(elapsedSeconds);
+    if (deck.state === PlayerState.PLAYING) this.#countListen(elapsedSeconds);
   }
 
   #countListen(elapsedSeconds: number): void {
