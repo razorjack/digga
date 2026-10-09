@@ -3,11 +3,13 @@ import type { DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsCollectionPage, DiscogsWantlistPage } from "../src/server/discogs/types.ts";
 import { importCollection } from "../src/server/importers/collection.ts";
 import { importWantlist } from "../src/server/importers/wantlist.ts";
-import { applySeedItem } from "../src/server/importers/seeds.ts";
+import { applySeedItem, importSeedPages } from "../src/server/importers/seeds.ts";
 import {
   accountConflict,
+  claimAccount,
   forgetAccountData,
   heldAccount,
+  recordMembership,
   recordMembershipOf,
 } from "../src/server/db/memberships.ts";
 import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
@@ -54,6 +56,62 @@ function fakeDiscogs(
 }
 
 describe("collection and wantlist importers", () => {
+  it.each(["collection", "wantlist"] as const)(
+    "does not restore forgotten %s data after an account switch",
+    async (kind) => {
+      const db = await fixtureDb();
+      const page = Promise.withResolvers<void>();
+      const importing = importSeedPages(
+        { db, discogs: fakeDiscogs([], []), logger: silentLogger },
+        {
+          kind,
+          username: "old-account",
+          readPage: async () => {
+            await page.promise;
+            return {
+              pages: 1,
+              items: [
+                {
+                  kind,
+                  releaseId: 1001,
+                  masterId: 501,
+                  dateAdded: null,
+                  rating: null,
+                  notes: null,
+                  basicInformation: basic(1001, 501, "Old record"),
+                },
+              ],
+            };
+          },
+        },
+      );
+      const rejected = expect(importing).rejects.toThrow("account data was forgotten");
+      try {
+        forgetAccountData(db);
+        claimAccount(db, "new-account");
+        recordMembership(db, {
+          kind,
+          releaseId: 1006,
+          masterId: 506,
+          dateAdded: null,
+          rating: null,
+          notes: null,
+        });
+        page.resolve();
+        await rejected;
+        expect(heldAccount(db, "new-account")).toBe("new-account");
+        expect(recordMembershipOf(db, "m:501")).toMatchObject({ owned: false, onWantlist: false });
+        expect(recordMembershipOf(db, "m:506")).toMatchObject(
+          kind === "collection" ? { owned: true } : { onWantlist: true },
+        );
+      } finally {
+        page.resolve();
+        await importing.catch(() => {});
+        db.close();
+      }
+    },
+  );
+
   it("creates stubs for unknown releases, keeps dump rows, and holds every item apart from verdicts", async () => {
     const db = await fixtureDb();
     const pages: DiscogsCollectionPage[] = [

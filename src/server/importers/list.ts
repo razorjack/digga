@@ -1,7 +1,12 @@
 import { masterKey, releaseKey } from "../../shared/triage-key.ts";
 import type { ImportProgress } from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
-import { markMissingMemberships, recordMembership } from "../db/memberships.ts";
+import {
+  accountDataVersion,
+  assertAccountDataVersion,
+  markMissingMemberships,
+  recordMembership,
+} from "../db/memberships.ts";
 import { getRelease, insertStubRelease, type ReleaseWrite } from "../db/releases.ts";
 import type { DiscogsClient } from "../discogs/client.ts";
 import type { DiscogsListItem, DiscogsRelease } from "../discogs/types.ts";
@@ -124,9 +129,11 @@ export async function importList(
   onProgress?: (p: ImportProgress) => void,
 ): Promise<ListImportResult> {
   options.signal?.throwIfAborted();
+  const accountVersion = accountDataVersion(deps.db);
   const list = await deps.discogs.getList(options.listId);
   const entries = await resolveListEntries(deps, list.items, options);
   options.signal?.throwIfAborted();
+  assertAccountDataVersion(deps.db, accountVersion);
   const progress = applyListEntries(deps.db, entries);
   onProgress?.({ ...progress });
   deps.logger.info(`list "${list.name}": ${progress.processed} items, ${progress.added} new`);

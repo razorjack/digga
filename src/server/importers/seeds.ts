@@ -11,6 +11,8 @@ import type {
 } from "../../shared/types.ts";
 import { type Db, nowIso } from "../db/db.ts";
 import {
+  accountDataVersion,
+  assertAccountDataVersion,
   claimAccount,
   forgetMembership,
   markMissingMemberships,
@@ -127,6 +129,7 @@ export async function importSeedPages(
   if (read.username === "") throw new Error("discogs.username is not set in digga.config.json");
   const conflict = claimAccount(deps.db, read.username);
   if (conflict !== null) throw new Error(conflict);
+  const accountVersion = accountDataVersion(deps.db);
   const progress: ImportProgress = {
     page: 0,
     pages: null,
@@ -140,6 +143,7 @@ export async function importSeedPages(
   for (let page = 1; page <= pages; page += 1) {
     if (read.signal?.aborted) return { kind, ...progress };
     const result = await read.readPage(page);
+    assertAccountDataVersion(deps.db, accountVersion);
     const counts = applySeedPage(deps.db, result.items);
     pages = result.pages;
     progress.page = page;

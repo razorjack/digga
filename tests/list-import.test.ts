@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { recordMembership, recordMembershipOf } from "../src/server/db/memberships.ts";
+import {
+  forgetAccountData,
+  recordMembership,
+  recordMembershipOf,
+} from "../src/server/db/memberships.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import type { DiscogsClient } from "../src/server/discogs/client.ts";
@@ -59,6 +63,24 @@ function fakeDiscogs(calls: string[]): DiscogsClient {
 }
 
 describe("Discogs Maybe list import", () => {
+  it("does not restore a list forgotten while its entries were being fetched", async () => {
+    const db = await fixtureDb();
+    const discogs = fakeDiscogs([]);
+    discogs.getList = async () => {
+      forgetAccountData(db);
+      return LIST;
+    };
+    try {
+      await expect(
+        importList({ db, discogs, logger: silentLogger }, { listId: 77, currency: "EUR" }),
+      ).rejects.toThrow("account data was forgotten");
+      expect(recordMembershipOf(db, "m:501").onList).toBe(false);
+      expect(getRelease(db, 9001)).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
+
   it.each(["fetch", "lookup"])(
     "leaves memberships untouched when cancelled during %s",
     async (phase) => {

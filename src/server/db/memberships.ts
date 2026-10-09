@@ -3,6 +3,7 @@ import type { MembershipKind, RecordMembership } from "../../shared/types.ts";
 import { type Db, getMeta, nowIso, setMeta } from "./db.ts";
 
 const ACCOUNT_KEY = "discogs_account";
+const ACCOUNT_VERSION_KEY = "discogs_account_version";
 
 /** A release the Discogs account holds, as an import or Digga's own push found it. */
 export interface MembershipWrite {
@@ -150,9 +151,22 @@ export function claimAccount(db: Db, username: string): string | null {
 /** Forgets what the account holds, so another account can be used; returns how many items. */
 export function forgetAccountData(db: Db): number {
   return db.transaction(() => {
+    setMeta(db, ACCOUNT_VERSION_KEY, String(accountDataVersion(db) + 1));
     db.prepare("DELETE FROM meta WHERE key = ?").run(ACCOUNT_KEY);
     return db.prepare("DELETE FROM memberships").run().changes;
   })();
+}
+
+/** An import started before account data was forgotten must not write it back. */
+export function accountDataVersion(db: Db): number {
+  return Number(getMeta(db, ACCOUNT_VERSION_KEY) ?? 0);
+}
+
+export function assertAccountDataVersion(db: Db, version: number): void {
+  if (accountDataVersion(db) !== version)
+    throw new Error(
+      "Discogs account data was forgotten while this import was running; start the import again",
+    );
 }
 
 export const NOT_HELD: RecordMembership = {
