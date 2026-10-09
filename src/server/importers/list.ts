@@ -66,7 +66,7 @@ export async function resolveListEntries(
 ): Promise<ResolvedListEntry[]> {
   const entries: ResolvedListEntry[] = [];
   for (const item of items) {
-    if (options.signal?.aborted) break;
+    options.signal?.throwIfAborted();
     if (item.type !== "release" && item.type !== "master") continue;
     const base = {
       type: item.type,
@@ -78,6 +78,7 @@ export async function resolveListEntries(
       const resolved = await resolveListItem(deps, item, options.currency);
       entries.push({ ...base, ...resolved });
     } catch (err) {
+      options.signal?.throwIfAborted();
       deps.logger.warn(
         `list item ${item.type} ${item.id} could not be looked up: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -122,8 +123,10 @@ export async function importList(
   options: ListImportOptions,
   onProgress?: (p: ImportProgress) => void,
 ): Promise<ListImportResult> {
+  options.signal?.throwIfAborted();
   const list = await deps.discogs.getList(options.listId);
   const entries = await resolveListEntries(deps, list.items, options);
+  options.signal?.throwIfAborted();
   const progress = applyListEntries(deps.db, entries);
   onProgress?.({ ...progress });
   deps.logger.info(`list "${list.name}": ${progress.processed} items, ${progress.added} new`);

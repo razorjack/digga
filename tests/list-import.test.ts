@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { recordMembershipOf } from "../src/server/db/memberships.ts";
+import { recordMembership, recordMembershipOf } from "../src/server/db/memberships.ts";
 import { getRelease } from "../src/server/db/releases.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import type { DiscogsClient } from "../src/server/discogs/client.ts";
@@ -59,6 +59,44 @@ function fakeDiscogs(calls: string[]): DiscogsClient {
 }
 
 describe("Discogs Maybe list import", () => {
+  it.each(["fetch", "lookup"])(
+    "leaves memberships untouched when cancelled during %s",
+    async (phase) => {
+      const db = await fixtureDb();
+      const controller = new AbortController();
+      const discogs = fakeDiscogs([]);
+      recordMembership(db, {
+        kind: "list",
+        releaseId: 1001,
+        masterId: 501,
+        dateAdded: null,
+        rating: null,
+        notes: "keep this",
+      });
+      discogs.getList = async () => {
+        if (phase === "fetch") controller.abort();
+        return LIST;
+      };
+      discogs.getRelease = async (id) => {
+        controller.abort();
+        return release(id, 9500, "Outside");
+      };
+      try {
+        await expect(
+          importList(
+            { db, discogs, logger: silentLogger },
+            { listId: 77, currency: "EUR", signal: controller.signal },
+          ),
+        ).rejects.toMatchObject({ name: "AbortError" });
+        expect(recordMembershipOf(db, "m:501").onList).toBe(true);
+        expect(recordMembershipOf(db, "m:506").onList).toBe(false);
+        expect(getRelease(db, 9001)).toBeNull();
+      } finally {
+        db.close();
+      }
+    },
+  );
+
   it("maps list entries to triage keys, looking up only what the dump lacks", async () => {
     const db = await fixtureDb();
     const calls: string[] = [];
