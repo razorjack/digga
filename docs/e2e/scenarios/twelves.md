@@ -219,3 +219,11 @@ Priority: **P1**.
 
 Given: `small` with a snoozed record. Replay it, save a note in Triage, leave the round and edit
 that note in Twelves. Replaying again shows the latest note, including in the note editor.
+
+## TWL-27
+
+Priority: **P1**.
+
+Given: `small-account` with a saved token and three wants missing from Discogs. Search for the label
+shared by two of them. The bulk action counts and adds only those two; the hidden want stays off
+Discogs, as the fake's requests and the Twelves API confirm.

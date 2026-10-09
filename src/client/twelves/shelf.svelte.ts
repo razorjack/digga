@@ -68,12 +68,12 @@ export class TwelvesShelf {
   checking = $state(false);
   pushing = $state(false);
   pending = $derived(this.items.filter(notOnList).length);
-  /** Wants and grails on this shelf that are not on the Discogs wantlist. */
-  wantsPending = $derived(missingFromWantlist(this.items, this.shelf));
   counts = $derived(countShelves(this.items, this.tracks));
   visible = $derived(
     visibleItems(this.items, { shelf: this.shelf, sort: this.sort, query: this.query }),
   );
+  /** Wants and grails matching the shelf and search that are not on the Discogs wantlist. */
+  wantsPending = $derived(missingFromWantlist(this.visible, this.shelf));
   selectedIndex = $derived(this.visible.findIndex((item) => item.key === this.selectedKey));
   selected = $derived(this.selectedIndex === -1 ? null : this.visible[this.selectedIndex]!);
   /** The page of the shelf that holds the selected record. */

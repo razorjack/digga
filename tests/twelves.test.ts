@@ -82,6 +82,20 @@ async function setup() {
 }
 
 describe("Twelves changes", () => {
+  it("limits bulk wantlist additions to the current search", async () => {
+    const { shelf } = await setup();
+    shelf.items = [record(1), record(2)].map((item) => ({
+      ...item,
+      verdict: { ...item.verdict, status: "accepted" },
+    }));
+    shelf.query = "Artist 1";
+    expect(shelf.wantsPending.map((item) => item.key)).toEqual(["r:1"]);
+    shelf.query = "nothing matches";
+    expect(shelf.wantsPending).toEqual([]);
+    shelf.query = "";
+    expect(shelf.wantsPending).toHaveLength(2);
+  });
+
   it("serializes rejudging and undo with their wantlist writes", async () => {
     const { shelf, calls } = await setup();
     const item = shelf.items[0]!;
