@@ -225,8 +225,12 @@ export function orderClause(strategy: QueueStrategy, seed: number): SqlFragment 
         params: [],
       };
     case "random":
-      // Deterministic shuffle: same seed, same order, so a session can be resumed.
-      return { sql: "((id * 2654435761 + ?) % 4294967296) ASC, id ASC", params: [seed] };
+      // Mix the seed before hashing; adding it afterward only rotates a fixed order.
+      // SQLite has no XOR operator: (id | seed) - (id & seed) computes it.
+      return {
+        sql: "((((id | ?) - (id & ?)) * 2654435761) % 4294967296) ASC, id ASC",
+        params: [seed, seed],
+      };
   }
 }
 

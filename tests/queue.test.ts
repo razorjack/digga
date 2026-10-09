@@ -19,6 +19,33 @@ import type { LabelRef } from "../src/shared/types.ts";
 import { filters, fixtureDb } from "./helpers.ts";
 
 describe("queue query", () => {
+  it("reshuffles across days instead of rotating a fixed order", async () => {
+    const db = await fixtureDb();
+    const selection = filters({
+      yearFrom: null,
+      yearTo: null,
+      formats: [],
+      includeUnknownYear: true,
+    });
+    try {
+      const orders: number[][] = [];
+      for (let seed = 20735; seed < 20749; seed += 1) {
+        const items = queryQueue(db, {
+          filters: selection,
+          strategy: "random",
+          limit: 100,
+          seed,
+        });
+        orders.push(items.map((release) => release.id));
+      }
+      for (const order of orders)
+        expect(order.toSorted((left, right) => left - right)).toEqual([1001, 1003, 1004, 1006]);
+      expect(new Set(orders.map((order) => order.join(","))).size).toBeGreaterThan(4);
+    } finally {
+      db.close();
+    }
+  });
+
   it("groups by triage key, applies default filters and label sweep order", async () => {
     const db = await fixtureDb();
     const items = queryQueue(db, { filters: filters({}), strategy: "label_sweep", limit: 200 });
@@ -364,7 +391,7 @@ describe("queue query", () => {
     });
     expect(sql).toContain("json_each(r.formats_json)");
     expect(sql).toContain("NOT EXISTS (SELECT 1 FROM verdicts");
-    expect(params).toEqual([1998, 2002, "Vinyl", "UK", 3, 10, 0]);
+    expect(params).toEqual([1998, 2002, "Vinyl", "UK", 3, 3, 10, 0]);
     const scoped = buildQueueSql({
       filters: filters({}),
       strategy: "label_sweep",

@@ -32,7 +32,7 @@ Chronological. Each entry records a choice made without asking and why.
     otherwise a repress of an already enriched master would be fetched again.
 12. **A dump reload replaces tracks and videos and keeps the API snapshot columns.** The dump is
     the source of truth for the universe; `enriched_at` tells the UI how fresh the snapshot is.
-13. **`random` strategy is a seeded multiplicative hash order**; the API defaults the seed to the
+13. **`random` strategy is a multiplicative hash of the release id XOR the seed**; the API defaults the seed to the
     current day number and returns it, so a session can be resumed with the same order.
 14. **`enrich` marks a 404 as enriched** (null snapshot) so the job never loops on deleted releases;
     401/403 abort the job because the token is wrong.
