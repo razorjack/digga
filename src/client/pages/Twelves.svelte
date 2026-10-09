@@ -137,6 +137,10 @@
     )
       return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (event.repeat && !["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
+      event.preventDefault();
+      return;
+    }
     if (runShortcut(key)) event.preventDefault();
   }
 

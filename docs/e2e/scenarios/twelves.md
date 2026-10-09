@@ -204,3 +204,11 @@ so nothing offers to push it again; the export keeps the want, and the record st
 queue. `tests/importers.test.ts` and `tests/twelves.test.ts` cover the marking and the shelf rules;
 this row checks them together, from the job Settings starts to the shelves the server's
 `removed_at` feeds
+
+## TWL-25
+
+Priority: **P1**.
+
+Given: `small` with two snoozed records. Holding the reject key changes only the first record,
+even after the shelf selects the next one. Repeated keydown events send no further verdicts;
+the remaining record stays snoozed in the shelf and the API. Navigation keys may still repeat.
