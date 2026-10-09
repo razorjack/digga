@@ -453,3 +453,11 @@ before it shows the control.
 Seed a history verdict and a heard tune. Disable both skip controls in Settings and save. Triage
 includes the record and starts on the heard first track. Judge and undo it; the saved verdict is
 `seen` again.
+
+## TRI-48
+
+Priority: **P1**.
+
+Given: `small`, digging only the main pressing's label, with a note on the shop pressing.
+Triage shows that note and its catalogue number when the main pressing has no note. Editing starts
+empty; saving a note on the main pressing replaces the fallback without changing the other note.

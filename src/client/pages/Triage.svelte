@@ -475,7 +475,7 @@
             pricing={session.pricing.has(session.current.id)}
             onprice={() => void session.price()}
           />
-          {#if note || editingNote}
+          {#if note || pressingNote || editingNote}
             <NoteLine {note} {pressingNote} editing={editingNote} onsave={saveNote} oncancel={() => (editingNote = false)} />
           {/if}
         </div>
