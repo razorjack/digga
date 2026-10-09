@@ -153,10 +153,10 @@ async function started(queue: number[]) {
 const snoozed = (
   id: number,
   decidedAt: string,
-): ReplayItem & { verdict: Verdict; onWantlist: boolean } => ({
+): ReplayItem & { verdict: Verdict; wantlistReleaseIds: number[] } => ({
   verdict: { key: `r:${id}`, status: "snoozed", source: "triage", releaseId: id, decidedAt },
   release: queueItem(id),
-  onWantlist: false,
+  wantlistReleaseIds: [],
 });
 
 describe("triage session", () => {
@@ -359,7 +359,7 @@ describe("triage session", () => {
     const { session, calls, verdicts } = await started([1, 2]);
     const item = snoozed(9, "2026-01-02T03:04:05.000Z");
     item.verdict.status = "accepted";
-    item.onWantlist = true;
+    item.wantlistReleaseIds = [9];
     verdicts.set(item.verdict.key, item.verdict);
     session.startRound([item]);
     session.pass();
@@ -378,13 +378,19 @@ describe("triage session", () => {
     const { session, calls, verdicts } = await started([1, 2]);
     const item = snoozed(9, "2026-01-02T03:04:05.000Z");
     item.verdict.status = "accepted";
-    item.onWantlist = true;
+    item.wantlistReleaseIds = [90, 91];
     verdicts.set(item.verdict.key, item.verdict);
     session.startRound([item]);
     session.judge("rejected");
-    await until(() => calls.includes("remove 9"));
+    await until(() => calls.includes("remove 91"));
     session.undo();
-    await until(() => calls.includes("put 9"));
+    await until(() => calls.includes("put 91"));
+    expect(calls.filter((call) => call.startsWith("put") || call.startsWith("remove"))).toEqual([
+      "remove 90",
+      "remove 91",
+      "put 90",
+      "put 91",
+    ]);
     expect(verdicts.get(item.verdict.key)?.status).toBe("accepted");
     session.destroy();
   });
@@ -394,7 +400,7 @@ describe("triage session", () => {
     session.startRound([{ release: queueItem(9), verdict: null }]);
     session.endRound();
     expect(session.current?.id).toBe(1);
-    session.startRound([{ release: queueItem(10), verdict: null, onWantlist: true }]);
+    session.startRound([{ release: queueItem(10), verdict: null, wantlistReleaseIds: [10] }]);
     session.judge("accepted");
     await until(() => !session.slipBusy);
     // Already on the wantlist, so the want sends nothing to Discogs.

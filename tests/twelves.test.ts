@@ -25,7 +25,13 @@ function record(id: number): TwelvesItem & { verdict: Verdict } {
     key: `r:${id}`,
     release: queueItem(id),
     verdict: { key: `r:${id}`, status: "maybe", source: "triage", releaseId: id, decidedAt },
-    membership: { owned: false, onWantlist: false, onList: false, wantRemoved: false },
+    membership: {
+      owned: false,
+      onWantlist: false,
+      wantlistReleaseIds: [],
+      onList: false,
+      wantRemoved: false,
+    },
     since: decidedAt,
     note: null,
     pressingNotes: [],
@@ -68,11 +74,17 @@ async function setup() {
     }),
     pushToWantlist: vi.fn(async () => {
       calls.push("push");
-      item = { ...item, membership: { ...item.membership, onWantlist: true } };
+      item = {
+        ...item,
+        membership: { ...item.membership, onWantlist: true, wantlistReleaseIds: [1] },
+      };
     }),
     removeFromWantlist: vi.fn(async () => {
       calls.push("remove");
-      item = { ...item, membership: { ...item.membership, onWantlist: false } };
+      item = {
+        ...item,
+        membership: { ...item.membership, onWantlist: false, wantlistReleaseIds: [] },
+      };
     }),
   };
   const shelf = new TwelvesShelf(http as unknown as Api);

@@ -171,6 +171,7 @@ describe("collection and wantlist importers", () => {
       expect(recordMembershipOf(db, key)).toEqual({
         owned: true,
         onWantlist: false,
+        wantlistReleaseIds: [],
         onList: false,
         wantRemoved: false,
       });
@@ -226,6 +227,7 @@ describe("collection and wantlist importers", () => {
     expect(recordMembershipOf(db, "m:501")).toEqual({
       owned: true,
       onWantlist: true,
+      wantlistReleaseIds: [1002],
       onList: false,
       wantRemoved: false,
     });
@@ -263,6 +265,7 @@ describe("collection and wantlist importers", () => {
     expect(recordMembershipOf(db, "r:1004")).toEqual({
       owned: false,
       onWantlist: false,
+      wantlistReleaseIds: [],
       onList: false,
       wantRemoved: true,
     });
@@ -387,6 +390,7 @@ describe("the Discogs account beside decisions made in Digga", () => {
     expect(recordMembershipOf(db, "m:501")).toEqual({
       owned: true,
       onWantlist: true,
+      wantlistReleaseIds: [1001],
       onList: false,
       wantRemoved: false,
     });

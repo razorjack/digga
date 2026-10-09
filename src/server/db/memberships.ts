@@ -80,10 +80,10 @@ export function heldRecords(db: Db): Map<string, HeldRecord> {
 export function recordMembershipOf(db: Db, key: string): RecordMembership {
   const items = db
     .prepare(
-      `SELECT m.kind, m.removed_at IS NOT NULL AS removed
+      `SELECT m.kind, m.release_id AS releaseId, m.removed_at IS NOT NULL AS removed
        FROM memberships m JOIN releases r ON r.id = m.release_id WHERE r.triage_key = ?`,
     )
-    .all(key) as Pick<HeldItem, "kind" | "removed">[];
+    .all(key) as Pick<HeldItem, "kind" | "removed" | "releaseId">[];
   return membershipOf(items);
 }
 
@@ -172,6 +172,7 @@ export function assertAccountDataVersion(db: Db, version: number): void {
 export const NOT_HELD: RecordMembership = {
   owned: false,
   onWantlist: false,
+  wantlistReleaseIds: [],
   onList: false,
   wantRemoved: false,
 };
@@ -185,13 +186,16 @@ interface HeldItem {
   removed: number;
 }
 
-function membershipOf(items: Pick<HeldItem, "kind" | "removed">[]): RecordMembership {
+function membershipOf(items: Pick<HeldItem, "kind" | "removed" | "releaseId">[]): RecordMembership {
   const holds = (kind: MembershipKind) => items.some((item) => item.kind === kind && !item.removed);
   const onWantlist = holds("wantlist");
   const lostWant = items.some((item) => item.kind === "wantlist" && item.removed);
   return {
     owned: holds("collection"),
     onWantlist,
+    wantlistReleaseIds: items
+      .filter((item) => item.kind === "wantlist" && !item.removed)
+      .map((item) => item.releaseId),
     onList: holds("list"),
     wantRemoved: lostWant && !onWantlist,
   };

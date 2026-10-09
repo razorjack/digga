@@ -42,7 +42,8 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
   return rows.map((row) => {
     const release = queueItemForRelease(db, row.release_id);
     return {
-      onWantlist: release !== null && (held.get(release.triageKey)?.onWantlist ?? false),
+      wantlistReleaseIds:
+        release === null ? [] : (held.get(release.triageKey)?.wantlistReleaseIds ?? []),
       tracklistChanged: Boolean(row.tracklist_changed),
       mark: {
         releaseId: row.release_id,

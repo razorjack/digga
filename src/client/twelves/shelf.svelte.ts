@@ -30,7 +30,7 @@ type UndoEntry =
       previous: Verdict;
       /** What the change saved; undo expects the record to still have it. */
       saved: Verdict;
-      wantlist: { releaseId: number; change: "added" | "removed" } | null;
+      wantlist: { releaseIds: number[]; change: "added" | "removed" } | null;
     }
   | { kind: "note"; key: string; releaseId: number; previous: string | null };
 
@@ -144,18 +144,35 @@ export class TwelvesShelf {
             entry: null,
             note: ` Not on your Discogs wantlist: ${error}; the same key tries again.`,
           }
-        : { entry: { releaseId, change: "added" }, note: " Added to your Discogs wantlist." };
+        : {
+            entry: { releaseIds: [releaseId], change: "added" },
+            note: " Added to your Discogs wantlist.",
+          };
     }
     if (from !== null && isWantlistVerdict(from)) {
-      // Sent even when the want is not marked as on the wantlist: a push from Triage may have
-      // landed after this page loaded. Discogs treats a missing want as removed.
-      const error = await this.wantlistWrite(releaseId, false);
-      if (!item.membership.onWantlist) return { entry: null, note: "" };
-      return error
-        ? { entry: null, note: ` Still on your Discogs wantlist: ${error}.` }
-        : { entry: { releaseId, change: "removed" }, note: " Taken off your Discogs wantlist." };
+      return this.#removeWantedPressings(item, releaseId);
     }
     return { entry: null, note: "" };
+  }
+
+  async #removeWantedPressings(
+    item: TwelvesItem,
+    releaseId: number,
+  ): Promise<{ entry: WantlistChange; note: string }> {
+    // A push from Triage may have landed since the shelf loaded, even without a known membership.
+    const known = item.membership.wantlistReleaseIds;
+    const releaseIds = known.length > 0 ? known : [releaseId];
+    const removed: number[] = [];
+    let error: string | null = null;
+    for (const id of releaseIds) {
+      error = await this.wantlistWrite(id, false);
+      if (error) break;
+      if (known.includes(id)) removed.push(id);
+    }
+    const entry: WantlistChange =
+      removed.length > 0 ? { releaseIds: removed, change: "removed" } : null;
+    if (error) return { entry, note: ` Still on your Discogs wantlist: ${error}.` };
+    return { entry, note: entry ? " Taken off your Discogs wantlist." : "" };
   }
 
   enqueueTask(task: () => Promise<void>): void {
@@ -265,7 +282,12 @@ export class TwelvesShelf {
     this.#replaceVerdict(entry.previous.key, entry.previous);
     const { wantlist } = entry;
     if (!wantlist) return null;
-    return this.wantlistWrite(wantlist.releaseId, wantlist.change === "removed");
+    const errors: string[] = [];
+    for (const releaseId of wantlist.releaseIds) {
+      const error = await this.wantlistWrite(releaseId, wantlist.change === "removed");
+      if (error) errors.push(error);
+    }
+    return errors.length > 0 ? errors.join("; ") : null;
   }
 
   async addToWantlist(list: TwelvesItem[]): Promise<void> {

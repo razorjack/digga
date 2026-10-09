@@ -43,7 +43,7 @@ function resolveRound(db: Db, ids: number[]): ReplayItem[] {
     items.push({
       release,
       verdict: getVerdict(db, release.triageKey),
-      onWantlist: recordMembershipOf(db, release.triageKey).onWantlist,
+      wantlistReleaseIds: recordMembershipOf(db, release.triageKey).wantlistReleaseIds,
     });
   }
   return items;

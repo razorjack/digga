@@ -155,6 +155,8 @@ export interface Verdict {
 export interface RecordMembership {
   owned: boolean;
   onWantlist: boolean;
+  /** The actual pressings on Discogs, which may differ from the verdict's release. */
+  wantlistReleaseIds: number[];
   onList: boolean;
   /** The wantlist held a release of it until an import found it gone: the want ended. */
   wantRemoved: boolean;

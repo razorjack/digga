@@ -227,3 +227,12 @@ Priority: **P1**.
 Given: `small-account` with a saved token and three wants missing from Discogs. Search for the label
 shared by two of them. The bulk action counts and adds only those two; the hidden want stays off
 Discogs, as the fake's requests and the Twelves API confirm.
+
+## TWL-28
+
+Priority: **P1**.
+
+Given: `small-account` with a saved token, an accepted main pressing and its shop repress on the
+Discogs wantlist. Reject and undo, both from the shelf and during replay. The fake receives a
+removal and restoration for the shop repress; the main pressing is never added. The API retains
+the accepted verdict and the actual wanted release ID.

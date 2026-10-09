@@ -13,7 +13,7 @@ export interface PlaybackPosition {
 export interface ReplayItem {
   release: QueueItem | null;
   verdict: Verdict | null;
-  onWantlist?: boolean;
+  wantlistReleaseIds?: number[];
 }
 
 export interface ReplayRequest {
@@ -23,7 +23,11 @@ export interface ReplayRequest {
 
 /** A Twelves record as Triage hears it again. */
 export function replayItemOf(item: TwelvesItem): ReplayItem {
-  return { release: item.release, verdict: item.verdict, onWantlist: item.membership.onWantlist };
+  return {
+    release: item.release,
+    verdict: item.verdict,
+    wantlistReleaseIds: item.membership.wantlistReleaseIds,
+  };
 }
 
 /** Replays a marked track's record, from the moment saved with the mark when it has one. */

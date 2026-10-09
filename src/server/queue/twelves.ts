@@ -56,8 +56,8 @@ function twelvesItem(
 }
 
 function membershipOf(held: HeldRecord): RecordMembership {
-  const { owned, onWantlist, onList, wantRemoved } = held;
-  return { owned, onWantlist, onList, wantRemoved };
+  const { owned, onWantlist, wantlistReleaseIds, onList, wantRemoved } = held;
+  return { owned, onWantlist, wantlistReleaseIds, onList, wantRemoved };
 }
 
 /** Whether a release passes the filters; every record passes without filters. */

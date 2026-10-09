@@ -310,8 +310,8 @@ export interface MarkedTrack {
   release: QueueItem | null;
   /** The verdict on the record the track is on, if it has one. */
   verdict: Verdict | null;
-  /** The record is on the Discogs wantlist, so replaying it in Triage keeps it there. */
-  onWantlist?: boolean;
+  /** Pressings on the Discogs wantlist, which replay and undo keep in step. */
+  wantlistReleaseIds?: number[];
   /** The release no longer lists the marked tune at the mark's position. */
   tracklistChanged?: boolean;
 }

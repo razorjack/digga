@@ -145,15 +145,15 @@ export class TriageSession {
   /** Set by destroy(); answers that arrive later change nothing. */
   #destroyed = false;
   /** Release ids by triage key that this session put on the Discogs wantlist. */
-  #onWantlist = new Map<string, number>();
+  #onWantlist = new Map<string, number[]>();
   #wantlistWrites: Promise<unknown> = Promise.resolve();
   /** The queue as it was when a round started. */
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
   /** Verdicts of the records taken into rounds, by triage key. */
   #roundVerdicts = new Map<string, Verdict | null>();
-  /** Whether the records taken into rounds were on the Discogs wantlist, by triage key. */
-  #roundWants = new Map<string, boolean>();
+  /** The original wanted pressings, so undo restores the same releases. */
+  #roundWants = new Map<string, number[]>();
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
   #flashTimer: ReturnType<typeof setTimeout> | null = null;
@@ -478,9 +478,11 @@ export class TriageSession {
   #rememberRoundRecord(record: ReplayItem & { release: QueueItem }): void {
     const key = record.release.triageKey;
     this.#roundVerdicts.set(key, record.verdict);
-    if (record.onWantlist === undefined) return;
-    this.#roundWants.set(key, record.onWantlist);
-    if (record.onWantlist) this.#onWantlist.set(key, record.release.id);
+    if (record.wantlistReleaseIds === undefined) return;
+    this.#roundWants.set(key, [...record.wantlistReleaseIds]);
+    if (record.wantlistReleaseIds.length > 0)
+      this.#onWantlist.set(key, [...record.wantlistReleaseIds]);
+    else this.#onWantlist.delete(key);
   }
 
   /** Esc during a round, or its last record: back to the queue where it was. */
@@ -809,7 +811,7 @@ export class TriageSession {
       if (entry.kind === "verdict" && entry.item.triageKey === key)
         return isWantlistVerdict(entry.status);
     }
-    return this.#roundWants.get(key) ?? false;
+    return (this.#roundWants.get(key)?.length ?? 0) > 0;
   }
 
   /**
@@ -819,29 +821,47 @@ export class TriageSession {
    * a grail.
    */
   #syncWantlist(item: QueueItem): Promise<"added" | "removed" | null> {
-    const current = () => !this.#destroyed;
     const run = this.#wantlistWrites.then(async (): Promise<"added" | "removed" | null> => {
-      const key = item.triageKey;
-      const pushedId = this.#onWantlist.get(key);
-      if (!current()) return null;
-      if (this.#wanted(key) && pushedId === undefined) {
-        // Twelves may have changed the verdict while the push waited for earlier ones.
-        const saved = await this.#api.getRelease(item.id);
-        const savedWant = saved.verdict !== null && isWantlistVerdict(saved.verdict.status);
-        if (!savedWant || !this.#wanted(key) || !current()) return null;
-        await this.#api.pushToWantlist(item.id);
-        if (current()) this.#onWantlist.set(key, item.id);
-        return "added";
-      }
-      if (!this.#wanted(key) && pushedId !== undefined) {
-        await this.#api.removeFromWantlist(pushedId);
-        if (current()) this.#onWantlist.delete(key);
-        return "removed";
-      }
-      return null;
+      if (this.#destroyed) return null;
+      if (this.#wanted(item.triageKey)) return this.#addWantedPressings(item);
+      return this.#removeWantedPressings(item.triageKey);
     });
     this.#wantlistWrites = run.catch(() => {});
     return run;
+  }
+
+  async #addWantedPressings(item: QueueItem): Promise<"added" | null> {
+    const key = item.triageKey;
+    const held = this.#onWantlist.get(key) ?? [];
+    const original = this.#roundWants.get(key) ?? [];
+    const wanted = original.length > 0 ? original : [item.id];
+    const missing = wanted.filter((id) => !held.includes(id));
+    if (missing.length === 0) return null;
+    // Twelves may have changed the verdict while the push waited for earlier ones.
+    const saved = await this.#api.getRelease(item.id);
+    if (saved.verdict === null || !isWantlistVerdict(saved.verdict.status)) return null;
+    for (const releaseId of missing) {
+      if (this.#destroyed || !this.#wanted(key)) return null;
+      await this.#api.pushToWantlist(releaseId);
+      if (this.#destroyed) return null;
+      held.push(releaseId);
+      this.#onWantlist.set(key, held);
+    }
+    return "added";
+  }
+
+  async #removeWantedPressings(key: string): Promise<"removed" | null> {
+    const held = this.#onWantlist.get(key) ?? [];
+    if (held.length === 0) return null;
+    for (const releaseId of held) {
+      if (this.#destroyed || this.#wanted(key)) return null;
+      await this.#api.removeFromWantlist(releaseId);
+      if (this.#destroyed) return null;
+      const remaining = (this.#onWantlist.get(key) ?? []).filter((id) => id !== releaseId);
+      if (remaining.length > 0) this.#onWantlist.set(key, remaining);
+      else this.#onWantlist.delete(key);
+    }
+    return "removed";
   }
 
   /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
