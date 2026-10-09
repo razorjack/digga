@@ -60,7 +60,12 @@ export function nextEntry(
   const start = from === null ? 0 : from + 1;
   const playedPositions = new Set(
     entries
-      .filter((entry) => entry.track !== null && state.played.has(entry.video.videoId))
+      .filter(
+        (entry) =>
+          entry.track !== null &&
+          state.played.has(entry.video.videoId) &&
+          !state.failed.has(entry.video.videoId),
+      )
       .map((entry) => entry.track!.position),
   );
   for (let index = start; index < entries.length; index += 1)

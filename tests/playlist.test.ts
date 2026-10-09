@@ -89,6 +89,19 @@ describe("playlist", () => {
     expect(entries[1]?.heardBefore).toBe(true);
   });
 
+  it("tries another upload of a failed track before advancing to a different track", () => {
+    const entries = buildPlaylist({
+      tracks: [track(0, "A"), track(1, "B")],
+      videos: [video("a", "A"), video("a-again", "A"), video("b", "B")],
+    });
+    const state = { failed: new Set(["a"]), played: new Set(["a"]) };
+    expect(nextEntry(entries, 0, state, { fallback: true })).toBe(1);
+    expect(nextEntry(entries, 0, state, { fallback: false })).toBe(1);
+    expect(
+      nextEntry(entries, 1, { ...state, played: new Set(["a", "a-again"]) }, { fallback: false }),
+    ).toBe(2);
+  });
+
   it("treats tunes heard since the detail was fetched as heard", () => {
     const later = buildPlaylist({ tracks, videos }, new Set(["artist - tune A1"]));
     expect(later.map((e) => e.heardBefore)).toEqual([true, true, false, false, false]);
