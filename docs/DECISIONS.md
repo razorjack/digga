@@ -1346,3 +1346,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      Since 2026-10-10 `GET /api/discogs/profile` takes a `username` to check, answers 404 "No
      Discogs user named …" when Discogs has no such user, and the setup saves the name only after
      the profile came back.
+182. **A want is removed from Discogs only when the user is there.** `removeFromWantlist` took
+     every `404` as "not on the wantlist", so a username Discogs no longer had, after a profile
+     rename for example, reported a removal while the want stayed on the real wantlist. Since
+     2026-10-10 a `404` is followed by a read of the user's profile: a missing want still counts as
+     removed, a missing user fails with "Discogs has no user named …: check the Discogs username in
+     Settings".

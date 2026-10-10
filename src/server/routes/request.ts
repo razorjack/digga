@@ -3,7 +3,7 @@ import { type Context } from "hono";
 import type { z } from "zod";
 import { type ApiError } from "../../shared/api.ts";
 import { claimAccount } from "../db/memberships.ts";
-import { DiscogsApiError } from "../discogs/client.ts";
+import { DiscogsApiError, DiscogsUserNotFoundError } from "../discogs/client.ts";
 import type { AppContext } from "../context.ts";
 
 export function badRequest(request: Context, message: string, issues?: unknown): Response {
@@ -79,6 +79,7 @@ export function discogsErrorStatus(error: DiscogsApiError): 401 | 403 | 502 {
 }
 
 export function discogsErrorMessage(error: DiscogsApiError): string {
+  if (error instanceof DiscogsUserNotFoundError) return error.message;
   if (error.status === 401 || error.status === 403)
     return `Discogs answered ${error.status}: check the Discogs token in Settings and that it belongs to your Discogs username`;
   return `Discogs answered ${error.status}`;

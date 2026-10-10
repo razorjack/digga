@@ -215,7 +215,7 @@ Each HTTP attempt times out after 30 seconds, including body reads. Importers sc
 with their abort signal, retaining the shared queue and quota while making requests and waits
 cancellable, including during shutdown.
 `addToWantlist` (`PUT /users/{u}/wants/{id}`) and `removeFromWantlist` (`DELETE`, where `404`
-counts as removed) back `POST` / `DELETE /api/discogs/wantlist/:id`. A push sends the
+counts as removed unless the user is missing too) back `POST` / `DELETE /api/discogs/wantlist/:id`. A push sends the
 release's grail and keep tracks and its note (`wantlistNote()` in
 `src/shared/wantlist.ts`, at most 255 characters); the server then records or
 forgets the release in `memberships`, as a wantlist import would, so Twelves knows which wants

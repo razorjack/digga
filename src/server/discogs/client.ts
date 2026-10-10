@@ -17,8 +17,8 @@ import {
   type RequestOptions,
   type RetryPolicy,
 } from "./transport.ts";
-import { DiscogsApiError } from "./errors.ts";
-export { DiscogsApiError } from "./errors.ts";
+import { DiscogsApiError, DiscogsUserNotFoundError } from "./errors.ts";
+export { DiscogsApiError, DiscogsUserNotFoundError } from "./errors.ts";
 export {
   DEFAULT_USER_AGENT,
   INTERACTIVE_RETRIES,
@@ -66,7 +66,10 @@ export interface DiscogsClient {
   getList(id: number): Promise<DiscogsList>;
   /** PUT /users/{u}/wants/{id}; the token must belong to that user. */
   addToWantlist(username: string, releaseId: number, options?: { notes?: string }): Promise<void>;
-  /** DELETE /users/{u}/wants/{id}; a release that is not on the wantlist counts as removed. */
+  /**
+   * DELETE /users/{u}/wants/{id}; a release that is not on the wantlist counts as removed, a user
+   * Discogs does not have throws DiscogsUserNotFoundError.
+   */
   removeFromWantlist(username: string, releaseId: number): Promise<void>;
   hasToken(): boolean;
 }
@@ -162,5 +165,17 @@ async function removeFromWantlist(
     );
   } catch (error) {
     if (!(error instanceof DiscogsApiError && error.status === 404)) throw error;
+    // Discogs answers 404 both for a want that is not there and for a user that is not.
+    await ensureUserExists(request, username);
+  }
+}
+
+async function ensureUserExists(request: Request, username: string): Promise<void> {
+  try {
+    await request(`/users/${encodeURIComponent(username)}`);
+  } catch (error) {
+    if (error instanceof DiscogsApiError && error.status === 404)
+      throw new DiscogsUserNotFoundError(username, error.body);
+    throw error;
   }
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
-import { createDiscogsClient, DiscogsApiError, JOB_RETRIES } from "../src/server/discogs/client.ts";
+import {
+  createDiscogsClient,
+  DiscogsApiError,
+  DiscogsUserNotFoundError,
+  JOB_RETRIES,
+} from "../src/server/discogs/client.ts";
 
 interface Call {
   url: string;
@@ -186,6 +191,7 @@ describe("discogs client", () => {
       json({ id: 7 }, {}, 201),
       () => new Response(null, { status: 204 }),
       json({ message: "The requested resource was not found." }, {}, 404),
+      json({ id: 1, username: "dj name" }),
       json({ message: "You must authenticate to access this resource." }, {}, 401),
     ]);
     const client = createDiscogsClient({
@@ -205,9 +211,22 @@ describe("discogs client", () => {
       ["PUT", "https://api.discogs.com/users/dj%20name/wants/7", '{"notes":"from Digga"}'],
       ["DELETE", "https://api.discogs.com/users/dj%20name/wants/7", null],
       ["DELETE", "https://api.discogs.com/users/dj%20name/wants/7", null],
+      ["GET", "https://api.discogs.com/users/dj%20name", null],
       ["DELETE", "https://api.discogs.com/users/dj%20name/wants/7", null],
     ]);
     expect(calls[1]!.headers["Content-Type"]).toBe("application/json");
     expect(calls[0]!.headers.Authorization).toBe("Discogs token=t0k");
+  });
+
+  it("does not count a want as removed when Discogs has no user of that name", async () => {
+    const notFound = json({ message: "The requested resource was not found." }, {}, 404);
+    const { fetchImpl } = fakeFetch([notFound, notFound]);
+    const client = createDiscogsClient({ token: "t0k", fetchImpl, minIntervalMs: 0 });
+
+    const removal = client.removeFromWantlist("renamed", 7);
+
+    await expect(removal).rejects.toBeInstanceOf(DiscogsUserNotFoundError);
+    await expect(removal).rejects.toMatchObject({ status: 404 });
+    await expect(removal).rejects.toThrow("Discogs has no user named renamed");
   });
 });

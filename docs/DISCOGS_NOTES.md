@@ -111,7 +111,9 @@ Endpoints used:
   2026). The `M` verdict therefore leaves adding to the Discogs list to the user.
 - `PUT /users/{u}/wants/{release_id}` adds a release (`201`), with optional `notes` and `rating`
   sent as JSON; `DELETE /users/{u}/wants/{release_id}` removes it (`204`, `404` when it was not
-  there, which Digga treats as removed). Both need the user's token.
+  there, which Digga treats as removed). Discogs also answers `404` for a user it does not have,
+  so after a `404` Digga reads `GET /users/{u}`, and a `404` there is an error. Both need the
+  user's token.
 - Stub for later: `POST /users/{u}/collection/folders/{folder_id}/releases/{release_id}`.
 
 `basic_information` has `id, master_id, title, year, artists, labels, formats (qty as string),
