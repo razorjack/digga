@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 
@@ -17,15 +18,34 @@ export interface LibraryLock {
 
 export class LibraryInUseError extends Error {}
 
+/** The current time and how long this computer has run, which tell a lock left before a reboot. */
+export interface LockClock {
+  nowMs(): number;
+  uptimeSeconds(): number;
+}
+
+const systemClock: LockClock = { nowMs: () => Date.now(), uptimeSeconds: () => os.uptime() };
+
+/** The boot time derived from the uptime moves by a second or so between reads. */
+const BOOT_TOLERANCE_MS = 60_000;
+
 /**
  * Takes the library for this process, so one process at a time migrates it, recovers its
  * interrupted jobs, writes its scheduled backups and changes its data. A lock left by a process
  * that has ended is taken over. Read-only commands do not take it.
  */
-export function lockLibrary(file: string, holder: string): LibraryLock {
-  const owner: LockOwner = { pid: process.pid, holder, since: new Date().toISOString() };
+export function lockLibrary(
+  file: string,
+  holder: string,
+  clock: LockClock = systemClock,
+): LibraryLock {
+  const owner: LockOwner = {
+    pid: process.pid,
+    holder,
+    since: new Date(clock.nowMs()).toISOString(),
+  };
   if (!createLockFile(file, owner)) {
-    removeStaleLock(file);
+    removeStaleLock(file, clock);
     if (!createLockFile(file, owner))
       throw new LibraryInUseError("Another Digga process took the library just now.");
   }
@@ -43,14 +63,24 @@ function createLockFile(file: string, owner: LockOwner): boolean {
   }
 }
 
-/** Throws when the process named in the lock still runs; removes the lock otherwise. */
-function removeStaleLock(file: string): void {
+/**
+ * Throws when the process named in the lock still runs; removes the lock otherwise. A lock from
+ * before the computer last started is stale whatever its process id: after a crash and a
+ * reboot, another process can have that id.
+ */
+function removeStaleLock(file: string, clock: LockClock): void {
   const owner = readOwner(file);
-  if (owner !== null && isRunning(owner.pid))
+  if (owner !== null && !predatesBoot(owner, clock) && isRunning(owner.pid))
     throw new LibraryInUseError(
-      `The library is in use by ${owner.holder} (process ${owner.pid}, since ${owner.since}). Stop it first.`,
+      `The library is in use by ${owner.holder} (process ${owner.pid}, since ${owner.since}). ` +
+        `Stop it first. If no Digga is running, delete the lock file ${file}.`,
     );
   fs.rmSync(file, { force: true });
+}
+
+function predatesBoot(owner: LockOwner, clock: LockClock): boolean {
+  const bootedAtMs = clock.nowMs() - clock.uptimeSeconds() * 1000;
+  return Date.parse(owner.since) < bootedAtMs - BOOT_TOLERANCE_MS;
 }
 
 /** Leaves a lock that another process took over after this one was thought gone. */

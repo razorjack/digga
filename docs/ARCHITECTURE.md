@@ -251,8 +251,9 @@ token's.
 One process at a time owns a library. `src/server/library-lock.ts` writes `digga.lock` in the
 library, naming the process; `createServer()` takes it before it opens the database, and so do
 the CLI commands that change the library (`dump download`, `dump update`, `dump load`, `import`,
-`restore`). Another process that wants it is refused with the holder's name, and a lock whose
-process has ended is taken over. So only the owner migrates the database, marks interrupted jobs
+`restore`). Another process that wants it is refused with the holder's name and the lock file's
+path. A lock whose process has ended is taken over, and so is one written before the computer last
+started, whose process id another process may have now. So only the owner migrates the database, marks interrupted jobs
 failed and writes the scheduled backups. `digga stats` and `digga backup` only read and run beside
 the server.
 

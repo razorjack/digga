@@ -90,7 +90,8 @@ Priority: **P2**.
 
 One process owns a library (decision 129). While the server runs, `digga stats` and `digga backup`
 run beside it and exit 0, and `digga restore` of the decisions backup just written exits 1 with
-"digga: The library is in use by the Digga server (process N, since …). Stop it first.", which
+"digga: The library is in use by the Digga server (process N, since …). Stop it first. If no Digga
+is running, delete the lock file …/digga.lock.", which
 names "the Digga app" instead on Electron, whose process holds the lock (decision 151); after
 `relaunch({ crash: true })`, which leaves the lock file behind, the next server starts, and the
 same refusal names its process instead. The test waits for the database copy the server's start

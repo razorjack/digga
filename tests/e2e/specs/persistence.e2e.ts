@@ -191,7 +191,8 @@ async function refusedRestore(app: DiggaApp, file: string, holderName: string): 
   const restore = await app.cli(["restore", file]);
   expect(restore.code).toBe(1);
   const refusal = new RegExp(
-    `^digga: The library is in use by ${holderName} \\(process (\\d+), since \\S+\\)\\. Stop it first\\.$`,
+    `^digga: The library is in use by ${holderName} \\(process (\\d+), since \\S+\\)\\. Stop it first\\. ` +
+      `If no Digga is running, delete the lock file .+digga\\.lock\\.$`,
     "m",
   );
   const holder = refusal.exec(restore.stderr)?.[1];

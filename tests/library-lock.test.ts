@@ -50,6 +50,28 @@ describe("the library lock", () => {
     lockLibrary(lockFile, "the Digga server").release();
   });
 
+  it("takes over a lock from before the last boot, whose process id another process has now", () => {
+    const now = Date.parse("2026-10-10T12:00:00Z");
+    const clock = { nowMs: () => now, uptimeSeconds: () => 3600 };
+    const beforeBoot = { pid: process.pid, holder: "the Digga app", since: "2026-10-10T10:00:00Z" };
+    fs.writeFileSync(lockFile, JSON.stringify(beforeBoot));
+
+    lockLibrary(lockFile, "the Digga server", clock).release();
+
+    const afterBoot = { ...beforeBoot, since: "2026-10-10T11:30:00Z" };
+    fs.writeFileSync(lockFile, JSON.stringify(afterBoot));
+    expect(() => lockLibrary(lockFile, "the Digga server", clock)).toThrow(LibraryInUseError);
+  });
+
+  it("names the lock file, so a user can remove it by hand", () => {
+    const lock = lockLibrary(lockFile, "the Digga server");
+
+    expect(() => lockLibrary(lockFile, "digga restore")).toThrow(
+      `If no Digga is running, delete the lock file ${lockFile}.`,
+    );
+    lock.release();
+  });
+
   it("leaves a lock that another process has taken over since", () => {
     const lock = lockLibrary(lockFile, "the Digga server");
     const other = { pid: endedPid(), holder: "digga restore", since: "2026-10-03" };

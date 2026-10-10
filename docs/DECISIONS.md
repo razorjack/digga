@@ -1311,3 +1311,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      valid, and Settings' year fields carry `min` and `max` from each other, so the browser marks
      them and the save bar and the field show the schema's message. The setup's year fields
      already had the same bounds.
+177. **A lock from before the last boot is stale.** Decision 129 took over a lock only when its
+     process had ended, so after a hard crash and a reboot another process with the same id kept
+     Digga out of its library with nothing in the app to recover. Since 2026-10-10 a lock whose
+     `since` predates the boot (now minus `os.uptime()`, with a minute's tolerance) is taken over
+     whatever its process id; a newer lock still counts as held while its process exists, EPERM
+     included. The refusal names the process id and the lock file, so a user can delete it by
+     hand.
