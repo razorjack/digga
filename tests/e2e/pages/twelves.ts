@@ -343,8 +343,17 @@ export class TwelvesPage {
 
   /** Enter on the selected row: returns once Triage replays its record under the round's banner. */
   async replaySelected(releaseId: number): Promise<void> {
+    await this.#replayBy("Enter", releaseId);
+  }
+
+  /** Shift+Enter: the same, with the records after the selected one on the shelf in the round. */
+  async replayToEnd(releaseId: number): Promise<void> {
+    await this.#replayBy("Shift+Enter", releaseId);
+  }
+
+  async #replayBy(key: "Enter" | "Shift+Enter", releaseId: number): Promise<void> {
     await expect(this.selected).toHaveCount(1);
-    await this.app.page.keyboard.press("Enter");
+    await this.app.page.keyboard.press(key);
     const triage = new TriagePage(this.app);
     await expect(triage.record).toBeVisible();
     await expect(triage.banner).toContainText("Replaying Twelves");

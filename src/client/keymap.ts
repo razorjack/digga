@@ -198,7 +198,11 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
       { keys: ["Y"], label: "search YouTube for the record" },
       { keys: ["⌘V"], label: "attach a copied YouTube link to the record" },
       { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
-      { keys: ["Enter"], label: "replay the selected shelf or marked track in Triage" },
+      { keys: ["Enter"], label: "replay the selected record or marked track in Triage" },
+      {
+        keys: ["Shift", "Enter"],
+        label: "replay from the selected record to the end of the shelf",
+      },
       { keys: ["I"], label: "check your Discogs Maybe list again" },
       { keys: ["Z"], label: "undo the last change" },
     ],
@@ -238,9 +242,11 @@ export function pastedLink(event: ClipboardEvent): { url: string; isVideo: boole
 /**
  * The key a shortcut table looks up: a letter in lower case, any other key as typed, or null for
  * a letter held with Shift, which runs no letter shortcut. Shift with any other key still counts,
- * since some layouts (French AZERTY among them) need it to type `/` or the digits.
+ * since some layouts (French AZERTY among them) need it to type `/` or the digits. No layout needs
+ * Shift for Enter, so Shift+Enter is a shortcut of its own.
  */
 export function shortcutKey(event: Pick<KeyboardEvent, "key" | "shiftKey">): string | null {
+  if (event.key === "Enter" && event.shiftKey) return "Shift+Enter";
   if (event.key.length !== 1) return event.key;
   const lower = event.key.toLowerCase();
   const isLetter = lower !== event.key.toUpperCase();

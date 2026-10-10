@@ -301,10 +301,12 @@ test(
 );
 
 test(
-  "TWL-12 Enter on a snoozed record hears it and the snoozed records after it in Triage",
+  "TWL-12 Enter replays the selected record, Shift+Enter the shelf from it; on a snoozed record Enter hears the snoozed records after it too",
   { tag: ["@TWL-12", "@P1"] },
   async ({ app }) => {
     const twelves = new TwelvesPage(app);
+    const triage = new TriagePage(app);
+    const header = new HeaderPage(app);
     await app.given.verdicts(
       datedVerdicts([
         { release: EVENT_HORIZON, status: "maybe" },
@@ -317,8 +319,14 @@ test(
     expect(await twelves.selectedKey()).toBe(triageKeyOf(EVENT_HORIZON));
 
     await twelves.replaySelected(EVENT_HORIZON.id);
-    await new TriagePage(app).leaveRound();
-    await new HeaderPage(app).goTo("twelves");
+    await expect(triage.banner).toContainText("Replaying Twelves: 1 of 1 left.");
+    await triage.leaveRound();
+    await header.goTo("twelves");
+    expect(await twelves.selectedKey()).toBe(triageKeyOf(EVENT_HORIZON));
+    await twelves.replayToEnd(EVENT_HORIZON.id);
+    await expect(triage.banner).toContainText("Replaying Twelves: 4 of 4 left.");
+    await triage.leaveRound();
+    await header.goTo("twelves");
 
     await twelves.showShelf("snoozed");
     await twelves.select(triageKeyOf(SECOND_RECORD));

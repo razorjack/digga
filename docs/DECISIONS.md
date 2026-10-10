@@ -1388,3 +1388,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      record back first, then the queue is read again after the record on screen, or once the round
      ends. A new start-at point cues the decks waiting to play again, unless the open video played
      or was moved.
+189. **Enter replays the selected record.** Enter on a Twelves record shelf replayed every visible
+     record from the selection, so checking one record meant leaving a round of hundreds with Esc.
+     Since 2026-10-10 Enter replays the selected record alone and Shift+Enter replays from it to
+     the end of the shelf; `shortcutKey()` returns `Shift+Enter` for it, since no layout needs
+     Shift to type Enter. The snoozed shelf keeps decision 58: Enter hears the selected snoozed
+     record and those after it as a round.

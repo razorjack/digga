@@ -104,8 +104,10 @@ fake gets `DELETE` after the `PUT`
 
 Priority: **P1**.
 
-Enter on a snoozed record starts a round in Triage from it, with the snoozed records after it on the
-shelf. Enter on a different record starts an ordinary replay round; Esc returns to the queue.
+Enter on a record of the Everything shelf replays it alone ("1 of 1 left."); Shift+Enter replays it
+and the records after it on the shelf ("4 of 4 left."); Esc returns to the queue each time. Enter on
+a snoozed record starts a round in Triage from it, with the snoozed records after it on the shelf
+(decision 189).
 
 ## TWL-13
 

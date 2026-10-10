@@ -33,7 +33,9 @@
     notOnList,
     notOnWantlist,
     recordStamp,
+    replayedItems,
     trackKey,
+    type ReplayRange,
   } from "../twelves/model.ts";
   const shelfState = new TwelvesShelf();
   /** Wants and grails go to the Discogs wantlist; their shelves say whether all of them got there. */
@@ -75,9 +77,12 @@
     table?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
   });
 
-  /** Enter: hear the selected marked track, or the selected record and those after it, in Triage. */
-  function hearAgain(): void {
-    const request = shelfState.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay();
+  /**
+   * Enter hears the selected marked track or record in Triage, Shift+Enter the records from the
+   * selected one to the end of the shelf. On the snoozed shelf both start a round from the selection.
+   */
+  function hearAgain(range: ReplayRange): void {
+    const request = shelfState.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay(range);
     if (!request) return;
     ui.replay = request;
     navigate("triage");
@@ -92,8 +97,9 @@
     return replayTrack(track);
   }
 
-  function selectedRecordsReplay(): ReplayRequest | null {
-    const items = shelfState.visible.slice(shelfState.selectedIndex).filter((item) => item.release);
+  function selectedRecordsReplay(range: ReplayRange): ReplayRequest | null {
+    const { visible, selectedIndex: index, shelf } = shelfState;
+    const items = replayedItems(visible, { index, shelf, range });
     if (items.length === 0) {
       shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
       return null;
@@ -126,7 +132,8 @@
     "/": () => filterInput?.focus(),
     z: () => shelfState.enqueueTask(() => shelfState.undo()),
     i: () => void shelfState.checkList(),
-    Enter: hearAgain,
+    Enter: () => hearAgain("selected"),
+    "Shift+Enter": () => hearAgain("to the end"),
   };
 
   function onkeydown(event: KeyboardEvent): void {
@@ -480,6 +487,9 @@
         <span><Key label="⌘V" /> attach a link</span>
       {/if}
       <span><Key label="Enter" /> hear again</span>
+      {#if !onTracks && shelfState.shelf !== "snoozed"}
+        <span><Key label="Shift" /><Key label="Enter" /> hear to the end</span>
+      {/if}
       <span><Key label="Z" /> undo</span>
     </p>
     <div class="status">

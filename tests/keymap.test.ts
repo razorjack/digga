@@ -51,7 +51,11 @@ describe("shortcutKey", () => {
     expect(shortcutKey({ key: "/", shiftKey: true })).toBe("/");
     expect(shortcutKey({ key: "1", shiftKey: true })).toBe("1");
     expect(shortcutKey({ key: ",", shiftKey: true })).toBe(",");
-    expect(shortcutKey({ key: "Enter", shiftKey: true })).toBe("Enter");
     expect(shortcutKey({ key: "ArrowLeft", shiftKey: true })).toBe("ArrowLeft");
+  });
+
+  it("tells Shift+Enter from Enter", () => {
+    expect(shortcutKey({ key: "Enter", shiftKey: false })).toBe("Enter");
+    expect(shortcutKey({ key: "Enter", shiftKey: true })).toBe("Shift+Enter");
   });
 });

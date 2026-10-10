@@ -5,8 +5,9 @@ and `?` lists the keys of the current page. The definitions live in `src/client/
 handlers are in `src/client/pages/Triage.svelte`, `Twelves.svelte` and `App.svelte`. Keys are
 ignored while a text field has focus, while the `?` overlay is open, and when held with Cmd, Ctrl
 or Alt. A letter held with Shift runs no letter shortcut; only the track marks below use Shift. Keys
-that are not letters (`/`, `,`, the digits, Enter, the arrows) work with or without Shift, since some
-layouts need Shift to type them. Holding a key down never repeats a verdict.
+that are not letters (`/`, `,`, the digits, the arrows) work with or without Shift, since some
+layouts need Shift to type them. No layout needs Shift for Enter, so Shift+Enter is a key of its own
+in Twelves. Holding a key down never repeats a verdict.
 
 ## Pages (everywhere)
 
@@ -126,7 +127,8 @@ as one under Other videos, cannot be marked, and the page says so.
 | `Y`                         | search YouTube for the record                                                             |
 | `⌘V`                        | attach a copied YouTube link to the record; no audio goes back to the queue               |
 | `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there                                       |
-| `Enter`                     | hear the selected snoozed record, and those after it, in Triage                           |
+| `Enter`                     | replay the selected record in Triage; on Snoozed, it and the snoozed records after it     |
+| `Shift+Enter`               | replay the selected record and the records after it on the shelf                          |
 | `I`                         | read the Discogs Maybe list again                                                         |
 | `Z`                         | undo the last change, including what it did to the Discogs wantlist                       |
 
@@ -189,7 +191,9 @@ from an earlier version. Turning it off returns them to the queue; undo restores
 history verdict. The heard label
 remains visible when automatic skipping is off.
 
-Enter on any Twelves record shelf replays the visible records from the selection. Enter on Tracks
+Enter on a Twelves record shelf replays the selected record, and Shift+Enter the visible records from
+the selection to the end of the shelf. On the snoozed shelf both start the round of snoozed records
+from the selection (decision 58). Enter on Tracks
 reopens the selected mark's saved upload and second, including uploads no longer in the catalogue.
 N and Esc preserve saved verdicts and return to the original queue. Explicit verdict keys rejudge
 local decisions; imported owned/wantlist records retain their existing protection.

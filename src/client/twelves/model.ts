@@ -283,6 +283,23 @@ export function visibleItems(
     .toSorted((left, right) => compare(recordSortable(left), recordSortable(right)));
 }
 
+/** Which records Enter hands to Triage: the selected one, or those from it to the end of the shelf. */
+export type ReplayRange = "selected" | "to the end";
+
+/**
+ * The visible records a replay hears, those missing from the loaded dump left out. The snoozed
+ * shelf always replays to the end, since its replay is the round of snoozed records.
+ */
+export function replayedItems(
+  visible: TwelvesItem[],
+  selection: { index: number; shelf: ShelfId; range: ReplayRange },
+): TwelvesItem[] {
+  if (selection.index < 0) return [];
+  const toEnd = selection.range === "to the end" || selection.shelf === "snoozed";
+  const end = toEnd ? visible.length : selection.index + 1;
+  return visible.slice(selection.index, end).filter((item) => item.release);
+}
+
 /** The Tracks shelf: grail and keep marks, filtered and sorted like the records. */
 export function visibleTracks(
   tracks: MarkedTrack[],

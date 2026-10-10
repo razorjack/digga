@@ -9,6 +9,7 @@ import {
   pageAround,
   PAGE_SIZE,
   rejudgedSentence,
+  replayedItems,
   turnedPageStart,
   visibleItems,
   visibleTracks,
@@ -354,6 +355,31 @@ describe("pages", () => {
     expect(shelf.page.index).toBe(2);
     shelf.turnPage(-1);
     expect(shelf.selected).toBe(items[PAGE_SIZE]);
+  });
+});
+
+describe("replayedItems", () => {
+  const shelf = [record(1), record(2), { ...record(3), release: null }, record(4)];
+  const ids = (items: TwelvesItem[]) => items.map((item) => item.key);
+
+  it("replays the selected record alone, or from it to the end of the shelf", () => {
+    expect(ids(replayedItems(shelf, { index: 1, shelf: "all", range: "selected" }))).toEqual([
+      "r:2",
+    ]);
+    expect(ids(replayedItems(shelf, { index: 1, shelf: "all", range: "to the end" }))).toEqual([
+      "r:2",
+      "r:4",
+    ]);
+  });
+
+  it("starts a round to the end on the snoozed shelf", () => {
+    const replayed = replayedItems(shelf, { index: 0, shelf: "snoozed", range: "selected" });
+    expect(ids(replayed)).toEqual(["r:1", "r:2", "r:4"]);
+  });
+
+  it("replays nothing without a selection or a record in the dump", () => {
+    expect(replayedItems(shelf, { index: -1, shelf: "all", range: "to the end" })).toEqual([]);
+    expect(replayedItems(shelf, { index: 2, shelf: "all", range: "selected" })).toEqual([]);
   });
 });
 
