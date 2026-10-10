@@ -221,11 +221,18 @@ export function isInDialog(event: Event): boolean {
   return event.target instanceof Element && event.target.closest("dialog[open]") !== null;
 }
 
-/** A YouTube link pasted outside a form field, which Digga attaches to a release; else null. */
-export function pastedVideoLink(event: ClipboardEvent): string | null {
+/** What a page says when the link pasted on it is not one it can attach. */
+export const NOT_A_VIDEO_LINK = "That is not a YouTube link.";
+
+/**
+ * A link pasted outside a form field, which Digga attaches to a release when it is a YouTube
+ * video link; null for anything else, such as text that is no link.
+ */
+export function pastedLink(event: ClipboardEvent): { url: string; isVideo: boolean } | null {
   if (isTyping(event)) return null;
-  const text = event.clipboardData?.getData("text").trim() ?? "";
-  return youtubeIdFromUrl(text) === null ? null : text;
+  const url = event.clipboardData?.getData("text").trim() ?? "";
+  if (!/^https?:\/\/\S+$/i.test(url)) return null;
+  return { url, isVideo: youtubeIdFromUrl(url) !== null };
 }
 
 /**

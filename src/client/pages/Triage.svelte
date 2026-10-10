@@ -16,7 +16,8 @@
   import {
     hasCommandModifier,
     isTyping,
-    pastedVideoLink,
+    NOT_A_VIDEO_LINK,
+    pastedLink,
     shortcutKey,
     trackMarkForKey,
     type TriageStatus,
@@ -314,10 +315,11 @@
   /** A YouTube link pasted anywhere on the page belongs to the release on screen. */
   function onpaste(event: ClipboardEvent): void {
     if (!active || ui.helpOpen || pickingScope || !session.current) return;
-    const link = pastedVideoLink(event);
+    const link = pastedLink(event);
     if (link === null) return;
     event.preventDefault();
-    void session.attachVideo(link);
+    if (link.isVideo) void session.attachVideo(link.url);
+    else session.showFlash(NOT_A_VIDEO_LINK);
   }
 
   function onkeydown(event: KeyboardEvent): void {

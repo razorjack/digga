@@ -1,4 +1,4 @@
-/** Extracts the 11-character video id from watch, short, embed and youtu.be links. */
+/** Extracts the 11-character video id from watch, short, embed, YouTube Music and youtu.be links. */
 export function youtubeIdFromUrl(src: string): string | null {
   let url: URL;
   try {
@@ -6,7 +6,7 @@ export function youtubeIdFromUrl(src: string): string | null {
   } catch {
     return null;
   }
-  const host = url.hostname.toLowerCase().replace(/^www\.|^m\./, "");
+  const host = url.hostname.toLowerCase().replace(/^(?:www|m|music)\./, "");
   const valid = (id: string | null | undefined): string | null =>
     id && /^[\w-]{11}$/.test(id) ? id : null;
   if (host === "youtu.be") return valid(url.pathname.split("/")[1]);

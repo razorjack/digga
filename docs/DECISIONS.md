@@ -1318,3 +1318,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      whatever its process id; a newer lock still counts as held while its process exists, EPERM
      included. The refusal names the process id and the lock file, so a user can delete it by
      hand.
+178. **A pasted link is never refused silently.** A `music.youtube.com` link was not recognised,
+     and a pasted link Digga could not attach did nothing at all. Since 2026-10-10 YouTube Music
+     links attach like any other YouTube link, and a pasted `http(s)` link to anything else flashes
+     "That is not a YouTube link." on Triage and Twelves. Pasted text that is not a link is still
+     ignored, so a stray paste outside a field does not interrupt.

@@ -232,8 +232,8 @@ Priority: **P1**.
 Priority: **P1**.
 
 `app.paste()` of a YouTube link: the server stores it, oEmbed's title matches a track, which plays;
-an unmatched link plays under "Other videos" (`data-video-id`); other text and a paste inside the
-note field attach nothing
+an unmatched link plays under "Other videos" (`data-video-id`); a link that is not YouTube's says
+"That is not a YouTube link."; other text and a paste inside the note field attach nothing
 
 ## TRI-27
 

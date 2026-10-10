@@ -3,6 +3,7 @@ import type { Config } from "../../../src/shared/config.ts";
 import { formatDuration } from "../../../src/shared/display.ts";
 import { startSeconds } from "../../../src/shared/playlist.ts";
 import { youtubeWatchUrl } from "../../../src/shared/youtube.ts";
+import { NOT_A_VIDEO_LINK } from "../../../src/client/keymap.ts";
 import { MARK_COPY } from "../../../src/client/twelves/model.ts";
 import {
   ECHO_CHAMBER,
@@ -74,6 +75,8 @@ test(
     await triage.startListening();
 
     await app.paste("Nautic Unit - Low Tide, heard on Kool FM");
+    await app.paste("https://vimeo.com/76979871");
+    await expect(triage.messages).toHaveText(NOT_A_VIDEO_LINK);
     await triage.openNote();
     await app.paste(youtubeWatchUrl(lowTide.id));
     await triage.cancelNote();

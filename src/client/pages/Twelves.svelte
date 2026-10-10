@@ -11,7 +11,8 @@
   import {
     hasCommandModifier,
     isTyping,
-    pastedVideoLink,
+    NOT_A_VIDEO_LINK,
+    pastedLink,
     shortcutKey,
     STATUS_COPY,
     STATUS_TONE,
@@ -195,10 +196,11 @@
   function onpaste(event: ClipboardEvent): void {
     const selected = shelfState.selected;
     if (ui.helpOpen || onTracks || !selected) return;
-    const link = pastedVideoLink(event);
+    const link = pastedLink(event);
     if (link === null) return;
     event.preventDefault();
-    shelfState.attachVideo(selected, link);
+    if (link.isVideo) shelfState.attachVideo(selected, link.url);
+    else shelfState.showFlash(NOT_A_VIDEO_LINK);
   }
 
   function onFilterKey(event: KeyboardEvent): void {
