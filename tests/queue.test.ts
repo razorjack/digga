@@ -7,6 +7,12 @@ import {
   queryQueue,
   representativeForKey,
 } from "../src/server/queue/query.ts";
+import {
+  ensureScopeNames,
+  markScopeNamesStale,
+  rebuildScopeNames,
+  scopeNamesFresh,
+} from "../src/server/db/scope-names.ts";
 import { searchScopes } from "../src/server/queue/scopes.ts";
 import {
   type Filters,
@@ -385,6 +391,31 @@ describe("queue query", () => {
     expect(searchScopes(db, "various")).toEqual([]);
     expect(searchScopes(db, "%")).toEqual([]);
     expect(searchScopes(db, "e", 2)).toHaveLength(2);
+    db.close();
+  });
+
+  it("finds a name whatever its accents and case, and reads the releases while a load runs", async () => {
+    const db = await fixtureDb();
+    db.prepare(
+      `UPDATE releases SET labels_json = '[{"id":77,"name":"Björk Hardware"}]' WHERE id = 1001`,
+    ).run();
+    rebuildScopeNames(db);
+    const bjork = { kind: "label", id: 77, name: "Björk Hardware" };
+    expect(searchScopes(db, "bjork")).toEqual([expect.objectContaining(bjork)]);
+    expect(searchScopes(db, "BJÖRK HARD")).toEqual([expect.objectContaining(bjork)]);
+
+    markScopeNamesStale(db);
+    db.prepare(
+      `UPDATE releases SET labels_json = '[{"id":79,"name":"Zyzzyva Sound"}]' WHERE id = 1002`,
+    ).run();
+    expect(searchScopes(db, "zyzzyva")).toEqual([
+      { kind: "label", id: 79, name: "Zyzzyva Sound", records: 1 },
+    ]);
+    ensureScopeNames(db);
+    expect(scopeNamesFresh(db)).toBe(true);
+    expect(searchScopes(db, "zyzzyva")).toEqual([
+      { kind: "label", id: 79, name: "Zyzzyva Sound", records: 1 },
+    ]);
     db.close();
   });
 

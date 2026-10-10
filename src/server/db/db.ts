@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { migrationBackupFile } from "../paths.ts";
+import { ensureScopeNames } from "./scope-names.ts";
 import { rekeyTunes } from "./tune-keys.ts";
 import { rematchVideos } from "./video-matches.ts";
 
@@ -41,6 +42,7 @@ export function openDb(file: string, options: OpenOptions = {}): Db {
     applyMigrations(db);
     rekeyTunes(db);
     rematchVideos(db);
+    ensureScopeNames(db);
   } catch (error) {
     db.close();
     throw error;

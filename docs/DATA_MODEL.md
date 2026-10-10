@@ -238,11 +238,21 @@ load that read its dump to the end (`src/shared/style-census.ts`, `docs/STYLE_CE
 run or a load stopped by a limit leaves it. Before the first load, `GET /api/styles` reads the
 census shipped with Digga instead.
 
+## scope_names
+
+The labels and artists Triage's `F` finds (migration 24): `(kind, id)` PK with `kind` in `label |
+artist`, `name`, `search_name` (the name folded by `normalizeText()`, so "bjork" finds Björk) and
+`records`, the triage keys in the universe that carry the credit, track credits included and
+Discogs' "Various" left out. Indexed by `records` so a search stops at its limit. A load clears
+`meta.scope_names_fresh` before it writes and rebuilds the table as it ends; while the key is
+missing, a search reads the releases instead, and opening the library rebuilds the table.
+
 ## meta
 
 Key/value: `schema_version`, `dump_date` (from the dump file name), `dump_file`, `dump_loaded_at`,
 `discogs_account` (whose collection, wantlist and lists `memberships` holds; another account is
-refused until Settings forgets them).
+refused until Settings forgets them), `scope_names_fresh` (while `scope_names` matches the
+universe).
 
 ## Backup schedule
 

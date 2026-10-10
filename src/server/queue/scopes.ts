@@ -1,6 +1,8 @@
 import type { ScopeMatch } from "../../shared/api.ts";
 import type { ScopeKind } from "../../shared/scope.ts";
+import { normalizeText } from "../../shared/normalize.ts";
 import type { Db } from "../db/db.ts";
+import { scopeNamesFresh } from "../db/scope-names.ts";
 import { escapeLike } from "./query.ts";
 
 interface MatchRow {
@@ -8,6 +10,8 @@ interface MatchRow {
   match_name: string;
   records: number;
 }
+
+type NameRow = MatchRow & { kind: "label" | "artist" };
 
 const LABEL_SEARCH = `
 SELECT json_extract(l.value, '$.id') AS match_id, json_extract(l.value, '$.name') AS match_name,
@@ -48,6 +52,14 @@ GROUP BY s.id
 ORDER BY records DESC, s.username COLLATE NOCASE
 LIMIT ?`;
 
+// Names and text are folded alike, so "bjork" and "BJÖRK" find Björk.
+const NAME_SEARCH = `
+SELECT kind, id AS match_id, name AS match_name, records
+FROM scope_names
+WHERE search_name LIKE ? ESCAPE '\\'
+ORDER BY records DESC, name COLLATE NOCASE
+LIMIT ?`;
+
 /**
  * Sellers whose shop Digga has read, then labels and artists in the universe, whose name
  * contains the text. Sellers come first because there are few and their names are typed on
@@ -55,15 +67,29 @@ LIMIT ?`;
  * filters and verdicts.
  */
 export function searchScopes(db: Db, text: string, limit = 12): ScopeMatch[] {
+  const sellers = db.prepare(SELLER_SEARCH).all(`%${escapeLike(text)}%`, limit) as MatchRow[];
+  const credits = scopeNamesFresh(db)
+    ? searchNames(db, text, limit)
+    : searchReleases(db, text, limit);
+  return [...sellers.map((row) => toMatch("seller", row)), ...credits].slice(0, limit);
+}
+
+function searchNames(db: Db, text: string, limit: number): ScopeMatch[] {
+  const folded = normalizeText(text);
+  if (folded === "") return [];
+  const rows = db.prepare(NAME_SEARCH).all(`%${escapeLike(folded)}%`, limit) as NameRow[];
+  return rows.map((row) => toMatch(row.kind, row));
+}
+
+/** While a load changes the universe, the credits are read from the releases themselves. */
+function searchReleases(db: Db, text: string, limit: number): ScopeMatch[] {
   const pattern = `%${escapeLike(text)}%`;
-  const sellers = db.prepare(SELLER_SEARCH).all(pattern, limit) as MatchRow[];
   const labels = db.prepare(LABEL_SEARCH).all(pattern, limit) as MatchRow[];
   const artists = db.prepare(ARTIST_SEARCH).all(pattern, limit) as MatchRow[];
-  const credits = [
+  return [
     ...labels.map((row) => toMatch("label", row)),
     ...artists.map((row) => toMatch("artist", row)),
   ].sort((left, right) => right.records - left.records);
-  return [...sellers.map((row) => toMatch("seller", row)), ...credits].slice(0, limit);
 }
 
 function toMatch(kind: ScopeKind, row: MatchRow): ScopeMatch {

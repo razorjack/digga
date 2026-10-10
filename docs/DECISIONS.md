@@ -1357,3 +1357,12 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      forward. Since 2026-10-10 `loadConfig()` throws `InvalidConfigError`, which names the file,
      and the app's dialog offers "Open the Library Folder", which shows the file in Finder, and
      Quit. The app does not start with the defaults instead: the file holds the Discogs username.
+184. **`F` searches a table of names filled at load time.** The search read every release's labels
+     and every track's artists with `json_each` for each query, and `LIKE` folds case for ASCII
+     only, so "björk" missed "Björk". The client already waited 200 ms after typing and for two
+     characters. Measured on 2026-10-10 on synthetic libraries, a search took 250 to 560 ms with
+     150,000 releases and 0.7 to 1.5 s with 400,000. `scope_names` now holds each label and artist
+     with its records and its name folded by `normalizeText()`, and a search reads it in 0 to
+     31 ms at either size. A load rebuilds it as it ends (0.7 s and 1.5 s at those sizes); while a
+     load runs, or after one that stopped, the search reads the releases as before, so digging
+     during the first load still finds what has arrived.

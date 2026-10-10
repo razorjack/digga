@@ -6,6 +6,7 @@ import { clearTimeout, setTimeout } from "node:timers";
 import zlib from "node:zlib";
 import type { Db } from "../../src/server/db/db.ts";
 import { writeReleases } from "../../src/server/db/releases.ts";
+import { markScopeNamesStale, rebuildScopeNames } from "../../src/server/db/scope-names.ts";
 import { remapTuneKeys } from "../../src/server/db/tune-keys.ts";
 import type { Logger } from "../../src/server/logger.ts";
 import { artistDisplay, yearFromReleased } from "../../src/shared/normalize.ts";
@@ -172,6 +173,7 @@ export async function loadDump(
     report("scanning", log);
   };
 
+  if (!options.dryRun) markScopeNamesStale(db);
   let stoppedAtLimit: boolean;
   const schedule = new ProgressSchedule(options, commitAndReport, (error) =>
     scan.input.stream.destroy(error),
@@ -188,17 +190,22 @@ export async function loadDump(
   scan.writer.flush();
   // Listens and marks follow the keys of the tracks just written, as a record may have moved.
   if (scan.writer.upserted > 0) remapTuneKeys(db);
+  if (!options.dryRun) rebuildScopeNames(db);
   report("done", true);
   if (scan.writer.verdictsMoved > 0)
     hooks.logger?.info(
       `${scan.writer.verdictsMoved} verdict(s) followed their release to the record it is on now`,
     );
+  return resultOf(scan, stoppedAtLimit);
+}
+
+function resultOf(scan: Scan, stoppedAtLimit: boolean): DumpLoadResult {
   return {
     ...scan.counts,
     upserted: scan.writer.upserted,
     elapsedSeconds: elapsedSeconds(scan),
-    dumpDate: dumpDateFromFilename(options.file),
-    dryRun: options.dryRun ?? false,
+    dumpDate: dumpDateFromFilename(scan.options.file),
+    dryRun: scan.options.dryRun ?? false,
     stoppedAtLimit,
   };
 }
