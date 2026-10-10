@@ -10,6 +10,7 @@
     isInDialog,
     isSelectAll,
     isTyping,
+    shortcutKey,
     triageKeyGroups,
     TWELVES_KEY_GROUPS,
   } from "./keymap.ts";
@@ -109,10 +110,9 @@
       event.preventDefault();
       return;
     }
-    const target = ROUTES.find(
-      (destination) => destination.key.toLowerCase() === event.key.toLowerCase(),
-    );
-    if (target && !event.shiftKey && !event.repeat) {
+    const key = shortcutKey(event);
+    const target = ROUTES.find((destination) => destination.key.toLowerCase() === key);
+    if (target && !event.repeat) {
       navigate(target.route);
       event.preventDefault();
     }

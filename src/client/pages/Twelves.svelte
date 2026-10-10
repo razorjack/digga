@@ -12,6 +12,7 @@
     hasCommandModifier,
     isTyping,
     pastedVideoLink,
+    shortcutKey,
     STATUS_COPY,
     STATUS_TONE,
   } from "../keymap.ts";
@@ -128,15 +129,9 @@
   };
 
   function onkeydown(event: KeyboardEvent): void {
-    if (
-      ui.helpOpen ||
-      event.defaultPrevented ||
-      isTyping(event) ||
-      hasCommandModifier(event) ||
-      event.shiftKey
-    )
-      return;
-    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+    if (ui.helpOpen || event.defaultPrevented || isTyping(event) || hasCommandModifier(event)) return;
+    const key = shortcutKey(event);
+    if (key === null) return;
     if (event.repeat && !["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
       event.preventDefault();
       return;

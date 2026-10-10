@@ -17,6 +17,7 @@
     hasCommandModifier,
     isTyping,
     pastedVideoLink,
+    shortcutKey,
     trackMarkForKey,
     type TriageStatus,
     VERDICT_KEYS,
@@ -276,12 +277,13 @@
 
   /** Returns true when the key was a triage shortcut. */
   function handle(event: KeyboardEvent): boolean {
-    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-    const mark = event.shiftKey ? trackMarkForKey(key) : null;
+    const mark = event.shiftKey ? trackMarkForKey(event.key.toLowerCase()) : null;
     if (mark) {
       if (!event.repeat) markPlaying(mark);
       return true;
     }
+    const key = shortcutKey(event);
+    if (key === null) return false;
     if (key === "ArrowLeft" || key === "ArrowRight") {
       player.seekBy(key === "ArrowLeft" ? -seekStep : seekStep);
       return true;

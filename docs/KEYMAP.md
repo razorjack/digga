@@ -4,7 +4,9 @@ All keys are single presses without modifiers unless stated. Every action shows 
 and `?` lists the keys of the current page. The definitions live in `src/client/keymap.ts`; the
 handlers are in `src/client/pages/Triage.svelte`, `Twelves.svelte` and `App.svelte`. Keys are
 ignored while a text field has focus, while the `?` overlay is open, and when held with Cmd, Ctrl
-or Alt. Holding a key down never repeats a verdict.
+or Alt. A letter held with Shift runs no letter shortcut; only the track marks below use Shift. Keys
+that are not letters (`/`, `,`, the digits, Enter, the arrows) work with or without Shift, since some
+layouts need Shift to type them. Holding a key down never repeats a verdict.
 
 ## Pages (everywhere)
 

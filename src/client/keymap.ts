@@ -228,6 +228,19 @@ export function pastedVideoLink(event: ClipboardEvent): string | null {
   return youtubeIdFromUrl(text) === null ? null : text;
 }
 
+/**
+ * The key a shortcut table looks up: a letter in lower case, any other key as typed, or null for
+ * a letter held with Shift, which runs no letter shortcut. Shift with any other key still counts,
+ * since some layouts (French AZERTY among them) need it to type `/` or the digits.
+ */
+export function shortcutKey(event: Pick<KeyboardEvent, "key" | "shiftKey">): string | null {
+  if (event.key.length !== 1) return event.key;
+  const lower = event.key.toLowerCase();
+  const isLetter = lower !== event.key.toUpperCase();
+  if (isLetter && event.shiftKey) return null;
+  return lower;
+}
+
 /** Shortcuts are single keys; anything held with Cmd, Ctrl or Alt belongs to the browser. */
 export function hasCommandModifier(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey || event.altKey;

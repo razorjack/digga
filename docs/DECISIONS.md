@@ -1297,3 +1297,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      opens a modal dialog with Save, Discard and Keep editing; Esc keeps editing, and a draft
      that cannot be saved offers only Discard and Keep editing. The page keys stay quiet while a
      dialog has focus.
+175. **Shift turns letter shortcuts off and leaves other keys alone, on every page.** Twelves
+     ignored every key pressed with Shift, so on layouts that need Shift for `/` or the digits
+     (French AZERTY among them) the filter and shelf keys did nothing, while Triage judged a
+     record on Shift+A, R, L or D. Since 2026-10-10 one rule in `shortcutKey()` (`keymap.ts`)
+     applies to Triage, Twelves and the page keys: a letter with Shift runs no letter shortcut,
+     and any other key counts as typed, with or without Shift. Triage's Shift track marks are
+     read before that rule and stay as they were.
