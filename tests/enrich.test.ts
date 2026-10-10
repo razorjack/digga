@@ -23,6 +23,9 @@ function fakeDiscogs(handler: (id: number) => Promise<DiscogsRelease>): DiscogsC
     withSignal() {
       return this;
     },
+    withRetries() {
+      return this;
+    },
     hasToken: () => true,
   };
 }

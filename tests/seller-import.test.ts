@@ -63,6 +63,9 @@ function fakeShop(pages: DiscogsListing[][] | number, requested: number[] = []) 
     withSignal() {
       return this;
     },
+    withRetries() {
+      return this;
+    },
     hasToken: () => false,
   };
   return discogs;

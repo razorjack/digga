@@ -5,6 +5,7 @@ import type { DumpLoadJobInput, ImportJobInput, ImportKind } from "../../shared/
 import { JOB_LABEL } from "../../shared/job-display.ts";
 import type { DumpLoadProgress, Job, JobType } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
+import { JOB_RETRIES } from "../discogs/client.ts";
 import { dumpsDirOptions, resolveDumpFile } from "../paths.ts";
 import type { DumpLoadJobResult } from "./dump-load.ts";
 import {
@@ -128,7 +129,7 @@ function downloadWriting(context: AppContext, file: string): Job | null {
 export function startImport(context: AppContext, kind: ImportKind, input: ImportJobInput): Job {
   const config = context.getConfig();
   const { db, logger, jobs } = context;
-  const deps = { db, logger, discogs: context.getDiscogs() };
+  const deps = { db, logger, discogs: context.getDiscogs().withRetries(JOB_RETRIES) };
   if (kind === "seller") {
     const username = input.username;
     if (!username) throw new JobInputError("Name the seller whose shop to read");

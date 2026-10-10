@@ -54,6 +54,9 @@ function fakeDiscogs(
     withSignal() {
       return this;
     },
+    withRetries() {
+      return this;
+    },
     hasToken: () => true,
   };
 }

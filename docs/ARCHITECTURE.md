@@ -209,7 +209,8 @@ verdict and track mark with the release they belong to (`src/server/export.ts`).
 
 `src/server/discogs/client.ts` wraps the handful of endpoints used: release detail (with
 `curr_abbr`), collection and wantlist pages, identity. It serialises requests, keeps a 1.1 s gap
-between them, backs off on `429` and pauses when `X-Discogs-Ratelimit-Remaining` is exhausted.
+between them, backs off on `429` as the caller's retry policy says (a page's requests give up
+sooner than a job's) and pauses when `X-Discogs-Ratelimit-Remaining` is exhausted.
 Each HTTP attempt times out after 30 seconds, including body reads. Importers scope the client
 with their abort signal, retaining the shared queue and quota while making requests and waits
 cancellable, including during shutdown.

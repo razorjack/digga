@@ -1,6 +1,6 @@
 import { loadConfig } from "../server/config-file.ts";
 import { type Db, openDb } from "../server/db/db.ts";
-import { createDiscogsClient } from "../server/discogs/client.ts";
+import { createDiscogsClient, JOB_RETRIES } from "../server/discogs/client.ts";
 import { lockLibrary } from "../server/library-lock.ts";
 import { createLogger } from "../server/logger.ts";
 import { resolvePaths } from "../server/paths.ts";
@@ -21,6 +21,7 @@ export function boot() {
 export function discogsFor(runtime: Runtime) {
   return createDiscogsClient({
     token: runtime.secrets.getDiscogsToken(),
+    retries: JOB_RETRIES,
     baseUrl: runtime.discogsApiUrl,
     logger: runtime.logger.child("discogs"),
   });

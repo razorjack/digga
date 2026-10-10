@@ -11,10 +11,20 @@ import type {
   DiscogsWantlistPage,
 } from "./types.ts";
 
-import { DiscogsTransport } from "./transport.ts";
+import {
+  DiscogsTransport,
+  INTERACTIVE_RETRIES,
+  type RequestOptions,
+  type RetryPolicy,
+} from "./transport.ts";
 import { DiscogsApiError } from "./errors.ts";
 export { DiscogsApiError } from "./errors.ts";
-export { DEFAULT_USER_AGENT } from "./transport.ts";
+export {
+  DEFAULT_USER_AGENT,
+  INTERACTIVE_RETRIES,
+  JOB_RETRIES,
+  type RetryPolicy,
+} from "./transport.ts";
 
 export interface DiscogsClientOptions {
   token?: string | undefined;
@@ -25,7 +35,8 @@ export interface DiscogsClientOptions {
   now?: () => number;
   /** Minimum gap between requests. 1100 ms keeps an authenticated client under 60/min. */
   minIntervalMs?: number;
-  maxRetries?: number;
+  /** How requests answer 429 unless a caller asks otherwise; a page's patience by default. */
+  retries?: RetryPolicy;
   /** Deadline for each HTTP attempt, including reading its response body. */
   timeoutMs?: number;
   logger?: Logger;
@@ -34,6 +45,8 @@ export interface DiscogsClientOptions {
 export interface DiscogsClient {
   /** Shares the request queue and quota, with cancellation for this caller's requests. */
   withSignal(signal?: AbortSignal): DiscogsClient;
+  /** Shares the request queue and quota, answering 429 as the policy says. */
+  withRetries(retries: RetryPolicy): DiscogsClient;
   getRelease(id: number, currency: string): Promise<DiscogsRelease>;
   getCollectionPage(
     username: string,
@@ -60,17 +73,30 @@ export interface DiscogsClient {
 
 export function createDiscogsClient(options: DiscogsClientOptions = {}): DiscogsClient {
   const transport = new DiscogsTransport(options);
-  return clientFor(transport, { authenticated: Boolean(options.token) });
+  return clientFor(transport, {
+    authenticated: Boolean(options.token),
+    retries: options.retries ?? INTERACTIVE_RETRIES,
+  });
 }
+
+/** What a request takes beyond the client's own options. */
+type CallOptions = Omit<RequestOptions, "signal" | "retries">;
+type Request = <Result>(path: string, query?: Query, options?: CallOptions) => Promise<Result>;
+type Query = Parameters<DiscogsTransport["request"]>[1];
 
 function clientFor(
   transport: DiscogsTransport,
-  options: { authenticated: boolean; signal?: AbortSignal },
+  options: { authenticated: boolean; signal?: AbortSignal; retries: RetryPolicy },
 ): DiscogsClient {
-  const request: DiscogsTransport["request"] = (path, query, requestOptions) =>
-    transport.request(path, query, { ...requestOptions, signal: options.signal });
+  const request: Request = (path, query = {}, callOptions = {}) =>
+    transport.request(path, query, {
+      ...callOptions,
+      signal: options.signal,
+      retries: options.retries,
+    });
   return {
     withSignal: (signal) => clientFor(transport, { ...options, signal }),
+    withRetries: (retries) => clientFor(transport, { ...options, retries }),
     getRelease: (id, currency) =>
       request<DiscogsRelease>(`/releases/${id}`, { curr_abbr: currency }),
     getCollectionPage: (username, page, perPage = 100) =>
@@ -110,7 +136,7 @@ function clientFor(
 }
 
 async function addToWantlist(
-  request: DiscogsTransport["request"],
+  request: Request,
   username: string,
   releaseId: number,
   options: { notes?: string },
@@ -124,7 +150,7 @@ async function addToWantlist(
 }
 
 async function removeFromWantlist(
-  request: DiscogsTransport["request"],
+  request: Request,
   username: string,
   releaseId: number,
 ): Promise<void> {

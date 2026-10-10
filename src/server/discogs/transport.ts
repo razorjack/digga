@@ -8,10 +8,37 @@ export const DEFAULT_USER_AGENT = "Digga/0.1 (+https://github.com/razorjack/digg
 const DEFAULT_BASE_URL = "https://api.discogs.com";
 const defaultSleep = (ms: number, signal?: AbortSignal) => sleep(ms, undefined, { signal });
 type Query = Record<string, string | number | undefined>;
-interface RequestOptions {
+
+/** How a request answers Discogs' 429, and how long it may take in all. */
+export interface RetryPolicy {
+  maxRetries: number;
+  /** The wait before a retry when Discogs sends no Retry-After, by attempt from 0. */
+  fallbackDelayMs(attempt: number): number;
+  /** The longest the request may take, its turn in the queue included; unlimited when absent. */
+  deadlineMs?: number;
+}
+
+/**
+ * A page waits on the request and gives up after 5 minutes (DEFAULT_TIMEOUTS in the client's
+ * api.ts). The server answers within 4, so the page never retries a request that still runs here.
+ */
+export const INTERACTIVE_RETRIES: RetryPolicy = {
+  maxRetries: 2,
+  fallbackDelayMs: () => 60_000,
+  deadlineMs: 4 * 60_000,
+};
+
+/** Nobody waits on a job's request, so it waits as long as Discogs asks. */
+export const JOB_RETRIES: RetryPolicy = {
+  maxRetries: 3,
+  fallbackDelayMs: (attempt) => 60_000 * (attempt + 1),
+};
+
+export interface RequestOptions {
   method?: "GET" | "PUT" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
+  retries: RetryPolicy;
 }
 
 export class DiscogsTransport {
@@ -34,10 +61,14 @@ export class DiscogsTransport {
   }
 
   /** Serialization keeps concurrent callers within the same rate limit. */
-  request<Result>(path: string, query: Query = {}, options: RequestOptions = {}): Promise<Result> {
-    const next = this.#chain.then(() => this.#requestWithRetry<Result>(path, query, options));
+  request<Result>(path: string, query: Query, options: RequestOptions): Promise<Result> {
+    const deadline = startDeadline(options.retries.deadlineMs);
+    const signal = anySignal(options.signal, deadline?.signal);
+    const next = this.#chain.then(() =>
+      this.#requestWithRetry<Result>(path, query, { ...options, signal }),
+    );
     this.#chain = next.catch(() => {});
-    return abortable(next, options.signal);
+    return abortable(next, signal).finally(() => deadline?.clear());
   }
 
   async #requestWithRetry<Result>(
@@ -51,8 +82,8 @@ export class DiscogsTransport {
       await this.#waitForQuota(options.signal);
       const { response, text } = await this.#readResponse(url, options);
       this.#readRateLimit(response);
-      if (response.status === 429 && attempt < (this.#options.maxRetries ?? 3)) {
-        await this.#backoff(response, attempt, options.signal);
+      if (response.status === 429 && attempt < options.retries.maxRetries) {
+        await this.#backoff(response, attempt, options);
         continue;
       }
       if (!response.ok) throw new DiscogsApiError(response.status, text);
@@ -115,15 +146,34 @@ export class DiscogsTransport {
     this.#remaining = numericHeader(response, "X-Discogs-Ratelimit-Remaining") ?? this.#remaining;
   }
 
-  async #backoff(response: Response, attempt: number, signal?: AbortSignal): Promise<void> {
+  async #backoff(response: Response, attempt: number, options: RequestOptions): Promise<void> {
     const retryAfter = numericHeader(response, "Retry-After");
-    const delay = retryAfter === null ? 60_000 * (attempt + 1) : retryAfter * 1000;
-    const retries = this.#options.maxRetries ?? 3;
+    const delay =
+      retryAfter === null ? options.retries.fallbackDelayMs(attempt) : retryAfter * 1000;
     this.#options.logger?.warn(
-      `Discogs 429, backing off ${delay}ms (attempt ${attempt + 1}/${retries})`,
+      `Discogs 429, backing off ${delay}ms (attempt ${attempt + 1}/${options.retries.maxRetries})`,
     );
-    await abortable(this.#sleep(delay, signal), signal);
+    await abortable(this.#sleep(delay, options.signal), options.signal);
   }
+}
+
+/** A signal that aborts after `deadlineMs`, and the timer's removal once the request is done. */
+function startDeadline(
+  deadlineMs: number | undefined,
+): { signal: AbortSignal; clear: () => void } | null {
+  if (deadlineMs === undefined) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new DOMException("Discogs did not answer in time", "TimeoutError")),
+    deadlineMs,
+  );
+  timer.unref();
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
+function anySignal(...signals: (AbortSignal | undefined)[]): AbortSignal | undefined {
+  const present = signals.filter((signal) => signal !== undefined);
+  return present.length > 1 ? AbortSignal.any(present) : present[0];
 }
 
 /** Stops waiting promptly, including for queued work whose turn has not come yet. */

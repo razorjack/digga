@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { createDiscogsClient, DiscogsApiError } from "../src/server/discogs/client.ts";
+import { createDiscogsClient, DiscogsApiError, JOB_RETRIES } from "../src/server/discogs/client.ts";
 
 interface Call {
   url: string;
@@ -91,6 +91,50 @@ describe("discogs client", () => {
     await client.getIdentity();
     expect(calls).toHaveLength(3);
     expect(sleeps).toEqual([2000, 60000]);
+  });
+
+  it("gives a page's request two retries a minute apart, and a job's three growing ones", async () => {
+    const tooMany = json({ message: "slow down" }, {}, 429);
+    const { fetchImpl, calls } = fakeFetch(Array.from({ length: 7 }, () => tooMany));
+    const sleeps: number[] = [];
+    const client = createDiscogsClient({
+      fetchImpl,
+      minIntervalMs: 0,
+      sleep: async (ms) => void sleeps.push(ms),
+      now: () => 0,
+    });
+
+    await expect(client.getIdentity()).rejects.toMatchObject({ status: 429 });
+    expect([calls.length, sleeps]).toEqual([3, [60_000, 60_000]]);
+
+    sleeps.length = 0;
+    await expect(client.withRetries(JOB_RETRIES).getIdentity()).rejects.toMatchObject({
+      status: 429,
+    });
+    expect([calls.length, sleeps]).toEqual([7, [60_000, 120_000, 180_000]]);
+  });
+
+  it("ends a request past its deadline, also one waiting behind a job's request", async () => {
+    let sent = 0;
+    const fetchImpl: typeof fetch = (_input, init) => {
+      sent += 1;
+      return new Promise((_resolve, reject) =>
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
+      );
+    };
+    const client = createDiscogsClient({ fetchImpl, minIntervalMs: 0 });
+    const deadline = { maxRetries: 2, fallbackDelayMs: () => 0, deadlineMs: 20 };
+    const stopJob = new AbortController();
+
+    const job = client.withRetries(JOB_RETRIES).withSignal(stopJob.signal).getIdentity();
+    const first = client.withRetries(deadline).getIdentity();
+    const queued = client.withRetries(deadline).getIdentity();
+    await expect(first).rejects.toThrow("Discogs did not answer in time");
+    await expect(queued).rejects.toThrow("Discogs did not answer in time");
+    expect(sent).toBe(1);
+
+    stopJob.abort();
+    await expect(job).rejects.toThrow();
   });
 
   it("throws DiscogsApiError on other failures", async () => {

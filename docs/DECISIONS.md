@@ -1334,3 +1334,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      in Twelves or another tab, shifts the records before it, and reading the queue again after
      Twelves has to find records sent back anywhere in it. `GET /api/queue` stays for one-off
      reads.
+180. **A page's Discogs request gives up before the page does.** Without `Retry-After` a `429`
+     waited 60, 120 and 180 s, longer than the page's 5-minute Discogs timeout, so the page could
+     retry a push the server was still making, and `P` or `A` could wait minutes behind an import.
+     Since 2026-10-10 each caller picks a retry policy: the server's requests for pages retry twice
+     a minute apart and end after 4 minutes, their wait behind other requests included; a request
+     still waiting for its turn then never goes out. Jobs and the CLI keep three retries of 60, 120
+     and 180 s. The one serialised transport and its 1.1 s spacing stay.

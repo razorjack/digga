@@ -67,7 +67,10 @@ Base `https://api.discogs.com`, JSON, personal access token from Settings > Deve
 Rate limits: 60 requests/minute authenticated, 25 unauthenticated, reported in
 `X-Discogs-Ratelimit`, `X-Discogs-Ratelimit-Used`, `X-Discogs-Ratelimit-Remaining`. The client keeps
 a 1.1 s gap between requests, pauses 60 s when `Remaining` reaches 1 and honours `Retry-After` on
-`429` (three retries).
+`429`. How often it retries depends on the caller (`RetryPolicy` in `transport.ts`): a request a
+page waits on (`P`, a want, the profile) retries twice, 60 s apart without `Retry-After`, and ends
+after 4 minutes, its wait in the queue included, so the page's 5-minute timeout never fires first;
+jobs and the CLI (`JOB_RETRIES`) retry three times, 60, 120 and 180 s apart.
 
 Each HTTP attempt has a 30-second deadline, including its response body. Import cancellation
 interrupts requests and quota or retry waits. A caller scoped with `withSignal()` shares the
