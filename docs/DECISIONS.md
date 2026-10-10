@@ -1370,3 +1370,6 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      flashed "Attached to this release; it plays here from now on." while nothing changed. Since
      2026-10-10 Triage flashes "Already attached to this release.", sends nothing and leaves the
      player alone.
+186. **A jump keeps a pause.** `1` to `9` started playback when the video was paused, unlike the
+     arrows. Since 2026-10-10 a jump only seeks: a paused video stays paused at the new position,
+     and a playing one plays on from there.

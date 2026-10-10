@@ -21,6 +21,7 @@ const fake = vi.hoisted(() => {
     });
     play = vi.fn();
     pause = vi.fn();
+    seekTo = vi.fn();
     park = vi.fn(() => {
       this.tag = null;
       this.videoId = null;
@@ -131,6 +132,20 @@ describe("player deck ownership", () => {
     await vi.advanceTimersByTimeAsync(5000);
     player.destroy();
     expect(postListenLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("jumps within a paused video without playing it", async () => {
+    const player = await setup();
+    const active = fake.decks[player.active]!;
+    active.emitState(PlayerState.PLAYING);
+    active.emitState(PlayerState.PAUSED);
+    active.play.mockClear();
+
+    player.jumpTo(0.5);
+
+    expect(active.seekTo).toHaveBeenCalledWith(150);
+    expect(active.play).not.toHaveBeenCalled();
+    expect(player.status).toBe("paused");
   });
 
   it("adopts the next release's preload without loading it again", async () => {

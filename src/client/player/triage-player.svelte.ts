@@ -244,11 +244,11 @@ export class TriagePlayer {
     this.seekTo(Math.max(0, Math.min(end, deck.currentTime() + seconds)));
   }
 
+  /** Seeks to a fraction of the video; a paused video stays paused there, as after an arrow. */
   jumpTo(fraction: number): void {
     const deck = this.#activeDeck();
     if (!deck?.videoId || !this.#holdsOpenRelease(deck) || this.duration <= 0) return;
     this.seekTo(this.duration * fraction);
-    if (this.status !== "playing" && this.#canPlay()) deck.play();
   }
 
   /** A seek ends the listen at the deck's current time and starts a new one at the target. */

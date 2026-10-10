@@ -30,7 +30,7 @@ from text fields.
 | `Space`   | play / pause (also starts sound the first time, see below)           |
 | `J` / `K` | next / previous track (video) of the current release                 |
 | `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s); repeats while held |
-| `1` … `9` | jump to 10% … 90% of the video                                       |
+| `1` … `9` | jump to 10% … 90% of the video; a paused video stays paused          |
 | `O`       | open the release on discogs.com                                      |
 | `P`       | ask Discogs for the price, copies for sale, have/want and videos     |
 | `S`       | open a YouTube search for artist + title                             |

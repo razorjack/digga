@@ -28,8 +28,8 @@ now-playing line and "playing" follow
 
 Priority: **P1**.
 
-Space pauses and resumes; `←` and `→` seek by the saved seek step; `1` to `9` jump; the position
-slider follows
+Space pauses and resumes; `←` and `→` seek by the saved seek step; `1` to `9` jump, and a jump
+while paused moves the position and stays paused; the position slider follows
 
 ## TRI-04
 

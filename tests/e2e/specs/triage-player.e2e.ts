@@ -118,7 +118,7 @@ test.describe("with the clock", () => {
   test.use({ diggaOptions: { clock: true } });
 
   test(
-    "TRI-03 Space pauses and resumes, the arrows seek by the seek step, 1 to 9 jump, the slider follows",
+    "TRI-03 Space pauses and resumes, the arrows seek by the seek step, 1 to 9 jump and keep a pause, the slider follows",
     { tag: ["@TRI-03", "@P1"] },
     async ({ app }) => {
       const { player } = await app.api.get<Config>("/api/settings");
@@ -155,6 +155,14 @@ test.describe("with the clock", () => {
         await app.clock.runFor(250);
         await expectPosition(triage, (video.seconds * tenth) / 10, video.seconds);
       }
+
+      // Paused, a jump moves the position and stays paused.
+      await triage.pause();
+      await app.page.keyboard.press("5");
+      await app.clock.runFor(250);
+      await expectPosition(triage, video.seconds / 2, video.seconds);
+      await expect(triage.playerStatus("paused")).toBeVisible();
+      expect(await app.youtube.audible()).toBeNull();
     },
   );
 
