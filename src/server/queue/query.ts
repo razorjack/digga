@@ -22,6 +22,8 @@ export interface QueueParams {
   scope?: ScopeRef | null;
   /** Keep releases that already have a verdict (used for universe counts). */
   includeDecided?: boolean;
+  /** Triage keys left out of the answer, which the reader holds already. */
+  exclude?: string[];
 }
 
 export interface SqlFragment {
@@ -263,10 +265,20 @@ export function buildQueueSql(query: QueueParams): SqlFragment {
   const order = orderClause(query.strategy, query.seed ?? 0);
   const sql = `WITH base AS (${BASE_SELECT}${where.sql}
 ), ${RANKED}
-SELECT * FROM ranked WHERE rn = 1
+SELECT * FROM ranked
+WHERE rn = 1 AND triage_key NOT IN (SELECT value FROM json_each(?))
 ORDER BY ${order.sql}
 LIMIT ? OFFSET ?`;
-  return { sql, params: [...where.params, ...order.params, query.limit, query.offset ?? 0] };
+  return {
+    sql,
+    params: [
+      ...where.params,
+      JSON.stringify(query.exclude ?? []),
+      ...order.params,
+      query.limit,
+      query.offset ?? 0,
+    ],
+  };
 }
 
 export function rowToQueueItem(row: QueueRow): QueueItem {

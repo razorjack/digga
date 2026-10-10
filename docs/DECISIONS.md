@@ -1323,3 +1323,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      links attach like any other YouTube link, and a pasted `http(s)` link to anything else flashes
      "That is not a YouTube link." on Triage and Twelves. Pasted text that is not a link is still
      ignored, so a stray paste outside a field does not interrupt.
+179. **Triage reads the queue past what it holds.** The session asked for everything it held plus
+     a batch, from the start, up to the 5,000-record limit, and called the queue exhausted when an
+     answer brought nothing new. Past about 5,000 passes every answer held only known records, so
+     Triage said everything was dug while undecided records remained. Since 2026-10-10 the session
+     posts its reads to `POST /api/queue` with `exclude`, the triage keys it holds (buffered,
+     passed and with a write unanswered), and the server leaves them out before the limit, so a
+     read asks for a plain batch. The queue is exhausted when an answer is shorter than its limit.
+     An offset in the seeded order was not enough: an undo still on its way, or a verdict changed
+     in Twelves or another tab, shifts the records before it, and reading the queue again after
+     Twelves has to find records sent back anywhere in it. `GET /api/queue` stays for one-off
+     reads.

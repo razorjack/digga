@@ -17,7 +17,7 @@ import {
   type JobsResponse,
   type ListenLogInput,
   type ListenLogResponse,
-  type QueueQuery,
+  type QueueReadInput,
   type QueueResponse,
   type ReleaseDetail,
   type ScopeSearchResponse,
@@ -50,7 +50,8 @@ export interface Api {
   putSession(input: SessionInput): Promise<{ saved: boolean }>;
   /** The records a saved session pointed at, as the catalogue and verdicts have them now. */
   resolveSession(id: string): Promise<SessionResolution>;
-  getQueue(query?: QueueQuery): Promise<QueueResponse>;
+  /** The queue's next records in its order, leaving out those the caller names in `exclude`. */
+  getQueue(input?: Partial<QueueReadInput>): Promise<QueueResponse>;
   /** Sellers, labels and artists whose name contains the text, to narrow the queue to. */
   searchScopes(text: string): Promise<ScopeSearchResponse>;
   getRelease(id: number): Promise<ReleaseDetail>;
@@ -169,11 +170,8 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getLatestSession: () => call("GET", "/sessions/latest"),
     putSession: (input) => call("PUT", "/sessions/current", input),
     resolveSession: (id) => call("GET", `/sessions/${encodeURIComponent(id)}/resume`),
-    getQueue: ({ filters, scope, ...rest } = {}) =>
-      call(
-        "GET",
-        `/queue${queryString({ ...rest, filters: filtersParam(filters), scope: scopeParam(scope) })}`,
-      ),
+    getQueue: ({ scope, ...rest } = {}) =>
+      call("POST", "/queue", { ...rest, scope: scopeParam(scope) }),
     searchScopes: (text) => call("GET", `/scopes${queryString({ q: text })}`),
     getRelease: (id) => call("GET", `/releases/${id}`),
     enrichRelease: (id) => callDiscogs("POST", `/releases/${id}/enrich`),

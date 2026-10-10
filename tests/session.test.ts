@@ -4,7 +4,7 @@ import { type Api, ApiRequestError } from "../src/client/api.ts";
 import { TriageSession } from "../src/client/triage/session.svelte.ts";
 import { stats } from "../src/client/stores.svelte.ts";
 import type {
-  QueueQuery,
+  QueueReadInput,
   ReleaseDetail,
   Stats,
   VerdictInput,
@@ -40,7 +40,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
   /** Notes the server has saved for releases, by release id. */
   const releaseNotes = new Map<number, string>();
   const verdicts = new Map<string, Verdict>();
-  const queries: QueueQuery[] = [];
+  const queries: Partial<QueueReadInput>[] = [];
   const state = { pushDelayMs: 0, enrichDelayMs: 0 };
   const detail = (id: number): ReleaseDetail => ({
     release: { id, triageKey: `r:${id}` } as ReleaseRecord,
@@ -54,8 +54,9 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
     listings: [],
   });
   const http = {
-    getQueue: async (query: QueueQuery = {}) => {
+    getQueue: async (query: Partial<QueueReadInput> = {}) => {
       queries.push(query);
+      const excluded = new Set(query.exclude);
       return {
         items: queue
           .map((id) => ({
@@ -63,7 +64,8 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
             labelId: label?.id ?? null,
             labelName: label?.name ?? null,
           }))
-          .filter((i) => !verdicts.has(i.triageKey)),
+          .filter((i) => !verdicts.has(i.triageKey) && !excluded.has(i.triageKey))
+          .slice(0, query.limit),
         remaining: 0,
         strategy: "label_sweep",
         seed: null,
@@ -173,6 +175,36 @@ describe("triage session", () => {
 
     expect(session.finished).toBe(false);
     expect(session.current?.id).toBe(2);
+  });
+
+  it("reads past what it holds, so thousands of passes never end the queue early", async () => {
+    const queue = Array.from({ length: 5010 }, (_, index) => index + 1);
+    const server = fakeServer(queue);
+    const session = new TriageSession(server.app);
+    await session.start(5000);
+    expect(session.exhausted).toBe(false);
+
+    for (let index = 0; index < 5000; index++) {
+      session.pass();
+      if (session.upcoming.length === 0) await until(() => session.upcoming.length > 0);
+    }
+
+    expect(session.current?.id).toBe(5001);
+    expect(server.queries.at(-1)?.exclude).toHaveLength(5000);
+    for (let index = 0; index < 10; index++) session.pass();
+    expect(session.finished).toBe(true);
+  });
+
+  it("reads the queue in batches beyond the records it holds, and knows its end", async () => {
+    const { session, queries } = await started([1, 2, 3]);
+    expect(queries[0]).toMatchObject({ limit: 50, exclude: [] });
+    expect(session.exhausted).toBe(true);
+
+    session.pass();
+    session.pass();
+    session.pass();
+    expect(session.finished).toBe(true);
+    expect(queries).toHaveLength(1);
   });
 
   it("pushes a want as soon as its verdict is saved", async () => {
@@ -646,7 +678,10 @@ describe("reading the queue again", () => {
   });
 
   it("waits for a refill in flight, and a refill asked for meanwhile waits for it", async () => {
-    const { session, http, queries } = await started([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    const { app, http, queries } = fakeServer([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    const session = new TriageSession(app);
+    // A batch shorter than the queue leaves it unfinished, so verdicts refill it.
+    await session.start(5);
     const answer = Promise.withResolvers<void>();
     const getQueue = http.getQueue.bind(http);
     vi.spyOn(http, "getQueue").mockImplementationOnce(async (query) => {
@@ -661,7 +696,7 @@ describe("reading the queue again", () => {
     answer.resolve();
     await reading;
     expect(queries).toHaveLength(3);
-    expect(ids(session)).toEqual([4, 5, 6, 7, 8, 9]);
+    expect(ids(session)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
 
   it("drops a restarted session's read", async () => {

@@ -135,11 +135,11 @@ test(
     const triage = new TriagePage(app);
     const header = new HeaderPage(app);
     app.expectProblems({
-      aborted: [/^GET \/api\/(queue|stats)$/],
+      aborted: [/^(POST \/api\/queue|GET \/api\/stats)$/],
       consoleErrors: [/^Failed to load resource: net::ERR_FAILED/],
     });
     const queue = await app.abortRequests(
-      { method: "GET", path: "/api/queue" },
+      { method: "POST", path: "/api/queue" },
       { times: Infinity },
     );
     const stats = await app.abortRequests(

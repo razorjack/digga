@@ -27,6 +27,12 @@ export function trackMarkKey(mark: TrackMark): string {
   return `Shift+${binding.key}`;
 }
 
+/** The scope a queue read posted, such as "label:110"; null for the whole queue. */
+export function queueReadScope(response: Response): string | null {
+  const body = response.request().postDataJSON() as { scope?: string } | null;
+  return body?.scope ?? null;
+}
+
 /**
  * Triage's locators and actions. Each action returns once the work it starts has finished, not at
  * its first visible sign (docs/e2e/AUTHORING.md#synchronisation); checks stay in the tests.
@@ -178,7 +184,7 @@ export class TriagePage {
    * records after the one on screen then follow the queue's order.
    */
   async showAgain(): Promise<void> {
-    const read = this.#response("GET", "/api/queue");
+    const read = this.#response("POST", "/api/queue");
     await new HeaderPage(this.app).goTo("triage");
     await this.#completed(await read);
   }
@@ -380,7 +386,7 @@ export class TriagePage {
   /** Enter after the queue failed to load: returns once it has loaded and a record shows. */
   async retryQueue(): Promise<void> {
     await expect(this.root.getByText("The queue did not load.", { exact: true })).toBeVisible();
-    const loaded = this.#response("GET", "/api/queue");
+    const loaded = this.#response("POST", "/api/queue");
     await this.app.page.keyboard.press("Enter");
     await this.#completed(await loaded);
     await expect(this.record).toBeVisible();
@@ -392,7 +398,7 @@ export class TriagePage {
     const loaded = waitForResponses(
       this.app.page,
       (response) => isRequest(response, "GET", "/api/settings"),
-      (response) => isRequest(response, "GET", "/api/queue"),
+      (response) => isRequest(response, "POST", "/api/queue"),
     );
     await this.app.page.keyboard.press("Enter");
     await this.#completed(await loaded.first);
@@ -509,7 +515,7 @@ export class TriagePage {
     const { first: settings, next: queue } = waitForResponses(
       this.app.page,
       (response) => isRequest(response, "PUT", "/api/settings"),
-      (response) => isRequest(response, "GET", "/api/queue"),
+      (response) => isRequest(response, "POST", "/api/queue"),
     );
     await this.app.page.keyboard.press(key);
     await (await settings).finished();
@@ -519,9 +525,7 @@ export class TriagePage {
   /** The queue's next answer whose scope, "label:110" or null for none, passes the test. */
   #queueLoaded(test: (scope: string | null) => boolean): Promise<Response> {
     return this.app.page.waitForResponse(
-      (response) =>
-        isRequest(response, "GET", "/api/queue") &&
-        test(new URL(response.url()).searchParams.get("scope")),
+      (response) => isRequest(response, "POST", "/api/queue") && test(queueReadScope(response)),
     );
   }
 

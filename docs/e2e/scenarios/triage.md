@@ -303,7 +303,7 @@ Priority: **P2**.
 Given: `labels: Rollers Archive, Tempest Audio`.
 
 In the label's `F` scope, a settings save (the seek step, on the Digging tab, through the save bar)
-restarts the queue: its `GET /api/queue` carries the scope, and Triage shows the scope's record
+restarts the queue: its `POST /api/queue` carries the scope, and Triage shows the scope's record
 under its banner. An Appearance radio on the General tab, which saves at once without the save bar,
 restarts nothing: the record on screen stays, and the only queue read after it is `T`'s
 
@@ -429,11 +429,11 @@ message shows
   `POST /api/discogs/wantlist/:id` has answered, which happens after the server's call to the
   fake, and the slip shows how it ended. `P` ends once `POST /api/releases/:id/enrich` has
   answered and the market line is no longer `aria-busy`. `X` and `Z` on a label end once
-  `PUT /api/settings` and the `GET /api/queue` after it have answered. `F`'s search ends once the
+  `PUT /api/settings` and the `POST /api/queue` after it have answered. `F`'s search ends once the
   `GET /api/scopes` for the typed text has answered and the status no longer reads "Searching…";
-  Enter in the picker ends once the `GET /api/queue` with that `scope` has answered, and Esc on a
+  Enter in the picker ends once the `POST /api/queue` with that `scope` has answered, and Esc on a
   scope once the one without it has. A tracklist's retry ends with its `GET /api/releases/:id`.
-  `T` from another page ends once the `GET /api/queue` that Triage sends when it is shown has
+  `T` from another page ends once the `POST /api/queue` that Triage sends when it is shown has
   answered (`showAgain()`).
 
 ## TRI-46

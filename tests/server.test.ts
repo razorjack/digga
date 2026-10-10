@@ -121,6 +121,18 @@ describe("HTTP API", () => {
     expect((await get("/api/queue?offset=-1")).status).toBe(400);
   });
 
+  it("answers a queue read posted with the records the reader holds", async () => {
+    const first = await send<QueueResponse>("POST", "/api/queue", { limit: 1 });
+    expect(first.body.items.map((i) => i.id)).toEqual([1006]);
+    const next = await send<QueueResponse>("POST", "/api/queue", {
+      limit: 1,
+      exclude: [first.body.items[0]!.triageKey],
+      scope: undefined,
+    });
+    expect(next.body.items.map((i) => i.id)).toEqual([1001]);
+    expect((await send("POST", "/api/queue", { exclude: "m:501" })).status).toBe(400);
+  });
+
   it("previews unsaved filters on the queue and stats", async () => {
     const open = JSON.stringify({ yearFrom: null, yearTo: null, formats: [] });
     const q = await get<QueueResponse>(`/api/queue?filters=${encodeURIComponent(open)}`);

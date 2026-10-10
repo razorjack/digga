@@ -941,16 +941,17 @@ export class TriageSession {
     return tracked;
   }
 
-  /** Appends the queue's records that are not buffered, passed or being written. */
+  /** Appends a batch of the queue's records that are not buffered, passed or being written. */
   async #appendFresh(): Promise<void> {
     const generation = this.#generation;
-    const read = await this.#readQueue();
+    const read = await this.#readQueue(this.#batch, [...this.upcoming, ...this.passed]);
     // A round took over meanwhile; the queue refills again when it ends.
     if (generation !== this.#generation || this.round) return;
     this.#forgetVerdictsGone(read);
+    // A pass or an undo while the read was out can have buffered one of its records already.
     const known = new Set([...read.unsettled, ...keysOf(this.upcoming), ...keysOf(this.passed)]);
     const fresh = read.items.filter((item) => !known.has(item.triageKey));
-    this.exhausted = fresh.length === 0;
+    this.exhausted = read.complete;
     this.upcoming = [...this.upcoming, ...fresh];
     this.#prefetch();
   }
@@ -958,7 +959,11 @@ export class TriageSession {
   /** Rebuilds the records after the one on screen in the queue's current order. */
   async #rebuildAfterCurrent(): Promise<void> {
     const generation = this.#generation;
-    const read = await this.#readQueue();
+    const current = this.upcoming.slice(0, 1);
+    const read = await this.#readQueue(this.#batch + this.upcoming.length, [
+      ...current,
+      ...this.passed,
+    ]);
     if (generation !== this.#generation || this.round) return;
     this.#forgetVerdictsGone(read);
     const upcoming = this.#inQueueOrder(read);
@@ -984,18 +989,19 @@ export class TriageSession {
     return [...head, ...queued];
   }
 
-  /** Asks for what is buffered and a batch more. */
-  async #readQueue(): Promise<QueueRead> {
+  /**
+   * Asks for up to `wanted` records in the queue's order, beyond those held and those with a write
+   * unanswered, which the server leaves out; a shorter answer means it has no more.
+   */
+  async #readQueue(wanted: number, held: QueueItem[]): Promise<QueueRead> {
     const generation = this.#generation;
     const unsettled = new Set(this.#unanswered.keys());
-    const limit = Math.min(
-      MAX_QUEUE_LIMIT,
-      this.#batch + this.upcoming.length + this.passed.length,
-    );
+    const limit = Math.min(MAX_QUEUE_LIMIT, wanted);
     this.#openReads.add(unsettled);
     try {
       const response = await this.#api.getQueue({
         limit,
+        exclude: [...unsettled, ...keysOf(held)],
         scope: this.scope ?? undefined,
         seed: this.#seed ?? undefined,
       });

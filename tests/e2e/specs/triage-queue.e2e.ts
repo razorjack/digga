@@ -24,7 +24,7 @@ import { datedVerdicts } from "../fixtures/decisions.ts";
 import { buildDump, writeDump } from "../fixtures/dump.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { isRequest, TriagePage } from "../pages/triage.ts";
+import { isRequest, queueReadScope, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -255,8 +255,8 @@ test.describe("digging a compilation's label, then another", () => {
       await expect(settings.tabLink("digging")).toHaveAttribute("aria-current", "page");
       const restarted = app.page.waitForResponse(
         (response) =>
-          isRequest(response, "GET", "/api/queue") &&
-          new URL(response.url()).searchParams.get("scope") === `label:${ROLLERS_ARCHIVE.id}`,
+          isRequest(response, "POST", "/api/queue") &&
+          queueReadScope(response) === `label:${ROLLERS_ARCHIVE.id}`,
       );
       await settings.change(settings.seekStep, "15");
       await settings.save();
@@ -266,7 +266,7 @@ test.describe("digging a compilation's label, then another", () => {
       await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
 
       await header.goTo("settings");
-      const queueReads = () => app.apiRequests().filter((request) => request === "GET /api/queue");
+      const queueReads = () => app.apiRequests().filter((request) => request === "POST /api/queue");
       const readsBefore = queueReads().length;
       await settings.chooseColorScheme("light");
       await triage.showAgain();
@@ -406,7 +406,7 @@ test.describe("with a queue batch of five", () => {
         await triage.judge("rejected");
       }
 
-      const queueRequests = app.apiRequests().filter((request) => request === "GET /api/queue");
+      const queueRequests = app.apiRequests().filter((request) => request === "POST /api/queue");
       expect(queueRequests.length).toBeGreaterThan(1);
     },
   );
@@ -445,7 +445,7 @@ test.describe("digging Echo Chamber", () => {
       await app.given.verdicts(datedVerdicts([{ release: WITHOUT_VIDEOS, status: "no_audio" }]));
       // Triage reads its queue when the app opens, also on another page.
       const queueRead = app.page.waitForResponse((response) =>
-        isRequest(response, "GET", "/api/queue"),
+        isRequest(response, "POST", "/api/queue"),
       );
       await new TwelvesPage(app).open();
       await (await queueRead).finished();

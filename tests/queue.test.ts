@@ -163,6 +163,20 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("leaves out the records a reader holds, so its limit counts records new to it", async () => {
+    const db = await fixtureDb();
+    const read = (exclude: string[]) =>
+      queryQueue(db, { filters: filters({}), strategy: "label_sweep", limit: 1, exclude }).map(
+        (i) => i.id,
+      );
+    const [first] = queryQueue(db, { filters: filters({}), strategy: "label_sweep", limit: 1 });
+
+    expect(read([])).toEqual([1006]);
+    expect(read([first!.triageKey])).toEqual([1001]);
+    expect(read([first!.triageKey, "m:501"])).toEqual([]);
+    db.close();
+  });
+
   it("skips records without an embeddable video when asked", async () => {
     const db = await fixtureDb();
     const f = filters({ skipWithoutVideos: true });
@@ -391,13 +405,14 @@ describe("queue query", () => {
     });
     expect(sql).toContain("json_each(r.formats_json)");
     expect(sql).toContain("NOT EXISTS (SELECT 1 FROM verdicts");
-    expect(params).toEqual([1998, 2002, "Vinyl", "UK", 3, 3, 10, 0]);
+    expect(params).toEqual([1998, 2002, "Vinyl", "UK", "[]", 3, 3, 10, 0]);
     const scoped = buildQueueSql({
       filters: filters({}),
       strategy: "label_sweep",
       limit: 10,
       scope: { kind: "artist", id: 21 },
+      exclude: ["m:501"],
     });
-    expect(scoped.params).toEqual([21, 21, 1998, 2002, "Vinyl", 10, 0]);
+    expect(scoped.params).toEqual([21, 21, 1998, 2002, "Vinyl", '["m:501"]', 10, 0]);
   });
 });

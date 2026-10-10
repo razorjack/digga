@@ -670,7 +670,7 @@ function escapeRegExp(text: string): string {
 
 /** Runs the action and returns the queue the page reads after it. */
 async function queueAfter(app: DiggaApp, action: () => Promise<unknown>): Promise<QueueResponse> {
-  const read = app.page.waitForResponse((response) => isRequest(response, "GET", "/api/queue"));
+  const read = app.page.waitForResponse((response) => isRequest(response, "POST", "/api/queue"));
   await action();
   const response = await read;
   expect(response.ok()).toBe(true);

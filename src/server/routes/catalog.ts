@@ -2,7 +2,9 @@ import { type Context, Hono } from "hono";
 import {
   type ApiError,
   AttachVideoInputSchema,
+  type QueueQuery,
   QueueQuerySchema,
+  QueueReadInputSchema,
   type QueueResponse,
   ScopeSearchQuerySchema,
   type ScopeSearchResponse,
@@ -25,7 +27,8 @@ import { buildReleaseDetail } from "../queue/detail.ts";
 
 export function registerCatalogRoutes(api: Hono, context: AppContext): void {
   api.get("/health", (request) => health(request));
-  api.get("/queue", (request) => queue(request, context));
+  api.get("/queue", (request) => queueFromQuery(request, context));
+  api.post("/queue", (request) => queueFromBody(request, context));
   api.get("/scopes", (request) => scopes(request, context));
   api.get("/releases/:id", (request) => release(request, context));
   api.post("/releases/:id/videos", (request) => attachVideoRoute(request, context));
@@ -38,31 +41,34 @@ function health(request: Context) {
   return request.json({ ok: true, name: "digga" });
 }
 
-function queue(request: Context, context: AppContext) {
-  const { db } = context;
+function queueFromQuery(request: Context, context: AppContext) {
   const query = parseQuery(request, QueueQuerySchema);
   if (!query.ok) return query.response;
+  return request.json(readQueue(context, query.data));
+}
+
+async function queueFromBody(request: Context, context: AppContext) {
+  const body = await parseJson(request, QueueReadInputSchema);
+  if (!body.ok) return body.response;
+  return request.json(readQueue(context, body.data));
+}
+
+function readQueue(context: AppContext, read: QueueQuery & { exclude?: string[] }): QueueResponse {
   const config = context.getConfig();
-  const strategy = query.data.strategy ?? config.queue.strategy;
-  const filters = query.data.filters ?? config.filters;
-  const scope = query.data.scope ?? null;
-  const seed = strategy === "random" ? (query.data.seed ?? daySeed()) : null;
-  const items = queryQueue(db, {
+  const strategy = read.strategy ?? config.queue.strategy;
+  const filters = read.filters ?? config.filters;
+  const scope = read.scope ?? null;
+  const seed = strategy === "random" ? (read.seed ?? daySeed()) : null;
+  const items = queryQueue(context.db, {
     filters,
     strategy,
-    limit: query.data.limit ?? config.queue.limit,
-    offset: query.data.offset,
+    limit: read.limit ?? config.queue.limit,
+    offset: read.offset,
     seed,
     scope,
+    exclude: read.exclude,
   });
-  const body: QueueResponse = {
-    items,
-    remaining: countRemaining(db, filters, scope),
-    strategy,
-    seed,
-    filters,
-  };
-  return request.json(body);
+  return { items, remaining: countRemaining(context.db, filters, scope), strategy, seed, filters };
 }
 
 function scopes(request: Context, context: AppContext) {

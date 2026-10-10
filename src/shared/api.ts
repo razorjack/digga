@@ -65,6 +65,18 @@ export const QueueQuerySchema = z.object({
 });
 export type QueueQuery = z.infer<typeof QueueQuerySchema>;
 
+// POST /api/queue: the same read as a JSON body, which also names the records the reader holds.
+export const QueueReadInputSchema = z.object({
+  strategy: z.enum(QUEUE_STRATEGIES).optional(),
+  limit: z.number().int().positive().max(5000).optional(),
+  seed: z.number().int().optional(),
+  filters: FiltersSchema.optional(),
+  scope: ScopeParamSchema.optional(),
+  /** Triage keys the reader holds; the answer leaves them out, so `limit` counts new records. */
+  exclude: z.array(z.string().min(1)).default([]),
+});
+export type QueueReadInput = z.infer<typeof QueueReadInputSchema>;
+
 export interface QueueItem {
   id: number;
   triageKey: string;

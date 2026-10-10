@@ -371,7 +371,7 @@ export class SettingsPage {
     const { first: settings, next: queue } = waitForResponses(
       this.app.page,
       (response) => isRequest(response, "PUT", "/api/settings"),
-      (response) => isRequest(response, "GET", "/api/queue"),
+      (response) => isRequest(response, "POST", "/api/queue"),
     );
     await action();
     await this.#completed(await settings);

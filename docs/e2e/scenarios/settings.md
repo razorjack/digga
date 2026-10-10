@@ -228,7 +228,7 @@ clock, which a test cannot move, and a relaunch starts without the failure in an
 ## Completion contracts
 
 - Settings' actions end the same way (`pages/settings.ts`). Save, by button or `ControlOrMeta+S`,
-  ends once `PUT /api/settings` and the `GET /api/queue` the hidden Triage page sends after it have
+  ends once `PUT /api/settings` and the `POST /api/queue` the hidden Triage page sends after it have
   answered and the bar reads "Saved. The queue has reloaded."; a token save once
   `PUT /api/discogs/token` has answered and the button reads "Save token" again, by when the
   status line reads the outcome; a job once its row's status cell reads the state the test waits
