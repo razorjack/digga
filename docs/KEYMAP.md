@@ -107,7 +107,8 @@ import) reads the list again and clears the marks.
 | `Shift+C` | `candidate` |
 
 Pressing the same mark again clears it. A mark keeps the tune and the second of the video it was
-set at, so the moment it is about can be found again.
+set at, so the moment it is about can be found again. A video that is not matched to a track, such
+as one under Other videos, cannot be marked, and the page says so.
 
 ## Twelves
 

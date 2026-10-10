@@ -222,8 +222,12 @@
   function markPlaying(mark: TrackMark): void {
     const entry = player.entry;
     const release = player.release;
-    if (!entry?.track || !release) {
+    if (!entry || !release) {
       session.showFlash("Track marks go on the playing track; nothing is playing.");
+      return;
+    }
+    if (!entry.track) {
+      session.showFlash("The playing video is not matched to a track, so it cannot be marked.");
       return;
     }
     const moment = { videoId: entry.video.videoId, atSeconds: Math.round(player.time * 10) / 10 };

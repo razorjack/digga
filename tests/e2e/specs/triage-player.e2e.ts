@@ -94,6 +94,10 @@ test(
       "true",
     );
     await expect.poll(() => app.youtube.audible()).toBe(liveSet.id);
+    await app.page.keyboard.press(trackMarkKey("keep"));
+    await expect(triage.messages).toHaveText(
+      "The playing video is not matched to a track, so it cannot be marked.",
+    );
 
     const titleLookups = fakes.log.filter((request) => request.service === "youtube");
     expect(titleLookups.map((request) => request.query.url)).toEqual([
