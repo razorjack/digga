@@ -222,7 +222,8 @@ Settings changes everything the setup chose, and `digga.config.json` holds it:
 
 - `universe.styles` selects the styles to load, by Discogs' exact names, such as `Drum n Bass`.
 - `universe.loadYears` limits the years loaded into the library. The setup loads three years more
-  on each side of the years you dig; `null` loads all years for the selected styles.
+  on each side of the years you dig; `null` loads all years for the selected styles. The first
+  year must not come after the second, here and in `filters.yearFrom` and `filters.yearTo`.
 - `universe.coverage` also loads releases in other styles from the labels and artists of the
   records you want or own, when those labels and artists mostly release the selected styles.
 - `filters` narrows what you listen to from the loaded catalogue. These filters change in

@@ -67,6 +67,26 @@ describe("config schema", () => {
     expect(c.universe.loadYears).toBeNull();
   });
 
+  it("refuses a year range whose ends are inverted, at the field that ends it", () => {
+    const r = validateConfig({
+      filters: { yearFrom: 2002, yearTo: 1998 },
+      universe: { loadYears: [2008, 1994] },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.issues).toEqual([
+        { path: "universe.loadYears", message: "The Load to year comes before the Load from year" },
+        { path: "filters.yearTo", message: "The To year comes before the From year" },
+      ]);
+    }
+  });
+
+  it("accepts a single year and a range open at one end", () => {
+    expect(validateConfig({ filters: { yearFrom: 2000, yearTo: 2000 } }).ok).toBe(true);
+    expect(validateConfig({ filters: { yearFrom: 2003, yearTo: null } }).ok).toBe(true);
+    expect(validateConfig({ universe: { loadYears: [2000, 2000] } }).ok).toBe(true);
+  });
+
   it("listens on this computer only", () => {
     expect(ConfigSchema.parse({ server: { host: "::1" } }).server.host).toBe("::1");
     expect(validateConfig({ server: { host: "0.0.0.0" } }).ok).toBe(false);

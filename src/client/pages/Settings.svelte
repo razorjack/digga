@@ -211,7 +211,7 @@
           {#if tab === "digging"}
             <DiggingTab bind:draft {issues} {formId} onsubmit={submit} />
           {:else if tab === "library"}
-            <LibraryTab bind:draft {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
+            <LibraryTab bind:draft {issues} {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
           {:else if tab === "discogs"}
             <DiscogsTab
               bind:draft

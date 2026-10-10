@@ -35,32 +35,42 @@ const HiddenLabelSchema = z.preprocess(
 );
 export type HiddenLabel = z.infer<typeof HiddenLabelSchema>;
 
+/** A range of years whose ends are in order; an open end always is. */
+function isOrdered(from: number | null, to: number | null): boolean {
+  return from === null || to === null || from <= to;
+}
+
 // Genre/style defaults for the owner's use case live here and in
 // digga.config.json only. Nothing else in the codebase may assume them.
-export const FiltersSchema = z.object({
-  /** Query-time style subset; null means every loaded style, an empty array means none. */
-  styles: z.array(z.string().min(1)).nullable().default(null),
-  yearFrom: z.number().int().nullable().default(1998),
-  yearTo: z.number().int().nullable().default(2002),
-  includeUnknownYear: z.boolean().default(false),
-  /**
-   * Releases without a year on the labels, or by the artists, of the records you want or own;
-   * the coverage labels and artists (decision 90). Moot with includeUnknownYear.
-   */
-  includeUnknownYearOnCoverage: z.boolean().default(true),
-  formats: z.array(z.string().min(1)).default(["Vinyl"]),
-  countries: z.array(z.string().min(1)).default([]),
-  /** Leave out releases opened before, as the browser history import recorded them. */
-  skipHistory: z.boolean().default(true),
-  /** Leave out releases without an embeddable video, so every record in the queue can play. */
-  skipWithoutVideos: z.boolean().default(false),
-  /** Labels left out, matched against a release's first label (the one the sweep uses). */
-  excludeLabels: z.array(HiddenLabelSchema).default([]),
-  /** Format descriptions a release needs one of, such as 12" or EP; empty means any. */
-  includeDescriptions: z.array(z.string().min(1)).default([]),
-  /** Format descriptions that leave a release out, such as Unofficial Release or Compilation. */
-  excludeDescriptions: z.array(z.string().min(1)).default([]),
-});
+export const FiltersSchema = z
+  .object({
+    /** Query-time style subset; null means every loaded style, an empty array means none. */
+    styles: z.array(z.string().min(1)).nullable().default(null),
+    yearFrom: z.number().int().nullable().default(1998),
+    yearTo: z.number().int().nullable().default(2002),
+    includeUnknownYear: z.boolean().default(false),
+    /**
+     * Releases without a year on the labels, or by the artists, of the records you want or own;
+     * the coverage labels and artists (decision 90). Moot with includeUnknownYear.
+     */
+    includeUnknownYearOnCoverage: z.boolean().default(true),
+    formats: z.array(z.string().min(1)).default(["Vinyl"]),
+    countries: z.array(z.string().min(1)).default([]),
+    /** Leave out releases opened before, as the browser history import recorded them. */
+    skipHistory: z.boolean().default(true),
+    /** Leave out releases without an embeddable video, so every record in the queue can play. */
+    skipWithoutVideos: z.boolean().default(false),
+    /** Labels left out, matched against a release's first label (the one the sweep uses). */
+    excludeLabels: z.array(HiddenLabelSchema).default([]),
+    /** Format descriptions a release needs one of, such as 12" or EP; empty means any. */
+    includeDescriptions: z.array(z.string().min(1)).default([]),
+    /** Format descriptions that leave a release out, such as Unofficial Release or Compilation. */
+    excludeDescriptions: z.array(z.string().min(1)).default([]),
+  })
+  .refine((filters) => isOrdered(filters.yearFrom, filters.yearTo), {
+    message: "The To year comes before the From year",
+    path: ["yearTo"],
+  });
 
 export const ConfigSchema = z.object({
   server: z
@@ -80,7 +90,13 @@ export const ConfigSchema = z.object({
   universe: z
     .object({
       styles: z.array(z.string().min(1)).default(["Drum n Bass"]),
-      loadYears: z.tuple([z.number().int(), z.number().int()]).nullable().default([1994, 2008]),
+      loadYears: z
+        .tuple([z.number().int(), z.number().int()])
+        .refine(([from, to]) => isOrdered(from, to), {
+          message: "The Load to year comes before the Load from year",
+        })
+        .nullable()
+        .default([1994, 2008]),
       /**
        * Also keep releases in other styles on the labels, and by the artists, of the records you
        * want or own, when at least a third of their releases in the load years carry a style.

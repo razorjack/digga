@@ -1304,3 +1304,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      applies to Triage, Twelves and the page keys: a letter with Shift runs no letter shortcut,
      and any other key counts as typed, with or without Shift. Triage's Shift track marks are
      read before that rule and stay as they were.
+176. **A year range must be in order.** The config accepted `filters.yearFrom` after
+     `filters.yearTo`, and `universe.loadYears` with its ends swapped, so a typo such as 2002 to
+     1998 left an empty queue with only the preview count as a hint. Since 2026-10-10 the schema
+     refuses both, at `filters.yearTo` and `universe.loadYears`, a range open at one end stays
+     valid, and Settings' year fields carry `min` and `max` from each other, so the browser marks
+     them and the save bar and the field show the schema's message. The setup's year fields
+     already had the same bounds.

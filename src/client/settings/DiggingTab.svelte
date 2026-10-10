@@ -35,6 +35,7 @@
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
   };
 
+  const yearsProblem = $derived(problemAt(issues, "filters.yearTo"));
   const batchProblem = $derived(problemAt(issues, "queue.limit"));
   const seekProblem = $derived(problemAt(issues, "player.seekStepSeconds"));
   const startAtPercent = $derived(Math.round(draft.player.startAtFraction * 100));
@@ -77,6 +78,7 @@
           <input
             type="number"
             aria-label="From year"
+            max={draft.filters.yearTo}
             value={draft.filters.yearFrom ?? ""}
             oninput={(event) => (draft.filters.yearFrom = parseInteger(event.currentTarget.value))}
           />
@@ -84,8 +86,11 @@
           <input
             type="number"
             aria-label="To year"
+            aria-describedby="{id}-years-problem"
+            min={draft.filters.yearFrom}
             value={draft.filters.yearTo ?? ""}
             oninput={(event) => (draft.filters.yearTo = parseInteger(event.currentTarget.value))}
+            {@attach reportProblem(issues, "filters.yearTo")}
           />
           <label class="check">
             <input type="checkbox" bind:checked={draft.filters.includeUnknownYear} />
@@ -102,6 +107,7 @@
           </label>
         </div>
         <span class="hint" id="{id}-undated-hint">The labels and artists of the records you want or own.</span>
+        <span class="hint problem" id="{id}-years-problem" hidden={!yearsProblem}>{yearsProblem}</span>
       </fieldset>
       <div class="field">
         <label class="name" for="{id}-formats">Formats</label>

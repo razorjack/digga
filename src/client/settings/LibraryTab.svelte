@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
   import type { DumpFile } from "../../shared/api.ts";
-  import type { Config } from "../../shared/config.ts";
+  import type { Config, ConfigIssue } from "../../shared/config.ts";
   import { formatBytes, formatCount, formatCounted, formatDay, nounFor } from "../../shared/display.ts";
   import { parseInteger } from "../../shared/integer.ts";
   import type { Job } from "../../shared/types.ts";
@@ -13,10 +13,13 @@
   import JobList from "./JobList.svelte";
   import type { SettingsJobs } from "./jobs.svelte.ts";
   import { missingReleasesNote } from "./library.ts";
+  import { problemAt, reportProblem } from "./problems.ts";
   import { recentJobs, TAB_JOBS } from "./tabs.ts";
 
   interface Props {
     draft: Config;
+    /** What is wrong with the draft; empty when it can be saved. */
+    issues: ConfigIssue[];
     formId: string;
     onsubmit: (event: SubmitEvent) => void;
     jobs: SettingsJobs;
@@ -25,7 +28,7 @@
     showFlash: (message: string) => void;
   }
 
-  let { draft = $bindable(), formId, onsubmit, jobs, startJob, cancelJob, showFlash }: Props = $props();
+  let { draft = $bindable(), issues, formId, onsubmit, jobs, startJob, cancelJob, showFlash }: Props = $props();
   const id = $props.id();
   const dumpFiles = new DumpFiles();
 
@@ -35,6 +38,8 @@
   let deletingDump = $state(false);
   let loadFrom = $state<number | null>(null);
   let loadTo = $state<number | null>(null);
+
+  const loadYearsProblem = $derived(problemAt(issues, "universe.loadYears"));
 
   $effect(() => {
     const current = draft;
@@ -174,6 +179,7 @@
             type="number"
             aria-label="Load from year"
             aria-describedby="{id}-load-years-hint"
+            max={loadTo}
             value={loadFrom ?? ""}
             oninput={(event) =>
               setLoadYears(parseInteger(event.currentTarget.value), loadTo)}
@@ -182,13 +188,18 @@
           <input
             type="number"
             aria-label="Load to year"
-            aria-describedby="{id}-load-years-hint"
+            aria-describedby="{id}-load-years-hint {id}-load-years-problem"
+            min={loadFrom}
             value={loadTo ?? ""}
             oninput={(event) =>
               setLoadYears(loadFrom, parseInteger(event.currentTarget.value))}
+            {@attach reportProblem(issues, "universe.loadYears")}
           />
           <span class="hint" id="{id}-load-years-hint">Leave either empty to load every year.</span>
         </div>
+        <span class="hint problem" id="{id}-load-years-problem" hidden={!loadYearsProblem}>
+          {loadYearsProblem}
+        </span>
       </fieldset>
       <fieldset class="field">
         <legend class="name">Coverage</legend>
