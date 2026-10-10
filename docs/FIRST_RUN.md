@@ -10,8 +10,9 @@ Where the build differs from the design below:
   "Every request Digga makes" list (`src/client/setup/RequestList.svelte`).
 - The step is in the address (`#/setup/sound`), so a reload stays on it and the browser's Back
   goes a step back. Once the load runs, its screen stays; "Change your picks" leads back.
-- "No token? Use your username" is built: it saves `discogs.username` and reads the public
-  profile.
+- "No token? Use your username" is built: it reads the public profile and saves
+  `discogs.username` once Discogs has found the user; a name it does not know is not saved, and
+  the field says "No Discogs user named …".
 - The genres of the first picks come first in the style picker, and every genre starts closed.
 - "Change your picks" cancels the load and calls `DELETE /api/setup/load`: the releases
   unfinished loads added leave the universe. Those with the user's data (a verdict, mark, note,

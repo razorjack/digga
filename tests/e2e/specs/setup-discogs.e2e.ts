@@ -59,6 +59,23 @@ test(
 );
 
 test(
+  "SETUP-34 a username Discogs does not know is not saved, and the field says so",
+  { tag: ["@SETUP-34", "@P1"] },
+  async ({ app }) => {
+    app.expectProblems({ apiErrors: [/^GET \/api\/discogs\/profile answered 404$/] });
+    const missing = "No Discogs user named nobody-at-all";
+    const setup = await openDiscogsStep(app);
+
+    await setup.useUnknownUsername("nobody-at-all");
+    await expect(setup.alert(missing)).toBeVisible();
+    await expect(setup.usernameField).toHaveAttribute("aria-invalid", "true");
+    await expect(setup.account).toBeHidden();
+    expect((await app.api.get<Config>("/api/settings")).discogs.username).toBe("");
+    expect(app.apiRequests()).not.toContain("PUT /api/settings");
+  },
+);
+
+test(
   "SETUP-09 a token Discogs refuses is not kept, and the field says why until it is edited",
   { tag: ["@SETUP-09", "@P1"] },
   async ({ app }) => {

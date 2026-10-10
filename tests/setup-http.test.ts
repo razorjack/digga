@@ -310,6 +310,16 @@ describe("connecting Discogs", () => {
 
     expect(body).toEqual({ username: "dj", collection: 312, wantlist: 1204, currency: null });
   });
+
+  it("checks a username before it is saved, and says when Discogs has no such user", async () => {
+    const found = await send<DiscogsProfileResponse>("GET", "/api/discogs/profile?username=dj");
+    expect(found.body.username).toBe("dj");
+
+    const missing = await send<ApiError>("GET", "/api/discogs/profile?username=jd");
+    expect(missing.status).toBe(404);
+    expect(missing.body.error).toBe("No Discogs user named jd");
+    expect(server.getConfig().discogs.username).toBe("");
+  });
 });
 
 /**

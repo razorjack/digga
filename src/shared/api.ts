@@ -534,7 +534,12 @@ export interface ForgetDiscogsDataResponse {
   forgotten: number;
 }
 
-// GET /api/discogs/profile: the account behind the token, for the setup
+// GET /api/discogs/profile?username: the account behind the token, or the one named, for the setup
+export const DiscogsProfileQuerySchema = z.object({
+  /** A username to check before saving it; the configured one when absent. */
+  username: z.string().trim().min(1).optional(),
+});
+
 export interface DiscogsProfileResponse {
   username: string;
   collection: number | null;

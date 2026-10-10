@@ -1341,3 +1341,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      a minute apart and end after 4 minutes, their wait behind other requests included; a request
      still waiting for its turn then never goes out. Jobs and the CLI keep three retries of 60, 120
      and 180 s. The one serialised transport and its 1.1 s spacing stay.
+181. **The setup checks a username before saving it.** "Use it" in step 2 saved the username and
+     then read its profile, so a misspelt name stayed saved and the next import ran against it.
+     Since 2026-10-10 `GET /api/discogs/profile` takes a `username` to check, answers 404 "No
+     Discogs user named …" when Discogs has no such user, and the setup saves the name only after
+     the profile came back.

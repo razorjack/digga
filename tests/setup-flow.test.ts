@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { api } from "../src/client/api.ts";
+import { api, ApiRequestError } from "../src/client/api.ts";
 import { confirmedPicks, SetupFlow, withChange } from "../src/client/setup/flow.svelte.ts";
 import type { SetupStep } from "../src/client/setup/steps.ts";
 import { settings } from "../src/client/stores.svelte.ts";
@@ -189,6 +189,29 @@ describe("where the setup resumes", () => {
     expect(flow.accountChecking).toBe(false);
     expect(flow.account).toEqual(ACCOUNT);
     flow.close();
+  });
+});
+
+describe("a username without a token", () => {
+  it("is saved only once Discogs knows the user", async () => {
+    vi.spyOn(api, "getSettings").mockResolvedValue(DEFAULT_CONFIG);
+    const save = vi.spyOn(api, "putSettings").mockImplementation(async (saved) => saved);
+    const profile = vi
+      .spyOn(api, "getDiscogsProfile")
+      .mockRejectedValue(new ApiRequestError(404, "No Discogs user named jd"));
+    const flow = new SetupFlow();
+
+    expect(await flow.useUsername("jd")).toBe(false);
+    expect(flow.error).toBe("No Discogs user named jd");
+    expect(save).not.toHaveBeenCalled();
+
+    profile.mockResolvedValue(PROFILE);
+    expect(await flow.useUsername("dj")).toBe(true);
+    expect(profile).toHaveBeenLastCalledWith("dj");
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ discogs: expect.objectContaining({ username: "dj" }) }),
+    );
+    expect(flow.profile).toEqual(PROFILE);
   });
 });
 

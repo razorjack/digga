@@ -83,6 +83,10 @@ export class SetupPage {
     return this.root.getByLabel("Token", { exact: true });
   }
 
+  get usernameField(): Locator {
+    return this.root.getByLabel("Discogs username", { exact: true });
+  }
+
   /** "Connected as dj: …", in a status region that stays in the step. */
   get account(): Locator {
     return this.root.getByRole("status").filter({ hasText: "Connected as" });
@@ -238,7 +242,7 @@ export class SetupPage {
    */
   async useUsername(username: string): Promise<void> {
     await this.root.getByText("No token? Use your username", { exact: true }).click();
-    await this.root.getByLabel("Discogs username", { exact: true }).fill(username);
+    await this.usernameField.fill(username);
     const saved = this.#response("PUT", "/api/settings");
     const profile = this.#response("GET", "/api/discogs/profile");
     await this.button("Use it").click();
@@ -246,6 +250,18 @@ export class SetupPage {
     await answered(profile);
     await expect(this.account).toBeVisible();
     await expect(this.button("Continue")).toBeEnabled();
+  }
+
+  /** "Use it" with a username Discogs does not know: returns once the 404 is in and Use it again. */
+  async useUnknownUsername(username: string): Promise<void> {
+    await this.root.getByText("No token? Use your username", { exact: true }).click();
+    await this.usernameField.fill(username);
+    const profile = this.#response("GET", "/api/discogs/profile");
+    await this.button("Use it").click();
+    const response = await profile;
+    expect(response.status(), "Discogs has no such user").toBe(404);
+    await response.finished();
+    await expect(this.button("Use it")).toBeEnabled();
   }
 
   /** Step 2 with a token Discogs refuses: returns once the step has the answer and Connect again. */

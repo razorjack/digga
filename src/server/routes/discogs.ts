@@ -3,6 +3,7 @@ import {
   type ApiError,
   type DiscogsAccountResponse,
   type DiscogsListsResponse,
+  DiscogsProfileQuerySchema,
   type DiscogsProfileResponse,
   DiscogsTokenInputSchema,
   type ForgetDiscogsDataResponse,
@@ -13,11 +14,19 @@ import { accountConflict, forgetAccountData, heldAccount } from "../db/membershi
 import { getRelease } from "../db/releases.ts";
 import { DiscogsApiError } from "../discogs/client.ts";
 import { listUserLists } from "../discogs/lists.ts";
+import type { DiscogsUser } from "../discogs/types.ts";
 import { enrichRelease } from "../enrich.ts";
 import { buildReleaseDetail } from "../queue/detail.ts";
 import { forgetWantlistItem, recordWantlistPush, wantlistNoteFor } from "../importers/seeds.ts";
 import type { AppContext } from "../context.ts";
-import { badRequest, parseJson, parseId, wantlistAccount, discogsErrorMessage } from "./request.ts";
+import {
+  badRequest,
+  discogsErrorMessage,
+  parseId,
+  parseJson,
+  parseQuery,
+  wantlistAccount,
+} from "./request.ts";
 
 export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
   api.get("/discogs/lists", (request) => discogsLists(request, context));
@@ -85,11 +94,25 @@ function accountResponse(context: AppContext, identity: Identity | null): Discog
   };
 }
 
+/** The user's public profile; null when Discogs has no user of that name. */
+async function findUser(context: AppContext, username: string): Promise<DiscogsUser | null> {
+  try {
+    return await context.getDiscogs().getUser(username);
+  } catch (error) {
+    if (error instanceof DiscogsApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 /** The collection and wantlist sizes and the currency of the account, for the setup. */
 async function profile(request: Context, context: AppContext) {
-  const { username } = context.getConfig().discogs;
+  const query = parseQuery(request, DiscogsProfileQuerySchema);
+  if (!query.ok) return query.response;
+  const username = query.data.username ?? context.getConfig().discogs.username;
   if (username === "") return badRequest(request, "Connect your Discogs account first");
-  const user = await context.getDiscogs().getUser(username);
+  const user = await findUser(context, username);
+  if (!user)
+    return request.json({ error: `No Discogs user named ${username}` } satisfies ApiError, 404);
   const body: DiscogsProfileResponse = {
     username: user.username,
     collection: user.num_collection ?? null,

@@ -286,6 +286,15 @@ Priority: **P1**.
 A load that finishes with fewer than 500 records to dig enables "Start digging": Drum n Bass from
 1998 alone keeps 305 of the bulk records to dig, and "ready at 500 records" does not show
 
+## SETUP-34
+
+Priority: **P1**.
+
+Step 2's "No token? Use your username" with a name the fake Discogs does not know: `GET
+/api/discogs/profile?username=…` answers 404, the alert and the username field say "No Discogs user
+named …" (`aria-invalid`), no account shows, and no `PUT /api/settings` was sent, so the saved
+username stays empty
+
 ## Completion contracts
 
 - The setup's actions end the same way (`pages/setup.ts`). A step change ends once the address,

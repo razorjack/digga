@@ -105,8 +105,8 @@ export interface Api {
   getSetup(): Promise<SetupResponse>;
   /** Releases per style and year in the catalogue, for the style picker. */
   getStyles(): Promise<StyleCensus>;
-  /** The collection and wantlist sizes and the currency of the connected account. */
-  getDiscogsProfile(): Promise<DiscogsProfileResponse>;
+  /** The collection and wantlist sizes and the currency of the connected account, or the one named. */
+  getDiscogsProfile(username?: string): Promise<DiscogsProfileResponse>;
   /** Undoes the unfinished first load, so the setup can load other picks. */
   forgetFirstLoad(): Promise<{ deleted: number }>;
   /** The desktop app's file dialog, for a releases dump the user has; only where setup says desktop. */
@@ -217,7 +217,8 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     backupNow: () => call("POST", "/backups"),
     getSetup: () => call("GET", "/setup"),
     getStyles: () => call("GET", "/styles"),
-    getDiscogsProfile: () => callDiscogs("GET", "/discogs/profile"),
+    getDiscogsProfile: (username) =>
+      callDiscogs("GET", `/discogs/profile${queryString({ username })}`),
     forgetFirstLoad: () => call("DELETE", "/setup/load"),
     chooseDumpFile: () => callDialog("POST", "/desktop/dump-file"),
     chooseDumpsFolder: () => callDialog("POST", "/desktop/dumps-folder"),

@@ -196,12 +196,16 @@ export class SetupFlow {
     return connected;
   }
 
-  /** Step 2 without a token: a public collection and wantlist can be read by username. */
+  /**
+   * Step 2 without a token: a public collection and wantlist can be read by username. Saved only
+   * once Discogs knows the user, so a misspelt name never reaches the imports.
+   */
   async useUsername(username: string): Promise<boolean> {
     let found = false;
     await this.#act(async () => {
+      const profile = await api.getDiscogsProfile(username);
       await this.#saveSettings({ username });
-      this.profile = await api.getDiscogsProfile();
+      this.profile = profile;
       found = true;
     });
     return found;
