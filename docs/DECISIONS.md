@@ -1289,3 +1289,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
        crops for 16 and 32 px made a darker blob while the disc still reads at 16 px. The shape
        and shadow follow Apple's grid, measured against the system's icons. A script draws it
        from the drawing, so the binaries in `build/` have a source.
+174. **Leaving Settings with unsaved changes asks first.** Until 2026-10-10 Esc, the page keys and
+     the toolbar links left Settings and dropped the draft without a word, although the save bar
+     said "Unsaved changes". Now the router asks the page before it leaves (`guardLeaving` in
+     `router.svelte.ts`): for navigation by key or `navigate()`, for a click on a `#/` link, and,
+     after the fact, for Back and Forward, whose hash it puts back. With a dirty draft Settings
+     opens a modal dialog with Save, Discard and Keep editing; Esc keeps editing, and a draft
+     that cannot be saved offers only Discard and Keep editing. The page keys stay quiet while a
+     dialog has focus.

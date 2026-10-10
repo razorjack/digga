@@ -26,6 +26,7 @@ import {
   triageKeyOf,
 } from "../fixtures/catalogue.ts";
 import { smallDump } from "../fixtures/dump.ts";
+import { UnsavedSettingsDialog } from "../pages/dialogs.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { isRequest, TriagePage } from "../pages/triage.ts";
@@ -703,5 +704,47 @@ test(
     await app.page.keyboard.press("Escape");
     await expect(header.link("twelves")).toHaveAttribute("aria-current", "page");
     expect(await app.page.evaluate(() => location.hash)).toBe("#/twelves");
+  },
+);
+
+test(
+  "SET-27 leaving Settings with unsaved changes asks; Keep editing stays, Discard drops them, Save keeps them",
+  { tag: ["@SET-27", "@P1"] },
+  async ({ app }) => {
+    const header = new HeaderPage(app);
+    const settings = new SettingsPage(app);
+    const dialog = new UnsavedSettingsDialog(app);
+    const savedSeekStep = (await app.api.get<Config>("/api/settings")).player.seekStepSeconds;
+    await app.open("#/twelves");
+    await header.goTo("settings");
+
+    await settings.seekStep.fill("15");
+    await settings.seekStep.blur();
+    await app.page.keyboard.press("Escape");
+    await expect(dialog.button("Save")).toBeFocused();
+    await dialog.answer("Keep editing", "escape");
+    await expect(header.link("settings")).toHaveAttribute("aria-current", "page");
+    await expect(settings.seekStep).toHaveValue("15");
+    await header.link("triage").click();
+    await dialog.answer("Keep editing");
+    expect(await app.page.evaluate(() => location.hash)).toBe("#/settings");
+
+    await app.page.keyboard.press("Escape");
+    await dialog.answer("Discard");
+    await expect(header.link("twelves")).toHaveAttribute("aria-current", "page");
+    expect((await app.api.get<Config>("/api/settings")).player.seekStepSeconds).toBe(savedSeekStep);
+
+    await header.goTo("settings");
+    await expect(settings.seekStep).toHaveValue(String(savedSeekStep));
+    await settings.seekStep.fill("15");
+    await settings.seekStep.blur();
+    await app.page.keyboard.press("Escape");
+    const saved = app.page.waitForResponse((response) =>
+      isRequest(response, "PUT", "/api/settings"),
+    );
+    await dialog.answer("Save");
+    expect((await saved).ok()).toBe(true);
+    await expect(header.link("twelves")).toHaveAttribute("aria-current", "page");
+    expect((await app.api.get<Config>("/api/settings")).player.seekStepSeconds).toBe(15);
   },
 );

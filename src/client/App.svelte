@@ -7,6 +7,7 @@
   import {
     GLOBAL_KEYS,
     hasCommandModifier,
+    isInDialog,
     isSelectAll,
     isTyping,
     triageKeyGroups,
@@ -95,13 +96,14 @@
       return;
     }
     if (hasCommandModifier(event)) return;
-    if (event.key === "?") {
+    // ? closes the Keys dialog from inside it; another dialog keeps it for itself.
+    if (event.key === "?" && (ui.helpOpen || !isInDialog(event))) {
       ui.helpOpen = !ui.helpOpen;
       event.preventDefault();
       return;
     }
     // The open dialog handles its own keys, Esc included.
-    if (ui.helpOpen || setupOnly) return;
+    if (ui.helpOpen || setupOnly || isInDialog(event)) return;
     if (event.key === "Escape" && route === "settings") {
       navigate(pageBeforeSettings);
       event.preventDefault();

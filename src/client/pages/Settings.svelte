@@ -4,7 +4,8 @@
   import { JOB_LABEL } from "../../shared/job-display.ts";
   import type { Job } from "../../shared/types.ts";
   import { loadStatus } from "../load-status.svelte.ts";
-  import { getAnchor } from "../router.svelte.ts";
+  import { getAnchor, guardLeaving, navigate } from "../router.svelte.ts";
+  import type { Route } from "../routes.ts";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
   import Backups from "../settings/Backups.svelte";
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
@@ -20,6 +21,7 @@
     settingsTab,
     unsavedTabs,
   } from "../settings/tabs.ts";
+  import UnsavedDialog from "../settings/UnsavedDialog.svelte";
   import "../settings/settings.css";
 
   const id = $props.id();
@@ -34,6 +36,8 @@
   let flash = $state<string | null>(null);
   /** The tab's sections, which scroll beside the list of tabs. */
   let sections = $state<HTMLElement | null>(null);
+  /** Where the user tried to go with unsaved changes, while the dialog asks what to do with them. */
+  let leavingFor = $state<{ route: Route; anchor: string | null } | null>(null);
 
   const saved = $derived(settings.value);
   const dirty = $derived(
@@ -72,6 +76,11 @@
   onMount(() => {
     void discogs.loadAccount();
     void stats.refresh();
+    return guardLeaving((route, anchor) => {
+      if (!dirty) return true;
+      leavingFor = { route, anchor };
+      return false;
+    });
   });
 
   onDestroy(() => {
@@ -93,8 +102,9 @@
     void save();
   }
 
-  async function save(): Promise<void> {
-    if (!draft || !validation?.ok || saving) return;
+  /** Returns whether the draft is saved. */
+  async function save(): Promise<boolean> {
+    if (!draft || !validation?.ok || saving) return false;
     saving = true;
     const username = saved?.discogs.username;
     try {
@@ -103,8 +113,10 @@
       showFlash("Saved. The queue has reloaded.");
       void stats.refresh();
       if (settings.value?.discogs.username !== username) void discogs.loadAccount();
+      return true;
     } catch (error) {
       showFlash(`Not saved: ${errorMessage(error)}`);
+      return false;
     } finally {
       saving = false;
     }
@@ -112,6 +124,19 @@
 
   function revert(): void {
     if (saved) draft = $state.snapshot(saved);
+  }
+
+  async function saveAndLeave(): Promise<void> {
+    const target = leavingFor;
+    leavingFor = null;
+    if (target && (await save())) navigate(target.route, target.anchor ?? undefined);
+  }
+
+  function discardAndLeave(): void {
+    const target = leavingFor;
+    leavingFor = null;
+    revert();
+    if (target) navigate(target.route, target.anchor ?? undefined);
   }
 
   async function startJob(start: () => Promise<Job>): Promise<void> {
@@ -134,6 +159,7 @@
   }
 
   function onkeydown(event: KeyboardEvent): void {
+    if (leavingFor) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
       event.preventDefault();
       void save();
@@ -236,6 +262,14 @@
       </div>
     {/if}
   </div>
+
+  <UnsavedDialog
+    open={leavingFor !== null}
+    problem={problems[0] ?? null}
+    onsave={() => void saveAndLeave()}
+    ondiscard={discardAndLeave}
+    onkeep={() => (leavingFor = null)}
+  />
 </div>
 
 <style>

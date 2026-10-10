@@ -68,6 +68,8 @@ test(
     await app.page.keyboard.type(`${page("triage").key}${page("twelves").key}`.toLowerCase());
     await expect(settings.username).toHaveValue("tw");
     expect(await currentHash(app)).toBe("#/settings/discogs");
+    // An unsaved change would make the page key below ask first (decision 174).
+    await settings.username.fill("");
     await settings.username.blur();
 
     for (const modifier of ["Meta", "Control", "Alt"]) {
@@ -81,6 +83,8 @@ test(
     const checkbox = settings.root.getByRole("checkbox", {
       name: "include releases without a year",
     });
+    // Twice, so the draft is saved again and the page key leaves without asking.
+    await checkbox.click();
     await checkbox.click();
     await expect(checkbox).toBeFocused();
     await new HeaderPage(app).goTo("triage");

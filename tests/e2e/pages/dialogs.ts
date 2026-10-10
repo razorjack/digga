@@ -59,3 +59,31 @@ export class KeysDialog {
     await this.app.page.mouse.click(5, 5);
   }
 }
+
+/** What the unsaved settings dialog is answered with. */
+export type UnsavedSettingsAnswer = "Save" | "Discard" | "Keep editing";
+
+/** The dialog Settings shows when the user leaves it with unsaved changes. */
+export class UnsavedSettingsDialog {
+  readonly app: DiggaApp;
+
+  constructor(app: DiggaApp) {
+    this.app = app;
+  }
+
+  get root(): Locator {
+    return this.app.page.getByRole("dialog", { name: "Unsaved settings" });
+  }
+
+  button(answer: UnsavedSettingsAnswer): Locator {
+    return this.root.getByRole("button", { name: answer, exact: true });
+  }
+
+  /** Answers with a button, or Keep editing with Esc; returns once the dialog has closed. */
+  async answer(answer: UnsavedSettingsAnswer, by: "click" | "escape" = "click"): Promise<void> {
+    await expect(this.root).toBeVisible();
+    if (by === "escape") await this.app.page.keyboard.press("Escape");
+    else await this.button(answer).click();
+    await expect(this.root).toBeHidden();
+  }
+}

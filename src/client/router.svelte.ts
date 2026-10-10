@@ -16,11 +16,46 @@ function parse(hash: string): HashLocation {
     : { route: "triage", anchor: null };
 }
 
-let current = $state<HashLocation>(parse(window.location.hash));
+/**
+ * Asked before the app leaves the current page for another; false keeps the page. A page with
+ * unsaved work installs one and asks the user itself.
+ */
+export type LeaveGuard = (route: Route, anchor: string | null) => boolean;
 
-window.addEventListener("hashchange", () => {
-  current = parse(window.location.hash);
+let current = $state<HashLocation>(parse(window.location.hash));
+let leaveGuard: LeaveGuard | null = null;
+
+window.addEventListener("hashchange", (event) => {
+  const next = parse(window.location.hash);
+  // Back and Forward change the hash before anything can ask; staying puts the old one back.
+  if (!mayLeaveFor(next)) {
+    history.replaceState(history.state, "", event.oldURL);
+    return;
+  }
+  current = next;
 });
+
+document.addEventListener("click", (event) => {
+  if (event.defaultPrevented || event.button !== 0) return;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const link = event.target instanceof Element ? event.target.closest("a") : null;
+  const href = link?.getAttribute("href");
+  if (!href?.startsWith("#/")) return;
+  if (!mayLeaveFor(parse(href))) event.preventDefault();
+});
+
+/** Installs the guard asked before leaving the current page; returns its removal. */
+export function guardLeaving(guard: LeaveGuard): () => void {
+  leaveGuard = guard;
+  return () => {
+    if (leaveGuard === guard) leaveGuard = null;
+  };
+}
+
+function mayLeaveFor(next: HashLocation): boolean {
+  if (next.route === current.route || !leaveGuard) return true;
+  return leaveGuard(next.route, next.anchor);
+}
 
 export function getRoute(): Route {
   return current.route;
@@ -31,6 +66,7 @@ export function getAnchor(): string | null {
 }
 
 export function navigate(route: Route, anchor?: string): void {
+  if (!mayLeaveFor({ route, anchor: anchor ?? null })) return;
   window.location.hash = anchor ? `#/${route}/${anchor}` : `#/${route}`;
 }
 

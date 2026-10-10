@@ -216,6 +216,11 @@ export function isTyping(event: Event): boolean {
   return target.isContentEditable || ["TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
+/** A key pressed in an open dialog, which handles its own keys. */
+export function isInDialog(event: Event): boolean {
+  return event.target instanceof Element && event.target.closest("dialog[open]") !== null;
+}
+
 /** A YouTube link pasted outside a form field, which Digga attaches to a release; else null. */
 export function pastedVideoLink(event: ClipboardEvent): string | null {
   if (isTyping(event)) return null;

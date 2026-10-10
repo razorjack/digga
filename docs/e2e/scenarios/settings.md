@@ -265,3 +265,12 @@ Priority: **P1**.
 
 Given: `small` with two selectable styles. Uncheck both and save: the preview matches no records
 and the saved styles are an empty array. Selecting one style restores its matches.
+
+## SET-27
+
+Priority: **P1**.
+
+Given: `small`. Opened from Twelves with `,`, a changed seek step and Esc open the "Unsaved
+settings" dialog with Save focused; Esc in it keeps Settings and the draft, and so does Keep
+editing after a click on the Triage link. Esc and Discard show Twelves and the API keeps the old
+value; Esc and Save show Twelves and the API has the new value (decision 174).

@@ -146,7 +146,8 @@ load that stopped has left records to dig.
 ## Settings
 
 Esc goes back to the page Settings was opened from, Triage or Twelves, unless a text field has
-focus. `Cmd+S` / `Ctrl+S` saves. Fields are reached with Tab. Page keys keep working while a checkbox,
+focus. Leaving Settings with unsaved changes, by Esc, `T`, `W`, a toolbar link or Back, first asks
+whether to save them: Save, Discard or Keep editing, which Esc also chooses. `Cmd+S` / `Ctrl+S` saves. Fields are reached with Tab. Page keys keep working while a checkbox,
 radio button or slider has focus; text fields and menus take the keys for themselves.
 
 ## Player behaviours
