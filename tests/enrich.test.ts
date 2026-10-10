@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { getRelease, getVideos } from "../src/server/db/releases.ts";
+import { addUserVideo, getRelease, getVideos } from "../src/server/db/releases.ts";
 import { DiscogsApiError, type DiscogsClient } from "../src/server/discogs/client.ts";
 import type { DiscogsRelease } from "../src/server/discogs/types.ts";
+import { releaseVideos } from "../src/server/queue/detail.ts";
 import { recordNoAudioVideos } from "../src/server/queue/no-audio.ts";
 import { getVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { enrichRelease } from "../src/server/enrich.ts";
@@ -71,6 +72,34 @@ describe("enriching one release", () => {
     expect(getVideos(db, 1001).map((v) => [v.videoId, v.matchedPosition])).toEqual([
       ["aaaaaaaaaa1", "A1"],
       ["newnewnew01", "A2"],
+    ]);
+    db.close();
+  });
+
+  it("keeps attached videos, adds the API's new ones and drops dump videos it no longer lists", async () => {
+    const db = await fixtureDb();
+    expect(getVideos(db, 1001).map((video) => video.videoId)).toEqual([
+      "aaaaaaaaaa1",
+      "aaaaaaaaaa2",
+    ]);
+    const attached = (videoId: string) => ({
+      videoId,
+      src: `https://www.youtube.com/watch?v=${videoId}`,
+      title: "Ed Rush & Optical - Wormhole (rip)",
+      matchedPosition: "A1",
+    });
+    addUserVideo(db, 1001, attached("userattach1"));
+    addUserVideo(db, 1001, attached("newnewnew01"));
+    const discogs = fakeDiscogs((id) => Promise.resolve(apiRelease(id)));
+
+    await enrichRelease({ db, discogs, logger: silentLogger }, 1001, "EUR");
+
+    const release = getRelease(db, 1001)!;
+    // A video the user attached and Discogs now lists plays once, as the release's own.
+    expect(releaseVideos(db, release).map((video) => video.videoId)).toEqual([
+      "aaaaaaaaaa1",
+      "newnewnew01",
+      "userattach1",
     ]);
     db.close();
   });

@@ -22,7 +22,10 @@ export interface EnrichDeps {
   logger: Logger;
 }
 
-/** Writes the API snapshot and refreshes videos (the dump can be months stale). */
+/**
+ * Writes the API snapshot and refreshes videos (the dump can be months stale). The API's list
+ * replaces the dump's; videos the user attached are in `user_videos` and stay.
+ */
 export function applyEnrichment(
   db: Db,
   releaseId: number,
