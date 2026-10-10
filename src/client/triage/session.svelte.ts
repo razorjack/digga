@@ -11,6 +11,7 @@ import type { QueueScope } from "../../shared/scope.ts";
 import { tuneSnapshot } from "../../shared/track-identity.ts";
 import type { ReleaseSnapshot, TrackMark, TrackVerdict, Verdict } from "../../shared/types.ts";
 import { isTriageSource } from "../../shared/verdict-rank.ts";
+import { hasVideoOfLink } from "../../shared/videos.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
 import { type Api, ApiRequestError, api as appApi, isConflict } from "../api.ts";
 import type { TriageStatus } from "../keymap.ts";
@@ -692,6 +693,10 @@ export class TriageSession {
   async attachVideo(url: string): Promise<void> {
     const item = this.current;
     if (!item) return;
+    if (hasVideoOfLink(this.currentDetail?.videos ?? [], url)) {
+      this.#flash("Already attached to this release.");
+      return;
+    }
     try {
       const detail = await this.#api.attachVideo(item.id, url);
       if (this.#destroyed) return;

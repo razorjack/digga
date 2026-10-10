@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { buildReleaseDetail } from "../src/server/queue/detail.ts";
 import type { VideoRecord } from "../src/shared/types.ts";
-import { poolVideos } from "../src/shared/videos.ts";
+import { hasVideoOfLink, poolVideos } from "../src/shared/videos.ts";
 import { fixtureDb } from "./helpers.ts";
 
 const video = (
@@ -48,5 +48,15 @@ describe("videos of other pressings", () => {
     expect(detail.tracks.map((track) => track.hasVideo)).toEqual([true, true]);
     expect(buildReleaseDetail(db, 1001)!.videos).toHaveLength(2);
     db.close();
+  });
+});
+
+describe("hasVideoOfLink", () => {
+  it("finds the video a link points at, in any of YouTube's link shapes", () => {
+    const videos = [{ videoId: "dQw4w9WgXcQ" }];
+    expect(hasVideoOfLink(videos, "https://youtu.be/dQw4w9WgXcQ")).toBe(true);
+    expect(hasVideoOfLink(videos, "https://music.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(true);
+    expect(hasVideoOfLink(videos, "https://youtu.be/aaaaaaaaaaa")).toBe(false);
+    expect(hasVideoOfLink(videos, "not a link")).toBe(false);
   });
 });

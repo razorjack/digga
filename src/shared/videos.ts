@@ -66,3 +66,9 @@ export function poolVideos(
   }
   return videos;
 }
+
+/** Whether the videos hold the one a YouTube link points at. */
+export function hasVideoOfLink(videos: readonly { videoId: string }[], url: string): boolean {
+  const videoId = youtubeIdFromUrl(url);
+  return videoId !== null && videos.some((video) => video.videoId === videoId);
+}

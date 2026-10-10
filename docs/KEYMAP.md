@@ -173,7 +173,8 @@ radio button or slider has focus; text fields and menus take the keys for themse
   searches YouTube, `⌘V` with a copied video link attaches it and plays it, `D` records
   `no_audio`, and the verdict keys still work. A pasted link works on any release, not only in
   that state. YouTube Music links work too; a pasted link to another site says "That is not a
-  YouTube link." and attaches nothing.
+  YouTube link." and attaches nothing, and one to a video the release has says "Already attached
+  to this release."
 - Browsers hold back sound until the page has had a key press or click. Until then the player
   shows "Space: start listening".
 - The embed never takes focus or clicks (`inert` hosts, `controls: 0`, `disablekb: 1`), so keys

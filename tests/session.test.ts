@@ -881,6 +881,20 @@ describe("pricing with P", () => {
     session.destroy();
   });
 
+  it("says a link already on the release is attached, and sends nothing", async () => {
+    const { session, calls } = await withTracks();
+    const detail = session.details.get(1)!;
+    const video = { videoId: "relicstatic" } as VideoRecord;
+    session.details = new Map([[1, { ...detail, videos: [video] }]]);
+
+    await session.attachVideo("https://www.youtube.com/watch?v=relicstatic");
+
+    expect(session.flash).toBe("Already attached to this release.");
+    expect(calls.filter((call) => call.startsWith("attach"))).toEqual([]);
+    expect(session.videosChange).not.toBe("attached");
+    session.destroy();
+  });
+
   it("ignores P while the answer is on its way", async () => {
     const server = fakeServer([1, 2]);
     server.state.enrichDelayMs = 20;

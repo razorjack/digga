@@ -1366,3 +1366,7 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      31 ms at either size. A load rebuilds it as it ends (0.7 s and 1.5 s at those sizes); while a
      load runs, or after one that stopped, the search reads the releases as before, so digging
      during the first load still finds what has arrived.
+185. **A link already on the release says so.** Pasting a link to a video the release already had
+     flashed "Attached to this release; it plays here from now on." while nothing changed. Since
+     2026-10-10 Triage flashes "Already attached to this release.", sends nothing and leaves the
+     player alone.
