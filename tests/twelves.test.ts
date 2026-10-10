@@ -10,6 +10,7 @@ import {
   PAGE_SIZE,
   rejudgedSentence,
   replayedItems,
+  unchangedSentence,
   turnedPageStart,
   visibleItems,
   visibleTracks,
@@ -209,6 +210,28 @@ describe("the flash after re-judging", () => {
     expect(rejudgedSentence(name, "rejected")).toBe(
       "Kestrel – Day Break skipped, off the shelves.",
     );
+  });
+
+  it("says a re-judgement to the same verdict changes nothing", () => {
+    const want = { ...record(1), verdict: { ...record(1).verdict, status: "accepted" as const } };
+    const onWantlist = { ...want, membership: { ...want.membership, onWantlist: true } };
+    expect(unchangedSentence(onWantlist, "accepted")).toBe("Already on your Discogs wantlist.");
+    expect(
+      unchangedSentence({ ...want, membership: { ...want.membership, owned: true } }, "accepted"),
+    ).toBe("Already on the Want shelf.");
+    expect(unchangedSentence(record(1), "maybe")).toBe("Already on the Maybe shelf.");
+    expect(unchangedSentence(record(1), "rejected")).toBe("Already skipped.");
+  });
+
+  it("writes nothing for a want already on the wantlist, and says so", async () => {
+    const { shelf, calls } = await setup();
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.changes;
+    calls.length = 0;
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.changes;
+    expect(calls).toEqual([]);
+    expect(shelf.flash).toBe("Already on your Discogs wantlist.");
   });
 
   it("follows the re-judgement with the wantlist change and the undo", async () => {

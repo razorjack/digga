@@ -21,6 +21,7 @@ import {
   pageAround,
   trackKey,
   turnedPageStart,
+  unchangedSentence,
   visibleItems,
   visibleTracks,
 } from "./model.ts";
@@ -329,6 +330,7 @@ export class TwelvesShelf {
       }
       if (verdict.status === status) {
         if (notOnWantlist(item)) await this.addToWantlist([item]);
+        else this.showFlash(unchangedSentence(item, status));
         return;
       }
       await this.#writeVerdict(item, verdict, status);

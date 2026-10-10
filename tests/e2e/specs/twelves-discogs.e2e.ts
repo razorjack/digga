@@ -125,7 +125,7 @@ test.describe("with a Discogs account", () => {
   );
 
   test(
-    "TWL-09 wants missing from the wantlist are marked and counted; A, C and add all push them",
+    "TWL-09 wants missing from the wantlist are marked and counted; A, C and add all push them; A again says so and writes nothing",
     { tag: ["@TWL-09", "@P1"] },
     async ({ app, fakes }) => {
       const twelves = new TwelvesPage(app);
@@ -156,6 +156,11 @@ test.describe("with a Discogs account", () => {
       );
       await expect(twelves.record(triageKeyOf(FIRST_RECORD))).not.toContainText(NOT_ON_WANTLIST);
       await expect(twelves.wantlistHandoff).toContainText("2 records are not");
+      const writes = () => app.apiRequests().filter((request) => !request.startsWith("GET "));
+      const writesBefore = writes().length;
+      await app.page.keyboard.press("a");
+      await expect(twelves.messages).toHaveText("Already on your Discogs wantlist.");
+      expect(writes()).toHaveLength(writesBefore);
 
       await twelves.showShelf("candidate");
       await expect(twelves.wantlistHandoff).toContainText("1 record is not");

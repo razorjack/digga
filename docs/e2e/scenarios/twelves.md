@@ -78,7 +78,8 @@ Priority: **P1**.
 Given: `small-account` with a saved token.
 
 Wants and grails missing from the wantlist carry the marker and the banner count; `A` retries a want
-and `C` a grail; with two or more on the shelf, "add all N" pushes each, in order, and the banner
+and `C` a grail; `A` again on the want now on the wantlist reads "Already on your Discogs wantlist."
+and sends no write; with two or more on the shelf, "add all N" pushes each, in order, and the banner
 says everything is on the wantlist
 
 ## TWL-10

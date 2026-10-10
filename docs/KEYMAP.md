@@ -126,11 +126,14 @@ as one under Other videos, cannot be marked, and the page says so.
 | `A` `M` `C` `R` `L` `D`     | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)              |
 | `Y`                         | search YouTube for the record                                                             |
 | `⌘V`                        | attach a copied YouTube link to the record; no audio goes back to the queue               |
-| `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there                                       |
+| `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there, or say it is already                 |
 | `Enter`                     | replay the selected record in Triage; on Snoozed, it and the snoozed records after it     |
 | `Shift+Enter`               | replay the selected record and the records after it on the shelf                          |
 | `I`                         | read the Discogs Maybe list again                                                         |
 | `Z`                         | undo the last change, including what it did to the Discogs wantlist                       |
+
+A verdict key that matches the record's verdict writes nothing and says so: "Already on your
+Discogs wantlist." for a want or grail there, otherwise "Already on the Maybe shelf." and the like.
 
 The Tracks shelf lists the tracks marked grail or keep in Triage, with their release and the
 record's verdict; `J`/`K`, `O`, `E`, `/` and `S` work there too. Marks themselves change in Triage.

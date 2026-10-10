@@ -217,6 +217,15 @@ export function rejudgedSentence(name: string, status: JudgedStatus): string {
   return `${name} moved to ${shelfLabel(shelf)}.`;
 }
 
+/** The flash for a re-judgement that would change nothing, so nothing is written. */
+export function unchangedSentence(item: TwelvesItem, status: JudgedStatus): string {
+  if (isWantlistVerdict(status) && item.membership.onWantlist)
+    return "Already on your Discogs wantlist.";
+  const shelf = JUDGED_SHELF[status];
+  if (shelf === null) return "Already skipped.";
+  return `Already on the ${shelfLabel(shelf)} shelf.`;
+}
+
 function shelfLabel(id: ShelfId): string {
   const shelf = SHELVES.find((candidate) => candidate.id === id);
   if (!shelf) throw new Error(`there is no ${id} shelf`);

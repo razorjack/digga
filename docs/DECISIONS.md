@@ -1394,3 +1394,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      the end of the shelf; `shortcutKey()` returns `Shift+Enter` for it, since no layout needs
      Shift to type Enter. The snoozed shelf keeps decision 58: Enter hears the selected snoozed
      record and those after it as a round.
+190. **A re-judgement that changes nothing says so.** In Twelves, `A` on a want already on the
+     Discogs wantlist, or any verdict key matching the record's verdict, returned without a word.
+     Since 2026-10-10 it writes nothing and flashes "Already on your Discogs wantlist." for a want
+     or grail there, otherwise "Already on the Maybe shelf." and the like (`unchangedSentence()` in
+     `src/client/twelves/model.ts`).
