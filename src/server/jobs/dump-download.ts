@@ -103,6 +103,8 @@ async function downloadOnce(
   const { dump, target } = wanted;
   const checksum = await deps.dumps.checksum(dump, options.signal);
   const download = await deps.dumps.download(dump, options.signal);
+  // A download always starts from scratch, so a crash's leftover is free space to count.
+  fs.rmSync(`${target}.part`, { force: true });
   await ensureRoom(options, download.bytes);
   deps.logger.info(
     `downloading ${dump.file}${download.bytes ? ` (${formatBytes(download.bytes)})` : ""}`,

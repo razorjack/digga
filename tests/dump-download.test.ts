@@ -145,6 +145,16 @@ describe("downloading the newest dump", () => {
     ]);
   });
 
+  it("counts a crash's leftover part file as free space, since the download starts over", async () => {
+    const part = path.join(dumpsDir, "discogs_20260901_releases.xml.gz.part");
+    fs.mkdirSync(dumpsDir, { recursive: true });
+    fs.writeFileSync(part, "left by a crash");
+    const freeOnceRemoved = async () => (fs.existsSync(part) ? 0 : 100 * 1024 ** 3);
+
+    await expect(download(freeOnceRemoved)).resolves.toMatchObject({ phase: "done" });
+    expect(fs.readdirSync(dumpsDir)).toEqual(["discogs_20260901_releases.xml.gz"]);
+  });
+
   it("does not download a dump that is there already", async () => {
     await download();
     site.requests = [];
