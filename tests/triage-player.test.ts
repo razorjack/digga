@@ -232,6 +232,51 @@ describe("player deck ownership", () => {
   });
 });
 
+describe("a start point moved in Settings", () => {
+  async function setupMovable() {
+    const start = { fraction: 0.5 };
+    const http = { postListenLog: vi.fn(async () => ({})) } as unknown as Api;
+    const player = new TriagePlayer(http, { startAtFraction: () => start.fraction });
+    players.push(player);
+    player.show(detail(1), detail(2), "found");
+    await player.mount([{}, {}, {}] as Parameters<TriagePlayer["mount"]>[0]);
+    player.suspend(true);
+    return { player, start };
+  }
+
+  const at = (videoId: string, mode: string, fraction: number) => [
+    expect.objectContaining({ videoId }),
+    mode,
+    { fraction },
+  ];
+
+  it("cues the waiting video and the next release's buffer again at it", async () => {
+    const { player, start } = await setupMovable();
+    const [active, nextRelease] = fake.decks;
+    start.fraction = 0.25;
+
+    player.moveStartPoint();
+
+    expect(active!.load).toHaveBeenLastCalledWith(...at("video-1", "cue", 0.25));
+    expect(nextRelease!.load).toHaveBeenLastCalledWith(...at("video-2", "preload", 0.25));
+    expect(player.time).toBe(75);
+    expect(active!.play).not.toHaveBeenCalled();
+  });
+
+  it("keeps a video that played or was moved where it is", async () => {
+    const { player, start } = await setupMovable();
+    const active = fake.decks[player.active]!;
+    player.seekBy(10);
+    active.load.mockClear();
+    start.fraction = 0.25;
+
+    player.moveStartPoint();
+
+    expect(active.load).not.toHaveBeenCalled();
+    expect(fake.decks[1]!.load).toHaveBeenLastCalledWith(...at("video-2", "preload", 0.25));
+  });
+});
+
 describe("the track deck", () => {
   it("buffers the next track and swaps it in on J", async () => {
     const player = await setup();

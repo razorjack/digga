@@ -152,6 +152,40 @@ test.describe("digging a self-release label, then a compilation's label", () => 
       expect(await labelsInQueue(app)).toEqual([label, ROLLERS_ARCHIVE.name]);
     },
   );
+  test(
+    "TRI-49 X in a round of snoozed records leaves the label's records out and the round goes on; Z brings the record back",
+    { tag: ["@TRI-49", "@P1"] },
+    async ({ app }) => {
+      const triage = new TriagePage(app);
+      const queue = await app.api.get<QueueResponse>("/api/queue?limit=10");
+      const selfRelease = triageKeyOf(SELF_RELEASE);
+      const others = queue.items.filter((item) => item.triageKey !== selfRelease);
+      const snoozedInOrder = [{ id: SELF_RELEASE.id, triageKey: selfRelease }, ...others];
+      for (const [index, record] of snoozedInOrder.entries()) {
+        await app.given.verdict({
+          key: record.triageKey,
+          status: "snoozed",
+          releaseId: record.id,
+          decidedAt: `2026-09-0${index + 1}T12:00:00.000Z`,
+        });
+      }
+      const total = snoozedInOrder.length;
+      const onOtherLabels = others.filter((item) => item.labelName !== SELF_RELEASED.name);
+      await app.open();
+      await triage.hearSnoozed();
+      await expect(triage.record).toHaveAttribute("data-triage-key", selfRelease);
+
+      await triage.hideLabel();
+      await expect(triage.banner).toContainText(
+        `Hearing snoozed records again: ${onOtherLabels.length} of ${total} left.`,
+      );
+      await expect(triage.record).toHaveAttribute("data-triage-key", onOtherLabels[0]!.triageKey);
+
+      await triage.undoLabelInRound();
+      await expect(triage.banner).toContainText(`${total} of ${total} left.`);
+      await expect(triage.record).toHaveAttribute("data-triage-key", selfRelease);
+    },
+  );
 });
 
 /** The labels the queue holds records of, in its order, once each. */
@@ -238,7 +272,7 @@ test.describe("digging a compilation's label, then another", () => {
   );
 
   test(
-    "TRI-35 a settings save restarts the queue in the F scope; a color scheme change keeps the record on screen",
+    "TRI-35 a save that changes the queue restarts it in the F scope; a seek step or color scheme change keeps the record on screen",
     { tag: ["@TRI-35", "@P2"] },
     async ({ app }) => {
       const triage = new TriagePage(app);
@@ -258,20 +292,29 @@ test.describe("digging a compilation's label, then another", () => {
           isRequest(response, "POST", "/api/queue") &&
           queueReadScope(response) === `label:${ROLLERS_ARCHIVE.id}`,
       );
-      await settings.change(settings.seekStep, "15");
+      await settings.change(settings.batch, "150");
       await settings.save();
       expect((await restarted).ok()).toBe(true);
       await triage.showAgain();
       await expect(triage.banner).toHaveText(banner);
       await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
 
-      await header.goTo("settings");
       const queueReads = () => app.apiRequests().filter((request) => request === "POST /api/queue");
-      const readsBefore = queueReads().length;
+      await header.goTo("settings");
+      const readsBeforeSeekStep = queueReads().length;
+      await settings.change(settings.seekStep, "15");
+      await settings.save("stays");
+      await triage.showAgain();
+      // Requests leave in order, so a restart after the save would come before T's read.
+      expect(queueReads()).toHaveLength(readsBeforeSeekStep + 1);
+      await expect(triage.banner).toHaveText(banner);
+      await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
+
+      await header.goTo("settings");
+      const readsBeforeScheme = queueReads().length;
       await settings.chooseColorScheme("light");
       await triage.showAgain();
-      // Requests leave in order, so a restart after the scheme's save would come before T's read.
-      expect(queueReads()).toHaveLength(readsBefore + 1);
+      expect(queueReads()).toHaveLength(readsBeforeScheme + 1);
       await expect(triage.banner).toHaveText(banner);
       await expect(triage.record).toHaveAttribute("data-triage-key", onScreen);
     },

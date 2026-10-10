@@ -1378,3 +1378,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      so a restored tune was forgotten at the next one. Since 2026-10-10 a restored tune that no
      heard listen accounts for gets one listen standing in for it, at its first hearing with its
      seconds, and keeps reading heard.
+188. **A save restarts Triage only when it changes the queue.** Every settings save, `X` included,
+     restarted the session, which ended a round of snoozed records or a replay and moved the record
+     on screen. Since 2026-10-10 Triage compares what feeds the queue (`universe`, `queue` and
+     `filters`, hidden labels apart) with the config it last followed
+     (`src/client/triage/queue-settings.ts`) and restarts only when that changed; the save bar then
+     reads "Saved. The queue has reloaded.", otherwise "Saved.". A hidden label's records leave the
+     buffers in place, a round's included, and the round goes on; a label let back brings its
+     record back first, then the queue is read again after the record on screen, or once the round
+     ends. A new start-at point cues the decks waiting to play again, unless the open video played
+     or was moved.

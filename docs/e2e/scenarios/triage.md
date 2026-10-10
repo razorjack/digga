@@ -166,9 +166,9 @@ Tracks shelf, meh does not
 
 Priority: **P1**.
 
-`X` hides the record's first label: after the settings save and the queue's reload have answered,
-its records are out of the queue, Settings lists the label, the slip says so; `Z` brings the label
-back
+`X` hides the record's first label: once the settings save has answered, its records are out of
+the queue without a reload, Settings lists the label, the slip says so; `Z` brings the label back
+and the queue is read again
 
 ## TRI-20
 
@@ -304,10 +304,11 @@ Priority: **P2**.
 
 Given: `labels: Rollers Archive, Tempest Audio`.
 
-In the label's `F` scope, a settings save (the seek step, on the Digging tab, through the save bar)
-restarts the queue: its `POST /api/queue` carries the scope, and Triage shows the scope's record
-under its banner. An Appearance radio on the General tab, which saves at once without the save bar,
-restarts nothing: the record on screen stays, and the only queue read after it is `T`'s
+In the label's `F` scope, a settings save that changes the queue (the batch, on the Digging tab,
+through the save bar) restarts it: its `POST /api/queue` carries the scope, and Triage shows the
+scope's record under its banner. A save of the seek step reads "Saved." and restarts nothing, nor
+does an Appearance radio on the General tab, which saves at once without the save bar: the record
+on screen stays, and the only queue read after each is `T`'s
 
 ## TRI-36
 
@@ -463,3 +464,14 @@ Priority: **P1**.
 Given: `small`, digging only the main pressing's label, with a note on the shop pressing.
 Triage shows that note and its catalogue number when the main pressing has no note. Editing starts
 empty; saving a note on the main pressing replaces the fallback without changing the other note.
+
+## TRI-49
+
+Priority: **P1**.
+
+Given: `labels: Not On Label (Dillinja Self-released), Rollers Archive`, every record snoozed, the
+self-release first.
+
+In the round of snoozed records, `X` on the self-release hides its label: the round goes on under
+its banner with the records on other labels ("N of M left." counts them), with no queue reload.
+`Z` brings back the self-release and the round's other records on its label (decision 188)

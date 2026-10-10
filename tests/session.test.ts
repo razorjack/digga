@@ -1025,7 +1025,7 @@ describe("hiding a label", () => {
     };
     const session = new TriageSession(server.app, { setLabelHidden });
     await session.start(50);
-    return { session, changes, calls: server.calls };
+    return { session, changes, calls: server.calls, queries: server.queries };
   }
 
   it("hides the label on screen, and Z lets it back before older verdicts", async () => {
@@ -1040,6 +1040,43 @@ describe("hiding a label", () => {
     expect(session.slip).toMatchObject({ kind: "undo", undone: "label" });
     session.undo();
     await until(() => calls.includes("forget r:1"));
+    session.destroy();
+  });
+
+  it("drops the label's records in place, and a round goes on with the others", async () => {
+    const { session, changes } = await withLabels();
+    const onLabel = {
+      ...snoozed(5, "2026-09-01T10:00:00.000Z"),
+      release: { ...queueItem(5), labelId: 88, labelName: "Moving Shadow" },
+    };
+    session.startRound([onLabel, snoozed(6, "2026-09-02T10:00:00.000Z")]);
+    const upcoming = () => session.upcoming.map((item) => item.id);
+    expect(upcoming()).toEqual([5, 6]);
+
+    await session.hideLabel();
+
+    expect(changes).toEqual(["hide 88 Moving Shadow"]);
+    expect(session.round).toMatchObject({ kind: "snoozed" });
+    expect(upcoming()).toEqual([6]);
+    session.pass();
+    // The queue under the round was all on the label.
+    expect(session.round).toBeNull();
+    expect(session.finished).toBe(true);
+    session.destroy();
+  });
+
+  it("reads the queue again for a label let back during a round once the round ends", async () => {
+    const { session, queries } = await withLabels();
+    session.startRound([snoozed(5, "2026-09-01T10:00:00.000Z")]);
+    const readsInRound = queries.length;
+
+    await session.readAgain();
+    expect(queries).toHaveLength(readsInRound);
+    expect(session.upcoming.map((item) => item.id)).toEqual([5]);
+
+    session.endRound();
+    await until(() => queries.length === readsInRound + 1);
+    expect(session.upcoming.map((item) => item.id)).toEqual([1, 2]);
     session.destroy();
   });
 

@@ -108,6 +108,8 @@ export class TriagePlayer {
   #suspended = false;
   /** A session is being resumed: nothing starts until the listener presses play. */
   #resumePaused = false;
+  /** The open video waits at its start point, neither played nor moved: a new one may replace it. */
+  #atStartPoint = false;
 
   constructor(api: Api, settings: PlayerSettings) {
     this.#api = api;
@@ -216,6 +218,19 @@ export class TriagePlayer {
     deck.play();
   }
 
+  /**
+   * Settings moved the start point. The buffered decks load again at it, and the open video cues
+   * again while it waits at the old one; a video that played or was moved keeps its place.
+   */
+  moveStartPoint(): void {
+    if (this.#decks.length === 0) return;
+    this.#releaseDeckNow()?.park();
+    this.#decks[this.#trackDeck]?.park();
+    if (this.current !== null && this.#atStartPoint) this.playEntry(this.current);
+    else this.#preloadTrack();
+    this.#preload(this.#wanted.next);
+  }
+
   /** While the Triage page is hidden, nothing starts playing on its own. */
   suspend(on: boolean): void {
     this.#suspended = on;
@@ -258,6 +273,7 @@ export class TriagePlayer {
     this.time = deck.currentTime();
     this.#flushListen();
     this.time = Math.max(0, seconds);
+    this.#atStartPoint = false;
     deck.seekTo(this.time);
     this.#beginListen(this.release.release.id, this.entry);
   }
@@ -271,6 +287,7 @@ export class TriagePlayer {
     this.current = index;
     this.played.add(entry.video.videoId);
     this.time = atSeconds ?? startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+    this.#atStartPoint = atSeconds === undefined;
     this.duration = entry.video.durationSeconds ?? 0;
     // The track deck buffered the entry at its start point, so a saved moment loads it afresh.
     const promoted = atSeconds === undefined && this.#promoteTrackDeck(entry, index);
@@ -426,6 +443,7 @@ export class TriagePlayer {
     this.played.add(entry.video.videoId);
     this.duration = entry.video.durationSeconds ?? 0;
     this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
+    this.#atStartPoint = true;
     this.#startPreload(hidden);
     this.#beginListen(detail.release.id, entry);
     this.#preloadTrack();
@@ -474,6 +492,7 @@ export class TriagePlayer {
     switch (state) {
       case PlayerState.PLAYING:
         this.status = "playing";
+        this.#atStartPoint = false;
         break;
       case PlayerState.PAUSED:
         if (this.status !== "needs_gesture") this.status = "paused";

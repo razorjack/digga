@@ -60,9 +60,10 @@ first of them play at once, as a pasted link does.
 | `Z` | undo        |              | reverts the last verdict, `N` or `X` and returns to that release  |
 | Esc | none        |              | ends a round of snoozed records, then the label, artist or seller |
 
-`X` adds the release's first label, by its Discogs id, to `filters.excludeLabels` and saves the
-settings, so the queue restarts without that label's records; `Z` takes the label out of the list
-again. Hidden `Not On Label` also covers the self-releases, such as
+`X` adds the release's first label, by its Discogs id, to `filters.excludeLabels`, saves the
+settings and drops that label's records from the queue in place, a round of snoozed records
+included, which goes on with the others. `Z` takes the label out of the list again, brings back the
+record `X` was pressed on and reads the queue again after it, once a round has ended. Hidden `Not On Label` also covers the self-releases, such as
 `Not On Label (Artist Self-released)`, which have ids of their own (decision 134).
 
 `F` opens a picker with the labels and artists of the record on screen, the artists of its tracks

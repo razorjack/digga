@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
-  import { type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
+  import { type Config, type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, nounFor } from "../../shared/display.ts";
   import { sellerCopies } from "../../shared/listings.ts";
@@ -32,6 +32,7 @@
   import ShopCopies from "../triage/ShopCopies.svelte";
   import { loadStatus } from "../load-status.svelte.ts";
   import { SessionCheckpoint } from "../triage/checkpoint.svelte.ts";
+  import { queueSettingsChange, type QueueSettingsChange } from "../triage/queue-settings.ts";
   import ResumeSession from "../triage/ResumeSession.svelte";
   import { type Round, TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
@@ -44,7 +45,7 @@
 
   const session = new TriageSession(api, { setLabelHidden });
 
-  /** Saves the queue filters with the label left out or let back in; the queue restarts. */
+  /** Saves the queue filters with the label left out or let back in. */
   async function setLabelHidden(label: HiddenLabel, hidden: boolean): Promise<void> {
     const config = settings.value;
     if (!config) throw new Error("the settings have not loaded");
@@ -80,22 +81,40 @@
   /** The queue starts from the settings, so without them there is nothing to dig. */
   const settingsFailed = $derived(settings.value === null && settings.error !== null);
 
-  // (Re)start the queue once settings are known and after every save: filters may have changed.
-  // The config is read untracked, so a color scheme change, which keeps the version, does not.
+  /** The config the queue last followed, which tells what a save changed. */
+  let followedConfig: Config | null = null;
+
+  // Start the queue once settings are known, and follow each save that changes it: a round or the
+  // session carries on through a save of the player's or the account's settings.
+  // The config is read untracked, so a color scheme change, which keeps the version, does nothing.
   $effect(() => {
     void settings.version;
     if (!settingsLoaded) return;
     untrack(() => {
       const config = settings.value;
       if (!config) return;
+      const before = followedConfig;
+      followedConfig = $state.snapshot(config) as Config;
+      if (before && before.player.startAtFraction !== config.player.startAtFraction)
+        player.moveStartPoint();
       // A resume saves the session's settings and reloads the queue itself.
       if (checkpoint.restoring) return;
-      const generation = ++restartGeneration;
-      void session.start(config.queue.limit).then(() => {
-        if (generation === restartGeneration) void checkpoint.open();
-      });
+      followQueueSettings(before ? queueSettingsChange(before, config) : { kind: "restart" }, config);
     });
   });
+
+  function followQueueSettings(change: QueueSettingsChange, config: Config): void {
+    if (change.kind === "none") return;
+    if (change.kind === "labels") {
+      for (const label of change.hidden) session.leaveOutLabel(label);
+      if (change.shown.length > 0) void session.readAgain();
+      return;
+    }
+    const generation = ++restartGeneration;
+    void session.start(config.queue.limit).then(() => {
+      if (generation === restartGeneration) void checkpoint.open();
+    });
+  }
 
   // While a load adds records, the end of the queue asks again every 10 seconds, and once more
   // when the load ends, which brings the coverage releases last.

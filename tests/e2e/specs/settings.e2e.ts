@@ -66,7 +66,7 @@ test(
     expect((await app.api.get<Config>("/api/settings")).queue.limit).toBe(50);
     await settings.seekStep.fill("15");
     await expect(settings.seekStep).toBeFocused();
-    await settings.saveWithShortcut();
+    await settings.saveWithShortcut("stays");
     expect((await app.api.get<Config>("/api/settings")).player.seekStepSeconds).toBe(15);
 
     // A change stays unsaved while another tab shows, and saves from there.
@@ -156,7 +156,7 @@ test(
     await expect(settings.hiddenLabels).toHaveValue("");
 
     await settings.change(settings.hiddenLabels, `  ${first}\n\n${third}  \n`);
-    await settings.save();
+    await settings.save("stays");
 
     await expect(settings.hiddenLabels).toHaveValue(`${first}\n${third}`);
     expect((await app.api.get<Config>("/api/settings")).filters.excludeLabels).toEqual([
@@ -173,7 +173,7 @@ test(
       `${first}\n${third}\n${SECOND_RECORD.label.name}`,
     );
     await settings.change(settings.hiddenLabels, `${first}\n${SECOND_RECORD.label.name}`);
-    await settings.save();
+    await settings.save("stays");
 
     expect((await app.api.get<Config>("/api/settings")).filters.excludeLabels).toEqual([
       { id: null, name: first },
@@ -270,7 +270,7 @@ test.describe("with the clock", () => {
       for (let step = 0; step < 5; step += 1) await app.page.keyboard.press("ArrowLeft");
       await expect(settings.startAt).toHaveAttribute("aria-valuetext", "25% into each track");
       await settings.seekStep.fill("20");
-      await settings.save();
+      await settings.save("stays");
       await new HeaderPage(app).goTo("triage");
 
       await expect

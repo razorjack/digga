@@ -174,7 +174,7 @@ export function hiddenLabelsFromNames(names: string[], hidden: HiddenLabel[]): H
 }
 
 /** The same label: by Discogs id when both have one, otherwise by name, ignoring case. */
-function isSameLabel(left: HiddenLabel, right: HiddenLabel): boolean {
+export function isSameLabel(left: HiddenLabel, right: HiddenLabel): boolean {
   if (left.id !== null && right.id !== null) return left.id === right.id;
   return isSameName(left.name, right.name);
 }

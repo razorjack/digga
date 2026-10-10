@@ -8,6 +8,12 @@ import { isRequest, waitForResponses } from "./triage.ts";
 /** What the save bar says once a save and the queue's reload have answered. */
 export const SAVED_COPY = "Saved. The queue has reloaded.";
 
+/** What the save bar says once a save that leaves the queue as it was has answered. */
+export const SAVED_KEEPING_QUEUE_COPY = "Saved.";
+
+/** Whether a save changes what the queue digs, so the hidden Triage page reloads it. */
+export type QueueAfterSave = "reloads" | "stays";
+
 /** The Appearance radios' labels; the component holds them, not a module the tests can import. */
 const COLOR_SCHEME_LABEL: Record<ColorScheme, string> = {
   system: "System",
@@ -242,14 +248,17 @@ export class SettingsPage {
     await expect(this.tabs).toBeVisible();
   }
 
-  /** Clicks Save; returns once the save and the queue's reload have answered and the bar says so. */
-  async save(): Promise<void> {
-    await this.#saveBy(() => this.saveButton.click());
+  /**
+   * Clicks Save; returns once the save has answered and the bar says so, and for a change to what
+   * the queue digs, once the queue's reload has answered.
+   */
+  async save(queue: QueueAfterSave = "reloads"): Promise<void> {
+    await this.#saveBy(() => this.saveButton.click(), queue);
   }
 
   /** The same with Cmd+S or Ctrl+S, wherever the focus is. */
-  async saveWithShortcut(): Promise<void> {
-    await this.#saveBy(() => this.app.page.keyboard.press("ControlOrMeta+s"));
+  async saveWithShortcut(queue: QueueAfterSave = "reloads"): Promise<void> {
+    await this.#saveBy(() => this.app.page.keyboard.press("ControlOrMeta+s"), queue);
   }
 
   /**
@@ -367,7 +376,8 @@ export class SettingsPage {
   }
 
   /** The save is a PUT; the hidden Triage page then reloads its queue, after which the bar says so. */
-  async #saveBy(action: () => Promise<void>): Promise<void> {
+  async #saveBy(action: () => Promise<void>, queueAfter: QueueAfterSave): Promise<void> {
+    if (queueAfter === "stays") return this.#saveKeepingQueue(action);
     const { first: settings, next: queue } = waitForResponses(
       this.app.page,
       (response) => isRequest(response, "PUT", "/api/settings"),
@@ -376,7 +386,21 @@ export class SettingsPage {
     await action();
     await this.#completed(await settings);
     await this.#completed(await queue);
-    await expect(this.root.getByText(SAVED_COPY, { exact: true })).toBeVisible();
+    await this.#expectSaveBarToSay(SAVED_COPY);
+  }
+
+  async #saveKeepingQueue(action: () => Promise<void>): Promise<void> {
+    const saved = this.#response("PUT", "/api/settings");
+    await action();
+    await this.#completed(await saved);
+    await this.#expectSaveBarToSay(SAVED_KEEPING_QUEUE_COPY);
+  }
+
+  /** The hidden Triage page stays in the main element, and its last action can say "Saved." too. */
+  async #expectSaveBarToSay(copy: string): Promise<void> {
+    await expect(
+      this.root.getByText(copy, { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
   }
 
   #response(method: string, path: string): Promise<Response> {

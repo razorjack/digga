@@ -49,8 +49,8 @@ database and 5 min for requests that wait on a Discogs call. The exported `api` 
   one preloading the track `J` moves to), picks tracks with `src/shared/playlist.ts`, and logs
   listens.
 - `src/client/stores.svelte.ts` holds app-wide state: stats for the counter, settings (with a
-  version that restarts the queue on save), the help overlay flag, and
-  the snoozed records Twelves hands to Triage for a round.
+  version that Triage follows on save, restarting the queue only when the save changes it), the
+  help overlay flag, and the snoozed records Twelves hands to Triage for a round.
 - Pages: `Triage.svelte` (always mounted, hidden when another page is shown), `Twelves.svelte`,
   `Settings.svelte`, `Setup.svelte`. The keymap and its help text are in `keymap.ts`.
 - `src/client/load-status.svelte.ts` follows the running dump job for the header's indicator,

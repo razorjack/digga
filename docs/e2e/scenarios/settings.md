@@ -9,7 +9,8 @@ Priority: **P1**.
 
 The form shows the saved config, and the save bar no buttons; a change reads "Unsaved changes."
 and marks its tab ("Unsaved changes" as the link's description); Revert restores; Save and
-`ControlOrMeta+S` save ("Saved. The queue has reloaded."); a change stays unsaved on another tab
+`ControlOrMeta+S` save ("Saved. The queue has reloaded." for a change to what the queue digs,
+"Saved." for one that keeps it); a change stays unsaved on another tab
 and saves from there; a reload keeps it
 
 ## SET-02
@@ -60,7 +61,8 @@ different seeds, UTC midnight passed between them, and the test compares the nex
 Priority: **P1**.
 
 Player: the start-at slider (`aria-valuetext`) and the seek step reach the player (fake
-`startSeconds`, seek distance)
+`startSeconds`, seek distance) without a queue reload: the record waiting on the hidden Triage page
+cues again at the new start
 
 ## SET-08
 
@@ -229,7 +231,9 @@ clock, which a test cannot move, and a relaunch starts without the failure in an
 
 - Settings' actions end the same way (`pages/settings.ts`). Save, by button or `ControlOrMeta+S`,
   ends once `PUT /api/settings` and the `POST /api/queue` the hidden Triage page sends after it have
-  answered and the bar reads "Saved. The queue has reloaded."; a token save once
+  answered and the bar reads "Saved. The queue has reloaded."; `save("stays")`, for a change that
+  leaves the queue as it was (the player, the account, hidden labels), once the `PUT` has answered
+  and the bar reads "Saved."; a token save once
   `PUT /api/discogs/token` has answered and the button reads "Save token" again, by when the
   status line reads the outcome; a job once its row's status cell reads the state the test waits
   for; Cancel once the cancel and the `GET /api/jobs` after it have answered; Delete once

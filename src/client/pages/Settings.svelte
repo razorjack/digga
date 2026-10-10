@@ -22,6 +22,7 @@
     unsavedTabs,
   } from "../settings/tabs.ts";
   import UnsavedDialog from "../settings/UnsavedDialog.svelte";
+  import { queueSettingsChange } from "../triage/queue-settings.ts";
   import "../settings/settings.css";
 
   const id = $props.id();
@@ -106,13 +107,14 @@
   async function save(): Promise<boolean> {
     if (!draft || !validation?.ok || saving) return false;
     saving = true;
-    const username = saved?.discogs.username;
+    const before = $state.snapshot(saved);
     try {
       await settings.save(validation.config);
       draft = $state.snapshot(settings.value!);
-      showFlash("Saved. The queue has reloaded.");
+      const restarted = before !== null && queueSettingsChange(before, draft).kind === "restart";
+      showFlash(restarted ? "Saved. The queue has reloaded." : "Saved.");
       void stats.refresh();
-      if (settings.value?.discogs.username !== username) void discogs.loadAccount();
+      if (draft.discogs.username !== before?.discogs.username) void discogs.loadAccount();
       return true;
     } catch (error) {
       showFlash(`Not saved: ${errorMessage(error)}`);

@@ -162,7 +162,7 @@ test.describe("with a Discogs account", () => {
       await expect(settings.listsButton).toBeEnabled();
 
       await settings.maybeList.selectOption({ label: `${MAYBE_LIST.name} (private)` });
-      await settings.save();
+      await settings.save("stays");
       expect((await app.api.get<Config>("/api/settings")).discogs.maybeListId).toBe(MAYBE_LIST.id);
       await header.goTo("triage");
       await expect(new TriagePage(app).verdictButton("maybe")).toBeVisible();
@@ -245,7 +245,7 @@ test.describe("with a Discogs account", () => {
       await expect(settings.listsButton).toHaveText("Reload lists");
       await settings.maybeList.selectOption({ label: `${MAYBE_LIST.name} (private)` });
       await expect(maybeList).toBeDisabled();
-      await settings.save();
+      await settings.save("stays");
       await expect(maybeList).toBeEnabled();
 
       await expect(readShop).toBeDisabled();
@@ -355,7 +355,7 @@ test.describe("with a token", () => {
       await expect(settings.currency).toHaveValue("EUR");
 
       await settings.currency.selectOption("GBP");
-      await settings.save();
+      await settings.save("stays");
       await new HeaderPage(app).goTo("triage");
       const releaseId = await triage.record.getAttribute("data-release-id");
       await triage.askMarket();

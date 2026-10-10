@@ -4,7 +4,7 @@ import {
   type ReleaseDetail,
   type TrackVerdictInput,
 } from "../../shared/api.ts";
-import type { HiddenLabel } from "../../shared/config.ts";
+import { type HiddenLabel, isSameLabel } from "../../shared/config.ts";
 import type { SessionResolution, SessionState } from "../../shared/digging-session.ts";
 import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
 import type { QueueScope } from "../../shared/scope.ts";
@@ -32,7 +32,13 @@ type VerdictEntry = {
 };
 
 /** X hid the label of the record on screen; undo lets it back into the queue. */
-type LabelEntry = { kind: "label"; item: QueueItem; label: HiddenLabel };
+type LabelEntry = {
+  kind: "label";
+  item: QueueItem;
+  label: HiddenLabel;
+  /** The round's other records on the label, which no queue read brings back. */
+  roundRecords: QueueItem[];
+};
 
 type HistoryEntry = VerdictEntry | { kind: "pass"; item: QueueItem } | LabelEntry;
 
@@ -87,7 +93,7 @@ const ROUND_FINISHED: Record<Round["kind"], string> = {
 export interface SessionOptions {
   /** The waits before each new try of a failed push; PUSH_RETRY_DELAYS_MS unless a test sets them. */
   pushRetryDelaysMs?: number[];
-  /** Leaves a label out of the queue filters, or lets it back in; saving restarts the queue. */
+  /** Leaves a label out of the queue filters, or lets it back in. */
   setLabelHidden?: (label: HiddenLabel, hidden: boolean) => Promise<void>;
 }
 
@@ -151,6 +157,8 @@ export class TriageSession {
   /** The queue as it was when a round started. */
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
+  /** readAgain() came during a round; the queue is read again once the round ends. */
+  #readAfterRound = false;
   /** Verdicts of the records taken into rounds, by triage key. */
   #roundVerdicts = new Map<string, Verdict | null>();
   /** The original wanted pressings, so undo restores the same releases. */
@@ -191,6 +199,7 @@ export class TriageSession {
     this.exhausted = false;
     this.round = null;
     this.#queueBeforeRound = null;
+    this.#readAfterRound = false;
     try {
       await this.#refill();
       if (generation !== this.#generation) return;
@@ -269,10 +278,12 @@ export class TriageSession {
   }
 
   /**
-   * The page is shown again, and Twelves may have sent records back to the queue meanwhile. The
-   * record on screen stays; the records after it follow the queue's order again.
+   * The page is shown again, and Twelves may have sent records back to the queue meanwhile, or a
+   * hidden label is back. The record on screen stays; the records after it follow the queue's
+   * order again. A round keeps its records, and the queue under it is read once it ends.
    */
   async readAgain(): Promise<void> {
+    if (this.round) this.#readAfterRound = true;
     if (this.status !== "ready" || this.round) return;
     const generation = this.#generation;
     const inFlight = this.#reading;
@@ -505,6 +516,9 @@ export class TriageSession {
     this.passed = saved.passed;
     this.exhausted = saved.exhausted;
     this.#afterMove();
+    if (!this.#readAfterRound) return;
+    this.#readAfterRound = false;
+    void this.readAgain();
   }
 
   /** At the end of the queue, starts again on the releases passed with N. */
@@ -525,14 +539,38 @@ export class TriageSession {
       return;
     }
     const label = { id: item.labelId, name: item.labelName };
+    // Triage leaves the label out as soon as the saved settings arrive, which can be before the
+    // save's promise settles here.
+    const roundRecords = this.round
+      ? this.upcoming.filter((other) => other !== item && isOnLabel(other, label))
+      : [];
     try {
       await this.#setLabelHidden(label, true);
     } catch (error) {
       this.#flash(`The label was not hidden: ${errorMessage(error)}`);
       return;
     }
-    this.history = [...this.history, { kind: "label", item, label }];
+    this.leaveOutLabel(label);
+    this.history = [...this.history, { kind: "label", item, label, roundRecords }];
     this.slip = { kind: "label", item, label: label.name, id: ++this.#slipSeq };
+  }
+
+  /**
+   * The label's records leave the buffers, a round's and the queue's, without a restart; the
+   * saved filters leave them out of later reads.
+   */
+  leaveOutLabel(label: HiddenLabel): void {
+    const kept = (item: QueueItem) => !isOnLabel(item, label);
+    this.upcoming = this.upcoming.filter(kept);
+    this.passed = this.passed.filter(kept);
+    const saved = this.#queueBeforeRound;
+    if (saved)
+      this.#queueBeforeRound = {
+        ...saved,
+        upcoming: saved.upcoming.filter(kept),
+        passed: saved.passed.filter(kept),
+      };
+    this.#afterMove();
   }
 
   undo(): void {
@@ -570,7 +608,11 @@ export class TriageSession {
     void this.#write(() => this.#saveUndo(entry, slipId).finally(answered));
   }
 
-  /** Lets a hidden label back into the queue; saving the filters restarts it. */
+  /**
+   * Lets a hidden label back into the queue. The record X was pressed on comes back first, as
+   * after any undo, and a round gets back its other records on the label; Triage reads the queue
+   * again for the label's others once the filters are saved.
+   */
   async #showLabel(entry: LabelEntry): Promise<void> {
     this.history = this.history.filter((later) => later !== entry);
     try {
@@ -580,6 +622,9 @@ export class TriageSession {
       this.#flash(`${entry.label.name} is still hidden: ${errorMessage(error)}`);
       return;
     }
+    if (this.round) this.upcoming = [...entry.roundRecords, ...this.upcoming];
+    this.#returnToQueue(entry.item);
+    this.#afterMove();
     this.slip = { kind: "undo", item: entry.item, undone: "label", id: ++this.#slipSeq };
   }
 
@@ -1102,6 +1147,10 @@ export class TriageSession {
       this.flash = null;
     }, 6000);
   }
+}
+
+function isOnLabel(item: QueueItem, label: HiddenLabel): boolean {
+  return isSameLabel({ id: item.labelId, name: item.labelName ?? "" }, label);
 }
 
 function idsOf(items: QueueItem[]): number[] {

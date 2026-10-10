@@ -453,9 +453,13 @@ export class TriagePage {
     return response.request().postDataJSON() as TrackVerdictInput;
   }
 
-  /** X: once the filters are saved and the queue has reloaded without the label. */
+  /** X: once the filters are saved and the label's records have left the queue on the page. */
   async hideLabel(): Promise<void> {
-    await this.#pressAndReload("x");
+    await expect(this.record).toBeVisible();
+    const saved = this.#response("PUT", "/api/settings");
+    await this.app.page.keyboard.press("x");
+    await (await saved).finished();
+    await expect(this.lastAction).toContainText("label hidden");
   }
 
   /** Z on a verdict: once the server has forgotten it and the page has acted. */
@@ -477,9 +481,18 @@ export class TriagePage {
     await expect(this.record).toHaveAttribute("data-triage-key", key);
   }
 
-  /** Z on a hidden label: once the filters are saved and the queue has reloaded with it. */
+  /** Z on a hidden label: once the filters are saved and the queue has been read again with it. */
   async undoLabel(): Promise<void> {
     await this.#pressAndReload("z");
+  }
+
+  /** Z on a label hidden during a round: once the filters are saved; the queue waits for the round. */
+  async undoLabelInRound(): Promise<void> {
+    await expect(this.banner).toBeVisible();
+    const saved = this.#response("PUT", "/api/settings");
+    await this.app.page.keyboard.press("z");
+    await (await saved).finished();
+    await expect(this.lastAction).toContainText("Its label is back in the queue.");
   }
 
   async #pressSpace(from: PlayerStatus, to: PlayerStatus): Promise<void> {
