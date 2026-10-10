@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { getMeta } from "../src/server/db/db.ts";
+import { getMeta, openDb } from "../src/server/db/db.ts";
 import { remapTuneKeys, rekeyTunes } from "../src/server/db/tune-keys.ts";
 import { logListen, setTrackVerdict } from "../src/server/db/verdicts.ts";
 import { fixtureDb, tuneAt } from "./helpers.ts";
@@ -70,6 +70,20 @@ describe("tune keys", () => {
     remapTuneKeys(db);
 
     expect(heardKeys(db)).toEqual(["m:900 A"]);
+    db.close();
+  });
+
+  it("finds a tune's first listen through the heard_key index", () => {
+    const db = openDb(":memory:");
+    const plan = db
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT f.release_id FROM listen_log f
+         WHERE f.heard_key = ? AND f.heard IS NOT 0 ORDER BY f.at, f.id LIMIT 1`,
+      )
+      .all("m:900 A") as { detail: string }[];
+    expect(plan.map((step) => step.detail).join("\n")).toContain(
+      "USING INDEX listen_log_heard_key",
+    );
     db.close();
   });
 });
