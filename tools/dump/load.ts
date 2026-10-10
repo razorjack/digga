@@ -79,9 +79,14 @@ function inLoadYears(release: DumpRelease, loadYears: [number, number] | null): 
   return year === null || (year >= loadYears[0] && year <= loadYears[1]);
 }
 
-/** discogs_20250901_releases.xml.gz -> 2025-09-01 */
+/**
+ * discogs_20250901_releases.xml.gz -> 2025-09-01. A renamed file without Discogs' pattern falls
+ * back to its first eight digits.
+ */
 export function dumpDateFromFilename(file: string): string | null {
-  const match = /(\d{4})(\d{2})(\d{2})/.exec(path.basename(file));
+  const name = path.basename(file);
+  const match =
+    /discogs_(\d{4})(\d{2})(\d{2})_releases/.exec(name) ?? /(\d{4})(\d{2})(\d{2})/.exec(name);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
 }
 

@@ -242,6 +242,10 @@ describe("loadDump", () => {
   it("parses the dump date from the file name", () => {
     expect(dumpDateFromFilename("/x/discogs_20250901_releases.xml.gz")).toBe("2025-09-01");
     expect(dumpDateFromFilename("releases-sample.xml.gz")).toBeNull();
+    expect(dumpDateFromFilename("backup_20240101_discogs_20250901_releases.xml.gz")).toBe(
+      "2025-09-01",
+    );
+    expect(dumpDateFromFilename("releases 20250901.xml.gz")).toBe("2025-09-01");
     expect(fs.existsSync(FIXTURE_GZ)).toBe(true);
   });
 });
