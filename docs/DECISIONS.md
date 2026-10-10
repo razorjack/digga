@@ -1352,3 +1352,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      2026-10-10 a `404` is followed by a read of the user's profile: a missing want still counts as
      removed, a missing user fails with "Discogs has no user named …: check the Discogs username in
      Settings".
+183. **A settings file with a mistake leads to the file.** A hand-edited `digga.config.json` that
+     was not JSON or broke the schema made the desktop app show the error and quit, with no way
+     forward. Since 2026-10-10 `loadConfig()` throws `InvalidConfigError`, which names the file,
+     and the app's dialog offers "Open the Library Folder", which shows the file in Finder, and
+     Quit. The app does not start with the defaults instead: the file holds the Discogs username.

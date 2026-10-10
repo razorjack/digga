@@ -1,8 +1,17 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme, safeStorage, session } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  nativeTheme,
+  safeStorage,
+  session,
+  shell,
+} from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readLaunchEnvironment, testHostHoldRequested } from "../src/cli/environment.ts";
-import { loadConfig } from "../src/server/config-file.ts";
+import { InvalidConfigError, loadConfig } from "../src/server/config-file.ts";
 import { LibraryInUseError } from "../src/server/library-lock.ts";
 import {
   consoleSink,
@@ -197,10 +206,29 @@ function showKeys(): void {
 }
 
 async function showStartupError(error: unknown): Promise<void> {
+  if (error instanceof InvalidConfigError) return showConfigError(error);
   const detail = error instanceof Error ? error.message : String(error);
   const message =
     error instanceof LibraryInUseError
       ? "Another Digga is using the library."
       : "Digga could not start.";
   await dialog.showMessageBox({ type: "error", message, detail });
+}
+
+/**
+ * Starting with the defaults would drop the Discogs username the file holds, so the dialog
+ * leads to the file instead.
+ */
+async function showConfigError(error: InvalidConfigError): Promise<void> {
+  const { response } = await dialog.showMessageBox({
+    type: "error",
+    message: "Digga's settings file has a mistake.",
+    detail:
+      `${error.message}\n\nCorrect the file, or remove it to start with the default settings ` +
+      "and no Discogs username, then open Digga again.",
+    buttons: ["Open the Library Folder", "Quit"],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0) shell.showItemInFolder(error.file);
 }

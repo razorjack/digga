@@ -14,16 +14,35 @@ export function loadConfig(file: string): Config {
   return parseFile(file);
 }
 
+/** digga.config.json is not JSON or breaks the schema, as after a hand edit. */
+export class InvalidConfigError extends Error {
+  readonly file: string;
+
+  constructor(file: string, problems: string) {
+    super(`Invalid config ${file}: ${problems}`);
+    this.name = "InvalidConfigError";
+    this.file = file;
+  }
+}
+
 function parseFile(file: string): Config {
-  const raw: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
-  const result = ConfigSchema.safeParse(raw);
+  const result = ConfigSchema.safeParse(readJson(file));
   if (!result.success) {
     const problems = result.error.issues
       .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
       .join("; ");
-    throw new Error(`Invalid config ${file}: ${problems}`);
+    throw new InvalidConfigError(file, problems);
   }
   return result.data;
+}
+
+function readJson(file: string): unknown {
+  const text = fs.readFileSync(file, "utf8");
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new InvalidConfigError(file, (error as SyntaxError).message);
+  }
 }
 
 export function saveConfig(file: string, config: Config): void {

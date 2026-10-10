@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { loadConfig } from "../src/server/config-file.ts";
+import { InvalidConfigError, loadConfig } from "../src/server/config-file.ts";
 import { resolvePaths } from "../src/server/paths.ts";
 import { ConfigSchema, DEFAULT_CONFIG, validateConfig } from "../src/shared/config.ts";
 
@@ -124,6 +124,17 @@ describe("digga.config.example.json", () => {
     const parsed = ConfigSchema.parse(JSON.parse(fs.readFileSync(EXAMPLE, "utf8")));
     expect(parsed).toEqual(DEFAULT_CONFIG);
     expect(parsed.discogs.username).toBe("");
+  });
+
+  it("names the file of a config that is not JSON or breaks the schema", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "digga-config-"));
+    const file = path.join(dir, "digga.config.json");
+    for (const text of ['{ "discogs": ', '{ "queue": { "limit": 0 } }']) {
+      fs.writeFileSync(file, text);
+      expect(() => loadConfig(file)).toThrow(InvalidConfigError);
+      expect(() => loadConfig(file)).toThrow(`Invalid config ${file}: `);
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   it("shows the config a first run creates, which is then left alone", () => {

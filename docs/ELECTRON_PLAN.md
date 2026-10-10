@@ -41,7 +41,9 @@ it stops the server under the window still loading the app, whose `loadURL()` th
 the dialog used to keep the app from exiting until someone answered it (ELEC-14 tests it). When
 the library lock is held, the dialog says another Digga is using the library and names the holder from `digga.lock`, such as
 "the Digga server (process 4242, since ...)". Electron's single-instance lock is not used
-(decision 156).
+(decision 156). When `digga.config.json` is not JSON or breaks the schema, the dialog names the
+problem and offers "Open the Library Folder", which shows the file in Finder, and Quit (decision
+183).
 
 Quitting waits for `server.stop()` in `before-quit`: running jobs end cancelled with the error
 `QUIT_JOB_ERROR` ("Digga quit"), which a Cancel the user pressed does not record, so step 1 can say
