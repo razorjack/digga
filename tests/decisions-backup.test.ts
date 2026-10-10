@@ -7,6 +7,7 @@ import type { Db } from "../src/server/db/db.ts";
 import { recordMembership, recordMembershipOf } from "../src/server/db/memberships.ts";
 import { releaseNote, saveReleaseNote } from "../src/server/db/notes.ts";
 import { addUserVideo } from "../src/server/db/releases.ts";
+import { remapTuneKeys } from "../src/server/db/tune-keys.ts";
 import { readBackedUpData, restoreBackedUpData } from "../src/server/db/user-data.ts";
 import {
   deleteVerdict,
@@ -209,6 +210,45 @@ describe("the decisions backup", () => {
       videoId: null,
       atSeconds: null,
     });
+  });
+
+  it("keeps the heard tunes of a version 1 backup through the next dump load", async () => {
+    const file = path.join(dir, "decisions-2026-09-01.json");
+    const target = await fixtureDb();
+    const tune = {
+      heardKey: tuneAt(target, 1001, "A1").heardKey,
+      firstReleaseId: 1001,
+      secondsListened: 12,
+      firstHeardAt: "2026-08-30T20:00:00.000Z",
+      lastHeardAt: "2026-08-31T20:00:00.000Z",
+    };
+    const backup = {
+      app: "digga",
+      kind: "decisions",
+      version: 1,
+      backedUpAt: "2026-09-01T12:00:00.000Z",
+      verdicts: [],
+      trackMarks: [],
+      heardTunes: [tune],
+      attachedVideos: [],
+      noAudioVideos: [],
+    };
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(backup));
+
+    restoreBackedUpData(target, readDecisionsBackup(file), backup.backedUpAt);
+    remapTuneKeys(target);
+
+    expect(target.prepare("SELECT * FROM heard_tracks").all()).toEqual([
+      {
+        heard_key: tune.heardKey,
+        first_release_id: 1001,
+        seconds_listened: 12,
+        first_heard_at: tune.firstHeardAt,
+        last_heard_at: tune.firstHeardAt,
+      },
+    ]);
+    target.close();
   });
 
   it("writes a header, then one camelCase record per line in a fixed field order, gzipped", async () => {

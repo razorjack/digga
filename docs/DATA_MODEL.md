@@ -181,7 +181,9 @@ It has every play, also one shorter than the 4 s after which a tune turns heard;
 (`heard: false` in `POST /api/listen-log`) leaves `heard_tracks` alone. A play of 4 s or more is
 logged at 4 s and again with the rest when the listener leaves it, so one play can be two rows.
 An index on `heard_key` (migration 23) keeps rebuilding `heard_tracks` linear in the number of
-listens.
+listens. A heard tune restored from a backup before version 3, which held tunes without their
+listens, gets one listen standing in for it (no position, an empty `video_id`, its seconds, at its
+first hearing), so the rebuild keeps it.
 
 ## memberships
 

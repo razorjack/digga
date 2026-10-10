@@ -1373,3 +1373,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
 186. **A jump keeps a pause.** `1` to `9` started playback when the video was paused, unlike the
      arrows. Since 2026-10-10 a jump only seeks: a paused video stays paused at the new position,
      and a playing one plays on from there.
+187. **Heard tunes from older backups survive the next load.** Backups before version 3 held heard
+     tunes without listens, and `heard_tracks` is rebuilt from `listen_log` after every dump load,
+     so a restored tune was forgotten at the next one. Since 2026-10-10 a restored tune that no
+     heard listen accounts for gets one listen standing in for it, at its first hearing with its
+     seconds, and keeps reading heard.

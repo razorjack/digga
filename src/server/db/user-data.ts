@@ -433,13 +433,28 @@ function positionTune(db: Db, mark: { releaseId: number; position: string }): st
   return heardKey ?? `r:${mark.releaseId} ${mark.position}`;
 }
 
+/**
+ * Backups before version 3 held heard tunes without the listens behind them, and every dump load
+ * rebuilds heard_tracks from listen_log. A tune no heard listen accounts for gets one listen
+ * standing in for its time, without a position or video, so it stays heard.
+ */
 function addHeardTunes(db: Db, tunes: BackedUpData["heardTunes"]): void {
   const insert = db.prepare(
     `INSERT INTO heard_tracks (heard_key, first_release_id, seconds_listened, first_heard_at, last_heard_at)
      VALUES (@heardKey, @firstReleaseId, @secondsListened, @firstHeardAt, @lastHeardAt)
      ON CONFLICT(heard_key) DO NOTHING`,
   );
-  for (const tune of tunes) insert.run(tune);
+  const listened = db
+    .prepare("SELECT 1 FROM listen_log WHERE heard_key = ? AND heard IS NOT 0 LIMIT 1")
+    .pluck();
+  const standIn = db.prepare(
+    `INSERT INTO listen_log (release_id, position, video_id, seconds, at, heard, heard_key)
+     VALUES (@firstReleaseId, NULL, '', @secondsListened, @firstHeardAt, 1, @heardKey)`,
+  );
+  for (const tune of tunes) {
+    if (!listened.get(tune.heardKey)) standIn.run(tune);
+    insert.run(tune);
+  }
 }
 
 function addAttachedVideos(db: Db, videos: BackedUpData["attachedVideos"]): number {
