@@ -221,7 +221,7 @@ test.describe("a record with a run of tracks", () => {
       await app.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
       // A clicked button or link does not take the focus, so Enter and Space stay the page's;
-      // the slider takes it, and leaves every key to the page.
+      // the slider takes it, keeping its adjustment keys and leaving Space to the player.
       await triage.track(TRACK_RUN.tracks[1]!.position).getByRole("button").click();
       expect(await focused(app.page)).toBe("BODY");
       await expect(triage.currentTrack).toHaveAttribute(
@@ -241,6 +241,11 @@ test.describe("a record with a run of tracks", () => {
 
       await triage.position.click();
       await triage.pause();
+      const track = await triage.currentTrack.getAttribute("data-position");
+      const position = Number(await triage.position.inputValue());
+      await app.page.keyboard.press("ArrowRight");
+      await expect(triage.position).toHaveValue(String(position + 1));
+      await expect(triage.currentTrack).toHaveAttribute("data-position", track!);
     },
   );
 });

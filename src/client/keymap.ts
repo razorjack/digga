@@ -227,9 +227,11 @@ export function isControlKey(event: KeyboardEvent): boolean {
   const control = event.target.closest("input, button, a[href], summary");
   if (!control) return false;
   if (control instanceof HTMLInputElement) {
-    if (["radio", "range"].includes(control.type) && event.key.startsWith("Arrow")) return true;
-    if (control.type === "range" && ["Home", "End", "PageUp", "PageDown"].includes(event.key))
-      return true;
+    if (control.type === "range")
+      return (
+        event.key.startsWith("Arrow") || ["Home", "End", "PageUp", "PageDown"].includes(event.key)
+      );
+    if (control.type === "radio" && event.key.startsWith("Arrow")) return true;
     return event.key === " " || event.key === "Enter";
   }
   if (control.tagName === "A") return event.key === "Enter";

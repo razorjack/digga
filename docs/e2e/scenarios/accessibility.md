@@ -28,7 +28,8 @@ The player hosts are `inert`, and Tab never reaches the fake player's focusable 
 Tab presses on Triage, playing the Groundwork record, never makes a player's frame the active
 element. No focusable element keeps the page keys after a click: a track's button, a header link
 and the verdict bar's N leave nothing focused, and K, T and N then do what they do; the position
-slider takes the focus and leaves Space to the page
+slider takes the focus and leaves Space to the page. Its ArrowRight advances the position by one
+second without changing tracks.
 
 ## A11Y-03
 
