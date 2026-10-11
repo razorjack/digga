@@ -138,8 +138,8 @@ export class TriageSession {
   /** Market data fetched this session, by release id, for records that moved on before it came. */
   #marketData = new Map<number, ReleaseSnapshot>();
   readonly #loading = new Map<number, symbol>();
-  /** The latest note write by triage key; an older write's answer must not change the note. */
-  #noteVersions = new Map<string, number>();
+  /** Last persisted note and the version currently shown for each record. */
+  #noteWrites = new Map<string, { saved: string | null; version: number }>();
   #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
   /** The queue read in flight, a refill or a read after the page is shown again. */
   #reading: Promise<void> | null = null;
@@ -396,22 +396,24 @@ export class TriageSession {
   /** Saves a note without making or changing a judgement; an empty note removes it. */
   setNote(item: QueueItem, text: string): void {
     const key = item.triageKey;
-    const previous = this.noteFor(item);
+    const write = this.#noteWrites.get(key) ?? { saved: this.noteFor(item), version: 0 };
     const note = text.trim() === "" ? null : text.trim();
-    const version = (this.#noteVersions.get(key) ?? 0) + 1;
-    this.#noteVersions.set(key, version);
+    const version = ++write.version;
+    this.#noteWrites.set(key, write);
     this.notes = new Map(this.notes).set(key, note);
     this.noteStatus = "Saving note…";
 
-    const isLatest = () => !this.#destroyed && this.#noteVersions.get(key) === version;
+    const isLatest = () =>
+      !this.#destroyed && this.#noteWrites.get(key) === write && write.version === version;
     void this.#write(async () => {
       try {
         await this.#api.putReleaseNote(item.id, note);
+        write.saved = note;
         if (!isLatest()) return;
         this.noteStatus = "Note saved.";
       } catch (error) {
         if (!isLatest()) return;
-        this.notes = new Map(this.notes).set(key, previous);
+        this.notes = new Map(this.notes).set(key, write.saved);
         this.noteStatus = `Note not saved: ${errorMessage(error)}`;
       }
     });
@@ -475,10 +477,7 @@ export class TriageSession {
       errors.delete(release.id);
       notes.delete(release.triageKey);
       this.#loading.delete(release.id);
-      this.#noteVersions.set(
-        release.triageKey,
-        (this.#noteVersions.get(release.triageKey) ?? 0) + 1,
-      );
+      this.#noteWrites.delete(release.triageKey);
     }
     this.details = details;
     this.detailErrors = errors;

@@ -1150,3 +1150,23 @@ it("does not replay earlier passes after restarting with a different queue", asy
   expect(session.passed).toEqual([]);
   session.destroy();
 });
+
+it.each([true, false])(
+  "rolls queued note failures back to persisted state (first fails: %s)",
+  async (firstFails) => {
+    const { session, http } = await started([1]);
+    const first = Promise.withResolvers<{ notes: string | null }>();
+    const save = vi
+      .spyOn(http, "putReleaseNote")
+      .mockReturnValueOnce(first.promise)
+      .mockRejectedValue(new Error("offline"));
+    session.setNote(session.current!, "first note");
+    session.setNote(session.current!, "second note");
+    await until(() => save.mock.calls.length === 1);
+    if (firstFails) first.reject(new Error("offline"));
+    else first.resolve({ notes: "first note" });
+    await until(() => session.noteStatus?.includes("offline") ?? false);
+    expect(session.noteFor(session.current!)).toBe(firstFails ? null : "first note");
+    session.destroy();
+  },
+);
