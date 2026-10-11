@@ -157,7 +157,8 @@
   <section>
     <header>
       <h2>Universe</h2>
-      <p>What the dump loader keeps. Changes apply to the next dump load.</p>
+      <p>What future dump loads add or refresh. Removing a style or narrowing these years does not
+        remove or hide records already loaded. Use Digging filters to narrow the queue.</p>
     </header>
     <div class="fields">
       <div class="field">

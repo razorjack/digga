@@ -79,6 +79,10 @@ pass (`universe.coverage`, decision 90): releases in other styles on the labels 
 of wanted or owned records (`queue/coverage.ts`) wait in `tools/dump/coverage.ts` until the end
 of the dump shows whether their label mostly releases the styles, at most 500 per label or artist.
 
+Loads are additive: changing Universe styles or load years changes future imports, but does not
+remove or hide previously loaded records. Query-time filters in Digging determine what is queued.
+Catalogue retention and listening filters are separate choices.
+
 The queue is a query (`src/server/queue/query.ts`), not a table. It groups releases by triage key
 (`m:{master_id}` or `r:{release_id}`, see `src/shared/triage-key.ts`), drops keys that already have a
 verdict, applies the query-time filters (`filters.*` in config: styles subset, year range, unknown
