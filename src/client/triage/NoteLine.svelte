@@ -6,6 +6,7 @@
     note,
     pressingNote,
     editing,
+    draft = $bindable(),
     onsave,
     oncancel,
   }: {
@@ -13,14 +14,14 @@
     /** A note written on another pressing, shown with its catalogue number when this one has none. */
     pressingNote: PressingNote | null;
     editing: boolean;
+    draft: string;
     onsave: (text: string) => void;
     oncancel: () => void;
   } = $props();
   const id = $props.id();
 
-  /** The input appears when E is pressed, so it takes focus, with the note, as it mounts. */
+  /** The input appears when E is pressed, so it takes focus as it mounts. */
   function startEditing(input: HTMLInputElement): void {
-    input.value = note ?? "";
     input.focus();
   }
 
@@ -34,12 +35,13 @@
   {#if editing}
     <input
       {@attach startEditing}
+      bind:value={draft}
       maxlength="4000"
       aria-label="Note on this record"
       aria-describedby="{id}-hint"
       placeholder="what you heard, where, when"
       {onkeydown}
-      onblur={oncancel}
+      onblur={() => onsave(draft)}
     />
     <span class="hint" id="{id}-hint"><Key label="Enter" size="sm" /> save note</span>
   {:else if note}

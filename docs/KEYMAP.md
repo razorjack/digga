@@ -35,7 +35,7 @@ from text fields.
 | `O`       | open the release on discogs.com                                      |
 | `P`       | ask Discogs for the price, copies for sale, have/want and videos     |
 | `S`       | open a YouTube search for artist + title                             |
-| `E`       | write a note on the record; Enter saves it without a verdict         |
+| `E`       | write a note; Enter or leaving the field saves, Esc cancels          |
 | `⌘V`      | attach a copied YouTube link to the release and play it              |
 | `Enter`   | retry when the settings, the queue or the release failed to load     |
 

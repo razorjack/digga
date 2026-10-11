@@ -423,7 +423,7 @@ export class TriagePage {
     await expect(this.noteField).toBeFocused();
   }
 
-  /** E, the text and Enter: the record shows the note, which its verdict will save. */
+  /** E, the text and Enter: the record shows its independently saved note. */
   async writeNote(text: string): Promise<void> {
     await this.openNote();
     await this.app.page.keyboard.type(text);

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
+  import type { QueueItem } from "../../shared/api.ts";
   import { type Config, type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, nounFor } from "../../shared/display.ts";
@@ -156,21 +157,48 @@
 
   /** E opened the note on the current record. */
   let editingNote = $state(false);
+  let noteDraft = $state("");
+  let noteItem = $state.raw<QueueItem | null>(null);
   const note = $derived(session.current ? session.noteFor(session.current) : null);
   /** The newest note written on another pressing of the record, shown when this one has none. */
   const pressingNote = $derived(session.currentDetail?.pressingNotes[0] ?? null);
 
-  // A verdict or N moves on; a half-written note stays with the record it was for. The key, not
-  // the item, decides: P replaces the item with fresh market data.
+  // P replaces the item with fresh market data without closing its note editor.
   const currentKey = $derived(session.current?.triageKey ?? null);
   $effect(() => {
     void currentKey;
-    editingNote = false;
+    cancelNote();
   });
 
+  function openNote(): void {
+    if (!session.current) return;
+    noteItem = session.current;
+    noteDraft = session.noteFor(noteItem) ?? "";
+    editingNote = true;
+  }
+
   function saveNote(text: string): void {
-    if (session.current) session.setNote(session.current, text);
+    if (noteItem && (session.noteFor(noteItem) ?? "") !== text.trim()) session.setNote(noteItem, text);
+    cancelNote();
+  }
+
+  function cancelNote(): void {
     editingNote = false;
+    noteItem = null;
+  }
+
+  function savePendingNote(): void {
+    if (editingNote) saveNote(noteDraft);
+  }
+
+  function pass(): void {
+    savePendingNote();
+    session.pass();
+  }
+
+  function hideLabel(): void {
+    savePendingNote();
+    void session.hideLabel();
   }
 
   /** F opened the picker of a label, artist or seller to dig. */
@@ -235,6 +263,7 @@
       session.showFlash("M needs your Discogs Maybe list: pick it in Settings, under Discogs.");
       return;
     }
+    savePendingNote();
     session.judge(status);
   }
 
@@ -278,12 +307,10 @@
     o: () => openReleaseLink("discogs"),
     s: () => openReleaseLink("youtube"),
     p: () => void session.price(),
-    n: () => session.pass(),
+    n: pass,
     z: () => session.undo(),
-    x: () => void session.hideLabel(),
-    e: () => {
-      if (session.current) editingNote = true;
-    },
+    x: hideLabel,
+    e: openNote,
     f: () => {
       pickingScope = true;
     },
@@ -503,7 +530,7 @@
             onprice={() => void session.price()}
           />
           {#if note || pressingNote || editingNote}
-            <NoteLine {note} {pressingNote} editing={editingNote} onsave={saveNote} oncancel={() => (editingNote = false)} />
+            <NoteLine {note} {pressingNote} bind:draft={noteDraft} editing={editingNote} onsave={saveNote} oncancel={cancelNote} />
           {/if}
         </div>
         {#if session.currentDetail}
@@ -548,8 +575,8 @@
     disabled={!session.current}
     {hasMaybeList}
     onjudge={judge}
-    onpass={() => session.pass()}
-    onhidelabel={() => void session.hideLabel()}
+    onpass={pass}
+    onhidelabel={hideLabel}
     onpickscope={() => (pickingScope = true)}
     onundo={() => session.undo()}
     onhelp={() => (ui.helpOpen = true)}

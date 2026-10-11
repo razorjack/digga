@@ -475,3 +475,11 @@ self-release first.
 In the round of snoozed records, `X` on the self-release hides its label: the round goes on under
 its banner with the records on other labels ("N of M left." counts them), with no queue reload.
 `Z` brings back the self-release and the round's other records on its label (decision 188)
+
+## TRI-50
+
+Priority: **P1**.
+
+Given: `small`. Type a note and click Snooze without pressing Enter. Undo returns to the same
+record with the note saved independently. Editing it and pressing Escape leaves the saved note
+unchanged after reload. Leaving the note field saves; explicit cancellation discards the edit.
