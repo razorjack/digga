@@ -7,9 +7,9 @@
   import {
     GLOBAL_KEYS,
     hasCommandModifier,
+    isControlKey,
     isInDialog,
     isSelectAll,
-    isTyping,
     shortcutKey,
     triageKeyGroups,
     TWELVES_KEY_GROUPS,
@@ -90,7 +90,7 @@
   });
 
   function onkeydown(event: KeyboardEvent): void {
-    if (event.defaultPrevented || isTyping(event)) return;
+    if (event.defaultPrevented || isControlKey(event)) return;
     // Select All belongs to text fields; elsewhere it would paint the whole page, as in a browser.
     if (isSelectAll(event)) {
       event.preventDefault();

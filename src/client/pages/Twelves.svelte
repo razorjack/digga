@@ -10,7 +10,7 @@
   import Stamp from "../components/Stamp.svelte";
   import {
     hasCommandModifier,
-    isTyping,
+    isControlKey,
     NOT_A_VIDEO_LINK,
     pastedLink,
     shortcutKey,
@@ -137,7 +137,7 @@
   };
 
   function onkeydown(event: KeyboardEvent): void {
-    if (ui.helpOpen || event.defaultPrevented || isTyping(event) || hasCommandModifier(event)) return;
+    if (ui.helpOpen || event.defaultPrevented || isControlKey(event) || hasCommandModifier(event)) return;
     const key = shortcutKey(event);
     if (key === null) return;
     if (event.repeat && !["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {

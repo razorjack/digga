@@ -15,7 +15,7 @@
   import Stamp from "../components/Stamp.svelte";
   import {
     hasCommandModifier,
-    isTyping,
+    isControlKey,
     NOT_A_VIDEO_LINK,
     pastedLink,
     shortcutKey,
@@ -350,7 +350,7 @@
       !active ||
       ui.helpOpen ||
       event.defaultPrevented ||
-      isTyping(event) ||
+      isControlKey(event) ||
       hasCommandModifier(event)
     )
       return;

@@ -239,3 +239,10 @@ Given: `small-account` with a saved token, an accepted main pressing and its sho
 Discogs wantlist. Reject and undo, both from the shelf and during replay. The fake receives a
 removal and restoration for the shop repress; the main pressing is never added. The API retains
 the accepted verdict and the actual wanted release ID.
+
+## TWL-29
+
+Priority: **P1**.
+
+Given: `small`. Focus the newest sort radio. Right selects label and Left selects newest again.
+The page's record and page navigation must yield to native controls' arrow keys.

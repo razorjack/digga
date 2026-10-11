@@ -220,6 +220,22 @@ export function isTyping(event: Event): boolean {
   return target.isContentEditable || ["TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
+/** Keys a focused native control needs for activation or changing its value. */
+export function isControlKey(event: KeyboardEvent): boolean {
+  if (isTyping(event)) return true;
+  if (!(event.target instanceof Element)) return false;
+  const control = event.target.closest("input, button, a[href], summary");
+  if (!control) return false;
+  if (control instanceof HTMLInputElement) {
+    if (["radio", "range"].includes(control.type) && event.key.startsWith("Arrow")) return true;
+    if (control.type === "range" && ["Home", "End", "PageUp", "PageDown"].includes(event.key))
+      return true;
+    return event.key === " " || event.key === "Enter";
+  }
+  if (control.tagName === "A") return event.key === "Enter";
+  return event.key === " " || event.key === "Enter";
+}
+
 /** A key pressed in an open dialog, which handles its own keys. */
 export function isInDialog(event: Event): boolean {
   return event.target instanceof Element && event.target.closest("dialog[open]") !== null;
