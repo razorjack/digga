@@ -128,12 +128,16 @@
     };
   });
 
+  let wasHidden = false;
+
   // Records, or a marked track to play from its saved moment, handed over by Twelves.
   $effect(() => {
     const request = ui.replay;
     if (!request) return;
     untrack(() => {
       ui.replay = null;
+      // The new round reads fresh details; another refresh would reset its saved playback.
+      wasHidden = false;
       if (request.playback) player.restorePlayback(request.playback);
       session.startRound(request.items);
       player.show(session.currentDetail, session.nextDetail, session.videosChange);
@@ -246,7 +250,6 @@
 
   // Shown again: Twelves may have sent records back to the queue. A page shown from the start
   // has only just read it.
-  let wasHidden = false;
   $effect(() => {
     if (!active) {
       wasHidden = true;
