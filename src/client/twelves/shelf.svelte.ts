@@ -172,7 +172,11 @@ export class TwelvesShelf {
     }
     const entry: WantlistChange =
       removed.length > 0 ? { releaseIds: removed, change: "removed" } : null;
-    if (error) return { entry, note: ` Still on your Discogs wantlist: ${error}.` };
+    if (error)
+      return {
+        entry,
+        note: ` Still on your Discogs wantlist: ${error}; the same key tries again.`,
+      };
     return { entry, note: entry ? " Taken off your Discogs wantlist." : "" };
   }
 
@@ -330,11 +334,46 @@ export class TwelvesShelf {
       }
       if (verdict.status === status) {
         if (notOnWantlist(item)) await this.addToWantlist([item]);
+        else if (!isWantlistVerdict(status) && item.membership.onWantlist)
+          await this.#retryWantlistRemoval(item, verdict);
         else this.showFlash(unchangedSentence(item, status));
         return;
       }
       await this.#writeVerdict(item, verdict, status);
     });
+  }
+
+  async #retryWantlistRemoval(item: TwelvesItem, verdict: Verdict): Promise<void> {
+    const releaseId = releaseIdOf(item);
+    if (releaseId === null) return;
+    const removal = await this.#removeWantedPressings(item, releaseId);
+    if (removal.entry) this.#rememberRetriedRemoval(verdict, removal.entry);
+    this.showFlash(`${nameOf(item)}.${removal.note} Z undoes it.`);
+    await this.load();
+    void stats.refresh();
+  }
+
+  #rememberRetriedRemoval(verdict: Verdict, removal: NonNullable<WantlistChange>): void {
+    const previous = this.undoStack.findLast(
+      (entry) =>
+        entry.kind === "verdict" &&
+        entry.saved.key === verdict.key &&
+        entry.saved.status === verdict.status &&
+        entry.saved.decidedAt === verdict.decidedAt,
+    );
+    if (previous?.kind === "verdict") {
+      const releaseIds = [
+        ...new Set([...(previous.wantlist?.releaseIds ?? []), ...removal.releaseIds]),
+      ];
+      this.undoStack = this.undoStack.map((entry) =>
+        entry === previous ? { ...previous, wantlist: { releaseIds, change: "removed" } } : entry,
+      );
+      return;
+    }
+    this.undoStack = [
+      ...this.undoStack,
+      { kind: "verdict", previous: verdict, saved: verdict, wantlist: removal },
+    ];
   }
 
   /** Attaches a YouTube link to the record's release; a record without audio goes back to the queue. */

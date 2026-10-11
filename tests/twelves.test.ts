@@ -421,3 +421,23 @@ describe("columnSort", () => {
     expect(columnSort("price", "label")).toBeUndefined();
   });
 });
+
+it("retries failed removals with the same verdict key and keeps undo intact", async () => {
+  const { shelf, http } = await setup();
+  shelf.rejudge(shelf.items[0]!, "accepted");
+  await shelf.changes;
+  http.removeFromWantlist.mockRejectedValueOnce(new Error("offline"));
+  shelf.rejudge(shelf.items[0]!, "rejected");
+  await shelf.changes;
+  expect(shelf.flash).toContain("the same key tries again");
+  expect(shelf.items[0]?.membership.onWantlist).toBe(true);
+  const historyLength = shelf.undoStack.length;
+  shelf.rejudge(shelf.items[0]!, "rejected");
+  await shelf.changes;
+  expect(http.removeFromWantlist).toHaveBeenCalledTimes(2);
+  expect(shelf.items[0]?.membership.onWantlist).toBe(false);
+  expect(shelf.undoStack).toHaveLength(historyLength);
+  await shelf.undo();
+  expect(shelf.items[0]?.verdict?.status).toBe("accepted");
+  expect(shelf.items[0]?.membership.onWantlist).toBe(true);
+});
