@@ -188,8 +188,8 @@ export class TriageSession {
 
   async start(batch: number, options: { seed?: number | null } = {}): Promise<void> {
     this.#seed = options.seed ?? null;
-    // Passes made before a round still belong to the queue.
-    if (this.#queueBeforeRound) this.passed = this.#queueBeforeRound.passed;
+    // A restart reads a new queue whose filters may exclude earlier passes.
+    this.passed = [];
     this.#batch = batch;
     const generation = ++this.#generation;
     this.#reading = null;

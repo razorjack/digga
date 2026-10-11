@@ -452,7 +452,8 @@ describe("triage session", () => {
     expect(session.passed.map((i) => i.id)).toEqual([1]);
     session.startRound([snoozed(9, "2026-01-02T03:04:05.000Z")]);
     await session.start(50);
-    expect(session.passed.map((i) => i.id)).toEqual([1]);
+    expect(session.passed).toEqual([]);
+    session.destroy();
   });
 });
 
@@ -1136,4 +1137,16 @@ describe("digging one label or artist", () => {
     session.destroy();
     stats.value = null;
   });
+});
+
+it("does not replay earlier passes after restarting with a different queue", async () => {
+  const queue = [1, 2];
+  const { session } = await started(queue);
+  session.pass();
+  queue.splice(0);
+  await session.start(50);
+  session.goRound();
+  expect(session.current).toBeNull();
+  expect(session.passed).toEqual([]);
+  session.destroy();
 });
