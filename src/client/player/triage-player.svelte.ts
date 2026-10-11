@@ -390,8 +390,31 @@ export class TriagePlayer {
       return;
     }
     const index = this.entries.findIndex((entry) => entry.video.videoId === playing);
-    this.current = index === -1 ? null : index;
+    if (index === -1) {
+      this.#replaceMissingVideo();
+      return;
+    }
+    this.current = index;
+    const deck = this.#activeDeck();
+    if (deck?.tag) deck.tag = { ...deck.tag, entry: index };
     this.#preloadTrack();
+  }
+
+  #replaceMissingVideo(): void {
+    this.#flushListen();
+    this.#activeDeck()?.park();
+    this.current = null;
+    this.time = 0;
+    this.duration = 0;
+    const first = firstEntry(this.entries, this.#playlistState());
+    if (first === null) {
+      this.status = "no_audio";
+      this.#preloadTrack();
+      return;
+    }
+    // A metadata refresh must not start sound the listener had paused.
+    if (this.status === "paused") this.#resumePaused = true;
+    this.playEntry(first);
   }
 
   #openRelease(detail: ReleaseDetail | null): void {

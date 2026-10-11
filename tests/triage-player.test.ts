@@ -320,3 +320,31 @@ describe("the track deck", () => {
     expect(roles).not.toContain(-1);
   });
 });
+
+describe("refreshing the playing release", () => {
+  it("parks removed audio when the refreshed playlist is empty", async () => {
+    const player = await setup();
+    const deck = fake.decks[player.active]!;
+    deck.emitState(PlayerState.PLAYING);
+    player.show(withVideos(1, []), null, "found");
+    expect(player.entry).toBeNull();
+    expect(player.status).toBe("no_audio");
+    expect(deck.videoId).toBeNull();
+    expect(deck.tag).toBeNull();
+    expect(player.time).toBe(0);
+  });
+
+  it.each([PlayerState.PLAYING, PlayerState.PAUSED])(
+    "replaces a removed video without losing playback intent (%s)",
+    async (state) => {
+      const player = await setup();
+      const deck = fake.decks[player.active]!;
+      deck.emitState(state);
+      player.show(withVideos(1, ["replacement"]), null, "found");
+      expect(player.entry?.video.videoId).toBe("replacement");
+      expect(deck.load).toHaveBeenLastCalledWith(
+        ...deckLoad("replacement", state === PlayerState.PAUSED ? "cue" : "play"),
+      );
+    },
+  );
+});
