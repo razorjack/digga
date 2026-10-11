@@ -128,7 +128,9 @@ release's key moves the verdict, and the videos of a no-audio record, to the new
 (`moveVerdictsToReleaseKeys()` in `src/server/db/verdict-keys.ts`). When the new key has a verdict,
 the higher rank stays, then the newer decision (`preferredVerdict()`), and the log keeps the
 others. A load's moves are worked out together before any is made, so verdicts
-whose releases swap masters swap keys instead of merging. `POST /api/verdicts` and `digga restore`
+whose releases swap masters swap keys instead of merging. A dump stages changed master identities
+in a temporary SQLite table and applies them with verdict moves after the complete scan, across all
+batches. Limited or interrupted loads retain existing identities until a complete retry. `POST /api/verdicts` and `digga restore`
 put a verdict with a `releaseId` on the key its release has now, whatever key the page or the
 backup had. A verdict without a `release_id`, such as a browser-history hit on a master, stays on
 its key, and stops applying if Discogs retires that master.

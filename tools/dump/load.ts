@@ -5,7 +5,7 @@ import { pipeline } from "node:stream";
 import { clearTimeout, setTimeout } from "node:timers";
 import zlib from "node:zlib";
 import type { Db } from "../../src/server/db/db.ts";
-import { writeReleases } from "../../src/server/db/releases.ts";
+import { DumpReleaseWriter } from "../../src/server/db/dump-releases.ts";
 import { markScopeNamesStale, rebuildScopeNames } from "../../src/server/db/scope-names.ts";
 import { remapTuneKeys } from "../../src/server/db/tune-keys.ts";
 import type { Logger } from "../../src/server/logger.ts";
@@ -165,6 +165,16 @@ export async function loadDump(
     kept: new KeptReleases(),
     census: hooks.census,
   };
+  try {
+    return await loadCatalogue(db, scan, hooks);
+  } finally {
+    scan.writer.close();
+    scan.input.stream.destroy();
+  }
+}
+
+async function loadCatalogue(db: Db, scan: Scan, hooks: DumpLoadHooks): Promise<DumpLoadResult> {
+  const { options } = scan;
   const report = (phase: DumpLoadProgress["phase"], log: boolean) =>
     reportProgress(progressOf(scan, phase), hooks, log);
   // What the progress reports is in the database, so the setup's counts agree with it.
@@ -188,6 +198,7 @@ export async function loadDump(
   if (!stoppedAtLimit)
     scan.counts.coverage = keepCoverage(scan.coverage, scan.writer, hooks.logger);
   scan.writer.flush();
+  if (!stoppedAtLimit) scan.writer.finish();
   // Listens and marks follow the keys of the tracks just written, as a record may have moved.
   if (scan.writer.upserted > 0) remapTuneKeys(db);
   if (!options.dryRun) rebuildScopeNames(db);
@@ -356,16 +367,14 @@ class BatchWriter {
   upserted = 0;
   /** Verdicts that followed a release to its new key. */
   verdictsMoved = 0;
-  #db: Db;
+  #releases: DumpReleaseWriter | null;
   #batch: DumpRelease[] = [];
   #batchSize: number;
-  #dryRun: boolean;
   #loadId: number | undefined;
 
   constructor(db: Db, options: Pick<DumpLoadOptions, "batchSize" | "dryRun" | "loadId">) {
-    this.#db = db;
+    this.#releases = options.dryRun ? null : new DumpReleaseWriter(db);
     this.#batchSize = options.batchSize ?? 500;
-    this.#dryRun = options.dryRun ?? false;
     this.#loadId = options.loadId;
   }
 
@@ -376,11 +385,19 @@ class BatchWriter {
 
   flush(): void {
     if (this.#batch.length === 0) return;
-    if (!this.#dryRun) {
+    if (this.#releases) {
       const writes = this.#batch.map(dumpReleaseToWrite);
-      this.verdictsMoved += writeReleases(this.#db, writes, { loadId: this.#loadId });
+      this.#releases.write(writes, this.#loadId ?? null);
       this.upserted += this.#batch.length;
     }
     this.#batch = [];
+  }
+
+  finish(): void {
+    this.verdictsMoved = this.#releases?.finish() ?? 0;
+  }
+
+  close(): void {
+    this.#releases?.close();
   }
 }

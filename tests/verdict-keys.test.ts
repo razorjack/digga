@@ -171,3 +171,72 @@ describe("verdicts when a dump load changes a release's key", () => {
     expect(getVerdict(db, "r:1001")).toBeNull();
   });
 });
+
+it.each([1, 2, 500])(
+  "keeps swapped verdicts across dump batches of %s releases",
+  async (batchSize) => {
+    const db = await library();
+    db.prepare("UPDATE releases SET master_id = 506, triage_key = 'm:506' WHERE id = 1001").run();
+    db.prepare("UPDATE releases SET master_id = 501, triage_key = 'm:501' WHERE id = 1006").run();
+    upsertVerdict(db, { key: "m:506", status: "accepted", source: "triage", releaseId: 1001 });
+    upsertVerdict(db, { key: "m:501", status: "no_audio", source: "triage", releaseId: 1006 });
+    db.prepare(
+      "INSERT INTO no_audio_videos (key, video_ids_json) VALUES ('m:501', '[\"x\"]')",
+    ).run();
+    await loadDump(db, { file: FIXTURE_GZ, styles: ["Drum n Bass"], loadYears: null, batchSize });
+    expect(getVerdict(db, "m:501")).toMatchObject({ status: "accepted", releaseId: 1001 });
+    expect(getVerdict(db, "m:506")).toMatchObject({ status: "no_audio", releaseId: 1006 });
+    expect(noAudioVideos(db)).toEqual([{ key: "m:506", video_ids_json: '["x"]' }]);
+  },
+);
+
+it("keeps old identities during a limited load and moves them on a complete retry", async () => {
+  const db = await library();
+  db.prepare("UPDATE releases SET master_id = 506, triage_key = 'm:506' WHERE id = 1001").run();
+  db.prepare("UPDATE releases SET master_id = 501, triage_key = 'm:501' WHERE id = 1006").run();
+  upsertVerdict(db, { key: "m:506", status: "accepted", source: "triage", releaseId: 1001 });
+  upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage", releaseId: 1006 });
+  await loadDump(db, {
+    file: FIXTURE_GZ,
+    styles: ["Drum n Bass"],
+    loadYears: null,
+    batchSize: 1,
+    limit: 1,
+  });
+  expect(getVerdict(db, "m:501")?.releaseId).toBe(1006);
+  expect(getVerdict(db, "m:506")?.releaseId).toBe(1001);
+  expect(db.prepare("SELECT triage_key FROM releases WHERE id = 1001").pluck().get()).toBe("m:506");
+  await reload(db);
+  expect(getVerdict(db, "m:501")?.releaseId).toBe(1001);
+  expect(getVerdict(db, "m:506")?.releaseId).toBe(1006);
+});
+
+it("discards staged identities after a failed scan and accepts a retry", async () => {
+  const db = await library();
+  db.prepare("UPDATE releases SET master_id = 506, triage_key = 'm:506' WHERE id = 1001").run();
+  db.prepare("UPDATE releases SET master_id = 501, triage_key = 'm:501' WHERE id = 1006").run();
+  upsertVerdict(db, { key: "m:506", status: "accepted", source: "triage", releaseId: 1001 });
+  upsertVerdict(db, { key: "m:501", status: "rejected", source: "triage", releaseId: 1006 });
+  await expect(
+    loadDump(
+      db,
+      {
+        file: FIXTURE_GZ,
+        styles: ["Drum n Bass"],
+        loadYears: null,
+        batchSize: 1,
+        progressEvery: 1,
+      },
+      {
+        onProgress: () => {
+          throw new Error("cancelled");
+        },
+      },
+    ),
+  ).rejects.toThrow("cancelled");
+  expect(getVerdict(db, "m:501")?.releaseId).toBe(1006);
+  expect(getVerdict(db, "m:506")?.releaseId).toBe(1001);
+  await reload(db);
+  expect(getVerdict(db, "m:501")?.releaseId).toBe(1001);
+  expect(getVerdict(db, "m:506")?.releaseId).toBe(1006);
+});
