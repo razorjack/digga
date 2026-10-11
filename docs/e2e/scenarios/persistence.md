@@ -113,3 +113,10 @@ shelf the mark. The test waits for the database copy the server's start writes b
 backup` (PER-02). `tests/restore-copy.test.ts` and `tests/cli.test.ts` cover the checks on the
 copy, the kept database, the stale `-wal` and the migration; this row checks a copy that the
 running server's library gave, restored by the CLI and opened by the next server
+
+## PER-13
+
+Priority: **P1**.
+
+Given: `small` with the clock. Checkpoint the session, hide the first record's label, and checkpoint
+again. Reload and resume. The label remains hidden in Settings and its record stays out of the queue.

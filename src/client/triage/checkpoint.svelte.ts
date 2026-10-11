@@ -45,7 +45,7 @@ export class SessionCheckpoint {
   /** open() has run: the page's first queue start offers the saved session, later ones do not. */
   #opened = false;
   #saving = false;
-  /** The state last saved, serialized, so an unchanged session is not saved again. */
+  /** The state and settings last saved, so an unchanged session is not saved again. */
   #lastState = "";
   /** The status line shows a failed save, which the next successful save clears. */
   #showingSaveError = false;
@@ -108,7 +108,7 @@ export class SessionCheckpoint {
     const identity = this.#identity;
     if (!identity || !this.#canSave()) return;
     const state = this.#session.checkpoint(this.#player.playbackPosition());
-    const serialized = JSON.stringify(state);
+    const serialized = JSON.stringify({ state, config: this.#settings.value });
     if (serialized === this.#lastState) return;
 
     const generation = this.#generation;

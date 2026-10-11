@@ -28,13 +28,14 @@ function checkpoint() {
     restorePlayback: vi.fn(),
     pauseForResume: vi.fn(),
   };
-  const settings = { value: DEFAULT_CONFIG, save: vi.fn() };
+  const settings = { value: structuredClone(DEFAULT_CONFIG), save: vi.fn() };
   return {
     checkpoint: new SessionCheckpoint(api, session, player, settings),
     putSession,
     getLatestSession,
     state,
     player,
+    settings,
   };
 }
 
@@ -77,4 +78,15 @@ it("offers the saved session on the first start only; a restart starts a new ses
   expect(test.getLatestSession).toHaveBeenCalledTimes(1);
   expect(test.player.sessionId).not.toBeNull();
   expect(test.player.sessionId).not.toBe(first);
+});
+
+it("checkpoints changed settings even when the cursor and playback stay still", async () => {
+  const test = checkpoint();
+  await test.checkpoint.open();
+  await test.checkpoint.save();
+  test.settings.value.filters.excludeLabels = [{ id: 77, name: "Hidden" }];
+  await test.checkpoint.save();
+  expect(test.putSession).toHaveBeenCalledTimes(2);
+  await test.checkpoint.save();
+  expect(test.putSession).toHaveBeenCalledTimes(2);
 });

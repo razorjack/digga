@@ -284,7 +284,8 @@ longer on the tracklist with the saved name, and the new tune takes a mark of it
 
 `digging_sessions` stores lightweight session checkpoints: current release, passes, scope, random
 queue seed, replay round and underlying queue, and upload/second. The creation context includes
-configuration, dump date, and schema version; later checkpoints update only the cursor and timestamp.
+configuration, dump date, and schema version; later checkpoints update the configuration, cursor
+and timestamp so resuming retains labels hidden and player settings changed during the session.
 These rows are included in portable backups, and restore keeps a newer checkpoint already present.
 A session this version cannot parse (its settings from an older or newer Digga) is left out of a
 restore and not offered for resuming; it never blocks restoring the decisions. Sessions are

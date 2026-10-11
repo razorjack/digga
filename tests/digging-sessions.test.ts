@@ -22,16 +22,14 @@ const checkpoint: SessionInput = {
   },
 };
 
-it("preserves session context, restores checkpoints, and ignores records decided since saving", async () => {
+it("updates session settings, restores checkpoints, and ignores records decided since saving", async () => {
   const db = await fixtureDb();
   saveSession(db, checkpoint, DEFAULT_CONFIG);
-  const original = latestSession(db)!;
-  saveSession(
-    db,
-    { ...checkpoint, state: { ...checkpoint.state, playback: null } },
-    { ...DEFAULT_CONFIG, player: { ...DEFAULT_CONFIG.player, startAtFraction: 0.1 } },
-  );
-  expect(latestSession(db)?.config).toEqual(original.config);
+  const config = structuredClone(DEFAULT_CONFIG);
+  config.player.startAtFraction = 0.1;
+  config.filters.excludeLabels = [{ id: 999999, name: "Hidden" }];
+  saveSession(db, { ...checkpoint, state: { ...checkpoint.state, playback: null } }, config);
+  expect(latestSession(db)?.config).toEqual(config);
   expect(latestSession(db)?.state.playback).toBeNull();
   const rebuilt = await fixtureDb();
   const backup = parseDecisionsBackup(

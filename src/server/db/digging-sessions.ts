@@ -19,11 +19,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const INSERT_SESSION = `INSERT INTO digging_sessions
     (id, started_at, updated_at, config_json, dump_date, schema_version, state_json)
   VALUES (@id, @started_at, @updated_at, @config_json, @dump_date, @schema_version, @state_json)
-  ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, state_json = excluded.state_json`;
+  ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, config_json = excluded.config_json,
+    state_json = excluded.state_json`;
 
 /**
- * Saves where the session is now. The settings, catalogue date and schema version are those the
- * session started with; later saves only move its state.
+ * Saves the current position and settings. The catalogue date and schema version retain the
+ * context in which the session started.
  */
 export function saveSession(db: Db, input: SessionInput, config: Config): void {
   const row: SessionRow = {
