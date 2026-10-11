@@ -283,8 +283,12 @@ export class TriageSession {
    * order again. A round keeps its records, and the queue under it is read once it ends.
    */
   async readAgain(): Promise<void> {
-    if (this.round) this.#readAfterRound = true;
-    if (this.status !== "ready" || this.round) return;
+    if (this.round) {
+      this.#readAfterRound = true;
+      await this.#refreshRound();
+      return;
+    }
+    if (this.status !== "ready") return;
     const generation = this.#generation;
     const inFlight = this.#reading;
     try {
@@ -295,6 +299,38 @@ export class TriageSession {
     } catch (error) {
       if (generation === this.#generation)
         this.#flash(`Could not read the queue again: ${errorMessage(error)}`);
+    }
+  }
+
+  async #refreshRound(): Promise<void> {
+    const round = this.round;
+    const generation = this.#generation;
+    const history = this.history;
+    try {
+      await this.#writes;
+      const response = await this.#api.getTwelves();
+      if (
+        this.#destroyed ||
+        generation !== this.#generation ||
+        round !== this.round ||
+        history !== this.history
+      )
+        return;
+      const saved = new Map(response.items.map((item) => [item.key, item]));
+      const records = this.upcoming.map((release) => {
+        const item = saved.get(release.triageKey);
+        return {
+          release,
+          verdict: item?.verdict ?? null,
+          wantlistReleaseIds: item?.membership.wantlistReleaseIds ?? [],
+        };
+      });
+      for (const record of records) this.#rememberRoundRecord(record);
+      this.#refreshRoundDetails(records);
+      this.#prefetch();
+    } catch (error) {
+      if (!this.#destroyed && generation === this.#generation)
+        this.#flash(`Could not refresh the replay: ${errorMessage(error)}`);
     }
   }
 
@@ -342,6 +378,7 @@ export class TriageSession {
         key: item.triageKey,
         status,
         releaseId: item.id,
+        expected: entry.previous ? expectedVerdict(entry.previous) : undefined,
       });
     } catch (error) {
       this.#settleSlip(slipId);
@@ -369,6 +406,7 @@ export class TriageSession {
     if (!this.history.includes(entry)) return;
     this.history = this.history.filter((item) => item !== entry);
     this.#returnToQueue(entry.item);
+    if (isConflict(error)) this.retryDetail(entry.item.id);
     stats.session -= 1;
     this.slip = null;
   }
@@ -778,7 +816,7 @@ export class TriageSession {
     const errors = new Map(this.detailErrors);
     errors.delete(id);
     this.detailErrors = errors;
-    void this.#loadDetail(id);
+    void this.#loadDetail(id, { refreshVerdict: true });
   }
 
   showFlash(message: string): void {
@@ -1107,11 +1145,11 @@ export class TriageSession {
     for (const item of this.upcoming.slice(0, PREFETCH)) {
       if (this.details.has(item.id) || this.#loading.has(item.id) || this.detailErrors.has(item.id))
         continue;
-      void this.#loadDetail(item.id);
+      void this.#loadDetail(item.id, { refreshVerdict: false });
     }
   }
 
-  async #loadDetail(id: number): Promise<void> {
+  async #loadDetail(id: number, options: { refreshVerdict: boolean }): Promise<void> {
     const request = Symbol();
     this.#loading.set(id, request);
     const current = () => !this.#destroyed && this.#loading.get(id) === request;
@@ -1121,6 +1159,8 @@ export class TriageSession {
       const detail = await this.#api.getRelease(id);
       if (!current()) return;
       this.details = new Map(this.details).set(id, detail);
+      if (options.refreshVerdict && this.#roundVerdicts.has(detail.release.triageKey))
+        this.#roundVerdicts.set(detail.release.triageKey, detail.verdict);
     } catch (error) {
       if (!current()) return;
       this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(error));

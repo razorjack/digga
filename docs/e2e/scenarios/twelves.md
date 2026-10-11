@@ -246,3 +246,11 @@ Priority: **P1**.
 
 Given: `small`. Focus the newest sort radio. Right selects label and Left selects newest again.
 The page's record and page navigation must yield to native controls' arrow keys.
+
+## TWL-30
+
+Priority: **P1**.
+
+Given: `small` with a snoozed record. Replay it, return to Twelves and reject it, then return to
+Triage without starting another replay. Judge and undo. The record retains the rejection made in
+Twelves, not the snooze cached when the replay began.

@@ -9,6 +9,7 @@ import type {
   Stats,
   VerdictInput,
   TrackVerdictInput,
+  TwelvesItem,
 } from "../src/shared/api.ts";
 import type { ReplayItem } from "../src/shared/replay.ts";
 import { DEFAULT_CONFIG, type HiddenLabel } from "../src/shared/config.ts";
@@ -73,6 +74,23 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
       };
     },
     getRelease: async (id: number): Promise<ReleaseDetail> => detail(id),
+    getTwelves: async () => ({
+      items: [...verdicts.values()].map((verdict): TwelvesItem => ({
+        key: verdict.key,
+        release: queueItem(verdict.releaseId!),
+        verdict,
+        membership: {
+          owned: false,
+          onWantlist: false,
+          wantlistReleaseIds: [],
+          onList: false,
+          wantRemoved: false,
+        },
+        since: verdict.decidedAt,
+        note: null,
+        pressingNotes: [],
+      })),
+    }),
     attachVideo: async (id: number): Promise<ReleaseDetail> => {
       calls.push(`attach ${id}`);
       // As the server does: a new video sends a record marked no audio back to the queue.
@@ -638,7 +656,7 @@ describe("reading the queue again", () => {
     session.destroy();
   });
 
-  it("reads nothing during a round of snoozed records", async () => {
+  it("keeps the queue untouched while refreshing a round", async () => {
     const { session, queries } = await started([1, 2]);
     session.startRound([snoozed(9, "2026-01-02T03:04:05.000Z")]);
     await session.readAgain();
@@ -1170,3 +1188,24 @@ it.each([true, false])(
     session.destroy();
   },
 );
+
+it("undo restores the verdict Twelves saved while a replay was hidden", async () => {
+  const { session, verdicts, http } = await started([1]);
+  const record = snoozed(9, "2026-01-01T00:00:00.000Z");
+  verdicts.set(record.verdict.key, record.verdict);
+  session.startRound([record]);
+  verdicts.set(record.verdict.key, { ...record.verdict, status: "rejected" });
+  await session.readAgain();
+  const post = vi.spyOn(http, "postVerdict");
+  session.judge("no_audio");
+  await until(() => !session.slipBusy);
+  expect(post).toHaveBeenCalledWith(
+    expect.objectContaining({
+      expected: { status: "rejected", decidedAt: record.verdict.decidedAt },
+    }),
+  );
+  session.undo();
+  await until(() => !session.slipBusy);
+  expect(verdicts.get(record.verdict.key)?.status).toBe("rejected");
+  session.destroy();
+});
