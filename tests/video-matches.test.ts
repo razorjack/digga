@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { getMeta } from "../src/server/db/db.ts";
-import { addUserVideo } from "../src/server/db/releases.ts";
+import { addUserVideo, getRelease, getTracks, writeReleases } from "../src/server/db/releases.ts";
 import { rematchVideos } from "../src/server/db/video-matches.ts";
 import { logListen, setTrackVerdict, upsertVerdict } from "../src/server/db/verdicts.ts";
 import { fixtureDb, tuneAt } from "./helpers.ts";
@@ -54,4 +54,28 @@ describe("video matches", () => {
     expect(matchedPosition(db, "videos", "aaaaaaaaaa2")).toBeNull();
     db.close();
   });
+});
+
+it("rematches attached videos when a dump moves or removes their tune", async () => {
+  const db = await fixtureDb();
+  try {
+    addUserVideo(db, 1001, {
+      videoId: "customvid01",
+      src: "https://www.youtube.com/watch?v=customvid01",
+      title: "Ed Rush & Optical - Wormhole",
+      matchedPosition: "A1",
+    });
+    const tracks = getTracks(db, 1001).map((track) => {
+      if (track.position === "A1") return { ...track, position: "A2" };
+      if (track.position === "A2") return { ...track, position: "A1" };
+      return track;
+    });
+    const release = { ...getRelease(db, 1001)!, tracks, videos: [] };
+    writeReleases(db, [release]);
+    expect(matchedPosition(db, "user_videos", "customvid01")).toBe("A2");
+    writeReleases(db, [{ ...release, tracks: [] }]);
+    expect(matchedPosition(db, "user_videos", "customvid01")).toBeNull();
+  } finally {
+    db.close();
+  }
 });

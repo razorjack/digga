@@ -68,21 +68,35 @@ function rematchReleaseVideos(db: Db): void {
 
 /** Videos the user attached, each matched alone as attaching one does. */
 function rematchAttachedVideos(db: Db): void {
+  const releaseIds = db
+    .prepare("SELECT DISTINCT release_id FROM user_videos")
+    .pluck()
+    .all() as number[];
+  for (const releaseId of releaseIds) {
+    const tracks = tracksByRelease(db, releaseId, releaseId).get(releaseId);
+    // An attached video outlives its release; without tracks it keeps the match it has.
+    if (tracks) rematchAttachedReleaseVideos(db, releaseId, tracks);
+  }
+}
+
+/** A replaced tracklist may move or remove the tune an attached video matched. */
+export function rematchAttachedReleaseVideos(
+  db: Db,
+  releaseId: number,
+  tracks: MatchTrack[],
+): void {
   const videos = db
     .prepare(
       `SELECT release_id AS releaseId, video_id AS videoId, title, matched_position AS matchedPosition
-       FROM user_videos`,
+     FROM user_videos WHERE release_id = ?`,
     )
-    .all() as VideoRow[];
+    .all(releaseId) as VideoRow[];
   const write = db.prepare(
     "UPDATE user_videos SET matched_position = ? WHERE release_id = ? AND video_id = ?",
   );
   for (const video of videos) {
-    const tracks = tracksByRelease(db, video.releaseId, video.releaseId).get(video.releaseId);
-    // An attached video outlives its release; without tracks it keeps the match it has.
-    if (!tracks) continue;
     const position = matchVideos(tracks, [video])[0]?.position ?? null;
-    if (position !== video.matchedPosition) write.run(position, video.releaseId, video.videoId);
+    if (position !== video.matchedPosition) write.run(position, releaseId, video.videoId);
   }
 }
 

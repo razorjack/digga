@@ -9,6 +9,7 @@ import type {
 import type { PressingVideo } from "../../shared/videos.ts";
 import { type Db, nowIso } from "./db.ts";
 import { moveVerdictsToReleaseKeys } from "./verdict-keys.ts";
+import { rematchAttachedReleaseVideos } from "./video-matches.ts";
 
 export interface TrackWrite {
   seq: number;
@@ -249,6 +250,15 @@ export function writeTracks(db: Db, releaseId: number, tracks: TrackWrite[]): vo
       heard_key: track.heardKey,
     });
   }
+  rematchAttachedReleaseVideos(
+    db,
+    releaseId,
+    tracks.map((track) => ({
+      position: track.position,
+      title: track.title,
+      artist: track.artistDisplay,
+    })),
+  );
 }
 
 export function writeVideos(
