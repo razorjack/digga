@@ -2,6 +2,8 @@ import type { Job } from "../../shared/types.ts";
 import { api, type Api } from "../api.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
+export const SAVE_BEFORE_JOB = "Save or discard your settings changes before starting a job.";
+
 export class SettingsJobs {
   items = $state.raw<Job[]>([]);
   error = $state<string | null>(null);

@@ -11,13 +11,14 @@
   import { DumpFiles, dumpUse } from "./dumps.svelte.ts";
   import { joinList, parseList } from "./fields.ts";
   import JobList from "./JobList.svelte";
-  import type { SettingsJobs } from "./jobs.svelte.ts";
+  import { SAVE_BEFORE_JOB, type SettingsJobs } from "./jobs.svelte.ts";
   import { missingReleasesNote } from "./library.ts";
   import { problemAt, reportProblem } from "./problems.ts";
   import { recentJobs, TAB_JOBS } from "./tabs.ts";
 
   interface Props {
     draft: Config;
+    unsaved: boolean;
     /** What is wrong with the draft; empty when it can be saved. */
     issues: ConfigIssue[];
     formId: string;
@@ -28,7 +29,7 @@
     showFlash: (message: string) => void;
   }
 
-  let { draft = $bindable(), issues, formId, onsubmit, jobs, startJob, cancelJob, showFlash }: Props = $props();
+  let { draft = $bindable(), unsaved, issues, formId, onsubmit, jobs, startJob, cancelJob, showFlash }: Props = $props();
   const id = $props.id();
   const dumpFiles = new DumpFiles();
 
@@ -219,6 +220,7 @@
 <section aria-labelledby="{id}-dump-title">
   <header>
     <h2 id="{id}-dump-title">Dump</h2>
+    <p role="status" id="{id}-job-settings">{unsaved ? SAVE_BEFORE_JOB : ""}</p>
     <p>
       Discogs publishes every release once a month, over 10 GB compressed. Update downloads the newest
       dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
@@ -228,10 +230,10 @@
     <fieldset class="field">
       <legend class="name">From Discogs</legend>
       <div class="inline wrap">
-        <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpUpdate())}>
+        <button type="button" class="secondary" disabled={unsaved || dumpJobRunning} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startDumpUpdate())}>
           Update from the newest dump
         </button>
-        <button type="button" class="secondary" disabled={dumpJobRunning} onclick={() => startJob(() => api.startDumpDownload())}>
+        <button type="button" class="secondary" disabled={unsaved || dumpJobRunning} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startDumpDownload())}>
           Download only
         </button>
       </div>
@@ -275,7 +277,7 @@
           oninput={(event) => (dumpLimit = parseInteger(event.currentTarget.value))}
         />
         <label class="check"><input type="checkbox" bind:checked={dumpDryRun} /> dry run</label>
-        <button type="button" class="secondary" disabled={dumpJobRunning || dumpFile.trim() === ""} onclick={loadDump}>
+        <button type="button" class="secondary" disabled={unsaved || dumpJobRunning || dumpFile.trim() === ""} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={loadDump}>
           Load
         </button>
       </div>

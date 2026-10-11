@@ -8,11 +8,12 @@
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
   import { type DiscogsSettings, tokenStorageText, usernameAfterTokenSave } from "./discogs.svelte.ts";
   import JobList from "./JobList.svelte";
-  import type { SettingsJobs } from "./jobs.svelte.ts";
+  import { SAVE_BEFORE_JOB, type SettingsJobs } from "./jobs.svelte.ts";
   import { recentJobs, TAB_JOBS } from "./tabs.ts";
 
   interface Props {
     draft: Config;
+    unsaved: boolean;
     formId: string;
     onsubmit: (event: SubmitEvent) => void;
     discogs: DiscogsSettings;
@@ -24,6 +25,7 @@
 
   let {
     draft = $bindable(),
+    unsaved,
     formId,
     onsubmit,
     discogs,
@@ -233,18 +235,20 @@
 <section class="jobs" aria-labelledby="{id}-imports-title">
   <header>
     <h2 id="{id}-imports-title">Imports</h2>
+    <p role="status" id="{id}-job-settings">{unsaved ? SAVE_BEFORE_JOB : ""}</p>
     <p>Seed verdicts from your Discogs collection, wantlist and Maybe list.</p>
   </header>
   <div class="fields">
     <fieldset class="field">
       <legend class="name">Your Discogs</legend>
       <div class="inline wrap">
-        <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
-        <button type="button" class="secondary" onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
+        <button type="button" class="secondary" disabled={unsaved} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
+        <button type="button" class="secondary" disabled={unsaved} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
         <button
           type="button"
           class="secondary"
-          disabled={(settings.value?.discogs.maybeListId ?? null) === null}
+          disabled={unsaved || (settings.value?.discogs.maybeListId ?? null) === null}
+          aria-describedby={unsaved ? `${id}-job-settings` : undefined}
           onclick={() => startJob(() => api.startImport("list"))}
         >
           Maybe list
@@ -264,7 +268,7 @@
             spellcheck="false"
             required
           />
-          <button type="submit" class="secondary" disabled={sellerUsername.trim() === ""}>Read shop</button>
+          <button type="submit" class="secondary" disabled={unsaved || sellerUsername.trim() === ""} aria-describedby={unsaved ? `${id}-job-settings` : undefined}>Read shop</button>
         </div>
         <span class="hint" id="{id}-seller-hint">
           What a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just that.

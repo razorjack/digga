@@ -12,7 +12,7 @@
   import DiggingTab from "../settings/DiggingTab.svelte";
   import DiscogsTab from "../settings/DiscogsTab.svelte";
   import GeneralTab from "../settings/GeneralTab.svelte";
-  import { SettingsJobs } from "../settings/jobs.svelte.ts";
+  import { SAVE_BEFORE_JOB, SettingsJobs } from "../settings/jobs.svelte.ts";
   import LibraryTab from "../settings/LibraryTab.svelte";
   import {
     hasSettingsForm,
@@ -142,6 +142,10 @@
   }
 
   async function startJob(start: () => Promise<Job>): Promise<void> {
+    if (dirty) {
+      showFlash(SAVE_BEFORE_JOB);
+      return;
+    }
     try {
       const job = await start();
       loadStatus.follow(job);
@@ -213,10 +217,11 @@
           {#if tab === "digging"}
             <DiggingTab bind:draft {issues} {formId} onsubmit={submit} />
           {:else if tab === "library"}
-            <LibraryTab bind:draft {issues} {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
+            <LibraryTab bind:draft unsaved={dirty} {issues} {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
           {:else if tab === "discogs"}
             <DiscogsTab
               bind:draft
+              unsaved={dirty}
               {formId}
               onsubmit={submit}
               {discogs}

@@ -278,3 +278,12 @@ Given: `small`. Opened from Twelves with `,`, a changed seek step and Esc open t
 settings" dialog with Save focused; Esc in it keeps Settings and the draft, and so does Keep
 editing after a click on the Triage link. Esc and Discard show Twelves and the API keeps the old
 value; Esc and Save show Twelves and the API has the new value (decision 174).
+
+## SET-28
+
+Priority: **P1**.
+
+Given: `small` with the September dump downloaded. Editing Universe styles disables Load,
+Update and Download and explains that settings must be saved or discarded. Saving persists the
+styles and enables the buttons. Editing the Discogs username disables Collection and Wantlist
+imports with the same explanation; Revert restores the saved username and enables imports.
