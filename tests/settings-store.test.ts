@@ -106,3 +106,45 @@ describe("a failed read of the settings", () => {
     expect(getSettings).toHaveBeenCalledTimes(2);
   });
 });
+
+it.each([true, false])(
+  "serializes theme and filter edits without losing either (theme first: %s)",
+  async (themeFirst) => {
+    const pending = Promise.withResolvers<Config>();
+    const sent: Config[] = [];
+    fake.api.putSettings = (config) => {
+      sent.push(config);
+      return sent.length === 1 ? pending.promise : Promise.resolve(config);
+    };
+    const next = structuredClone(DEFAULT_CONFIG);
+    next.filters.yearFrom = 1999;
+    const first = themeFirst ? settings.saveColorScheme("dark") : settings.save(next);
+    const second = themeFirst ? settings.save(next) : settings.saveColorScheme("dark");
+    await Promise.resolve();
+    expect(sent).toHaveLength(1);
+    pending.resolve(sent[0]!);
+    await Promise.all([first, second]);
+    expect(sent[1]?.filters.yearFrom).toBe(1999);
+    expect(sent[1]?.appearance.colorScheme).toBe("dark");
+    expect(settings.value).toEqual(sent[1]);
+  },
+);
+
+it("keeps independent settings edits made while another save is pending", async () => {
+  const pending = Promise.withResolvers<Config>();
+  const sent: Config[] = [];
+  fake.api.putSettings = (config) => {
+    sent.push(config);
+    return sent.length === 1 ? pending.promise : Promise.resolve(config);
+  };
+  const years = structuredClone(DEFAULT_CONFIG);
+  years.filters.yearFrom = 1999;
+  const formats = structuredClone(DEFAULT_CONFIG);
+  formats.filters.includeDescriptions = ["EP"];
+  const first = settings.save(years);
+  const second = settings.save(formats);
+  await Promise.resolve();
+  pending.resolve(sent[0]!);
+  await Promise.all([first, second]);
+  expect(settings.value?.filters).toMatchObject({ yearFrom: 1999, includeDescriptions: ["EP"] });
+});

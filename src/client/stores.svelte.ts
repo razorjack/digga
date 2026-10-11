@@ -53,7 +53,7 @@ class SettingsStore {
   loading = $state(false);
   /** Increments on every save but a color scheme change, so the triage queue knows to reload. */
   version = $state(0);
-  #colorSchemeWrites: Promise<unknown> = Promise.resolve();
+  #writes: Promise<unknown> = Promise.resolve();
   #read: Promise<void> | null = null;
 
   async load(): Promise<void> {
@@ -80,20 +80,29 @@ class SettingsStore {
     }
   }
 
-  async save(next: Config): Promise<Config> {
-    const saved = await api.putSettings(next);
-    this.value = saved;
-    this.version += 1;
-    return saved;
+  save(next: Config): Promise<Config> {
+    const before = $state.snapshot(this.value);
+    const requested = $state.snapshot(next);
+    return this.#enqueue(async () => {
+      const config =
+        before && this.value
+          ? mergeSettings(before, requested, $state.snapshot(this.value))
+          : requested;
+      const saved = await api.putSettings(config);
+      this.value = saved;
+      this.version += 1;
+      return saved;
+    });
   }
 
-  /**
-   * Saves the color scheme without restarting the queue. Each save waits for the one before and
-   * starts from the config it returned, so quick changes are saved in the order they were made.
-   */
+  /** Theme changes share the settings write queue but do not restart Triage. */
   saveColorScheme(colorScheme: ColorScheme): Promise<Config> {
-    const write = this.#colorSchemeWrites.then(() => this.#putColorScheme(colorScheme));
-    this.#colorSchemeWrites = write.catch(() => undefined);
+    return this.#enqueue(() => this.#putColorScheme(colorScheme));
+  }
+
+  #enqueue(operation: () => Promise<Config>): Promise<Config> {
+    const write = this.#writes.then(operation);
+    this.#writes = write.catch(() => undefined);
     return write;
   }
 
@@ -106,6 +115,29 @@ class SettingsStore {
     this.value = saved;
     return saved;
   }
+}
+
+/** Apply only the caller's edits, keeping unrelated settings saved while it waited. */
+function mergeSettings(before: Config, requested: Config, current: Config): Config {
+  return {
+    server: mergeFields(before.server, requested.server, current.server),
+    discogs: mergeFields(before.discogs, requested.discogs, current.discogs),
+    universe: mergeFields(before.universe, requested.universe, current.universe),
+    filters: mergeFields(before.filters, requested.filters, current.filters),
+    queue: mergeFields(before.queue, requested.queue, current.queue),
+    player: mergeFields(before.player, requested.player, current.player),
+    appearance: mergeFields(before.appearance, requested.appearance, current.appearance),
+    setup: mergeFields(before.setup, requested.setup, current.setup),
+  };
+}
+
+function mergeFields<T extends object>(before: T, requested: T, current: T): T {
+  const merged = { ...current };
+  for (const key of Object.keys(requested) as (keyof T)[]) {
+    if (JSON.stringify(before[key]) !== JSON.stringify(requested[key]))
+      merged[key] = requested[key];
+  }
+  return merged;
 }
 
 export const stats = new StatsStore();
