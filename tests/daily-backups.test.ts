@@ -30,6 +30,9 @@ afterEach(() => {
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+// Backup checks start worker threads, which can take more than a second under the full suite.
+const BACKUP_POLL = { timeout: 5000 };
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe("daily backups", () => {
@@ -39,9 +42,9 @@ describe("daily backups", () => {
     let minutes = 0;
     const now = () => new Date(Date.UTC(2026, 9, 3, 10, minutes++));
     const backups = startDailyBackups(db, { paths, logger: silentLogger }, { everyMs: 10, now });
-    await expect.poll(() => listCheckpoints(paths.backupsDir).length).toBe(1);
+    await expect.poll(() => listCheckpoints(paths.backupsDir).length, BACKUP_POLL).toBe(1);
     upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage" });
-    await expect.poll(() => listCheckpoints(paths.backupsDir).length).toBe(2);
+    await expect.poll(() => listCheckpoints(paths.backupsDir).length, BACKUP_POLL).toBe(2);
     upsertVerdict(db, { key: "m:502", status: "rejected", source: "triage" });
     await backups.stop();
     const latest = listCheckpoints(paths.backupsDir)[0]!;
@@ -66,12 +69,14 @@ describe("daily backups", () => {
       { paths, logger: silentLogger },
       { everyMs: 10, now: () => today },
     );
-    await expect.poll(days).toEqual({ database: ["2026-09-30"], decisions: ["2026-09-30"] });
+    await expect
+      .poll(days, BACKUP_POLL)
+      .toEqual({ database: ["2026-09-30"], decisions: ["2026-09-30"] });
 
     upsertVerdict(db, { key: "m:506", status: "rejected", source: "triage" });
     today = new Date(2026, 9, 1, 0, 30);
     await expect
-      .poll(days)
+      .poll(days, BACKUP_POLL)
       .toEqual({ database: ["2026-10-01", "2026-09-30"], decisions: ["2026-10-01", "2026-09-30"] });
 
     await backups.stop();
@@ -88,13 +93,13 @@ describe("daily backups", () => {
     const backups = startDailyBackups(db, { paths, logger: silentLogger }, { everyMs: 10 });
 
     await expect
-      .poll(() => backups.failure()?.message ?? "")
+      .poll(() => backups.failure()?.message ?? "", BACKUP_POLL)
       .toMatch(
         /^the daily decisions backup failed: .*; the daily database backup failed: .*; the decisions checkpoint failed: /,
       );
     fs.rmSync(paths.backupsDir);
     // A check that succeeds copies the database, which can outlast poll's 1 s on a busy machine.
-    await expect.poll(() => backups.failure(), { timeout: 5000 }).toBeNull();
+    await expect.poll(() => backups.failure(), BACKUP_POLL).toBeNull();
     await backups.stop();
   });
 
@@ -115,7 +120,7 @@ describe("daily backups", () => {
     const read = async (method: "GET" | "POST") =>
       (await (await server.app.request("/api/backups", { method })).json()) as BackupsResponse;
     try {
-      await expect.poll(async () => (await read("GET")).failure).not.toBeNull();
+      await expect.poll(async () => (await read("GET")).failure, BACKUP_POLL).not.toBeNull();
       fs.rmSync(paths.backupsDir);
 
       const backedUp = await read("POST");
