@@ -87,10 +87,11 @@ A token from the environment: the field is disabled with the hint; `PUT /api/dis
 
 Priority: **P1**.
 
-Given: `small-account` with a saved token.
+Given: `small-account` with a saved token, or `small` with no account or token.
 
 Opening Settings costs two Discogs requests, identity and lists (fake log), as "Every request Digga
-makes" says; on `small` it costs none
+makes" says. On `small` it costs none: SET-08/10 checks the fake's Discogs log after the account
+response has completed and the token status says none is set, before saving a token.
 
 ## SET-11
 

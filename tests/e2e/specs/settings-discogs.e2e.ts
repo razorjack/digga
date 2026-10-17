@@ -15,7 +15,7 @@ import {
 } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { TriagePage } from "../pages/triage.ts";
+import { isRequest, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { expect, test } from "../support/test.ts";
@@ -34,13 +34,22 @@ const READY_TO_IMPORT = {
 const COLLECTION_PAGE = "GET /users/:user/collection/folders/0/releases";
 
 test(
-  "SET-08 a token Discogs takes is saved with its account, a refused one is not, Remove removes it",
-  { tag: ["@SET-08", "@P1"] },
-  async ({ app }) => {
+  "SET-08/10 a token Discogs takes is saved with its account, a refused one is not, Remove removes it",
+  { tag: ["@SET-08", "@SET-10", "@P1"] },
+  async ({ app, fakes }) => {
     app.expectProblems({ apiErrors: [/^PUT \/api\/discogs\/token answered 400$/] });
     const settings = new SettingsPage(app);
-    await settings.open("discogs");
-    await expect(settings.token).toHaveAccessibleDescription(/^No Discogs token is set\. /);
+    await test.step("SET-10 opening Settings without an account asks Discogs nothing", async () => {
+      const account = app.page.waitForResponse((response) =>
+        isRequest(response, "GET", "/api/discogs/account"),
+      );
+      await settings.open("discogs");
+      const response = await account;
+      expect(response.ok()).toBe(true);
+      await response.finished();
+      await expect(settings.token).toHaveAccessibleDescription(/^No Discogs token is set\. /);
+      expect(fakes.log.filter((request) => request.service === "discogs")).toEqual([]);
+    });
 
     const saved = await settings.saveToken("e2e-token-dj");
     expect(saved.status()).toBe(200);
