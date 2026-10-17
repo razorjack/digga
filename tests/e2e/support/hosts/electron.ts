@@ -227,18 +227,15 @@ export class ElectronApp implements DiggaHost {
 
   /**
    * Quits the app and launches it again, then asks it to quit while its window waits for the first
-   * navigation, as a quit during the start does (ELEC-14). `beforeQuit` gives the server something
-   * its stop waits for, such as a job; the held navigation then goes to the app's page, which the
-   * stopping server refuses, and once it has failed `afterNavigationFailed` lets the stop finish.
+   * navigation, as a quit during the start does (ELEC-14). `beforeQuit` starts work for shutdown
+   * to cancel. Releasing the navigation after asking to quit lets it meet the stopping server;
+   * shutdown can finish without the fake answering a held request.
    * Resolves with the exit code once the app has exited; it is not running afterwards, and the
    * launch's output is the last of `servers`.
    */
-  async quitDuringStart(hooks: {
-    beforeQuit(api: AppApiClient): Promise<void>;
-    afterNavigationFailed(): void | Promise<void>;
-  }): Promise<number | null> {
+  async quitDuringStart(beforeQuit: (api: AppApiClient) => Promise<void>): Promise<number | null> {
     await this.#stop({ keepTrace: true });
-    const { electronApp, output, server } = await this.#launchElectron();
+    const { electronApp, output } = await this.#launchElectron();
     const child = electronApp.process();
     const exit = exited(child);
     try {
@@ -248,14 +245,12 @@ export class ElectronApp implements DiggaHost {
       guard.allowOrigin(new URL(heldUrl).origin);
       // The app exits before a trace could be saved.
       await electronApp.context().tracing.stop();
-      await hooks.beforeQuit(new AppApiClient(Number(new URL(heldUrl).port)));
+      await beforeQuit(new AppApiClient(Number(new URL(heldUrl).port)));
 
       await electronApp.evaluate(({ app }) => {
         app.quit();
         globalThis.diggaE2e!.release();
       });
-      await waitForOutput(() => server.stderr, /the first navigation failed: /, START_TIMEOUT_MS);
-      await hooks.afterNavigationFailed();
       const code = await Promise.race([exit, timeout(STOP_TIMEOUT_MS + EXIT_TIMEOUT_MS)]);
       if (code === "timeout") throw new Error(`the Electron app did not exit:\n${output.all()}`);
       return code;
@@ -681,22 +676,6 @@ async function kill(electronApp: ElectronApplication): Promise<void> {
   child.kill("SIGKILL");
   await exited(child);
   await electronApp.close().catch(() => {});
-}
-
-/** Resolves once the output has a match, which the app may write after it has stopped answering. */
-async function waitForOutput(
-  read: () => string,
-  pattern: RegExp,
-  timeoutMs: number,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!pattern.test(read())) {
-    if (Date.now() > deadline)
-      throw new Error(
-        `the Electron app wrote nothing matching ${pattern} within ${timeoutMs / 1000} s`,
-      );
-    await sleep(LOG_POLL_MS);
-  }
 }
 
 /** Resolves once the launch's log has a matching line, and never once the signal aborts. */

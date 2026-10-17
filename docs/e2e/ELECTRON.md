@@ -181,13 +181,14 @@ What differs from `-r`:
   userData, or on the library given, with the same preparation; the given state and the
   `beforeRelease` hook are not applied again. `relaunch({ crash: true })` kills the main process,
   and Chromium's helpers end with it.
-- `quitDuringStart({ beforeQuit, afterNavigationFailed })` quits the app, launches it again and
-  asks it to quit while its window's first navigation is held, as a quit during the start does
-  (ELEC-14). `beforeQuit` gives the server something its stop waits for, such as a job held at the
-  fake; the navigation then goes to the app's page, which the stopping server refuses, and once it
-  has failed `afterNavigationFailed` lets the stop finish. It resolves with the exit code; the app
-  is not running afterwards, its trace is not kept, and the launch's output is the last of
-  `servers`.
+- `quitDuringStart(beforeQuit)` quits the app, launches it again and asks it to quit while its
+  window's first navigation is held (ELEC-14). `beforeQuit` starts a wantlist import whose
+  response stays held at the fake. The helper asks the app to quit, releases navigation to the
+  app's page and waits for exit. Shutdown cancels the request through `withSignal`; it does not
+  need the fake response released. After exit, the test checks the navigation failure, clean
+  stop, exit code and absence of a startup dialog, then releases the fake in `finally`.
+  The app is not running afterwards, its trace is not kept, and the launch's output is the last
+  of `servers`.
 - `restartServer()` throws: the server lives in the main process, and restarting it alone would
   need a main-process API the product does not plan.
 - `openPage()` throws: the app opens one window, and a second would need a product feature.

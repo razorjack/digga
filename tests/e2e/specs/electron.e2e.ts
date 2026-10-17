@@ -292,26 +292,26 @@ test.describe("with an account to import", () => {
     "ELEC-14 a quit while the app starts shows no startup error, and the app exits",
     { tag: ["@ELEC-14", "@P1", "@electron"] },
     async ({ electron, fakes }) => {
-      // The stop waits for the import's page, so the window's navigation fails while it stops.
+      // Shutdown cancels the import even while its response remains held at the fake.
       const wantlist = fakes.hold("GET /users/:user/wants");
-
-      const code = await electron.quitDuringStart({
-        beforeQuit: async (api) => {
+      try {
+        const code = await electron.quitDuringStart(async (api) => {
           await api.send("POST", "/api/jobs/import/wantlist");
           await wantlist.received;
-        },
-        afterNavigationFailed: () => wantlist.release(),
-      });
+        });
 
-      const launch = electron.server;
-      // The context's guard fetches the page's requests, so the refusal reaches the window as ERR_FAILED.
-      expect(launch.stderr).toMatch(
-        /the first navigation failed: ERR_FAILED \(-2\) loading 'http:\/\/localhost:\d+\/'/,
-      );
-      expect(launch.stderr).not.toContain("digga-e2e preload: message box");
-      expect(launch.stdout).toContain("stopping: cancelled 1 running job(s)");
-      expect(launch.stdout).toMatch(/\] stopped$/m);
-      expect(code).toBe(0);
+        const launch = electron.server;
+        // The context's guard fetches the page's requests, so the refusal reaches the window as ERR_FAILED.
+        expect(launch.stderr).toMatch(
+          /the first navigation failed: ERR_FAILED \(-2\) loading 'http:\/\/localhost:\d+\/'/,
+        );
+        expect(launch.stderr).not.toContain("digga-e2e preload: message box");
+        expect(launch.stdout).toContain("stopping: cancelled 1 running job(s)");
+        expect(launch.stdout).toMatch(/\] stopped$/m);
+        expect(code).toBe(0);
+      } finally {
+        wantlist.release();
+      }
     },
   );
 });

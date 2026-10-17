@@ -139,11 +139,12 @@ other port is refused (declared) and never reaches it
 Priority: **P1**.
 
 A quit during the start shows no startup error, and the app exits (the regression of `61a280c`,
-which the health check found): with a wantlist import held at the fake, so the server's stop waits
-for it, the app is asked to quit while its window's first navigation is held, and the navigation
-then goes to the app's page, which the stopping server refuses. Once the navigation has failed the
-import's page is released; the server logs that it cancelled the job and "stopped", the app
-exits with 0, and no message box was shown
+which the health check found): with a wantlist import held at the fake, the app is asked to quit
+while its window's first navigation is held. Navigation is released to the app's page, which
+fails with `ERR_FAILED` as the server stops. Shutdown cancels the import through its abort
+signal; the fake's response stays held until after exit. The server logs that it cancelled the
+job and "stopped", the app exits with 0, and no message box was shown. The fake is released in
+`finally`, without making shutdown depend on its response.
 
 ## ELEC-15
 
