@@ -193,6 +193,7 @@ test.describe("with the settings unreachable as the app opens", () => {
 
       await settingsRead.lift();
       await triage.retrySettings();
+      expect(queueReadCount(app)).toBe(1);
     },
   );
 
@@ -236,6 +237,7 @@ test(
     await settings.showTab("general");
     await expect(settings.colorScheme("system")).toBeChecked();
     const queueReads = queueReadCount(app);
+    expect(queueReads).toBeGreaterThan(0);
 
     await expectScheme(app, "system", BACKGROUND.dark);
     await app.page.emulateMedia({ colorScheme: "light" });
@@ -389,7 +391,7 @@ function groupTitles(groups: { title: string }[]): string[] {
 }
 
 function queueReadCount(app: DiggaApp): number {
-  return app.apiRequests().filter((request) => request === "GET /api/queue").length;
+  return app.apiRequests().filter((request) => request === "POST /api/queue").length;
 }
 
 /** The root's attribute and computed scheme, and the page's background that follows them. */

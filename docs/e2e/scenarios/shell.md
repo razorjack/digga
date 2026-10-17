@@ -94,6 +94,11 @@ again", which shows the form
 
 ## Completion contracts
 
+- Queue counts observe browser `POST /api/queue` requests. SHELL-09 establishes a positive
+  count after loading and passing a record, then checks it after completed appearance saves
+  and applied styles. SHELL-12 checks zero after the settings failure is visible, then one
+  after the retry has completed both settings and queue responses and shown a record.
+
 - The Keys dialog's actions (`pages/dialogs.ts`): `?` ends once the dialog is visible. A close,
   by `?` again, Esc, the close button or a click on the backdrop, ends once the dialog's `close`
   event has reached a listener the page object added before the action, and the dialog is
