@@ -46,7 +46,9 @@ September dump listed, held at `part-way` until the header shows the load); the 
 Priority: **P1**.
 
 Every route and setup step sets the document title: "Triage – Digga", "Twelves – Digga" and
-"Settings – Digga" from the routes table, and "<step> – Digga setup" for each of the four steps
+"Settings – Digga" from the routes table, and "<step> – Digga setup" for each of the four steps.
+Main-page titles are checked in SHELL-02/A11Y-04 (`shell.e2e.ts`, P0); setup titles remain
+a separate P1 test in `accessibility.e2e.ts`
 
 ## A11Y-05
 

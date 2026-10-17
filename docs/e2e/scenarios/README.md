@@ -14,7 +14,7 @@ of a particular run. New scenarios get new IDs; keep existing IDs when moving do
 | Twelves                   | [TWL](twelves.md)        | `twelves*.e2e.ts`                                            |
 | Settings                  | [SET](settings.md)       | `settings*.e2e.ts`                                           |
 | Persistence and lifecycle | [PER](persistence.md)    | `persistence.e2e.ts`, `resume-session.e2e.ts`                |
-| Accessibility             | [A11Y](accessibility.md) | `accessibility.e2e.ts`                                       |
+| Accessibility             | [A11Y](accessibility.md) | `accessibility.e2e.ts`, `shell.e2e.ts` (A11Y-04)             |
 | Electron                  | [ELEC](electron.md)      | `electron.e2e.ts`; also read [ELECTRON](../ELECTRON.md)      |
 | Real-service contracts    | [CON](contracts.md)      | Planned; manual only, never CI                               |
 

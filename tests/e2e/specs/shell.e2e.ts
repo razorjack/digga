@@ -36,22 +36,28 @@ test(
 );
 
 test(
-  "SHELL-02 T, W and , switch pages; the current link, the hash and the title follow",
-  { tag: ["@SHELL-02", "@P0"] },
+  "SHELL-02/A11Y-04 T, W and , switch pages; the current link, the hash and the title follow",
+  { tag: ["@SHELL-02", "@A11Y-04", "@P0"] },
   async ({ app }) => {
     const header = new HeaderPage(app);
     await app.open();
     await expect(shownPage(app, "triage")).toBeVisible();
+    await test.step("A11Y-04 initial Triage title", async () => {
+      await expect(app.page).toHaveTitle(`${page("triage").label} – Digga`);
+    });
 
     for (const route of ["twelves", "settings", "triage"] as const) {
-      await app.page.keyboard.press(page(route).key.toLowerCase());
+      await test.step(`SHELL-02/A11Y-04 ${route} navigation and title`, async () => {
+        await expect(header.pages).toBeVisible();
+        await app.page.keyboard.press(page(route).key.toLowerCase());
 
-      await expect(shownPage(app, route)).toBeVisible();
-      await expect(header.link(route)).toHaveAttribute("aria-current", "page");
-      for (const other of ROUTES.filter((destination) => destination.route !== route))
-        await expect(header.link(other.route)).not.toHaveAttribute("aria-current", "page");
-      await expect(app.page).toHaveURL(`${app.origin}/#/${route}`);
-      await expect(app.page).toHaveTitle(`${page(route).label} – Digga`);
+        await expect(shownPage(app, route)).toBeVisible();
+        await expect(header.link(route)).toHaveAttribute("aria-current", "page");
+        for (const other of ROUTES.filter((destination) => destination.route !== route))
+          await expect(header.link(other.route)).not.toHaveAttribute("aria-current", "page");
+        await expect(app.page).toHaveURL(`${app.origin}/#/${route}`);
+        await expect(app.page).toHaveTitle(`${page(route).label} – Digga`);
+      });
     }
   },
 );

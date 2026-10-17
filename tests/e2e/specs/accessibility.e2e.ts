@@ -17,7 +17,7 @@ import {
 } from "../fixtures/catalogue.ts";
 import { datedVerdicts } from "../fixtures/decisions.ts";
 import { KeysDialog } from "../pages/dialogs.ts";
-import { HeaderPage, page } from "../pages/header.ts";
+import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
 import { SetupPage, type SetupStep, stepTitle } from "../pages/setup.ts";
 import { TriagePage } from "../pages/triage.ts";
@@ -326,17 +326,6 @@ test.describe("with the September dump listed", () => {
         expect(inserted).not.toContainEqual(expect.stringContaining(text));
     },
   );
-});
-
-test("A11Y-04 each page sets the document title", { tag: ["@A11Y-04", "@P1"] }, async ({ app }) => {
-  const header = new HeaderPage(app);
-  await app.open();
-  await expect(app.page).toHaveTitle(`${page("triage").label} – Digga`);
-
-  for (const route of ["twelves", "settings", "triage"] as const) {
-    await header.goTo(route);
-    await expect(app.page).toHaveTitle(`${page(route).label} – Digga`);
-  }
 });
 
 test.describe("the first run's titles", () => {
