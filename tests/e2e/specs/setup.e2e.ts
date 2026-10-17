@@ -129,8 +129,8 @@ test.describe("with the clock", () => {
 });
 
 test(
-  "SETUP-18 held at a checkpoint, the crate shows what the load has read",
-  { tag: ["@SETUP-18", "@P1"] },
+  "SETUP-18/19 held at a checkpoint, the crate shows and counts what the load has read",
+  { tag: ["@SETUP-18", "@SETUP-19", "@P1"] },
   async ({ app, fakes }) => {
     test.slow();
     const point = fakes.dumps.checkpoint("100-to-dig");
@@ -154,30 +154,19 @@ test(
       `loading ${Math.floor(readFraction * 100)}%`,
     );
 
+    await test.step("SETUP-19 committed count, bytes, running jobs and part file", async () => {
+      expect((await app.api.get<Stats>("/api/stats")).remaining).toBe(point.recordsToDig);
+      expect(fakes.dumps.sentBytes).toBe(point.offset);
+      const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
+      expect(jobs.filter((job) => job.status === "running").map((job) => job.type)).toEqual(
+        expect.arrayContaining(["dump_download", "dump_load"]),
+      );
+      // The dump is still a .part file, which the dumps folder does not list.
+      expect((await app.api.get<DumpsResponse>("/api/dumps")).files).toEqual([]);
+    });
+
     await header.goTo("settings");
     await header.goTo("twelves");
-  },
-);
-
-test(
-  "SETUP-19 held at a checkpoint, the load counts the records the download has brought so far",
-  { tag: ["@SETUP-19", "@P1"] },
-  async ({ app, fakes }) => {
-    test.slow();
-    const point = fakes.dumps.checkpoint("100-to-dig");
-    fakes.dumps.holdAt(point.name);
-
-    const setup = await fillTheCrate(app);
-    await setup.waitForRecordsToDig(point.recordsToDig);
-
-    expect((await app.api.get<Stats>("/api/stats")).remaining).toBe(point.recordsToDig);
-    expect(fakes.dumps.sentBytes).toBe(point.offset);
-    const { jobs } = await app.api.get<JobsResponse>("/api/jobs");
-    expect(jobs.filter((job) => job.status === "running").map((job) => job.type)).toEqual(
-      expect.arrayContaining(["dump_download", "dump_load"]),
-    );
-    // The dump is still a .part file, which the dumps folder does not list.
-    expect((await app.api.get<DumpsResponse>("/api/dumps")).files).toEqual([]);
   },
 );
 

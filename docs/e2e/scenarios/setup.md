@@ -155,7 +155,9 @@ releases kept and records to dig are counted, "Just pulled" names a release; the
 Priority: **P1**.
 
 Held at `100-to-dig`: the records to dig reach the checkpoint's count while the download is held, so
-the load read the growing file
+the load read the growing file. The SETUP-18/19 test keeps these observations in a named
+SETUP-19 step after the visible count: `/api/stats` agrees, the sent bytes equal the checkpoint,
+both download and load jobs are running, and `/api/dumps` lists no completed file
 
 ## SETUP-20
 
