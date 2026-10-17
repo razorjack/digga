@@ -22,8 +22,12 @@ where file permissions do not stop Digga. One observation below awaits a decisio
 ## Next work
 
 1. The owner's ×10 burn-in of the Electron configuration on a quiet machine ([Electron](#electron)).
-2. Review the full suite for consolidation. The owner chose on 2026-10-02 to implement every P2
-   scenario first and to review after that; do not prune before that review.
+
+The consolidation review is complete. The owner's 2026-10-17 decisions were applied:
+M1 and M4, the queue-count fix, SET-10's no-account assertion, ELEC-14's cancellation contract,
+unused support cleanup and documentation corrections. See the
+[decisions and commits](CONSOLIDATION_REVIEW.md#owners-decisions-2026-10-17) and
+[validation record](HISTORY.md#the-consolidation-decisions-web-electron-unpackaged-and-packaged).
 
 A slice is complete when its specified behavior is covered, the affected spec passes
 `--repeat-each=10`, all repository checks pass, and the relevant reference and this plan agree
@@ -64,7 +68,8 @@ their evidence stays in history. One was made after that:
 - [CI](../E2E_TESTING.md#ci) runs the whole suite on every push. The owner decided on
   2026-10-02 against scheduled or nightly runs, and on 2026-10-03 that burn-ins run locally, not
   in CI, so as not to spend GitHub's free compute for open-source projects on repeated runs. A
-  P1/P2 split is considered only if the suite outgrows its CI budget.
+  change to CI is not needed now. The owner kept its workflow on 2026-10-17; consider sharding
+  if CI time becomes important.
 - Add Firefox and WebKit only after CI stays green on pushes for a few weeks. The owner chose
   limited effort on 2026-10-02 because Electron is the main target: fix quick issues, mark the
   rest as Chromium-only with reasons, and avoid larger product or harness changes for those

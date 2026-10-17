@@ -1,7 +1,45 @@
 # E2E consolidation review
 
+## Owner's decisions (2026-10-17)
+
+The owner approved M1 and M4 and the remaining test and documentation corrections. These
+changes were applied locally after rechecking each claim against current code:
+
+| Commit    | Applied change                                                                                                                                            |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `c1c589d` | Count `POST /api/queue` in SHELL-09/12, prove positive observations, retain completed-response/state windows and mutation-check both negative assertions. |
+| `c5f0374` | M1: move SETUP-19's assertions into a named step in SETUP-18, retaining both IDs and one P1 tag.                                                          |
+| `c72c64d` | M4: move the initial main-page title assertion and A11Y-04 tag into SHELL-02, retaining its P0 tag only.                                                  |
+| `63866f1` | Add SET-10's completed-load, zero-Discogs-request assertion to the no-account SET-08 test and correct the scenario row.                                   |
+| `71c7c1c` | ELEC-14: hold the import response through process exit, simplify the helper for cancellable Discogs requests and preserve all shutdown assertions.        |
+| `8065f7a` | Remove the unused fake delay and restart crash option, fix the local error-cause lint warning and update the affected references.                         |
+| `efe6635` | Correct the note contracts, TRI-17/47 titles, family map, current counts and cancellation documentation.                                                  |
+
+M2, M3 and M5 were declined: each saves under a second and would put an accessibility assertion
+inside an unrelated test, allowing one failure to hide another. M6 was declined because its
+saving is also under a second and it changes when undo runs after a push. A11Y-04's setup-title
+test, both A11Y-05 tests and TWL-07's snooze-to-want test remain separate. Unused fixture `export`
+qualifiers remain; they cost nothing.
+
+The P0 set, TRI-12 at P0, the shared suite on Electron and the CI workflow remain unchanged.
+The owner reported CI's E2E step growing from 226 s on 2026-10-02 to 357 s on 2026-10-11 as the
+suite gained tests, including slow setup and accessibility cases. No load averages were supplied
+for those historical CI durations. Merges cannot recover that growth, and nothing waits on CI.
+If CI time becomes important, consider sharding.
+
+All review claims still held when rechecked; none was skipped as already fixed. The old ELEC-14
+shutdown assumption was obsolete, as the review suspected: the import was already cancelled
+before the fake response was released. The completed suite has 210 distinct tests: 183 shared,
+seven web-only and 20 Electron-only, giving 190 web and 203 per Electron configuration. The P0
+counts remain 16 distinct, 13 web and 15 per Electron configuration.
+
+The implementation and validation record is in
+[HISTORY](HISTORY.md#the-consolidation-decisions-web-electron-unpackaged-and-packaged).
+The original review below retains its proposal, counts and measurements as historical evidence;
+its six-merge recommendation was only partly accepted.
+
 Reviewed on 2026-10-17 against `d9541b1faed4870fc008f9e328b65daa2c4a28e5` on `master`.
-This is a proposal, not an implementation. Only this report changes in this review.
+This original review proposed changes; only this report changed in that review.
 References name the reviewed revision; line numbers will move when proposals are applied.
 
 ## Recommendation

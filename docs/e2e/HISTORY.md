@@ -12,6 +12,8 @@ belong in their owning reference, not in a new results paragraph.
 
 Search by scenario ID, error or date, or start with:
 
+- [The consolidation decisions of 2026-10-17](#the-consolidation-decisions-web-electron-unpackaged-and-packaged):
+  the two approved merges, queue-count defect, SET-10, ELEC-14, cleanup and validation.
 - [Web spike and implementation results](#spike-results).
 - [Gap fixes on 2026-10-02](#closing-the-gaps-web).
 - [The setup's remaining scenarios and the Accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web).
@@ -38,6 +40,165 @@ Search by scenario ID, error or date, or start with:
 
 The planning records can describe commands or features that were not implemented. Their
 obsolete statements are retained as historical context and do not override current references.
+
+## The consolidation decisions (web, Electron unpackaged and packaged)
+
+On 2026-10-17, the owner's decisions on review `01f14eb` were applied on `master`, from
+`c1c589d` through `efe6635`. The final record adds documentation only. Environment: arm64 macOS,
+Node `v24.18.0`, ten logical CPUs, existing dependencies and local `CI` unset. Every app used
+harness-owned throwaway libraries, fake `e2e-token-*` tokens and fake services. No owner library,
+config or untracked work was edited or staged. Nothing was pushed or published.
+
+The [decision record](CONSOLIDATION_REVIEW.md#owners-decisions-2026-10-17) identifies each change
+and commit. The run prefixes below identify the working changes tested before their commit:
+`queue`/`verify-1` → `c1c589d`, `m1`/`verify-2` → `c5f0374`, `m4`/`verify-3` → `c72c64d`,
+`set10`/`verify-4` → `63866f1`, `elec14`/`verify-5` → `71c7c1c`,
+`cleanup`/`verify-6` → `8065f7a`, and `docs`/`verify-7` → `efe6635`.
+The ELEC-14 baseline preceded its change; `elec14-order` added temporary diagnostics to the old
+helper. Those diagnostics and the queue mutations were reverted. The final complete suites ran
+at `efe6635` with only this record, PLAN and the review's decision section being edited.
+
+### Counts and retained coverage
+
+Expanded Playwright lists, including parameterized tests, confirmed these counts. Listing does
+not execute tests; the JSON reporter's `skipped` total in a list is its selected count.
+
+| Scope               | Before: P0 / P1 / P2 | Before total | After: P0 / P1 / P2 | After total |
+| ------------------- | -------------------- | ------------ | ------------------- | ----------- |
+| Distinct tests      | 16 / 137 / 59        | 212          | 16 / 135 / 59       | 210         |
+| Web                 | 13 / 130 / 49        | 192          | 13 / 128 / 49       | 190         |
+| Electron unpackaged | 15 / 136 / 54        | 205          | 15 / 134 / 54       | 203         |
+| Electron packaged   | 15 / 136 / 54        | 205          | 15 / 134 / 54       | 203         |
+
+Shared tests fell from 185 to 183. The seven web-only and 20 Electron-only tests remain.
+There are still 32 distinct spec files, 31 on web and 32 on either Electron configuration.
+M1 retains SETUP-19's assertions in a named SETUP-18 step, with both IDs and one priority tag.
+M4 retains all main-page title assertions in SHELL-02, with A11Y-04 and P0 only. The other four
+proposed merges, the P0 policy, TRI-12's priority, the shared Electron suite and CI were left as
+the owner decided. No review claim was skipped as already fixed.
+
+### Defect checks and Electron observations
+
+SHELL-09/12 now count `POST /api/queue`. SHELL-09 proves its normal-load baseline is positive;
+SHELL-12 observes one queue after its successful retry. Both retain their completed-response
+or state window before a negative assertion. Temporarily expecting one extra request made
+SHELL-09 fail with expected 2, received 1, and SHELL-12 with expected 1, received 0. The test-runner
+traces showed those exact assertion failures, not wait timeouts. The first sandboxed attempt
+could not bind the fake listener (`EPERM`), so it was not evidence for the mutation. The permitted
+run proved both failures; the mutations were then reverted before burn-in and verification.
+
+The old ELEC-14 passed once. Instrumentation at its navigation-failure callback found the held
+wantlist job already `cancelled`, with no stopped line yet and `child.exitCode === null`. Thus
+navigation failure preceded observed process exit, but the held response was not keeping the
+import running. The revised helper requests quit and releases the held first navigation in the
+same main-process evaluation, then waits for exit. The fake import response stays held until
+that exit and the assertions, with release in `finally`. The test still requires navigation
+`ERR_FAILED`, no startup message box, cancellation, a clean stopped log and exit code 0. The
+unpackaged Electron spec passed ten repetitions, and ELEC-14 passed ten packaged repetitions.
+The obsolete helper callback and its now-unused output waiter were removed.
+
+One packaged invocation was mistakenly written with a literal `--` before its selection flags:
+`vp run e2e:packaged -- --grep '@ELEC-14\b' --repeat-each=10 --workers=2`. Vite+ forwarded that
+separator to Playwright, so the run actually selected all 203 tests with five workers. Packaging
+and the health check passed; 198 tests passed, five failed and five worker teardowns timed out.
+The failed cases were TRI-20, TRI-22, TRI-35, TRI-32 and TRI-31. All five app targets closed at
+about 2026-10-17 19:22:33 UTC, with sampled one-minute load 36.41. The available test-runner
+traces showed abrupt closed-target/protocol errors; representative assertion spans were
+47.8–55.4 ms at that load, not assertion timeouts. Browser traces could not be saved because
+`tracing.stop` also met closed targets. Attached server logs ended after startup/backup without
+a stopped line. This evidence does not establish CPU starvation, a missing wait or a product
+cause. No wait was added. All five cases passed together with two workers afterward, and the
+required final complete packaged run is recorded below. The original artifacts were preserved
+locally under `/tmp/digga-consolidation-apply/packaged-full-first-artifacts`.
+
+The error-cause lint warning was fixed locally by returning an Error's message. The unused
+`FakeServices.delay`, `Fault.delayMs` and `restartServer({ crash })` paths were removed;
+`relaunch({ crash: true })`, `server.crash()`, held requests and independent dump/oEmbed controls
+remain. The Electron and secondary-page restart implementations already took no options, so
+only the interface and web implementation needed that signature change. Fixture export
+qualifiers were intentionally retained.
+
+### Commands and measurements
+
+Each duration below is wall time around the entire command. The wrapper sampled the system's
+one-minute load average once per second and at completion; the table gives its observed minimum
+and maximum, not CPU utilization. Other projects could contribute to it. These observations do
+not compare worker efficiency or predict CI savings. Most final and cleanup runs used two
+workers; earlier burn-ins used the explicitly listed counts. The ELEC-14 baseline briefly
+overlapped M1's web burn-in and used a separate output directory.
+
+Command abbreviations in the table expand exactly as follows. `S/` in an argument expands to
+`tests/e2e/specs/`; other paths and flags are literal. Every command was run from the repository
+root through `python3 /tmp/digga-consolidation-apply/measure.py <run-name> <command>`.
+
+- `W`: `npx playwright test --config tests/e2e/playwright.config.ts`
+- `E`: `npx playwright test --config tests/e2e/playwright.electron.config.ts`
+- `P`: `npx playwright test --config tests/e2e/playwright.packaged.config.ts`
+- `F`: `vp check --fix`
+
+Every successful `vp run verify` ran format/lint/type checks, 625 unit tests in 79 files,
+portability, Svelte checks, the client build and all 13 web P0 tests. The existing error-cause
+warning remained through `verify-5`; `verify-6` onward had no lint warning. Burn-ins and complete
+runs below passed without retries or skips unless their outcome explicitly says otherwise.
+
+| Run                          | Command                                                                                                                                                                    | Wall seconds | One-minute load min–max | Outcome                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -----------: | ----------------------- | ----------------------------------------------------------- |
+| build                        | `vp build`                                                                                                                                                                 |         7.23 | 6.46–6.76               | Passed                                                      |
+| queue-mutation-web           | `W --grep 'SHELL-09\|SHELL-12 Triage' --workers=2`                                                                                                                         |         1.41 | 5.94–5.94               | Blocked: listener EPERM (2 fixture failures)                |
+| queue-mutation-web-permitted | `W --grep 'SHELL-09\|SHELL-12 Triage' --workers=2`                                                                                                                         |         3.11 | 4.84–4.84               | 2 intended assertion failures; reverted                     |
+| queue-web-10                 | `W S/shell.e2e.ts --repeat-each=10 --workers=2`                                                                                                                            |        66.86 | 4.34–11.07              | 130 passed                                                  |
+| count-before-web             | `W --list`                                                                                                                                                                 |         0.91 | 7.13–7.28               | Listed 192                                                  |
+| count-before-electron        | `E --list`                                                                                                                                                                 |         0.90 | 7.28–7.28               | Listed 205                                                  |
+| count-before-packaged        | `P --list`                                                                                                                                                                 |         0.91 | 7.28–7.28               | Listed 205                                                  |
+| format-queue                 | `F`                                                                                                                                                                        |         7.53 | 10.42–11.07             | Passed                                                      |
+| queue-electron-10            | `E S/shell.e2e.ts --repeat-each=10 --workers=2`                                                                                                                            |        71.86 | 9.67–18.73              | 100 passed                                                  |
+| verify-1                     | `vp run verify`                                                                                                                                                            |        22.38 | 13.60–15.19             | Passed all checks, 625 unit + 13 P0                         |
+| format-m1                    | `F`                                                                                                                                                                        |         3.37 | 9.45–10.93              | Passed                                                      |
+| m1-web-10                    | `W S/setup.e2e.ts --repeat-each=10 --workers=4`                                                                                                                            |       233.94 | 4.96–9.65               | 140 passed                                                  |
+| elec14-baseline              | `E --grep '@ELEC-14\b' --workers=1 --output=/tmp/digga-consolidation-apply/elec14-baseline-artifacts`                                                                      |         3.82 | 5.52–9.65               | 1 passed                                                    |
+| m1-electron-10               | `E S/setup.e2e.ts --repeat-each=10 --workers=4`                                                                                                                            |       268.56 | 6.84–48.51              | 140 passed                                                  |
+| verify-2                     | `vp run verify`                                                                                                                                                            |        22.64 | 8.15–10.21              | Passed all checks, 625 unit + 13 P0                         |
+| format-m4                    | `F S/shell.e2e.ts S/accessibility.e2e.ts docs/e2e/scenarios/accessibility.md docs/e2e/scenarios/README.md`                                                                 |         1.36 | 6.13–6.13               | Passed                                                      |
+| m4-web-10                    | `W S/shell.e2e.ts S/accessibility.e2e.ts --repeat-each=10 --workers=3`                                                                                                     |       186.55 | 5.26–9.94               | 250 passed                                                  |
+| m4-electron-10               | `E S/shell.e2e.ts S/accessibility.e2e.ts --repeat-each=10 --workers=3`                                                                                                     |       211.30 | 8.97–20.28              | 220 passed                                                  |
+| verify-3                     | `vp run verify`                                                                                                                                                            |        22.64 | 8.56–9.78               | Passed all checks, 625 unit + 13 P0                         |
+| format-set10                 | `F S/settings-discogs.e2e.ts docs/e2e/scenarios/settings.md`                                                                                                               |         1.38 | 6.45–6.45               | Passed                                                      |
+| set10-web-10                 | `W S/settings-discogs.e2e.ts --repeat-each=10 --workers=3`                                                                                                                 |       120.78 | 4.26–7.43               | 90 passed                                                   |
+| set10-electron-10            | `E S/settings-discogs.e2e.ts --repeat-each=10 --workers=3`                                                                                                                 |       129.06 | 4.27–8.58               | 90 passed                                                   |
+| verify-4                     | `vp run verify`                                                                                                                                                            |        23.21 | 7.36–8.37               | Passed all checks, 625 unit + 13 P0                         |
+| elec14-order                 | `E --grep '@ELEC-14\b' --workers=1 --output=/tmp/digga-consolidation-apply/elec14-order-artifacts`                                                                         |         3.38 | 6.22–6.23               | 1 passed                                                    |
+| format-elec14                | `F tests/e2e/support/hosts/electron.ts S/electron.e2e.ts docs/e2e/ELECTRON.md docs/e2e/scenarios/electron.md`                                                              |         1.18 | 4.38–4.38               | Failed: newly unused waiter; removed next                   |
+| elec14-electron-10           | `E S/electron.e2e.ts --repeat-each=10 --workers=3`                                                                                                                         |       173.15 | 3.85–18.68              | 180 passed                                                  |
+| format-elec14-final          | `F tests/e2e/support/hosts/electron.ts S/electron.e2e.ts docs/e2e/ELECTRON.md docs/e2e/scenarios/electron.md`                                                              |         3.15 | 4.25–6.63               | Passed                                                      |
+| elec14-packaged-10           | `vp run e2e:packaged -- --grep '@ELEC-14\b' --repeat-each=10 --workers=2`                                                                                                  |       225.41 | 14.78–38.57             | 198 passed; 5 failed; 5 teardown errors (full run, not ×10) |
+| packaged-closure-check       | `P --grep '@TRI-(20\|22\|35\|32\|31)\b' --workers=2`                                                                                                                       |         6.49 | 2.34–2.71               | 5 passed                                                    |
+| elec14-packaged-burn         | `P --grep '@ELEC-14\b' --repeat-each=10 --workers=2`                                                                                                                       |        10.89 | 2.71–4.39               | 10 passed                                                   |
+| verify-5                     | `vp run verify`                                                                                                                                                            |        22.74 | 3.78–5.68               | Passed all checks, 625 unit + 13 P0                         |
+| format-cleanup               | `F tools/dev/fake-services.ts tests/e2e/support/app.ts tests/e2e/support/hosts/web.ts S/electron.e2e.ts docs/e2e/FIXTURES.md docs/e2e/HARNESS.md`                          |         1.80 | 3.79–3.79               | Passed                                                      |
+| cleanup-web-10               | `W --grep '@PER-05\b' --repeat-each=10 --workers=2`                                                                                                                        |        11.91 | 3.12–3.21               | 10 passed                                                   |
+| cleanup-electron-10          | `E S/electron.e2e.ts --repeat-each=10 --workers=2`                                                                                                                         |       238.74 | 3.08–7.75               | 180 passed                                                  |
+| verify-6                     | `vp run verify`                                                                                                                                                            |        22.57 | 5.54–7.50               | Passed all checks, 625 unit + 13 P0                         |
+| format-docs                  | `F docs/e2e/HARNESS.md docs/e2e/PLAN.md docs/e2e/scenarios/README.md docs/e2e/scenarios/triage.md docs/e2e/scenarios/twelves.md S/digging-controls.e2e.ts S/triage.e2e.ts` |         1.58 | 4.75–5.08               | Passed                                                      |
+| docs-web-10                  | `W S/triage.e2e.ts S/digging-controls.e2e.ts --repeat-each=10 --workers=2`                                                                                                 |        85.90 | 3.99–7.16               | 120 passed                                                  |
+| count-after-web              | `W --list --reporter=json`                                                                                                                                                 |         0.81 | 3.99–3.99               | Listed 190                                                  |
+| count-after-electron         | `E --list --reporter=json`                                                                                                                                                 |         0.96 | 3.99–3.99               | Listed 203                                                  |
+| count-after-packaged         | `P --list --reporter=json`                                                                                                                                                 |         0.84 | 3.99–3.99               | Listed 203                                                  |
+| docs-electron-10             | `E S/triage.e2e.ts S/digging-controls.e2e.ts --repeat-each=10 --workers=2`                                                                                                 |       107.09 | 6.18–12.11              | 120 passed                                                  |
+| verify-7                     | `vp run verify`                                                                                                                                                            |        22.39 | 6.68–8.15               | Passed all checks, 625 unit + 13 P0                         |
+| full-web                     | `W --workers=2`                                                                                                                                                            |       208.64 | 2.91–6.56               | 190 passed                                                  |
+| format-record                | `F docs/e2e/CONSOLIDATION_REVIEW.md docs/e2e/PLAN.md docs/e2e/HISTORY.md`                                                                                                  |         1.94 | 3.43–3.43               | Passed                                                      |
+| full-electron                | `E --workers=2`                                                                                                                                                            |       265.98 | 3.43–10.41              | 203 passed                                                  |
+| full-packaged                | `vp run e2e:packaged --workers=2`                                                                                                                                          |       303.01 | 4.31–11.04              | 203 passed                                                  |
+| format-record-final          | `F docs/e2e/CONSOLIDATION_REVIEW.md docs/e2e/PLAN.md docs/e2e/HISTORY.md`                                                                                                  |         7.57 | 9.73–10.56              | Passed                                                      |
+| verify-8                     | `vp run verify`                                                                                                                                                            |        23.27 | 9.51–12.32              | Passed all checks, 625 unit + 13 P0                         |
+
+After adding the final verification result, `vp check --fix docs/e2e/HISTORY.md` passed
+in 1.90 s at one-minute load 8.35–8.90 (`format-record-results`).
+Only this measurement sentence was added afterward.
+
+Raw command logs and sampled loads were retained for this session in
+`/tmp/digga-consolidation-apply/`. The table and observations above are the durable record;
+those temporary files are not a repository dependency.
 
 ## Spike results
 
