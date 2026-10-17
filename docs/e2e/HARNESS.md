@@ -113,14 +113,13 @@ A graceful stop and a crash leave different state, and scenarios need both.
 - **Crash.** `kill("SIGKILL")`. Running jobs stay `running` in the database, and the next start
   marks them failed as interrupted (`failStaleJobs()`). SETUP-27 and PER-03 use this.
 
-Discogs requests take no abort signal (`discogs/transport.ts`), and importers check theirs
-between pages, so a cancel or a graceful stop waits for the request in flight. Fake delays
-therefore stay at 5 s or less, well inside the 15 s limit, and a cancelled job's row reads
-`running` until that request has returned. A graceful stop with a page held at the fake waits for
-the page, so the test releases it while `relaunch()` is pending, and only once the server has
-aborted the job: the runner then logs "stopping: cancelled N running job(s), waiting for them",
-which PER-03 reads from the stopping server's output (`app.servers.at(-1)`). A page released
-earlier returns before the abort and the job ends done.
+Importers bind their job signal through `discogs.withSignal(options.signal)`. The transport
+aborts queued and in-flight requests, so cancelling an import or stopping gracefully does not
+need the fake to release a held page. Shutdown still waits for job cleanup and any backup in
+progress. PER-03 keeps its page held until `relaunch()` completes and the job reads `cancelled`,
+and checks the stopping server's cancellation log. SET-14 keeps its page held until the job reads
+`cancelled` and its Cancel control disappears. Both assert cancellation before releasing the
+fake response; releasing it earlier could let the import finish normally.
 
 The app fixture depends on the fake-services fixture, so Playwright tears the app down first; the
 fakes keep answering until the server has exited. The temp folder is deleted after the exit.

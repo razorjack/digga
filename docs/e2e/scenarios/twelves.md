@@ -48,8 +48,8 @@ kept; more text says "Nothing matches “…”."; Esc clears it
 
 Priority: **P1**.
 
-`E` edits a note; Enter saves ("Note saved."); `E` on a record with a note shows it, Esc cancels; an
-empty note removes it ("Note removed."); both survive a reload
+`E` edits a note; Enter saves ("Note saved. Z undoes it."); `E` on a record with a note shows it,
+Esc cancels; an empty note removes it ("Note removed. Z undoes it."); both survive a reload
 
 ## TWL-07
 
@@ -164,8 +164,10 @@ Retired: the shelf no longer has a sandbox mode to switch (decision 150 in `docs
   shows the flash and loads the shelf again. So a re-judgement ends once `POST /api/verdicts` and
   the `GET /api/twelves` after it have answered and the flash says where the record went; a
   change to the wantlist has reached the fake by then, since the server answers the page only
-  after the fake has answered it. A note ends once its `POST /api/verdicts` has answered and the flash reads
-  "Note saved." or "Note removed."; a track note the same way with `POST /api/track-verdicts`; `A`
+  after the fake has answered it. A record note ends once its `PUT /api/releases/:id/note` has
+  answered and the flash reads "Note saved. Z undoes it." or "Note removed. Z undoes it.";
+  a track note ends once `POST /api/track-verdicts` has answered and the flash reads
+  "Note saved." or "Note removed."; `A`
   or `C` on a want already judged so (a retry) once `POST /api/discogs/wantlist/:id` and the reload
   after it have answered and the flash says it was added; "add all" once the flash counts what
   was added, after the last push and the reload; `I` once its `POST /api/jobs/import/list` has

@@ -20,7 +20,7 @@ test(
 );
 
 test(
-  "TRI-47 history exclusion and heard-tune skipping can be disabled independently",
+  "TRI-47 history exclusion and heard-tune skipping can be disabled together",
   { tag: ["@TRI-47", "@P1"] },
   async ({ app }) => {
     const track = FIRST_RECORD.tracks[0]!;

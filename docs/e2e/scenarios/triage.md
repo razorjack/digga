@@ -151,7 +151,7 @@ Discogs data, the server refuses another account's token instead (decision 138, 
 Priority: **P1**.
 
 `E`: the note field takes focus with the saved text; Enter keeps it; Esc cancels; the note survives
-`N` and `Z`; the verdict saves it (Twelves shows it)
+`N` and `Z`; the note remains with the saved record (Twelves shows it)
 
 ## TRI-18
 

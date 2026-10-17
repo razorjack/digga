@@ -270,7 +270,7 @@ test(
 );
 
 test(
-  "TRI-17 E edits the record's note: Enter keeps it, Esc cancels, it survives N and Z, the verdict saves it",
+  "TRI-17 E edits the record's note: Enter keeps it, Esc cancels, it survives N and Z, it remains with the saved record",
   { tag: ["@TRI-17", "@P1"] },
   async ({ app }) => {
     const triage = new TriagePage(app);

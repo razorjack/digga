@@ -83,8 +83,10 @@ their evidence stays in history. One was made after that:
 
 The [Electron host](ELECTRON.md) runs the shared suite and the Electron-only scenarios on the
 unpackaged app on macOS (`vp run e2e:electron`), built on 2026-10-07 after the
-[spike](HISTORY.md#the-electron-spike-electron-unpackaged). 168 of the 175 shared tests run on
-Electron; the seven `@web` tests and their reasons are in [ELECTRON](ELECTRON.md#the-shared-suite-on-electron).
+[spike](HISTORY.md#the-electron-spike-electron-unpackaged). After the 2026-10-17 consolidation,
+183 shared tests run on both hosts, with seven web-only tests and 20 Electron-only tests:
+210 distinct tests, 190 on web and 203 on each Electron configuration. The seven `@web` tests
+and their reasons are in [ELECTRON](ELECTRON.md#the-shared-suite-on-electron).
 Every ELEC scenario but ELEC-03 is implemented, and GUARD-03 tests the preload's refusal ([history](HISTORY.md#the-electron-host-and-its-scenarios-electron-unpackaged)).
 The same tests run on the packaged app's inspectable variant (`vp run e2e:packaged`), which
 ignores `-r`, so the host prepares it through the `DIGGA_E2E_HOLD` hook
@@ -108,7 +110,7 @@ vp build
 npx playwright test --config tests/e2e/playwright.electron.config.ts --repeat-each=10 --workers 4
 ```
 
-That is 1,860 tests, about 23 minutes on four workers at the measured rate. Record the outcome in
+That is 2,030 tests. Record the outcome in
 HISTORY with the revision, load and duration.
 
 Where `safeStorage` cannot encrypt, the product saves the token as text and Settings says so
