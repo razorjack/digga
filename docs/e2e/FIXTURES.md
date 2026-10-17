@@ -273,12 +273,10 @@ Fault injection is the same for every API route:
 
 ```ts
 fakes.fail("PUT /users/:user/wants/:id", { status: 500, times: 1 });
-fakes.delay("PUT /users/:user/wants/:id", { ms: 2000 });
 fakes.dumps.set({ failAfterBytes: 400_000 });
 ```
 
-A delay is for realism. A test that needs a request to stay in flight while it acts holds the
-request instead:
+A test that needs a request to stay in flight while it acts holds the request:
 
 ```ts
 const push = fakes.hold("PUT /users/:user/wants/:id");

@@ -133,12 +133,11 @@ export class WebApp implements DiggaHost {
    * process can take the port in between, and the restart then fails with that reason instead
    * of moving to another port, where the page could not follow.
    */
-  async restartServer(options: { crash?: boolean } = {}): Promise<void> {
+  async restartServer(): Promise<void> {
     const launch = this.#current;
     const { port } = launch.server;
     await this.log.quiet();
-    if (options.crash) await launch.server.crash();
-    else await launch.server.stop();
+    await launch.server.stop();
     try {
       const server = await startDiggaServer(this.#environment, { port });
       this.servers.push(server);

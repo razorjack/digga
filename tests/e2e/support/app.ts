@@ -60,7 +60,7 @@ export interface DiggaApp {
    * session stay. The page's requests while it is down fail. Fails, rather than moving to another
    * port, when another process has taken the port meanwhile.
    */
-  restartServer(options?: { crash?: boolean }): Promise<void>;
+  restartServer(): Promise<void>;
   /**
    * Runs `digga <args>` against the app's library, or the one given, with the same isolation,
    * and waits for its exit.

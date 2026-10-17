@@ -172,7 +172,7 @@ collectors; the port may change. The collectors feed one log per test, so a prob
 earlier launch still fails the test. `restartServer()` keeps the port, so the open page
 reconnects without a reload. It first waits until none of the page's `/api` requests is in
 flight (the browser log counts them from Playwright's `request`, `requestfinished` and
-`requestfailed` events), then stops the server over IPC, or kills it with `crash`, and starts
+`requestfailed` events), then stops the server gracefully over IPC and starts
 `digga serve --port <the same port>`. A request the page sends while no server runs fails: the
 base route records the failed fetch and Chromium logs "Failed to load resource:
 net::ERR_FAILED", which fails the test unless declared. Waiting for timers is the test's part:

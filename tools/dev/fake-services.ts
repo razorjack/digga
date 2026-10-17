@@ -66,7 +66,6 @@ interface FakeAnswer {
 interface Fault {
   pattern: CompiledPattern;
   fail?: { status: number; times: number };
-  delayMs?: number;
   hold?: PromiseWithResolvers<void> & { arrived: PromiseWithResolvers<void> };
 }
 
@@ -168,10 +167,6 @@ export class FakeServices {
     this.#faults.push({ pattern: compilePattern(pattern), fail: { ...options } });
   }
 
-  delay(pattern: string, options: { ms: number }): void {
-    this.#faults.push({ pattern: compilePattern(pattern), delayMs: options.ms });
-  }
-
   /** Holds the next matching request until release(); `received` resolves when it arrives. */
   hold(pattern: string): { received: Promise<void>; release: () => void } {
     const hold = { ...Promise.withResolvers<void>(), arrived: Promise.withResolvers<void>() };
@@ -261,7 +256,6 @@ export class FakeServices {
         fault.hold.arrived.resolve();
         await fault.hold.promise;
       }
-      if (fault.delayMs) await new Promise((resolve) => setTimeout(resolve, fault.delayMs));
       if (fault.fail && fault.fail.times > 0) {
         fault.fail.times -= 1;
         return { status: fault.fail.status, body: { message: "The fake failed on purpose." } };

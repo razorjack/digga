@@ -721,7 +721,8 @@ const heldTest = test.extend<{ forbidden: CountingListener; held: HeldState }>({
           (_electron, port) =>
             fetch(`http://127.0.0.1:${port}/`).then(
               () => "connected",
-              (error: Error) => String(error.cause ?? error),
+              (error: Error) =>
+                error.cause instanceof Error ? error.cause.message : error.message,
             ),
           forbidden.port,
         );
