@@ -59,6 +59,7 @@ export async function openWindow({
     },
   });
   if (saved?.maximized) window.maximize();
+  window.setMenuBarVisibility(showsMenuBar(process.platform));
   window.once("ready-to-show", () => window.show());
   window.on("close", () => {
     const state = { bounds: window.getNormalBounds(), maximized: window.isMaximized() };
@@ -89,6 +90,15 @@ function windowBounds(saved: Rectangle | null): Partial<Rectangle> {
 function titleBarOptions(platform: NodeJS.Platform): BrowserWindowConstructorOptions {
   if (platform !== "darwin") return {};
   return { titleBarStyle: "hidden", titleBarOverlay: true, trafficLightPosition: { x: 20, y: 19 } };
+}
+
+/**
+ * Linux hides the window's menu bar: each item repeats a key of the page or opens a Settings tab,
+ * and the menu stays set, so its shortcuts still work (decision 195). macOS's menu bar is the
+ * system's, outside the window.
+ */
+function showsMenuBar(platform: NodeJS.Platform): boolean {
+  return platform !== "linux";
 }
 
 /** No page gets a permission it asks for, and every download asks where to save. */

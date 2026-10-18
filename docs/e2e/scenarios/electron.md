@@ -195,4 +195,6 @@ Priority: **P2**.
 
 The View menu's Twelves and Triage items show those pages (`aria-current` on the toolbar's link),
 and Keys opens the Keys dialog and closes it again. Reload and the developer tools are in the View
-menu of an unpackaged run only
+menu of an unpackaged run only. On Linux the window's menu bar is hidden (decision 195); its
+shortcuts answer only native key events, which the page's keyboard does not send, so they were
+checked by hand

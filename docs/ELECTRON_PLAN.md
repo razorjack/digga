@@ -132,6 +132,14 @@ later would mean replacing `createHttpApi()` in that one file.
 Settings… (⌘,), the File, Edit and Window roles (Edit gives copy and paste in text fields on
 macOS), a View menu and a Library menu. On Windows and Linux, File holds Settings… and Quit.
 
+On Linux the window hides its menu bar for good (decision 195): every item repeats a key of the
+page (`,`, `T`, `W`, `?`), opens a Settings tab, quits, which closing the window does too, or edits
+text. The menu stays set, so its shortcuts, Edit's included, still work: real Ctrl+2 and Ctrl+1 key
+presses, sent with `ydotool` to the window with its bar hidden, showed Twelves and Triage
+(2026-10-18). Alt does not show the bar. `autoHideMenuBar` would show it on a lone Alt press, and
+Electron apps that use it are reported to show it after Alt-Tab as well (unverified here). The
+Ctrl shortcuts are then listed nowhere in the app: the Keys dialog shows the page's keys only.
+
 - **View** shows Triage (⌘1) and Twelves (⌘2), opens the Keys dialog (⌘/) by dispatching `?` to
   the page, and toggles full screen. Reload and the developer tools are there only in an
   unpackaged run (`!app.isPackaged`); a packaged app has no Reload (decision 173).

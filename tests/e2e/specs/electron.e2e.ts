@@ -103,7 +103,7 @@ test(
 );
 
 test(
-  "ELEC-18 the View menu shows the pages and the keys, and only a development run can reload",
+  "ELEC-18 the View menu shows the pages and the keys, only a development run can reload, and Linux hides the menu bar",
   { tag: ["@ELEC-18", "@P2", "@electron"] },
   async ({ electron }) => {
     const header = new HeaderPage(electron);
@@ -119,6 +119,13 @@ test(
     await expect(keys.root).toBeHidden();
     await clickMenuItem(electron, "View", "Triage");
     await expect(header.link("triage")).toHaveAttribute("aria-current", "page");
+
+    // Electron matches menu shortcuts against native key events, which the page's keyboard does not
+    // send, so the shortcuts of the hidden bar were checked by hand (decision 195).
+    const menuBarVisible = await electron.electronApp.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0]!.isMenuBarVisible(),
+    );
+    expect(menuBarVisible, "the menu bar").toBe(process.platform !== "linux");
 
     const view = await electron.electronApp.evaluate(({ app, Menu }) => {
       const menu = Menu.getApplicationMenu()?.items.find((entry) => entry.label === "View");

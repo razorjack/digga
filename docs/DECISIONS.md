@@ -1422,3 +1422,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      held the old value until the next frame, so the E2E pages, which emulate reduced motion, read
      the previous scheme's colours after a switch, or a disabled button's opacity after it was
      enabled. Since 2026-10-18 the duration is `0s`; animations keep 0.01 ms.
+195. **Linux hides the menu bar.** The bar took a row of the window for items that each repeat a
+     page key, open a Settings tab or quit. Since 2026-10-18 the window on Linux calls
+     `setMenuBarVisibility(false)` and keeps the menu, so its Ctrl shortcuts still work. Alt does
+     not show the bar; `autoHideMenuBar` would, on a lone Alt press, and Electron apps that use it
+     are reported to show it after Alt-Tab too. The cost is discoverability: the Ctrl shortcuts
+     appear nowhere in the app, and a screen reader user finds no menu to browse. macOS keeps its
+     menu bar, and Windows is decided with its title bar.
