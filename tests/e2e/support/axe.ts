@@ -58,12 +58,9 @@ export async function expectAccessible(
 }
 
 /**
- * Chromium applies an emulated colour scheme to the page's styles at its next frame, and a
- * computed style read before then still has the other scheme's colours. The body's background
- * differs between the schemes, so its change says the switch has begun. Elements that inherit
- * their colour, such as Twelves' sort legend, can keep the other scheme's until a frame has been
- * rendered, so the helper then waits for one. A config that forces one scheme (Settings >
- * Appearance) would keep the background the same; the scans use the default.
+ * The body's background differs between the schemes, so its change says the page follows the
+ * new one. A config that forces one scheme (Settings > Appearance) would keep it the same; the
+ * scans use the default.
  */
 async function emulateColorScheme(page: Page, scheme: "light" | "dark"): Promise<void> {
   const background = () => getComputedStyle(document.body).backgroundColor;
@@ -73,14 +70,6 @@ async function emulateColorScheme(page: Page, scheme: "light" | "dark"): Promise
     (previous) => getComputedStyle(document.body).backgroundColor !== previous,
     before,
     { polling: 50 },
-  );
-  await page.evaluate(afterNextFrame);
-}
-
-/** Resolves once a frame has been rendered: the second callback runs after the first's frame. */
-function afterNextFrame(): Promise<void> {
-  return new Promise((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
   );
 }
 

@@ -217,6 +217,10 @@ legend {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /*
+     * None at all: with every property transitioning, even a 0.01 ms transition starts on each
+     * change and holds the old value until the next frame.
+     */
+    transition-duration: 0s !important;
   }
 }

@@ -154,7 +154,8 @@ The completion contracts for each page are kept with its scenarios: [triage](sce
 - `locale: "en-US"`, `timezoneId: "UTC"` in the browser; `TZ=UTC` in the server, so backup file
   names (`localDay()`) and the Twelves day column agree. The `random` strategy's seed is the
   server's UTC day.
-- `reducedMotion: "reduce"`, which shortens the stamp's slam animation to 0.01 ms.
+- `reducedMotion: "reduce"`, which shortens the stamp's slam animation to 0.01 ms and starts no
+  transitions, so a computed style changes with the state it follows.
 - `colorScheme: "dark"` unless the test is about the scheme.
 - Fonts ship in `dist/` and the stamps are seeded, so screenshots attached to failures are
   comparable; the background grain is not seeded.
@@ -208,11 +209,11 @@ incomplete checks are read there.
   names a scenario relies on directly.
 - Every rule runs in the dark scheme the host emulates; `color-contrast` runs again in the light
   scheme (`lightScheme: false` skips that for a state drawn with components already scanned).
-  Chromium applies an emulated scheme at its next frame, and a computed style read before then
-  mixes the two schemes: the first light scans reported contrasts of 1.03 to 2.09 between one
-  scheme's text colour and the other's background. The helper waits until the body's background
-  has changed and a frame has been rendered before it scans, and again after it puts the dark
-  scheme back: elements that inherit their colour can lag behind the body until that frame.
+  The helper waits until the body's background has changed before it scans, and again after it
+  puts the dark scheme back. The pages run with reduced motion, whose rule in `styles.css` starts
+  no transitions: a short transition on every property held each changed colour or opacity until
+  the next frame, so scans mixed the two schemes (contrasts of 1.03 to 2.09) or read an enabled
+  button at its disabled opacity.
 - Never disable a rule globally. A rule excluded for one element needs a comment in the spec and
   a sentence in the scenario saying why it does not apply; none is excluded today.
 - A contrast failure that needs a new colour is the owner's decision: record it as a product gap
