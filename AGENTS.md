@@ -19,8 +19,9 @@ that change without reloading data.
   first one; `Z` undoes a mistake and Twelves re-judges a record. Never test against the owner's
   library (or edit their config); use a throwaway data dir.
 - **Library:** the database, backups, `digga.config.json` and the saved token live in the per-user
-  app folder (`~/Library/Application Support/Digga` on macOS), dumps in the OS cache folder
-  (`~/Library/Caches/Digga/dumps`). Every `digga` command opens that real library unless
+  app folder (`~/Library/Application Support/Digga` on macOS, `~/.config/Digga` on Linux), dumps in
+  the OS cache folder (`~/Library/Caches/Digga/dumps`, `~/.cache/Digga/dumps`). Every `digga`
+  command opens that real library unless
   `DIGGA_DATA_DIR` points elsewhere, so experiments set it to a throwaway folder. One process
   owns a library at a time (`digga.lock`): the server and the commands that change it; `stats`
   and `backup` run beside the server.
@@ -28,8 +29,9 @@ that change without reloading data.
   `createServer` from `src/server/server.ts`, starts it on a free localhost port and opens a
   `BrowserWindow` at it, on the same library. `vp run e2e:electron` runs the E2E suite on it.
   `vp run electron:package` packages the same sources with electron-builder into an ad-hoc signed
-  macOS app; packaging stays packaging work only, never a rewrite. See `docs/ELECTRON_PLAN.md`.
-  Never open a packaged build from Finder or with `open`: it runs on the owner's library.
+  macOS app or, on Linux, an AppImage; packaging stays packaging work only, never a rewrite. See
+  `docs/ELECTRON_PLAN.md`. Never open a packaged build from Finder or with `open`, nor run the
+  AppImage as it is: it runs on the owner's library.
 
 ## Commands
 
@@ -38,8 +40,8 @@ npm install                      # Node >= 22.18 (runs .ts directly, no build st
 vp dev                           # Vite dev server on :5173, proxies /api to :3456
 npm run digga -- serve           # Hono server on 127.0.0.1:3456, open http://localhost:3456 (serves dist/ after vp build)
 npm run digga -- serve --port 0  # pick a free port
-vp run electron:dev              # vp build, then the Electron app on the same library (macOS)
-vp run electron:package          # vp build, the ad-hoc signed app, dmg and inspectable variant in release/, health check
+vp run electron:dev              # vp build, then the Electron app on the same library (macOS, Linux)
+vp run electron:package          # vp build, the release build (dmg or AppImage) and inspectable variant in release/, health check
 vp build                         # build the client into dist/
 vp check                         # format + lint + type check (oxfmt, oxlint, tsgolint)
 vp test                          # vitest, tests/**/*.test.ts
@@ -160,7 +162,7 @@ tests/e2e/             Playwright end-to-end suite (docs/E2E_TESTING.md): playwr
                        live-regions.ts, global-setup.ts); the fake services are
                        tools/dev/fake-services.ts
 data/                  gitignored, for DIGGA_DATA_DIR=./data; the library is in the app folder by default
-release/               gitignored, the packaged app and dmg, and inspectable/, from `vp run electron:package`
+release/               gitignored, the packaged app and dmg or AppImage, and inspectable/, from `vp run electron:package`
 ```
 
 ## Conventions

@@ -287,8 +287,9 @@ build with the `EnableNodeCliInspectArguments` fuse off cannot be launched by Pl
 all. `vp run electron:package` builds an inspectable variant beside the release build that
 differs only in that fuse (`release/inspectable/`, [ELECTRON_PLAN](../ELECTRON_PLAN.md#packaging)). The fused release build
 gets a smaller check without Playwright, `scripts/electron-health-check.ts`, which
-`vp run electron:package` runs after packaging (decision 163): in a new temp folder, with an
-environment built from nothing, `--user-data-dir`, the mock-keychain switches, the resolver rule,
+`vp run electron:package` runs after packaging (decision 163), on the app on macOS and on the
+AppImage on Linux: in a new temp folder, with an environment built from nothing but the display's
+variables, `--user-data-dir`, the mock-keychain switches, the resolver rule,
 an empty library and the URLs of fake services it starts, with no preload and no hold, the app
 must write its "listening on" line to `digga.log` and answer `GET /api/health`, and it is then
 stopped with SIGTERM, after which the log must say "stopped" within 15 s. As in the host, an
@@ -299,8 +300,8 @@ service URL is a loopback one. Nothing guards the app but the environment, so th
 nothing more.
 
 ```sh
-node scripts/electron-health-check.ts                         # release/mac-arm64/Digga.app
-node scripts/electron-health-check.ts path/to/Digga.app       # another build
+node scripts/electron-health-check.ts                         # release/mac-arm64/Digga.app or release/Digga-<version>.AppImage
+node scripts/electron-health-check.ts path/to/Digga.app       # another build: an app, an AppImage or an executable
 ```
 
 **Linux CI** needs a display: `xvfb-run`, whose `DISPLAY` and `XAUTHORITY` the environment passes

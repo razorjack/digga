@@ -78,10 +78,10 @@ time to finish once you have a listening pace.
 
 ## What stays local
 
-Digga runs on your computer, in a window of its own on macOS or in a browser. The catalogue and
-saved listening decisions live in a local SQLite database. Playback uses YouTube, and account
-imports, fresh release data, and wantlist updates use Discogs, so those features need an internet
-connection.
+Digga runs on your computer, in a window of its own on macOS and Linux, or in a browser. The
+catalogue and saved listening decisions live in a local SQLite database. Playback uses YouTube, and
+account imports, fresh release data, and wantlist updates use Discogs, so those features need an
+internet connection.
 
 Verdicts, notes, track marks, and listens are saved from the first one. `Z` undoes the last
 verdict, and takes a want back off your Discogs wantlist; Twelves lets you judge a record again.
@@ -106,7 +106,7 @@ Keep the server running and open **[http://localhost:3456](http://localhost:3456
 `localhost`: some YouTube videos refuse to play when the page is opened at `127.0.0.1`. On later
 runs, `npm run serve` is enough. Rebuild after updating the frontend.
 
-On macOS, Digga can also run in a window of its own, on the same library:
+On macOS and Linux, Digga can also run in a window of its own, on the same library:
 
 ```sh
 npm run electron:dev
@@ -117,15 +117,25 @@ app stops the server. One Digga uses a library at a time, so stop `npm run serve
 terminal inside another Electron app may set `ELECTRON_RUN_AS_NODE=1`, which stops Electron from
 opening a window; unset it there.
 
-To build the app for Macs with Apple silicon:
+To build the app for Macs with Apple silicon, or for x64 Linux:
 
 ```sh
 npm run electron:package
 ```
 
-It builds the frontend and writes `release/Digga-0.0.0-arm64.dmg`, with the app itself in
-`release/mac-arm64/Digga.app`. The app is ad-hoc signed and not notarized, and it opens the same
-library as `npm run serve`.
+It builds the frontend and writes the app for the system it runs on, which opens the same library
+as `npm run serve`. On a Mac that is `release/Digga-0.0.0-arm64.dmg`, with the app itself in
+`release/mac-arm64/Digga.app`, ad-hoc signed and not notarized. On Linux it is
+`release/Digga-0.0.0.AppImage`, which runs without installing:
+
+```sh
+./release/Digga-0.0.0.AppImage
+```
+
+The AppImage needs FUSE 2: `fuse-libs` on Fedora, `libfuse2` (`libfuse2t64` on Ubuntu 24.04) on
+Debian and Ubuntu. Your desktop shows it in its menu once a tool such as Gear Lever or
+AppImageLauncher integrates it. In the app, Settings keeps your Discogs token encrypted with the
+desktop's keyring (KWallet on KDE Plasma) and says "saved unencrypted" where there is none.
 
 #### Install a downloaded app on macOS
 
@@ -369,7 +379,7 @@ frontend uses Svelte 5; the server uses Hono and SQLite. Node runs the server's 
 directly.
 
 Digga runs as a local server and browser app, and in an Electron window, from the repository
-(`npm run electron:dev`, `electron/`) or packaged as an ad-hoc signed macOS app
+(`npm run electron:dev`, `electron/`) or packaged as an ad-hoc signed macOS app or a Linux AppImage
 (`npm run electron:package`).
 
 - [Architecture](docs/ARCHITECTURE.md) and [data model](docs/DATA_MODEL.md)

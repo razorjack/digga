@@ -77,6 +77,15 @@ downloads and loads that run (`electron/dump-jobs.ts`), without asking the page,
   it shows the window;
 - asks before quitting (below).
 
+On Linux the same calls go through the desktop's D-Bus services. A rehearsal on KDE Plasma 6 under
+Wayland on 2026-10-18 (an update against the fake services, on a throwaway library) saw the
+notification reach `org.freedesktop.Notifications` as "Digga" with its `desktop-entry` hint, and
+the blocker hold a "sleep" inhibition at `org.freedesktop.PowerManagement`, which KDE applies about
+five seconds after the request, names after the executable and "Electron", and drops when the app
+quits. The progress bar goes to the Unity launcher API, which a panel matches to the app through
+its desktop entry; it is unchecked on Linux, and an unpackaged run or an AppImage the desktop has
+not integrated has no entry to match.
+
 The page reaches the app's native dialogs through `/api/desktop` routes, which only a server with
 a `desktop` registers (`src/server/routes/desktop.ts`, decision 168). `GET /api/setup` reports
 `desktop: true` there, and only then does the setup offer them; in the browser they are not
