@@ -93,6 +93,7 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
     test.use({ diggaOptions: { template: "small-account" } });
 
     test("A11Y-01 each Twelves shelf", { tag: ["@A11Y-01", "@P1"] }, async ({ app }) => {
+      test.slow();
       const twelves = new TwelvesPage(app);
       await app.given.verdicts(
         datedVerdicts([
@@ -121,6 +122,7 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
     });
 
     test("A11Y-01 Settings", { tag: ["@A11Y-01", "@P1"] }, async ({ app }) => {
+      test.slow();
       const settings = new SettingsPage(app);
       await settings.open();
       await expect(settings.preview).toBeVisible();

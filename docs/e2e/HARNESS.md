@@ -22,9 +22,10 @@ script and page objects; the root project references it and `tsconfig.node.json`
 `tests/e2e/`. `vp check` checks the suite. The lint override exempts `.e2e.ts` functions from
 length and complexity limits, as for unit tests.
 
-The 30 s test timeout includes fixture setup; setup journeys use `test.slow()`. The host
-separately limits server shutdown to 15 s. Locally there are no retries. Under `CI`, one retry
-is allowed for diagnosis, but `failOnFlakyTests` makes a pass on retry fail the run.
+The 30 s test timeout includes fixture setup; setup journeys and the A11Y-01 tests that scan
+every Twelves shelf or Settings tab use `test.slow()`. The host separately limits server shutdown
+to 15 s. Locally there are no retries. Under `CI`, one retry is allowed for diagnosis, but
+`failOnFlakyTests` makes a pass on retry fail the run.
 
 **CI.** [ci.yml](../../.github/workflows/ci.yml) runs on GitHub Actions; the
 [E2E guide](../E2E_TESTING.md#ci) says what each run does and why burn-ins run locally. The
