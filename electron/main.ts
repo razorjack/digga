@@ -95,6 +95,7 @@ async function startDigga(): Promise<void> {
     logger,
     stateFile: path.join(app.getPath("userData"), "window-state.json"),
     icon: linuxWindowIcon(),
+    currentDesktop: environment.currentDesktop,
   });
 }
 

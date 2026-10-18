@@ -136,7 +136,8 @@ src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), comm
                        environment.ts (what the environment and a .env set, for the CLI and Electron)
 electron/              the Electron main process: main.ts (server, quit), window.ts (window, links, downloads,
                        permissions), desktop.ts (the server's desktop), dump-jobs.ts (what the running
-                       downloads and loads mean for the app), links.ts, menu.ts, user-agent.ts
+                       downloads and loads mean for the app), title-bar.ts (each system's title bar),
+                       links.ts, menu.ts, user-agent.ts
 src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.ts
                        (hash router) + routes.ts (the pages and their keys),
                        stores.svelte.ts, keymap.ts, load-status.svelte.ts (the running dump job), styles.css

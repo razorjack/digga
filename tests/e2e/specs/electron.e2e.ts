@@ -4,6 +4,8 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { buttonOverlay, drawsButtonsOverToolbar } from "../../../electron/title-bar.ts";
+import { launchEnvironment } from "../../../src/cli/environment.ts";
 import type { SettingsTab } from "../../../src/client/settings/tabs.ts";
 import { homeRelative } from "../../../src/client/setup/model.ts";
 import type { JobsResponse } from "../../../src/shared/api.ts";
@@ -27,6 +29,12 @@ import { test as base, expect } from "../support/test.ts";
 
 /** macOS keeps Settings in the application menu, other systems in File (electron/menu.ts). */
 const SETTINGS_MENU = process.platform === "darwin" ? "Digga" : "File";
+
+/** This system as the app sees it: the host passes XDG_CURRENT_DESKTOP on (spawn.ts). */
+const WINDOW_SYSTEM = {
+  platform: process.platform,
+  currentDesktop: launchEnvironment(process.env).currentDesktop,
+};
 
 /** The Electron app's own scenarios (docs/e2e/scenarios/electron.md), on the Electron host only. */
 const test = base.extend<{ electron: ElectronApp }>({
@@ -57,7 +65,7 @@ test(
 );
 
 test(
-  "ELEC-17 on macOS the toolbar is the title bar, elsewhere the system's title bar stays, and a quit saves where the window was",
+  "ELEC-17 on macOS and on Linux under KDE or GNOME the toolbar is the title bar, elsewhere the system's stays, and a quit saves where the window was",
   { tag: ["@ELEC-17", "@P2", "@electron"] },
   async ({ electron }) => {
     const header = new HeaderPage(electron);
@@ -72,15 +80,21 @@ test(
         area: controls.getTitlebarAreaRect().toJSON() as DOMRect,
       };
     });
-    if (process.platform === "darwin") {
+    if (WINDOW_SYSTEM.platform === "darwin" || drawsButtonsOverToolbar(WINDOW_SYSTEM)) {
       const toolbar = (await header.root.boundingBox())!;
       const firstPage = (await header.link("triage").boundingBox())!;
+      const settings = (await header.link("settings").boundingBox())!;
       expect(overlay.visible).toBe(true);
       expect(toolbar.y).toBe(0);
       expect(toolbar.height).toBe(overlay.area.height);
-      expect(firstPage.x, "the toolbar starts after the traffic lights").toBeGreaterThanOrEqual(
-        overlay.area.x,
-      );
+      expect(
+        firstPage.x,
+        "the toolbar starts after the buttons on its left",
+      ).toBeGreaterThanOrEqual(overlay.area.x);
+      expect(
+        settings.x + settings.width,
+        "the toolbar ends before the buttons on its right",
+      ).toBeLessThanOrEqual(overlay.area.x + overlay.area.width);
     } else {
       expect(overlay.visible, "the system's title bar").toBe(false);
     }
@@ -656,10 +670,12 @@ for (const scheme of ["light", "dark"] as const)
     });
 
     test(
-      `ELEC-10 nativeTheme follows the saved ${scheme} scheme before the window loads the app`,
+      `ELEC-10 nativeTheme follows the saved ${scheme} scheme before the window loads the app, and another one Settings saves at once`,
       { tag: ["@ELEC-10", "@P2", "@electron"] },
       async ({ electron }) => {
         const triage = new TriagePage(electron);
+        const settings = new SettingsPage(electron);
+        const other = scheme === "light" ? "dark" : "light";
 
         expect(atHold.themeSource).toBe(scheme);
         // Without the host's emulated scheme the page sees the system's, which nativeTheme sets.
@@ -673,6 +689,18 @@ for (const scheme of ["light", "dark"] as const)
             scheme,
           ),
         ).toBe(true);
+
+        await settings.open();
+        await settings.chooseColorScheme(other);
+        expect(
+          await electron.electronApp.evaluate(({ nativeTheme }) => nativeTheme.themeSource),
+        ).toBe(other);
+        const overlays = (await electron.recorded()).titleBarOverlays;
+        if (drawsButtonsOverToolbar(WINDOW_SYSTEM))
+          expect(overlays.at(-1), "the buttons over the toolbar").toEqual(
+            buttonOverlay(other === "dark"),
+          );
+        else expect(overlays).toEqual([]);
       },
     );
   });

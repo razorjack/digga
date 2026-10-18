@@ -1429,3 +1429,10 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      are reported to show it after Alt-Tab too. The cost is discoverability: the Ctrl shortcuts
      appear nowhere in the app, and a screen reader user finds no menu to browse. macOS keeps its
      menu bar, and Windows is decided with its title bar.
+196. **On KDE Plasma and GNOME the toolbar is the title bar.** As on macOS (decision 173), the window
+     hides the system's title bar and draws its buttons over the toolbar, which keeps clear of them
+     through the Window Controls Overlay's CSS variables and drags the window. Electron draws the
+     buttons with the GTK theme the desktop configures, Breeze's under KDE, on a transparent ground
+     in the scheme's text colour. Other desktops keep the system's title bar, since a tiling window
+     manager draws none. The server now tells the app's `desktop` when Settings saves another colour
+     scheme, so `nativeTheme` and the buttons follow at once instead of at the next start.

@@ -84,6 +84,8 @@ export interface MainProcessRecord {
   messageBoxes: MessageBox[];
   openDialogs: OpenDialog[];
   progressBars: { progress: number; mode?: string }[];
+  /** setTitleBarOverlay() calls, which recolour the buttons drawn over the toolbar on Linux. */
+  titleBarOverlays: { color?: string; symbolColor?: string; height?: number }[];
   powerSaveBlockers: { call: "start" | "stop"; type?: string; id: number }[];
   /** Notifications shown although the preload answers Notification.isSupported() with false. */
   notifications: { title: string; body: string }[];

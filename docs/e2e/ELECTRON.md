@@ -40,8 +40,9 @@ workers ran the suite in about two minutes, and on a 16-core Linux machine six w
 two and a half. The windows open on screen while they run, at the size macOS allows.
 
 **Linux.** In a Wayland session the app runs under XWayland: the host passes `DISPLAY`,
-`XAUTHORITY` and `WAYLAND_DISPLAY` but not `XDG_SESSION_TYPE` and `XDG_RUNTIME_DIR`, without which
-Chromium neither chooses Wayland nor finds its socket. A Wayland compositor sends no frame
+`XAUTHORITY`, `WAYLAND_DISPLAY` and `XDG_CURRENT_DESKTOP`, which decides the title bar (ELEC-17),
+but not `XDG_SESSION_TYPE` and `XDG_RUNTIME_DIR`, without which Chromium neither chooses Wayland
+nor finds its socket. A Wayland compositor sends no frame
 callbacks to a window others cover, so its animation frames come late or stop, and Playwright's
 actions wait for frames: on 2026-10-18, PER-09 eighteen times on six workers took 1.1 minutes
 with one timeout on Wayland, and 9 s with none under XWayland. Wayland itself (the window, its
@@ -112,8 +113,8 @@ loads it while the app waits for it ([The packaged app](#the-packaged-app)). In 
    `answerOpenDialog(filePaths)`, else as cancelled. A page's `alert()` or `confirm()` also
    reaches `showMessageBox`, with an abort signal; the stub leaves it unanswered, and the test
    answers it through Playwright's `dialog` event, as in the web host;
-4. records `BrowserWindow.setProgressBar()` calls and `powerSaveBlocker.start()` and `stop()`
-   calls and passes them on, and answers `Notification.isSupported()` with false: that call and
+4. records `BrowserWindow.setProgressBar()` and `setTitleBarOverlay()` calls and
+   `powerSaveBlocker.start()` and `stop()` calls and passes them on, and answers `Notification.isSupported()` with false: that call and
    the `Notification` constructor create Electron's notification presenter, which asks macOS for
    permission to notify. The app asks `isSupported()` first and logs each notification before,
    so ELEC-08 reads the log; a notification shown all the same is recorded, never shown, and fails

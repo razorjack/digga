@@ -44,6 +44,7 @@ const recorded = {
   messageBoxes: [],
   openDialogs: [],
   progressBars: [],
+  titleBarOverlays: [],
   powerSaveBlockers: [],
   notifications: [],
   downloads: [],
@@ -58,6 +59,7 @@ installGuard();
 stubShell();
 stubDialogs();
 recordProgressAndNotifications();
+recordTitleBarOverlays();
 recordPowerSaveBlockers();
 saveDownloads(requiredPath("DIGGA_E2E_DOWNLOADS_DIR"));
 const start = holdStart();
@@ -194,6 +196,16 @@ function recordProgressAndNotifications() {
   Notification.isSupported = () => false;
   Notification.prototype.show = function recordNotification() {
     recorded.notifications.push({ title: this.title, body: this.body });
+  };
+}
+
+/** The colours the window's buttons take when the scheme changes (ELEC-10), passed on. */
+function recordTitleBarOverlays() {
+  // oxlint-disable-next-line typescript/unbound-method -- called with the window through call().
+  const setTitleBarOverlay = BrowserWindow.prototype.setTitleBarOverlay;
+  BrowserWindow.prototype.setTitleBarOverlay = function recordTitleBarOverlay(options) {
+    recorded.titleBarOverlays.push(options);
+    return setTitleBarOverlay.call(this, options);
   };
 }
 

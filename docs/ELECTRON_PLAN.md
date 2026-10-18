@@ -31,7 +31,8 @@ default library folder). In order, it:
    library lock, and starts it on a free port on 127.0.0.1; the `desktop` hears every job change
    ([Desktop](#desktop));
 6. sets `nativeTheme.themeSource` from the saved colour scheme, so the first paint uses it; a
-   change in Settings applies in the renderer at once and reaches `nativeTheme` on the next start;
+   change in Settings reaches it at once through the `desktop` (`colorSchemeChanged()`), so the
+   native dialogs, the menus and the buttons drawn over the toolbar on Linux follow;
 7. gives the default session Chrome's user agent without the app's and Electron's tokens
    (`electron/user-agent.ts`), since YouTube refuses some embeds to an unknown browser;
 8. denies permission requests and sends downloads through a save dialog (`secureSession()`);
@@ -77,6 +78,10 @@ downloads and loads that run (`electron/dump-jobs.ts`), without asking the page,
   it shows the window;
 - asks before quitting (below).
 
+The server also tells the `desktop` when Settings saves another colour scheme
+(`colorSchemeChanged()`), and the main process sets `nativeTheme.themeSource` to it at once
+(decision 196).
+
 On Linux the same calls go through the desktop's D-Bus services. A rehearsal on KDE Plasma 6 under
 Wayland on 2026-10-18 (an update against the fake services, on a throwaway library) saw the
 notification reach `org.freedesktop.Notifications` as "Digga" with its `desktop-entry` hint, and
@@ -107,8 +112,10 @@ later would mean replacing `createHttpApi()` in that one file.
   `titleBarOverlay: true`, which gives the page the Window Controls Overlay CSS variables. The
   toolbar's padding reads `env(titlebar-area-x)` and `env(titlebar-area-width)`, whose fallbacks
   add nothing in a browser, so the client has no platform code. The toolbar's empty space is an
-  `app-region: drag` area; its links are not. Windows and Linux keep the system's title bar for
-  now ([below](#title-bar-on-windows-and-linux)).
+  `app-region: drag` area; its links are not. Linux under KDE Plasma and GNOME does the same with
+  buttons Electron draws (decision 196); other Linux desktops and Windows keep the system's title
+  bar ([below](#title-bar-on-windows-and-linux)). `electron/title-bar.ts` holds each system's
+  options.
 - **Size and place.** The window opens where it was closed, from `userData/window-state.json`
   (the normal bounds and whether it was maximised), unless no display shows enough of its top
   edge to drag it; then, and on the first start, it opens at 1440 x 900, centred. Its minimum is
@@ -325,8 +332,8 @@ the window hides macOS's bar, the traffic lights sit inside the toolbar, and the
 of them through the Window Controls Overlay CSS variables (`env(titlebar-area-x)`,
 `env(titlebar-area-width)`, `env(titlebar-area-height)`), which `titleBarOverlay` enables. The
 page has no platform code: in a browser, or under a system title bar, the variables are unset and
-their fallbacks give no inset. Each platform's window options belong in one function in
-`electron/window.ts`.
+their fallbacks give no inset. Each platform's window options belong in `titleBarOptions()` in
+`electron/title-bar.ts`.
 
 **Windows: hide the title bar and overlay the caption buttons.** Use `titleBarStyle: "hidden"`
 with `titleBarOverlay: { color, symbolColor, height }`. Electron draws the native minimise,
@@ -334,45 +341,45 @@ maximise and close buttons on the right, in the colours passed, and the window k
 resizing, the shadow, Windows 11's rounded corners and snapping. The same CSS variables keep the
 toolbar clear of the buttons; on Windows `titlebar-area-x` is 0 and the width stops before them.
 
-- The button colours follow the scheme. Pass the toolbar's colour (`--surface`) and text colour
-  for the scheme in use. An Appearance change in Settings applies in the page at once but reaches
-  the main process only at the next start ([Main process](#main-process), step 6), so the main
-  process must hear it and call `setTitleBarOverlay()`. The server reports every job change to
-  the `desktop`; an appearance change can reach it the same way.
+- The button colours follow the scheme, as on Linux (below): the server tells the `desktop` when
+  Settings saves another scheme, the `desktop` sets `nativeTheme.themeSource`, and the window
+  calls `setTitleBarOverlay()` on `nativeTheme`'s `updated` event. Linux passes a transparent
+  ground; Windows may need the toolbar's colour (`--surface`) instead.
 - The overlay's height is the toolbar's height. The three buttons take about 140 px on the right,
   which the toolbar keeps free.
 - No Mica or Acrylic (`backgroundMaterial`). They are Windows' vibrancy and clash with the
   photocopy look for the same reason vibrancy does on macOS.
 
-**Linux: keep the system title bar.** `titleBarOverlay` colours and `setTitleBarOverlay()` exist
-on Linux too, but Electron draws those buttons itself, and they are unlikely to follow the
-desktop's theme or the user's button layout (GNOME shows only a close button by default, and some
-users put the buttons on the left). Unverified; check it before deciding otherwise.
+**Linux: the toolbar is the title bar under KDE Plasma and GNOME** (decision 196). Where
+`XDG_CURRENT_DESKTOP` (read in `src/cli/environment.ts`) names KDE or GNOME, the window uses
+`titleBarStyle: "hidden"` and `titleBarOverlay: { color, symbolColor, height: 52 }`. Elsewhere
+it keeps the system's title bar: tiling window managers draw none, and a hidden
+one would leave buttons in the toolbar.
 
-- KDE draws the title bar itself (server-side decorations), so a system title bar above an app
-  toolbar is its normal look, with the user's theme and window rules. On KDE Plasma 6 under
-  Wayland the window gets KWin's title bar with the user's buttons, and the menu bar sits below it,
-  as in KDE's own apps (seen on 2026-10-18).
-- Tiling window managers draw no title bar; a hidden one would leave caption buttons in the
-  toolbar.
-- GNOME apps use a header bar, which the hidden title bar resembles, so the overlay could be
-  enabled on GNOME later if its buttons look right. Electron under Wayland may draw the title bar
-  itself in either case. Telling GNOME apart reads `XDG_CURRENT_DESKTOP`, which goes through
-  `src/cli/environment.ts` like every other environment read.
+- Electron draws the buttons with the GTK theme and takes which ones to show from the desktop's
+  GTK settings, which KDE keeps in step with its own (`gtk-decoration-layout`, and GSettings'
+  `button-layout`). With the owner's KDE Plasma 6 settings they are Breeze's minimise, maximise
+  and close chevrons on the right, as in KDE's own windows. A run with GTK's defaults, from an
+  empty `XDG_CONFIG_HOME`, showed GNOME's single round close button instead (2026-10-18). Buttons
+  on the left were not tried.
+- The ground is transparent (`#00000000`), so the toolbar shows under the buttons, its bottom rule
+  included; the symbols take `--fg` for the scheme in use and change at once when Settings saves
+  another scheme, or the system's changes under "system".
+- The window keeps rounded corners and a shadow under KWin on Wayland. The toolbar takes the
+  window title's place; KWin's window menu stays on Alt+F3.
 
-Under a system title bar the toolbar still reads as an app's toolbar; that is the part that
-matters on Linux.
+Under a system title bar the toolbar still reads as an app's toolbar.
 
 **Check in the Windows and Linux sessions:**
 
-- whether Electron still shows the menu bar under a hidden title bar; if it does,
-  `autoHideMenuBar: true` hides it until Alt is pressed, as browsers do;
+- whether Electron still shows the menu bar under a hidden title bar on Windows; if it does,
+  `autoHideMenuBar: true` hides it until Alt is pressed, as browsers do (Linux hides it for good,
+  decision 195);
 - whether Windows 11's Snap Layouts flyout appears on hovering maximise with the overlay;
-- that a double-click on the toolbar maximises the window, and that dragging empty toolbar space
-  moves it;
-- that the button colours change after an Appearance change in Settings;
-- how the Linux buttons look under GNOME and KDE, on Wayland and on X11, if the overlay is tried;
-- how GNOME draws the system title bar under Wayland, where it may leave decorations to the app.
+- that a double-click on the toolbar maximises the window, that dragging empty toolbar space
+  moves it, and that the window's edges resize it, on KDE under Wayland and X11;
+- buttons on the left, set in the desktop's settings;
+- how the buttons look in a GNOME session, and on Windows after an Appearance change.
 
 ### Icon on Windows and Linux
 

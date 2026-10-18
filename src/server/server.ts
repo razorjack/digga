@@ -76,8 +76,11 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     getConfig: () => config,
     setConfig: (next) => {
       if (options.persistConfig !== false) saveConfig(options.paths.configFile, next);
+      const previousScheme = config.appearance.colorScheme;
       config = next;
       logger.info(`settings updated (${options.paths.configFile})`);
+      if (next.appearance.colorScheme !== previousScheme)
+        options.desktop?.colorSchemeChanged(next.appearance.colorScheme);
     },
     ...serviceClients(options),
     desktop: options.desktop ?? null,

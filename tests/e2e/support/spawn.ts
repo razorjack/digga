@@ -16,15 +16,21 @@ const STOP_TIMEOUT_MS = 15_000;
 const START_TIMEOUT_MS = 15_000;
 
 /**
- * The display on Linux. Chromium chooses Wayland only when XDG_SESSION_TYPE says so and finds its
- * socket in XDG_RUNTIME_DIR, which stay out: in a Wayland session the Electron app runs under
- * XWayland, since a Wayland compositor stops drawing the windows others cover and their tests
- * stall (docs/e2e/ELECTRON.md#running).
+ * The display and the desktop on Linux; the desktop's name decides the Electron window's title
+ * bar (electron/title-bar.ts). Chromium chooses Wayland only when XDG_SESSION_TYPE says so and
+ * finds its socket in XDG_RUNTIME_DIR, which stay out: in a Wayland session the Electron app runs
+ * under XWayland, since a Wayland compositor stops drawing the windows others cover and their
+ * tests stall (docs/e2e/ELECTRON.md#running).
  */
-export const DISPLAY_VARIABLES = ["DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY"];
+export const SESSION_VARIABLES = [
+  "DISPLAY",
+  "XAUTHORITY",
+  "WAYLAND_DISPLAY",
+  "XDG_CURRENT_DESKTOP",
+];
 
-/** Parent variables a child may need: finding programs, Windows' folders, and the display. */
-const INHERITED = ["PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", ...DISPLAY_VARIABLES];
+/** Parent variables a child may need: finding programs, Windows' folders, and the session. */
+const INHERITED = ["PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", ...SESSION_VARIABLES];
 
 export interface DiggaLibrary {
   dataDir: string;

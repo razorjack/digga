@@ -15,7 +15,7 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { HOST_RESOLVER_RULES } from "../tests/e2e/support/browser-guard.ts";
-import { DISPLAY_VARIABLES, parentVariables } from "../tests/e2e/support/spawn.ts";
+import { SESSION_VARIABLES, parentVariables } from "../tests/e2e/support/spawn.ts";
 import { FakeServices } from "../tools/dev/fake-services.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -88,7 +88,7 @@ function isolatedLaunch(executable: string, folder: string, fakes: FakeServices)
       HOST_RESOLVER_RULES,
     ],
     env: {
-      ...parentVariables(DISPLAY_VARIABLES),
+      ...parentVariables(SESSION_VARIABLES),
       PATH: "/usr/bin:/bin",
       HOME: inFolder("home"),
       TMPDIR: `${inFolder("tmp")}/`,

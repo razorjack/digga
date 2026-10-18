@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { contextMenuTemplate } from "../electron/context-menu.ts";
 import { linkTarget } from "../electron/links.ts";
 import { menuTemplate } from "../electron/menu.ts";
+import { buttonOverlay, drawsButtonsOverToolbar, titleBarOptions } from "../electron/title-bar.ts";
 import { parseWindowState, reachableBounds } from "../electron/window-state.ts";
 
 const APP = "http://localhost:51234";
@@ -130,6 +131,39 @@ describe("the context menu", () => {
       "cut",
       "copy",
     ]);
+  });
+});
+
+describe("the title bar", () => {
+  const linux = (currentDesktop: string[]) => ({ platform: "linux" as const, currentDesktop });
+
+  it("is the toolbar on macOS, under the traffic lights macOS draws", () => {
+    expect(titleBarOptions({ platform: "darwin", currentDesktop: [] }, true)).toEqual({
+      titleBarStyle: "hidden",
+      titleBarOverlay: true,
+      trafficLightPosition: { x: 20, y: 19 },
+    });
+  });
+
+  it("is the toolbar under KDE Plasma and GNOME, with buttons in the scheme's colours", () => {
+    expect(drawsButtonsOverToolbar(linux(["KDE"]))).toBe(true);
+    expect(drawsButtonsOverToolbar(linux(["ubuntu", "GNOME"]))).toBe(true);
+    expect(titleBarOptions(linux(["KDE"]), true)).toEqual({
+      titleBarStyle: "hidden",
+      titleBarOverlay: { color: "#00000000", symbolColor: "#ebe5d4", height: 52 },
+    });
+    expect(buttonOverlay(false)).toEqual({
+      color: "#00000000",
+      symbolColor: "#1c1a15",
+      height: 52,
+    });
+  });
+
+  it("is the system's elsewhere, where a tiling window manager may draw none", () => {
+    expect(titleBarOptions(linux(["sway"]), true)).toEqual({});
+    expect(titleBarOptions(linux([]), false)).toEqual({});
+    expect(titleBarOptions({ platform: "win32", currentDesktop: [] }, true)).toEqual({});
+    expect(drawsButtonsOverToolbar({ platform: "darwin", currentDesktop: ["KDE"] })).toBe(false);
   });
 });
 

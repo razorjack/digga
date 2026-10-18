@@ -82,10 +82,10 @@ server, the template builds and `app.cli()`. They all get the same isolation.
   from its working directory before it resolves paths and secrets (`src/cli/runtime.ts`), so a
   developer's `.env` with a real token or library path never applies.
 - The environment is built, never inherited. From the parent it takes only `PATH`; on Windows
-  `SYSTEMROOT`, `WINDIR`, `TEMP` and `TMP`; on Linux `DISPLAY`, `XAUTHORITY` and
-  `WAYLAND_DISPLAY` when present, which `xvfb-run` sets. Without `XDG_SESSION_TYPE` and
-  `XDG_RUNTIME_DIR` the Electron app runs under XWayland in a Wayland session
-  ([ELECTRON](ELECTRON.md#running)). Then it sets `DIGGA_DATA_DIR`,
+  `SYSTEMROOT`, `WINDIR`, `TEMP` and `TMP`; on Linux `DISPLAY`, `XAUTHORITY`, `WAYLAND_DISPLAY`
+  and `XDG_CURRENT_DESKTOP` when present (`xvfb-run` sets the first two). Without
+  `XDG_SESSION_TYPE` and `XDG_RUNTIME_DIR` the Electron app runs under XWayland in a Wayland
+  session ([ELECTRON](ELECTRON.md#running)). Then it sets `DIGGA_DATA_DIR`,
   `DIGGA_DUMPS_DIR` (unless `diggaOptions.dumpsDirFromApp`, ELEC-15) and `DIGGA_CONFIG_FILE`; the fake service URLs (see [Service configuration](#service-configuration));
   `HOME`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` inside
   a fake home; `TZ=UTC`, `LANG=en_US.UTF-8`, `DIGGA_LOG_LEVEL=debug`; the network guard and its

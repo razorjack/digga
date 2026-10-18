@@ -112,7 +112,9 @@ Priority: **P2**.
 
 `nativeTheme.themeSource` follows the saved scheme before the first paint: with Light or Dark saved,
 it is that scheme while the window's first navigation is held, and once the host's emulated scheme
-is cleared the page's `prefers-color-scheme` matches it
+is cleared the page's `prefers-color-scheme` matches it. The other scheme, chosen in Settings >
+Appearance, reaches `nativeTheme.themeSource` at once, and where the window draws its buttons over
+the toolbar (Linux under KDE Plasma or GNOME) it gives them that scheme's colours (decision 196)
 
 ## ELEC-11
 
@@ -182,10 +184,11 @@ reloading opens step 1 with Fetch and without the quit's message
 
 Priority: **P2**.
 
-On macOS the toolbar is the title bar (decision 173): the Window Controls Overlay is visible, the
-toolbar starts at the window's top edge, is as tall as the overlay's area, and its first page link
-starts after the traffic lights. Elsewhere the system's title bar stays and the overlay is not
-visible. A window moved and resized to 1200 x 760 is saved there in `userData/window-state.json`
+On macOS (decision 173) and on Linux under KDE Plasma or GNOME (decision 196, from the
+`XDG_CURRENT_DESKTOP` the host passes on) the toolbar is the title bar: the Window Controls Overlay
+is visible, the toolbar starts at the window's top edge and is as tall as the overlay's area, its
+first page link starts after any buttons on its left, and its Settings link ends before any on its
+right. Elsewhere the system's title bar stays and the overlay is not visible. A window moved and resized to 1200 x 760 is saved there in `userData/window-state.json`
 when the app quits, and the relaunched window's minimum size is 1080 x 680. The host sizes each
 window it launches, so `tests/electron-window.test.ts` checks how the saved bounds are restored
 

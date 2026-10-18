@@ -2,6 +2,7 @@ import {
   BrowserWindow,
   dialog,
   type MessageBoxOptions,
+  nativeTheme,
   Notification,
   type OpenDialogOptions,
   powerSaveBlocker,
@@ -60,6 +61,10 @@ export function createDesktop(logger: Logger): AppDesktop {
       dock.show(progressBarValue(running.list()));
       awake.set(running.list().length > 0);
       notices.tell(loadEndNotice(job));
+    },
+    // Native dialogs, menus and the title bar's buttons follow the scheme Settings saved, at once.
+    colorSchemeChanged(scheme) {
+      nativeTheme.themeSource = scheme;
     },
     runningDumpJobs: () => running.list(),
     async confirmQuit() {

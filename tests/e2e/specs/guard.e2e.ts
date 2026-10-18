@@ -14,7 +14,7 @@ import {
   countingListener,
   listen,
 } from "../support/listener.ts";
-import { collectOutput, DISPLAY_VARIABLES, exited, parentVariables } from "../support/spawn.ts";
+import { collectOutput, SESSION_VARIABLES, exited, parentVariables } from "../support/spawn.ts";
 import { expect, test } from "../support/test.ts";
 
 const guarded = test.extend<{ forbidden: CountingListener }>({
@@ -189,7 +189,7 @@ async function startPackagedElectron(
     args: [`--user-data-dir=${folders.userData}`, ...MOCK_KEYCHAIN],
     cwd: folders.root,
     env: {
-      ...parentVariables(DISPLAY_VARIABLES),
+      ...parentVariables(SESSION_VARIABLES),
       PATH: process.env.PATH!,
       HOME: folders.root,
       DIGGA_E2E_TEMP_ROOT: folders.root,

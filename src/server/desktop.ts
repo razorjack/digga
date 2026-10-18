@@ -1,3 +1,4 @@
+import type { ColorScheme } from "../shared/config.ts";
 import type { Job } from "../shared/types.ts";
 import type { JobListener } from "./jobs/runner.ts";
 
@@ -10,6 +11,8 @@ import type { JobListener } from "./jobs/runner.ts";
 export interface Desktop {
   /** A job started, reported progress or ended. */
   jobChanged(job: Job): void;
+  /** Settings > Appearance saved another colour scheme, which the app's own surfaces follow. */
+  colorSchemeChanged(scheme: ColorScheme): void;
   /** Asks for a releases dump the user has, with the system's file dialog; null when cancelled. */
   chooseDumpFile(): Promise<string | null>;
   /** Asks for a folder for the dumps, starting at the current one; null when cancelled. */

@@ -18,6 +18,11 @@ export interface LaunchEnvironment {
    * end-to-end tests (tools/dev/fake-services.ts).
    */
   services: Pick<CreateServerOptions, "dataDumpsUrl" | "discogsApiUrl" | "youtubeOembedUrl">;
+  /**
+   * XDG_CURRENT_DESKTOP's names, such as ["KDE"] or ["ubuntu", "GNOME"]; empty where it is unset.
+   * The Electron app's window takes its title bar from the desktop (electron/title-bar.ts).
+   */
+  currentDesktop: string[];
 }
 
 /** This process's environment, with a .env in the folder it runs from added; variables already set win. */
@@ -50,6 +55,7 @@ export function launchEnvironment(env: Record<string, string | undefined>): Laun
       discogsApiUrl: read("DIGGA_DISCOGS_API_URL"),
       youtubeOembedUrl: read("DIGGA_YOUTUBE_OEMBED_URL"),
     },
+    currentDesktop: (read("XDG_CURRENT_DESKTOP") ?? "").split(":").filter((name) => name !== ""),
   };
 }
 

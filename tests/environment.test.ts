@@ -23,7 +23,17 @@ describe("the launch environment", () => {
         discogsApiUrl: "http://127.0.0.1:4567/discogs",
         youtubeOembedUrl: "http://127.0.0.1:4567/oembed",
       },
+      currentDesktop: [],
     });
+  });
+
+  it("names the desktop XDG_CURRENT_DESKTOP lists", () => {
+    expect(launchEnvironment({ XDG_CURRENT_DESKTOP: "KDE" }).currentDesktop).toEqual(["KDE"]);
+    expect(launchEnvironment({ XDG_CURRENT_DESKTOP: "ubuntu:GNOME" }).currentDesktop).toEqual([
+      "ubuntu",
+      "GNOME",
+    ]);
+    expect(launchEnvironment({ XDG_CURRENT_DESKTOP: " " }).currentDesktop).toEqual([]);
   });
 
   it("opens the library it names, with its config, token and lock in it", () => {

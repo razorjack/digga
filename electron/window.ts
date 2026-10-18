@@ -1,7 +1,6 @@
 import {
   app,
   BrowserWindow,
-  type BrowserWindowConstructorOptions,
   Menu,
   nativeTheme,
   type Rectangle,
@@ -13,6 +12,12 @@ import path from "node:path";
 import type { Logger } from "../src/server/logger.ts";
 import { contextMenuTemplate } from "./context-menu.ts";
 import { linkTarget } from "./links.ts";
+import {
+  buttonOverlay,
+  drawsButtonsOverToolbar,
+  titleBarOptions,
+  type WindowSystem,
+} from "./title-bar.ts";
 import { reachableBounds, readWindowState, saveWindowState } from "./window-state.ts";
 
 export interface WindowOptions {
@@ -23,6 +28,8 @@ export interface WindowOptions {
   stateFile: string;
   /** The window's own icon, for Linux, where Electron's shows otherwise without a desktop entry. */
   icon?: string;
+  /** XDG_CURRENT_DESKTOP's names, which decide the title bar on Linux (electron/title-bar.ts). */
+  currentDesktop: string[];
 }
 
 const DEFAULT_SIZE = { width: 1440, height: 900 };
@@ -40,7 +47,9 @@ export async function openWindow({
   logger,
   stateFile,
   icon,
+  currentDesktop,
 }: WindowOptions): Promise<BrowserWindow> {
+  const system: WindowSystem = { platform: process.platform, currentDesktop };
   const saved = readWindowState(stateFile);
   const window = new BrowserWindow({
     ...windowBounds(saved?.bounds ?? null),
@@ -50,7 +59,7 @@ export async function openWindow({
     title: "Digga",
     icon,
     backgroundColor: nativeTheme.shouldUseDarkColors ? GROUND.dark : GROUND.light,
-    ...titleBarOptions(process.platform),
+    ...titleBarOptions(system, nativeTheme.shouldUseDarkColors),
     webPreferences: {
       contextIsolation: true,
       sandbox: true,
@@ -60,6 +69,7 @@ export async function openWindow({
   });
   if (saved?.maximized) window.maximize();
   window.setMenuBarVisibility(showsMenuBar(process.platform));
+  if (drawsButtonsOverToolbar(system)) matchButtonsToScheme(window);
   window.once("ready-to-show", () => window.show());
   window.on("close", () => {
     const state = { bounds: window.getNormalBounds(), maximized: window.isMaximized() };
@@ -83,13 +93,13 @@ function windowBounds(saved: Rectangle | null): Partial<Rectangle> {
 }
 
 /**
- * On macOS the app's toolbar is the title bar: the traffic lights sit in it, centred on its
- * 52 px, and the overlay gives the page the CSS variables that keep the toolbar clear of them.
- * Windows and Linux keep the system's title bar for now (docs/ELECTRON_PLAN.md#title-bar-on-windows-and-linux).
+ * The buttons drawn over the toolbar follow the scheme, which the system or Settings > Appearance
+ * changes while the window is open (through the desktop, electron/desktop.ts).
  */
-function titleBarOptions(platform: NodeJS.Platform): BrowserWindowConstructorOptions {
-  if (platform !== "darwin") return {};
-  return { titleBarStyle: "hidden", titleBarOverlay: true, trafficLightPosition: { x: 20, y: 19 } };
+function matchButtonsToScheme(window: BrowserWindow): void {
+  const match = () => window.setTitleBarOverlay(buttonOverlay(nativeTheme.shouldUseDarkColors));
+  nativeTheme.on("updated", match);
+  window.once("closed", () => nativeTheme.off("updated", match));
 }
 
 /**

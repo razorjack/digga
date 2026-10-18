@@ -20,7 +20,7 @@ import { type Paths, resolvePaths } from "../src/server/paths.ts";
 import { createServer, type DiggaServer } from "../src/server/server.ts";
 import { readSetup } from "../src/server/setup.ts";
 import type { ApiError, DumpFileResponse, DumpsFolderResponse } from "../src/shared/api.ts";
-import { DEFAULT_CONFIG } from "../src/shared/config.ts";
+import { type ColorScheme, type Config, DEFAULT_CONFIG } from "../src/shared/config.ts";
 import {
   DOWNLOAD_RETRIED_ERROR,
   type DumpDownloadProgress,
@@ -44,14 +44,17 @@ describe("the server's reports to the desktop", () => {
   let db: Db;
   let server: DiggaServer;
   let reports: Report[];
+  let schemes: ColorScheme[];
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "digga-desktop-"));
     db = openDb(":memory:");
     reports = [];
+    schemes = [];
     const desktop: Desktop = {
       jobChanged: ({ type, status, progress, error }) =>
         reports.push({ type, status, progress, error }),
+      colorSchemeChanged: (scheme) => schemes.push(scheme),
       chooseDumpFile: async () => null,
       chooseDumpsFolder: async () => null,
     };
@@ -77,6 +80,25 @@ describe("the server's reports to the desktop", () => {
       { type: "import_wantlist", status: "running", progress, error: null },
       { type: "import_wantlist", status: "done", progress, error: null },
     ]);
+  });
+
+  it("tells the desktop when a save changes the colour scheme, and only then", async () => {
+    const save = async (config: Config) => {
+      const response = await server.app.request("/api/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      expect(response.status).toBe(200);
+    };
+    const light = { ...DEFAULT_CONFIG, appearance: { colorScheme: "light" as const } };
+
+    await save(light);
+    await save(light);
+    await save({ ...light, queue: { ...light.queue, limit: light.queue.limit + 1 } });
+    await save(DEFAULT_CONFIG);
+
+    expect(schemes).toEqual(["light", "system"]);
   });
 
   it("tells it how a job failed, and that a stopping server cancelled one", async () => {
@@ -108,6 +130,7 @@ describe("the setup's dialogs", () => {
   let asked: string[];
   const desktop: Desktop = {
     jobChanged: () => {},
+    colorSchemeChanged: () => {},
     chooseDumpFile: async () => {
       asked.push("dump file");
       return chosen;
