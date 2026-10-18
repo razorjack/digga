@@ -12,6 +12,8 @@ belong in their owning reference, not in a new results paragraph.
 
 Search by scenario ID, error or date, or start with:
 
+- [Linux on Fedora 44, KDE Plasma, Wayland](#linux-on-fedora-44-kde-plasma-wayland): the first
+  runs on Linux on 2026-10-18, what failed there and why, the AppImage, and the desktop checks.
 - [The consolidation decisions of 2026-10-17](#the-consolidation-decisions-web-electron-unpackaged-and-packaged):
   the two approved merges, queue-count defect, SET-10, ELEC-14, cleanup and validation.
 - [Web spike and implementation results](#spike-results).
@@ -40,6 +42,83 @@ Search by scenario ID, error or date, or start with:
 
 The planning records can describe commands or features that were not implemented. Their
 obsolete statements are retained as historical context and do not override current references.
+
+## Linux on Fedora 44, KDE Plasma, Wayland
+
+On 2026-10-18 the app and the suite ran on Linux for the first time, from `7c6dd09` through
+`5648147`. Environment: Fedora 44 (kernel 7.1.3), KDE Plasma 6 on Wayland, an AMD Ryzen 9 5950X
+(16 cores, 32 logical CPUs), Node `v24.18.0`, npm 11.16.0, Electron 44.5.1 and Playwright's
+Chromium 153, its fallback build for Ubuntu 24.04. Every run used throwaway libraries, fake
+services and `e2e-token-*` tokens; this machine has no owner library. Nothing was pushed.
+
+**Setup.** `npm install` uses better-sqlite3's `linux-x64` prebuild, and npm adds
+`"hasInstallScript": true` for the package to the lockfile, which was left uncommitted. Electron
+44 downloads its binary on first use. Chromium and Electron found every library they link, and no
+system package was installed.
+
+**What failed, and why.**
+
+- **A11Y-01 on the web, 1 of 190 in the first run.** Playwright's default of half the logical
+  CPUs gives 16 workers, and each test keeps a renderer at a full core and a GPU process, which
+  composites in software on Linux, at half of one; the CPU was 1% idle. The Twelves shelf test took
+  10 s on 4 workers and 32 s on 16. Its nine scans and the ten of Settings now run under
+  `test.slow()` (`e9bae8d`).
+- **A11Y-01's contrast findings.** Under load the scans read the previous scheme's `--fg-muted` on
+  the new ground (2.08 on Twelves' filter and sort legend), and an enabled Continue button at its
+  disabled opacity (2.71 in the setup's step 2). The reduced-motion rule gave every element a
+  0.01 ms transition on every property, which held the old value until the next frame: right after
+  the body's background had switched, the legend was stale in 30 of 32 switches, and in none once
+  the duration was `0s`. The step-2 scan then failed 0 of 24 times instead of 5 (`ef21a88`,
+  decision 194). It replaced a wait for a rendered frame (`b359f3c`), which had passed 60 runs on
+  8 workers without fixing the cause; the earlier explanation, that Chromium applies
+  `emulateMedia()` at its next frame ([accessibility family](#the-setups-remaining-scenarios-and-the-accessibility-family-web)),
+  describes the same transitions.
+- **ELEC-02, ELEC-06 and ELEC-17** assumed macOS: under `--password-store=basic` Linux saves the
+  token as text, Settings is in File, and ELEC-17 skipped the saved window state with the title
+  bar. All three hold on Linux now (`6628f44`).
+- **TRI-21 on Electron, 18 of 20 failed on six workers.** Chromium fires a dialog's `close` event
+  with the next frame, 13 to 315 ms after `close()` here, so an `F` pressed in between found the
+  page's picker still open and the late event then closed it. The picker now tells the page when
+  it closes itself (`a8ea694`); 20 of 20 passed.
+- **The display.** The host passed `WAYLAND_DISPLAY` but not `XDG_SESSION_TYPE` and
+  `XDG_RUNTIME_DIR`, so the windows ran under XWayland. On Wayland, PER-09 eighteen times on six
+  workers took 1.1 minutes with one timeout, a click waiting for a stable element in a covered
+  window; under XWayland 9.0 s with none. The suite stays on XWayland (`e5e89eb`, decision 193).
+- **The packaged app.** GUARD-03's packaged launch had no display, and Chromium creates
+  `Crashpad` in userData on Linux before the preload refuses. With six windows, 8 of 12 runs of
+  SHELL-04 and TRI-08 lost every key press: a probe saw no `keydown` in any covered window.
+  Playwright's loader gives an unpackaged app `--allow-pre-commit-input`, which a packaged one
+  lacked; with it, 24 of 24 passed (`8436bc2`).
+
+**Linux additions.** The Linux icons (`33faa0b`), the app ID `io.github.razorjack.digga` and the
+window's icon (`54a670a`, decision 192), the AppImage and the health check on it (`1347c86`,
+decision 191), and the docs (`5648147`).
+
+**Checked by hand on KDE Plasma 6, Wayland.** The window has KWin's title bar with the menu bar
+below it and shows Digga's icon, from an unpackaged run and from the AppImage; a KWin script read
+its app ID as `io.github.razorjack.digga` (it was `Digga`, with KWin's generic icon). On Wayland
+the saved window state holds x and y 0. `safeStorage` used `kwallet6` without a prompt, in format
+`v11`, with KWallet's "Chromium Safe Storage" entry. An update against the fake services sent its
+notification through `org.freedesktop.Notifications`, and the power save blocker's "sleep"
+inhibition appeared in KDE's `ActiveInhibitions` about five seconds after the request and went
+when the app quit. The AppImage's renderers run in their own user namespace without
+`--no-sandbox`, and a changed byte in its `app.asar` did not stop it. Not checked: the taskbar
+progress, Alt-Tab and the panel's icon, GNOME, and an X11 session.
+
+**Final runs at `5648147`**, with the working tree clean but for the lockfile:
+
+| Command                                                                                                                    | Result                          |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `vp run verify`                                                                                                            | green; 625 unit tests, 13 smoke |
+| `npx playwright test --config tests/e2e/playwright.config.ts` (16 workers)                                                 | 190 passed in 1.2 min           |
+| `npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 6`                                         | 203 passed in 1.9 min           |
+| `vp run electron:package`                                                                                                  | health check passed             |
+| `npx playwright test --config tests/e2e/playwright.packaged.config.ts --workers 6`                                         | 203 passed in 1.9 min           |
+| the web config, `--grep "@A11Y-01\b\|@TRI-21\b" --repeat-each=10`                                                          | 80 passed                       |
+| both Electron configs, `--workers 6 --grep "@ELEC-02\b\|@ELEC-06\b\|@ELEC-17\b\|@GUARD-03\b\|@A11Y-01\b" --repeat-each=10` | 110 passed on each              |
+
+The first packaged burn-in lost six tests when the machine suspended itself during it (logind,
+"The system will suspend now!"); the rerun held a `systemd-inhibit` sleep block.
 
 ## The consolidation decisions (web, Electron unpackaged and packaged)
 
