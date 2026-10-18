@@ -120,6 +120,25 @@ progress, Alt-Tab and the panel's icon, GNOME, and an X11 session.
 The first packaged burn-in lost six tests when the machine suspended itself during it (logind,
 "The system will suspend now!"); the rerun held a `systemd-inhibit` sleep block.
 
+**Later the same day: the menu bar and the title bar** (`25b9792`, `d02df09`). The Linux window
+hides its menu bar (decision 195). Playwright's keyboard does not reach menu shortcuts, which
+Electron matches against native key events only, so real Ctrl+2 and Ctrl+1 presses went through
+`ydotool` to the window, after a KWin script had made it active; they showed Twelves and Triage.
+Under KDE Plasma and GNOME the toolbar is now the title bar (decision 196). Electron drew Breeze's
+buttons from the GTK settings KDE writes, and GNOME's single close button when started with an
+empty `XDG_CONFIG_HOME`; the buttons turned dark at once when the light scheme was saved. The host
+now passes `XDG_CURRENT_DESKTOP`, so the test windows use the same title bar. Results:
+
+- `vp run verify`: green, 630 unit tests. The web suite: 190 of 190.
+- The Electron suite: 201 of 203. A11Y-01's "Triage with no audio" recorded an `O` press it never
+  sent (discogs.com/release/1501), and SETUP-01 a token the fakes did not know; both passed 10 of
+  10 alone. Keystrokes typed in another window that reached a test window with focus fit both.
+- `vp run electron:package` with its health check, then the packaged suite: 201 of 203 at a
+  one-minute load near 44 (ELEC-07, SETUP-15), both 6 of 6 on a rerun.
+- ELEC-10, ELEC-17, ELEC-18 and GUARD-03 `--repeat-each=10` on six workers: 60 of 60 on each
+  Electron configuration. With `XDG_CURRENT_DESKTOP` unset, ELEC-10, -17 and -18 pass with the
+  system's title bar.
+
 ## The consolidation decisions (web, Electron unpackaged and packaged)
 
 On 2026-10-17, the owner's decisions on review `01f14eb` were applied on `master`, from
