@@ -69,9 +69,9 @@ starts the `electron` package; with `executablePath` there is no loader. The hos
 switches itself, so no run touches the developer's login keychain. Under the mock keychain a
 saved token is stored encrypted (`DISCOGS_TOKEN_ENCRYPTED=djEw…`, Chromium's `v10` format) and
 read back after a relaunch. On Linux the basic store makes `safeStorage` report encryption as
-unavailable, and the app then saves the token as text (decision 152, untested). ELEC-03 alone
-omits the switches and runs on an `executablePath` build on a runner with a real, unlocked
-keychain.
+unavailable, and the app then saves the token as text (decision 152), which ELEC-02 checks there.
+ELEC-03 alone omits the switches and runs on an `executablePath` build on a runner with a real,
+unlocked keychain.
 
 **Native module ABI.** `better-sqlite3` 13 is a Node-API addon, and Electron loads the
 repository's prebuild in the main process and in workers without a rebuild (decision 153), so the

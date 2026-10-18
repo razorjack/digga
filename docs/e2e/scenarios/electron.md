@@ -23,7 +23,8 @@ Priority: **P1**.
 The library is the one the environment names, and userData, which holds the log, Chromium's files
 (`Chromium`, decision 155) and `Crashpad`, the one `--user-data-dir` names; the log names the library.
 The token file is the library's `secrets.env` (decision 152), which holds the saved token encrypted
-and not its text; the library holds Digga's files only. Nothing is written to the real userData:
+and not its text; on Linux, where the host's basic password store leaves `safeStorage` without
+encryption, it holds the token as text. The library holds Digga's files only. Nothing is written to the real userData:
 none of the files the app's processes hold open for writing lies in the home folder, outside the
 test's folder. A file written and closed earlier is not seen; the preload's refusal (GUARD-03) keeps
 userData itself in the test's folder
@@ -59,7 +60,8 @@ Priority: **P2**.
 The Library menu's items open the Settings tab that starts each job (decision 157): Update the
 Catalogue… the Library tab, Import from Discogs… the Discogs tab and Back Up… the Backups tab, each
 `aria-current`; a wantlist import started on the tab the menu opened ends done with its count, and
-Back up now there says "Backup saved."; Settings… in the application menu opens Settings
+Back up now there says "Backup saved."; Settings… in the application menu on macOS, and in File
+elsewhere, opens Settings
 
 ## ELEC-07
 
@@ -182,10 +184,12 @@ Priority: **P2**.
 
 On macOS the toolbar is the title bar (decision 173): the Window Controls Overlay is visible, the
 toolbar starts at the window's top edge, is as tall as the overlay's area, and its first page link
-starts after the traffic lights. A window moved and resized to 1200 x 760 is saved there in
-`userData/window-state.json` when the app quits, and the relaunched window's minimum size is
-1080 x 680; the host sizes each window it launches, so `tests/electron-window.test.ts` checks how
-the saved bounds are restored. Skipped elsewhere, where the system title bar stays
+starts after the traffic lights. Elsewhere the system's title bar stays and the overlay is not
+visible. A window moved and resized to 1200 x 760 is saved there in `userData/window-state.json`
+when the app quits, and the relaunched window's minimum size is 1080 x 680; under Wayland, where
+the compositor places windows and tells the app no position, only the size is compared. The host
+sizes each window it launches, so `tests/electron-window.test.ts` checks how the saved bounds are
+restored
 
 ## ELEC-18
 

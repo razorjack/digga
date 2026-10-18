@@ -25,6 +25,9 @@ import { ElectronApp } from "../support/hosts/electron.ts";
 import { type CountingListener, countingListener } from "../support/listener.ts";
 import { test as base, expect } from "../support/test.ts";
 
+/** macOS keeps Settings in the application menu, other systems in File (electron/menu.ts). */
+const SETTINGS_MENU = process.platform === "darwin" ? "Digga" : "File";
+
 /** The Electron app's own scenarios (docs/e2e/scenarios/electron.md), on the Electron host only. */
 const test = base.extend<{ electron: ElectronApp }>({
   electron: async ({ app }, use) => {
@@ -54,10 +57,9 @@ test(
 );
 
 test(
-  "ELEC-17 on macOS the toolbar is the title bar, and a quit saves where the window was",
+  "ELEC-17 on macOS the toolbar is the title bar, elsewhere the system's title bar stays, and a quit saves where the window was",
   { tag: ["@ELEC-17", "@P2", "@electron"] },
   async ({ electron }) => {
-    test.skip(process.platform !== "darwin", "only macOS hides the title bar");
     const header = new HeaderPage(electron);
     await electron.open();
     await expect(header.pages).toBeVisible();
@@ -70,14 +72,18 @@ test(
         area: controls.getTitlebarAreaRect().toJSON() as DOMRect,
       };
     });
-    const toolbar = (await header.root.boundingBox())!;
-    const firstPage = (await header.link("triage").boundingBox())!;
-    expect(overlay.visible).toBe(true);
-    expect(toolbar.y).toBe(0);
-    expect(toolbar.height).toBe(overlay.area.height);
-    expect(firstPage.x, "the toolbar starts after the traffic lights").toBeGreaterThanOrEqual(
-      overlay.area.x,
-    );
+    if (process.platform === "darwin") {
+      const toolbar = (await header.root.boundingBox())!;
+      const firstPage = (await header.link("triage").boundingBox())!;
+      expect(overlay.visible).toBe(true);
+      expect(toolbar.y).toBe(0);
+      expect(toolbar.height).toBe(overlay.area.height);
+      expect(firstPage.x, "the toolbar starts after the traffic lights").toBeGreaterThanOrEqual(
+        overlay.area.x,
+      );
+    } else {
+      expect(overlay.visible, "the system's title bar").toBe(false);
+    }
 
     // The host sizes the window at each launch, so what the quit saved is checked, not the reopened window.
     const placed = { x: 120, y: 80, width: 1200, height: 760 };
@@ -88,7 +94,11 @@ test(
     const saved: unknown = JSON.parse(
       fs.readFileSync(path.join(electron.userDataDir, "window-state.json"), "utf8"),
     );
-    expect(saved).toEqual({ bounds: placed, maximized: false });
+    // A Wayland compositor places windows itself and tells the app no position.
+    const position = compositorPlacesWindows()
+      ? { x: expect.any(Number), y: expect.any(Number) }
+      : { x: placed.x, y: placed.y };
+    expect(saved).toEqual({ bounds: { ...placed, ...position }, maximized: false });
     const minimum = await electron.electronApp.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0]!.getMinimumSize(),
     );
@@ -162,8 +172,14 @@ test.describe("with a saved token", () => {
         "secrets.env",
       ]);
       const secrets = fs.readFileSync(path.join(dataDir, "secrets.env"), "utf8");
-      expect(secrets).toMatch(/^DISCOGS_TOKEN_ENCRYPTED=/m);
-      expect(secrets).not.toContain("e2e-token-dj");
+      if (process.platform === "linux") {
+        // The basic password store the host passes leaves safeStorage without encryption on
+        // Linux, so the token is saved as text, as the browser version saves it (decision 152).
+        expect(secrets).toBe("DISCOGS_TOKEN=e2e-token-dj\n");
+      } else {
+        expect(secrets).toMatch(/^DISCOGS_TOKEN_ENCRYPTED=/m);
+        expect(secrets).not.toContain("e2e-token-dj");
+      }
       expect(writtenInHomeFolder(electron, testFolder)).toEqual([]);
     },
   );
@@ -283,7 +299,7 @@ test.describe("with an account to import", () => {
       expect((await backedUp).ok()).toBe(true);
       await expect(settings.backups.getByText("Backup saved.", { exact: true })).toBeVisible();
 
-      await clickMenuItem(electron, "Digga", "Settings…");
+      await clickMenuItem(electron, SETTINGS_MENU, "Settings…");
       await expect(electron.page).toHaveURL(/#\/settings$/);
     },
   );
@@ -831,6 +847,11 @@ function dumpsIn(folder: string): string[] {
 interface WindowControlsOverlay {
   visible: boolean;
   getTitlebarAreaRect(): DOMRect;
+}
+
+/** Electron uses Wayland on Linux when the host passes WAYLAND_DISPLAY to it (spawn.ts). */
+function compositorPlacesWindows(): boolean {
+  return process.platform === "linux" && Boolean(process.env.WAYLAND_DISPLAY);
 }
 
 /** Clicks an item of the app's menu bar as a user would, through the main process. */
