@@ -21,7 +21,7 @@ export interface WindowOptions {
   logger: Logger;
   /** Where the window's size and position are kept between starts. */
   stateFile: string;
-  /** The window's own icon, which an unpackaged run on Linux shows instead of Electron's. */
+  /** The window's own icon, for Linux, where Electron's shows otherwise without a desktop entry. */
   icon?: string;
 }
 

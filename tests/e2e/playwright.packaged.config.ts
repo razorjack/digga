@@ -10,7 +10,12 @@ import type { HostName } from "./support/test.ts";
  * `vp run e2e:packaged`, which packages the app first.
  */
 const EXECUTABLE = fileURLToPath(
-  new URL("../../release/inspectable/mac-arm64/Digga.app/Contents/MacOS/Digga", import.meta.url),
+  new URL(
+    process.platform === "darwin"
+      ? "../../release/inspectable/mac-arm64/Digga.app/Contents/MacOS/Digga"
+      : "../../release/inspectable/linux-unpacked/digga",
+    import.meta.url,
+  ),
 );
 if (!fs.existsSync(EXECUTABLE))
   throw new Error(`${EXECUTABLE} is not built; run \`vp run electron:package\` first`);

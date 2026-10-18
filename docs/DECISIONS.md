@@ -1399,3 +1399,26 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      Since 2026-10-10 it writes nothing and flashes "Already on your Discogs wantlist." for a want
      or grail there, otherwise "Already on the Maybe shelf." and the like (`unchangedSentence()` in
      `src/client/twelves/model.ts`).
+191. **Linux gets an AppImage.** Since 2026-10-18 `vp run electron:package` on x64 Linux builds
+     `release/Digga-<version>.AppImage` and the inspectable variant in
+     `release/inspectable/linux-unpacked/`. An AppImage runs on any distribution without
+     installing, and electron-builder needs no package metadata for it; its rpm and deb targets
+     need a homepage and a maintainer's email address in `package.json`, which are the owner's to
+     publish. The entry passes no `--no-sandbox`: AppRun adds it only where unprivileged user
+     namespaces are unavailable.
+192. **The window's app ID on Linux is `io.github.razorjack.digga`.** Electron takes the Wayland
+     `app_id` and the X11 `WM_CLASS` from `package.json`'s `desktopName`. Without it the ID was
+     `Digga`, which no desktop entry names, and KWin drew its generic icon. The AppImage's entry
+     takes the same name, and on Linux the window sets its own icon, since an unpackaged run and
+     an AppImage the desktop has not integrated have no entry.
+193. **The Electron suite runs under XWayland.** In a Wayland session the host leaves out
+     `XDG_SESSION_TYPE` and `XDG_RUNTIME_DIR`, so Chromium runs the test windows under XWayland. A
+     Wayland compositor stops frame callbacks to a window others cover, and Playwright's actions
+     wait for frames: PER-09 eighteen times on six workers took 1.1 minutes with a timeout on
+     Wayland, 9 s without one under XWayland. Wayland itself is checked by hand.
+194. **Reduced motion starts no transitions.** The reduced-motion rule in `styles.css` set
+     `transition-duration: 0.01ms` on every element, and with `transition-property` at its default,
+     `all`, that started a transition on every property change where the app defines none. Each
+     held the old value until the next frame, so the E2E pages, which emulate reduced motion, read
+     the previous scheme's colours after a switch, or a disabled button's opacity after it was
+     enabled. Since 2026-10-18 the duration is `0s`; animations keep 0.01 ms.

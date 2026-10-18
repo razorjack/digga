@@ -2,16 +2,18 @@
 
 For the test host, preload and release checks, read the [Electron E2E plan](e2e/ELECTRON.md).
 
-Digga runs in an Electron window on macOS, from this repository with `vp run electron:dev`, which
-builds the client and starts `electron .`, or packaged with `vp run electron:package`, an ad-hoc
-signed app and dmg for Apple silicon ([Packaging](#packaging)). The main process wraps the server
-without changing it, and the app opens the library the browser version uses. The E2E suite runs
-on it (`vp run e2e:electron`). [What is left](#what-is-left) lists the rest.
+Digga runs in an Electron window on macOS and Linux, from this repository with
+`vp run electron:dev`, which builds the client and starts `electron .`, or packaged with
+`vp run electron:package`: an ad-hoc signed app and dmg for Apple silicon on macOS, an AppImage for
+x64 on Linux ([Packaging](#packaging)). The main process wraps the server without changing it, and
+the app opens the library the browser version uses. The E2E suite runs on it
+(`vp run e2e:electron`). [What is left](#what-is-left) lists the rest.
 
 ## Main process
 
 `electron/main.ts` is the entry (`main` in `package.json`, with `productName` "Digga", so
-userData is `~/Library/Application Support/Digga`, the default library folder). In order, it:
+userData is `~/Library/Application Support/Digga` on macOS and `~/.config/Digga` on Linux, the
+default library folder). In order, it:
 
 1. moves Chromium's session data to `userData/Chromium`, so the library folder holds only
    Digga's files (decision 155), and with `DIGGA_E2E_HOLD=1` then waits for the E2E host to
@@ -101,7 +103,9 @@ later would mean replacing `createHttpApi()` in that one file.
 - **Size and place.** The window opens where it was closed, from `userData/window-state.json`
   (the normal bounds and whether it was maximised), unless no display shows enough of its top
   edge to drag it; then, and on the first start, it opens at 1440 x 900, centred. Its minimum is
-  1080 x 680, so Triage keeps two columns and the toolbar one row.
+  1080 x 680, so Triage keeps two columns and the toolbar one row. Under Wayland the compositor
+  places windows and tells the app no position, so the state holds x and y 0, and only the size
+  and the maximised state carry over; KWin chooses where the window opens.
 - **First paint.** The window shows on `ready-to-show`, over the page's ground colour for the
   scheme `nativeTheme` uses, so it never flashes white.
 
@@ -148,6 +152,10 @@ passes `safeStorage`, as base64 text (decision 152).
 - Where `safeStorage.isEncryptionAvailable()` is false (Linux without a keyring), the token is
   saved as text in `secrets.env`, as the browser version saves it, and Settings says "saved
   unencrypted".
+- On KDE Plasma 6, with the wallet opened at login, `safeStorage` uses KWallet (`kwallet6`)
+  without a prompt and encrypts in Chromium's keyring format (`v11`). Its key is the wallet's
+  "Chromium Safe Storage" entry in "Chromium Keys", Electron's default name rather than the app's,
+  which other Chromium-based apps may share. GNOME's Secret Service is unverified.
 - The CLI cannot decrypt the encrypted token; its imports then need `DISCOGS_TOKEN`.
 - A saved token that `safeStorage` cannot decrypt counts as none, and Settings asks for it: an
   ad-hoc signature changes with every build, so macOS asks whether the new build may read the
@@ -186,21 +194,24 @@ start it against the fake services with the guard loaded.
 
 `vp run electron:package` builds the client and runs `scripts/package-electron.ts`, which calls
 electron-builder's `build()` with its configuration in the script (decision 159), once for each
-variant, and then the release build's health check, `scripts/electron-health-check.ts`
+variant, for the system it runs on, and then the release build's health check,
+`scripts/electron-health-check.ts`
 ([Electron E2E plan](e2e/ELECTRON.md#product-integration-requirements)):
 
-- the release build: `release/Digga-<version>-arm64.dmg` and the app in
-  `release/mac-arm64/Digga.app`;
+- the release build: on macOS `release/Digga-<version>-arm64.dmg` and the app in
+  `release/mac-arm64/Digga.app`; on Linux `release/Digga-<version>.AppImage`, with the unpacked app
+  in `release/linux-unpacked/` ([Linux](#linux));
 - the inspectable variant, which the E2E suite runs on: `release/inspectable/mac-arm64/Digga.app`,
-  with no dmg. It differs from the release build only in the inspect-arguments fuse; both have the
-  same `app.asar`.
+  with no dmg, or `release/inspectable/linux-unpacked/digga`. It differs from the release build only
+  in the inspect-arguments fuse; both have the same `app.asar`.
 
 - **Contents.** `app.asar` holds `package.json` (whose `main` is still `electron/main.ts`),
   `dist/`, `electron/`, `src/` without `src/client/` (the migrations and the shipped style census
-  included), `tools/dump/` and the production dependencies. better-sqlite3 goes without its
-  sources and with only `prebuilds/darwin-arm64.node`, and electron-builder unpacks the package
-  into `app.asar.unpacked`, since a native module cannot load from an archive. `data/` and the
-  tests stay out; a new config starts from the schema defaults.
+  included), `tools/dump/`, `build/icons/512x512.png` (the Linux window's icon) and the production
+  dependencies. better-sqlite3 goes without its sources and with only the system's prebuild
+  (`prebuilds/darwin-arm64.node`, `prebuilds/linux-x64.node`), and electron-builder unpacks the
+  package into `app.asar.unpacked`, since a native module cannot load from an archive. `data/` and
+  the tests stay out; a new config starts from the schema defaults.
 - **TypeScript.** The main process, the server and both workers run from the `.ts` files inside
   `app.asar`, with no transpile step (decision 160). `distDir`'s default, two folders above
   `src/server/`, is `app.asar/dist`, which the static handler reads through Electron's archive
@@ -227,8 +238,8 @@ variant, and then the release build's health check, `scripts/electron-health-che
   `docs/assets/digga-mole-dark.png` with Playwright's Chromium and converts it with `sips` and
   `iconutil`, so the macOS files come from a Mac; on any system it also draws the Linux icons in
   `build/icons/`. An unpackaged run sets `build/icon.png` as its Dock icon, since it is Electron's
-  app otherwise. `build/` is not packaged. Linux has its own image and Windows needs one
-  ([below](#icon-on-windows-and-linux)).
+  app otherwise. Of `build/`, only the Linux window's icon is packaged. Linux has its own image and
+  Windows needs one ([below](#icon-on-windows-and-linux)).
 
 **Gatekeeper.** A downloaded copy carries `com.apple.quarantine`, and Gatekeeper refuses it:
 `spctl --assess --verbose` answers "rejected" for the app (also without the attribute), and
@@ -238,9 +249,34 @@ through "Open Anyway" in System Settings > Privacy & Security, or removes the at
 `xattr -dr com.apple.quarantine`; the README has the steps, as a draft until the owner has seen
 the dialogs.
 
-Never open a packaged build from Finder or with `open` while testing: with `productName` "Digga"
-it runs on the owner's library. Start it with `--user-data-dir` and every `DIGGA_*` path in a
-throwaway folder.
+Never open a packaged build from Finder or with `open` while testing, nor run the AppImage or
+`linux-unpacked/digga` as it is: with `productName` "Digga" it runs on the owner's library. Start
+it with `--user-data-dir` and every `DIGGA_*` path in a throwaway folder.
+
+### Linux
+
+The release build is an AppImage for x64, which runs on any distribution without installing and
+needs no package metadata (decision 191). electron-builder's rpm and deb targets would also need
+`homepage` and an `author` with an email address in `package.json`, which the owner has not chosen.
+
+- **Desktop entry.** `package.json`'s `desktopName`, `io.github.razorjack.digga.desktop`, is the
+  window's app ID (`io.github.razorjack.digga`, the Wayland `app_id` and the X11 `WM_CLASS`), and
+  `linux.syncDesktopName` names the AppImage's entry after it, with a matching `StartupWMClass`,
+  `Icon=digga` and the hicolor icons from `build/icons/` (decision 192). An AppImage installs
+  nothing: until a tool such as Gear Lever or AppImageLauncher integrates it, the desktop has no
+  entry, so the window carries the icon itself.
+- **Sandbox.** electron-builder's AppRun adds `--no-sandbox` when unprivileged user namespaces are
+  unavailable, as Ubuntu 24.04 restricts them for apps without an AppArmor profile; by default it also wrote
+  `Exec=AppRun --no-sandbox` into the entry, which would turn Chromium's sandbox off everywhere, so
+  `appImage.executableArgs` is empty. On Fedora 44 the renderers run in their own user namespace.
+- **FUSE.** The AppImage runtime loads `libfuse.so.2`: `fuse-libs` on Fedora, `libfuse2` (or
+  `libfuse2t64`) on Debian and Ubuntu. Without it, `--appimage-extract-and-run` runs it.
+- **Fuses.** As on macOS, but Electron validates the archive's integrity only on macOS and
+  Windows: a copy whose `app.asar` had a changed byte still ran on Linux.
+- **Size.** The AppImage is about 121 MB, the unpacked app 286 MB.
+- **Quitting.** The AppImage's first process becomes the app, and its child serves the mounted
+  archive. SIGTERM to the first quits the app through `before-quit`, as the health check does; a
+  signal to the child unmounts the archive under the running app.
 
 ## What is left
 
@@ -255,10 +291,11 @@ Before the first release:
 Later:
 
 - **Other packages:** x64 for Intel Macs (one more target, once a Mac with Rosetta or an Intel
-  Mac can start it), win (nsis, signed only through a free service, if one qualifies), linux
-  (AppImage or deb), each with its better-sqlite3 prebuild, checked to load in the packaged app,
-  and the E2E suite on each. Node does not strip types from files under `node_modules`, which
-  matters only if the app moves there. The title bar and the icon on each are planned below
+  Mac can start it), win (nsis, signed only through a free service, if one qualifies), Linux on
+  arm64, and rpm and deb beside the AppImage once `package.json` names a homepage and an author
+  with an email address, each with its better-sqlite3 prebuild, checked to load in the packaged
+  app, and the E2E suite on each. Node does not strip types from files under `node_modules`, which
+  matters only if the app moves there. The title bar and the icon on Windows are planned below
   ([title bar](#title-bar-on-windows-and-linux), [icon](#icon-on-windows-and-linux)).
 - **ELEC-03,** the token in a real keychain, on a runner with an unlocked keychain
   ([PLAN](e2e/PLAN.md#electron)).
@@ -296,7 +333,9 @@ desktop's theme or the user's button layout (GNOME shows only a close button by 
 users put the buttons on the left). Unverified; check it before deciding otherwise.
 
 - KDE draws the title bar itself (server-side decorations), so a system title bar above an app
-  toolbar is its normal look, with the user's theme and window rules.
+  toolbar is its normal look, with the user's theme and window rules. On KDE Plasma 6 under
+  Wayland the window gets KWin's title bar with the user's buttons, and the menu bar sits below it,
+  as in KDE's own apps (seen on 2026-10-18).
 - Tiling window managers draw no title bar; a hidden one would leave caption buttons in the
   toolbar.
 - GNOME apps use a header bar, which the hidden title bar resembles, so the overlay could be
@@ -315,7 +354,8 @@ matters on Linux.
 - that a double-click on the toolbar maximises the window, and that dragging empty toolbar space
   moves it;
 - that the button colours change after an Appearance change in Settings;
-- how the Linux buttons look under GNOME and KDE, on Wayland and on X11, if the overlay is tried.
+- how the Linux buttons look under GNOME and KDE, on Wayland and on X11, if the overlay is tried;
+- how GNOME draws the system title bar under Wayland, where it may leave decorations to the app.
 
 ### Icon on Windows and Linux
 
@@ -356,7 +396,9 @@ still needs its own master and files.
 
 **Check in the Windows and Linux sessions:** the icon on the taskbar, in Alt-Tab and in the Start
 menu at 100% and 150% scaling, in light and dark themes; in GNOME's dash and KDE's panel, in
-light and dark themes; and the installer's icon.
+light and dark themes; and the installer's icon. On KDE Plasma 6 under Wayland, KWin shows the
+window's icon in its title bar, from an unpackaged run and from the AppImage (2026-10-18); the
+panel, Alt-Tab and GNOME are unchecked.
 
 **macOS later.** macOS 26 added layered icons made with Icon Composer (`.icon`), which the system
 renders in its Liquid Glass style with dark, tinted and clear appearances. An `.icns` that fills

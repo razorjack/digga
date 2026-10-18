@@ -2,10 +2,11 @@
  * The fused release build's health check (docs/e2e/ELECTRON.md#product-integration-requirements):
  * Playwright cannot attach to a build without the inspector, so this starts the app with no
  * preload and no hold, on an empty library in a new temp folder, with the fake services' URLs and
- * an environment built from nothing. It passes when the app logs "listening on", answers
- * GET /api/health and stops on SIGTERM. `vp run electron:package` runs it after packaging:
+ * an environment built from nothing but the display. It passes when the app logs "listening on",
+ * answers GET /api/health and stops on SIGTERM. `vp run electron:package` runs it after packaging
+ * on the release build, the app on macOS and the AppImage on Linux:
  *
- *   node scripts/electron-health-check.ts [path/to/Digga.app]
+ *   node scripts/electron-health-check.ts [path/to/Digga.app | path/to/Digga.AppImage]
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -14,10 +15,10 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { HOST_RESOLVER_RULES } from "../tests/e2e/support/browser-guard.ts";
+import { DISPLAY_VARIABLES, parentVariables } from "../tests/e2e/support/spawn.ts";
 import { FakeServices } from "../tools/dev/fake-services.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const RELEASE_APP = path.join(ROOT, "release", "mac-arm64", "Digga.app");
 const START_TIMEOUT_MS = 30_000;
 /** As in the E2E host: a server that does not stop is a failure. */
 const STOP_TIMEOUT_MS = 15_000;
@@ -37,8 +38,8 @@ interface Launch {
   logFile: string;
 }
 
-const app = path.resolve(process.argv[2] ?? RELEASE_APP);
-const executable = path.join(app, "Contents", "MacOS", "Digga");
+const app = path.resolve(process.argv[2] ?? releaseBuild());
+const executable = executableOf(app);
 if (!fs.existsSync(executable))
   throw new Error(`${executable} does not exist; run \`vp run electron:package\` first`);
 
@@ -59,6 +60,21 @@ try {
   await fakes.stop();
 }
 
+/** What `vp run electron:package` writes on this system (scripts/package-electron.ts). */
+function releaseBuild(): string {
+  if (process.platform === "darwin") return path.join(ROOT, "release", "mac-arm64", "Digga.app");
+  const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")) as {
+    version: string;
+  };
+  return path.join(ROOT, "release", `Digga-${version}.AppImage`);
+}
+
+/** A macOS bundle runs its executable; an AppImage runs itself. */
+function executableOf(build: string): string {
+  if (build.endsWith(".app")) return path.join(build, "Contents", "MacOS", "Digga");
+  return build;
+}
+
 /** Every path the app is given lies in the run's folder; the services are the fakes. */
 function isolatedLaunch(executable: string, folder: string, fakes: FakeServices): Launch {
   const inFolder = (name: string) => path.join(folder, name);
@@ -72,6 +88,7 @@ function isolatedLaunch(executable: string, folder: string, fakes: FakeServices)
       HOST_RESOLVER_RULES,
     ],
     env: {
+      ...parentVariables(DISPLAY_VARIABLES),
       PATH: "/usr/bin:/bin",
       HOME: inFolder("home"),
       TMPDIR: `${inFolder("tmp")}/`,
