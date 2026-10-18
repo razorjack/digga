@@ -224,9 +224,11 @@ variant, and then the release build's health check, `scripts/electron-health-che
   app's dark ground with its grain and a faint light rim. It follows Apple's grid, an 824 px body
   with 185 px corners in the 1024 px canvas and the drop shadow macOS's own icons carry; both were
   measured against the system's icons. `node scripts/make-icon.ts` draws it from
-  `docs/assets/digga-mole-dark.png` (macOS only: Playwright's Chromium, `sips` and `iconutil`).
-  An unpackaged run sets `build/icon.png` as its Dock icon, since it is Electron's app otherwise.
-  `build/` is not packaged. Windows and Linux need another image ([below](#icon-on-windows-and-linux)).
+  `docs/assets/digga-mole-dark.png` with Playwright's Chromium and converts it with `sips` and
+  `iconutil`, so the macOS files come from a Mac; on any system it also draws the Linux icons in
+  `build/icons/`. An unpackaged run sets `build/icon.png` as its Dock icon, since it is Electron's
+  app otherwise. `build/` is not packaged. Linux has its own image and Windows needs one
+  ([below](#icon-on-windows-and-linux)).
 
 **Gatekeeper.** A downloaded copy carries `com.apple.quarantine`, and Gatekeeper refuses it:
 `spctl --assess --verbose` answers "rejected" for the app (also without the attribute), and
@@ -320,24 +322,26 @@ matters on Linux.
 Read this before packaging for Windows or Linux. `build/icon.icns` follows Apple's grid: the body
 fills 824 px of the 1024 px canvas, and the margin holds a drop shadow. Neither Windows nor Linux
 masks or shadows app icons, so the same image there would make Digga about a fifth smaller than
-its neighbours, with a shadow no other icon has. `scripts/make-icon.ts` should draw a second
-master for both from the same layers (dark ground, flyer-yellow disc, the mole from the waist up,
-the grain, the rim) and write each platform's files from it.
+its neighbours, with a shadow no other icon has. `scripts/make-icon.ts` draws a second master
+for Linux from the same layers (dark ground, flyer-yellow disc, the mole from the waist up, the
+grain, the rim), scaled with the plate, and writes `build/icons/` from it with Chromium. Windows
+still needs its own master and files.
 
 - **Keep the plate.** Neither platform prescribes a shape, and an icon cut to the mole's outline
   is a common choice there. Digga's mole is dark, so without the dark ground and the yellow disc
   it disappears on a dark taskbar or panel. Use a rounded square with smaller corners than
   macOS's, about an eighth of the size, and no shadow.
 - **Fill the canvas.** About 4% margin on each side for Windows, whose taskbar and Start menu
-  show icons nearly edge to edge. Linux icon themes usually leave a little more; check GNOME's app
-  icon template before fixing the number.
+  show icons nearly edge to edge. The Linux master keeps 64 px of 1024 (6.25%) on each side, with
+  112 px corners: on Fedora 44 the app icons in `/usr/share/icons/hicolor/256x256/apps` keep about
+  6% (Firefox, 1Password) to 9% (Ghostty, kitty). GNOME's app icon template was not checked.
 - **Windows files.** One `.ico` with 16, 20, 24, 32, 40, 48, 64 and 256 px images: 16, 24, 32, 48
   and 256 at least, and the others for 125% and 150% scaling. electron-builder takes `win.icon` as
   a `.ico` or a 256 px PNG that it converts; the NSIS installer and uninstaller take the same
   icon (`nsis.installerIcon`, `nsis.uninstallerIcon`).
-- **Linux files.** PNGs at 16, 22, 24, 32, 48, 64, 128, 256 and 512 px for the hicolor theme.
-  electron-builder's `linux.icon` takes a folder of them named by size (`512x512.png`) and
-  writes the `.desktop` entry; an AppImage uses the largest.
+- **Linux files.** PNGs at 16, 22, 24, 32, 48, 64, 128, 256 and 512 px for the hicolor theme, in
+  `build/icons/`, named by size (`512x512.png`) as electron-builder's `linux.icon` takes them; it
+  writes the `.desktop` entry, and an AppImage uses the largest.
 - **Unpackaged runs.** On Linux, and on Windows before packaging, the window and the taskbar show
   Electron's icon unless the `BrowserWindow` gets an `icon`, the counterpart of `showDockIcon()`
   in `electron/main.ts`.

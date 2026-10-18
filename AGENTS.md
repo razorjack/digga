@@ -109,8 +109,9 @@ docs/                  ARCHITECTURE DATA_MODEL DISCOGS_NOTES DESIGN_BRIEF KEYMAP
                        E2E_TESTING (commands, rules and task routes), e2e/ (task-specific references and scenarios)
 scripts/               check-portability.ts, package-electron.ts (electron-builder, see docs/ELECTRON_PLAN.md),
                        electron-health-check.ts (the fused build starts, answers /api/health and stops),
-                       make-icon.ts (draws build/icon.icns and build/icon.png from the mole)
-build/                 the app icon: icon.icns for the package, icon.png for an unpackaged run's Dock
+                       make-icon.ts (draws build/icons/, and on macOS icon.icns and icon.png, from the mole)
+build/                 the app icon: icon.icns for the macOS package, icon.png for an unpackaged run's Dock,
+                       icons/ (16 to 512 px) for Linux
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
                        triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
                        the decisions backup format (decisions-backup), the style census format (style-census).
