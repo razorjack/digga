@@ -56,9 +56,12 @@ is `_electron.launch()` with:
 - `args`: `-r tests/e2e/support/electron-preload.cjs` and the repository's folder (so
   `package.json`'s `main` and `productName` apply, as in `vp run electron:dev`), both left out for
   a packaged build, then `--user-data-dir=<test folder>/user-data`,
-  `--use-mock-keychain`, `--password-store=basic` and the host-resolver switch from
-  [HARNESS](HARNESS.md#the-network-and-filesystem-guard). Playwright puts its own loader, `--inspect=0`
-  and `--remote-debugging-port=0` before them.
+  `--use-mock-keychain`, `--password-store=basic`, `--allow-pre-commit-input` and the
+  host-resolver switch from [HARNESS](HARNESS.md#the-network-and-filesystem-guard). Playwright puts
+  its own loader, `--inspect=0` and `--remote-debugging-port=0` before them. Its loader adds the
+  first three and its other Chromium switches to an unpackaged app only; without
+  `--allow-pre-commit-input` a packaged window that others covered held back every key pressed in
+  it on Linux, since Chromium delivers a page's input only once it has committed a frame.
 - `env`: the CLI's environment from `diggaVariables()` in `spawn.ts`, built from nothing, with
   `DIGGA_E2E_TEMP_ROOT` (the test's folder) and `DIGGA_E2E_DOWNLOADS_DIR` (`<test folder>/downloads`)
   for the preload, and `DIGGA_E2E_HOLD=1` for a packaged build. Playwright removes `NODE_OPTIONS`

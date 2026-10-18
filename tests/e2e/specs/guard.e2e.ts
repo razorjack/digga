@@ -14,7 +14,7 @@ import {
   countingListener,
   listen,
 } from "../support/listener.ts";
-import { collectOutput, exited } from "../support/spawn.ts";
+import { collectOutput, DISPLAY_VARIABLES, exited, parentVariables } from "../support/spawn.ts";
 import { expect, test } from "../support/test.ts";
 
 const guarded = test.extend<{ forbidden: CountingListener }>({
@@ -124,9 +124,12 @@ for (const outside of ["userData", "DIGGA_DATA_DIR"] as const)
         `digga-e2e preload: refused to start: ${outside} (${outside === "userData" ? fs.realpathSync(userData) : dataDir}) is not inside the test's folder (${allowed})`,
       );
       // Electron creates the userData folder before the preload runs. A packaged build starts
-      // Chromium, which writes its profile there, before the host can load the preload, so the
-      // host refuses such a folder before every launch; Digga's own code never runs.
-      expect(fs.readdirSync(userData)).toEqual(electronExecutable ? ["Chromium"] : []);
+      // Chromium, which writes its profile there (and on Linux its crash reporter's folder),
+      // before the host can load the preload, so the host refuses such a folder before every
+      // launch; Digga's own code never runs.
+      const chromiumFolders =
+        process.platform === "linux" ? ["Chromium", "Crashpad"] : ["Chromium"];
+      expect(fs.readdirSync(userData).sort()).toEqual(electronExecutable ? chromiumFolders : []);
       expect(fs.existsSync(dataDir)).toBe(false);
     },
   );
@@ -173,7 +176,8 @@ async function startElectron(
 
 /**
  * The packaged app ignores -r: it waits with DIGGA_E2E_HOLD=1 until the preload is loaded through
- * the inspector, as the host does it (preloadHeldApp), and nothing else of the host runs.
+ * the inspector, as the host does it (preloadHeldApp), and nothing else of the host runs. Chromium
+ * starts before the preload can refuse, so on Linux it needs the display.
  */
 async function startPackagedElectron(
   executablePath: string,
@@ -185,6 +189,7 @@ async function startPackagedElectron(
     args: [`--user-data-dir=${folders.userData}`, ...MOCK_KEYCHAIN],
     cwd: folders.root,
     env: {
+      ...parentVariables(DISPLAY_VARIABLES),
       PATH: process.env.PATH!,
       HOME: folders.root,
       DIGGA_E2E_TEMP_ROOT: folders.root,

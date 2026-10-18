@@ -29,4 +29,5 @@ outside the folder `DIGGA_E2E_TEMP_ROOT` names: Electron exits with code 78 and 
 "refused to start" line naming the path, the userData folder Electron created before the preload ran
 is empty, and the library folder was not created (**Electron**). On the packaged app the host loads
 the preload while the app waits with `DIGGA_E2E_HOLD=1`, after Chromium has started, so userData
-holds Chromium's `Chromium` folder and nothing else
+holds Chromium's `Chromium` folder, on Linux also its `Crashpad` folder, and nothing else; there
+the app gets the display's variables, which Chromium needs before the preload runs

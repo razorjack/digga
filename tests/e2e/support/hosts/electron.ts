@@ -451,9 +451,12 @@ export class ElectronApp implements DiggaHost {
       // A packaged build ignores -r and runs its own app; preloadHeldApp() loads the preload there.
       ...(executablePath ? [] : ["-r", PRELOAD, APP_DIR]),
       `--user-data-dir=${this.userDataDir}`,
-      // Playwright adds these only with its own loader; passed here, no run touches a real keychain.
+      // Playwright adds these only with its own loader, so a packaged build needs them here. The
+      // mock keychain keeps every run off a real one. Chromium holds a page's input until it has
+      // committed a frame, which a window others cover may never do (seen on Linux).
       "--use-mock-keychain",
       "--password-store=basic",
+      "--allow-pre-commit-input",
       HOST_RESOLVER_RULES,
     ];
     checkLaunch(args, environment, testFolder);
