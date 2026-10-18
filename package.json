@@ -60,5 +60,6 @@
   "engines": {
     "node": ">=22.18"
   },
+  "desktopName": "io.github.razorjack.digga.desktop",
   "productName": "Digga"
 }

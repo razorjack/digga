@@ -94,6 +94,7 @@ async function startDigga(): Promise<void> {
     url: browserUrl,
     logger,
     stateFile: path.join(app.getPath("userData"), "window-state.json"),
+    icon: unpackagedWindowIcon(),
   });
 }
 
@@ -101,6 +102,15 @@ async function startDigga(): Promise<void> {
 function showDockIcon(): void {
   if (app.isPackaged) return;
   app.dock?.setIcon(fileURLToPath(new URL("../build/icon.png", import.meta.url)));
+}
+
+/**
+ * A packaged app on Linux takes its icon from its desktop entry, which the window's app ID,
+ * package.json's desktopName, names; an unpackaged run has no entry, so its window carries one.
+ */
+function unpackagedWindowIcon(): string | undefined {
+  if (app.isPackaged || process.platform !== "linux") return undefined;
+  return fileURLToPath(new URL("../build/icons/512x512.png", import.meta.url));
 }
 
 /**

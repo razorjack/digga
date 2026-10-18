@@ -21,6 +21,8 @@ export interface WindowOptions {
   logger: Logger;
   /** Where the window's size and position are kept between starts. */
   stateFile: string;
+  /** The window's own icon, which an unpackaged run on Linux shows instead of Electron's. */
+  icon?: string;
 }
 
 const DEFAULT_SIZE = { width: 1440, height: 900 };
@@ -37,6 +39,7 @@ export async function openWindow({
   url,
   logger,
   stateFile,
+  icon,
 }: WindowOptions): Promise<BrowserWindow> {
   const saved = readWindowState(stateFile);
   const window = new BrowserWindow({
@@ -45,6 +48,7 @@ export async function openWindow({
     minHeight: MINIMUM_SIZE.height,
     show: false,
     title: "Digga",
+    icon,
     backgroundColor: nativeTheme.shouldUseDarkColors ? GROUND.dark : GROUND.light,
     ...titleBarOptions(process.platform),
     webPreferences: {

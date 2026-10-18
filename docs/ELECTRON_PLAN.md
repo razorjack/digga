@@ -343,8 +343,12 @@ still needs its own master and files.
   `build/icons/`, named by size (`512x512.png`) as electron-builder's `linux.icon` takes them; it
   writes the `.desktop` entry, and an AppImage uses the largest.
 - **Unpackaged runs.** On Linux, and on Windows before packaging, the window and the taskbar show
-  Electron's icon unless the `BrowserWindow` gets an `icon`, the counterpart of `showDockIcon()`
-  in `electron/main.ts`.
+  Electron's icon unless the `BrowserWindow` gets an `icon`. On Linux `unpackagedWindowIcon()` in
+  `electron/main.ts`, the counterpart of `showDockIcon()`, gives it `build/icons/512x512.png`;
+  KWin shows it under Wayland too. A packaged app takes its icon from its desktop entry, which the
+  window's app ID names: Electron uses `package.json`'s `desktopName`,
+  `io.github.razorjack.digga.desktop`, so the ID is `io.github.razorjack.digga`, and the entry has
+  that name. Without it the ID was `Digga`, which no entry has, and KWin drew its generic icon.
 - **Small sizes.** At 16 px the mole is a dark shape; the yellow disc on the dark ground is what
   identifies the app. On macOS, tighter crops for 16 and 32 px only made a darker blob, so one
   drawing serves every size. Windows' 16 and 24 px taskbar sizes may still need a simpler drawing
