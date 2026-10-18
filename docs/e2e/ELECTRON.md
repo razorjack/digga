@@ -36,8 +36,16 @@ A spec run on the packaged configuration tests the last package: after a change 
 
 Each test starts a whole Electron app: a main process with the server, a GPU process, a network
 process and a renderer. Use fewer workers than for the web project; on the 10-core Mac four
-workers ran the suite in about two minutes. The windows open on screen while they run, at the
-size macOS allows. A shell inside another Electron app may export `ELECTRON_RUN_AS_NODE=1`; the
+workers ran the suite in about two minutes, and on a 16-core Linux machine six workers in about
+two and a half. The windows open on screen while they run, at the size macOS allows.
+
+**Linux.** In a Wayland session the app runs under XWayland: the host passes `DISPLAY`,
+`XAUTHORITY` and `WAYLAND_DISPLAY` but not `XDG_SESSION_TYPE` and `XDG_RUNTIME_DIR`, without which
+Chromium neither chooses Wayland nor finds its socket. A Wayland compositor sends no frame
+callbacks to a window others cover, so its animation frames come late or stop, and Playwright's
+actions wait for frames: on 2026-10-18, PER-09 eighteen times on six workers took 1.1 minutes
+with one timeout on Wayland, and 9 s with none under XWayland. Wayland itself (the window, its
+icon and app ID) was checked by hand ([HISTORY](HISTORY.md#linux-on-fedora-44-kde-plasma-wayland)). A shell inside another Electron app may export `ELECTRON_RUN_AS_NODE=1`; the
 host builds the app's environment from nothing, so it does not reach the app.
 
 ## Launch

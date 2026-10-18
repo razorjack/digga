@@ -15,17 +15,16 @@ const GUARD = pathToFileURL(fileURLToPath(new URL("./guard.ts", import.meta.url)
 const STOP_TIMEOUT_MS = 15_000;
 const START_TIMEOUT_MS = 15_000;
 
-/** Parent variables a child may need: finding programs, and the display on Linux or Windows. */
-const INHERITED = [
-  "PATH",
-  "SYSTEMROOT",
-  "WINDIR",
-  "TEMP",
-  "TMP",
-  "DISPLAY",
-  "XAUTHORITY",
-  "WAYLAND_DISPLAY",
-];
+/**
+ * The display on Linux. Chromium chooses Wayland only when XDG_SESSION_TYPE says so and finds its
+ * socket in XDG_RUNTIME_DIR, which stay out: in a Wayland session the Electron app runs under
+ * XWayland, since a Wayland compositor stops drawing the windows others cover and their tests
+ * stall (docs/e2e/ELECTRON.md#running).
+ */
+export const DISPLAY_VARIABLES = ["DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY"];
+
+/** Parent variables a child may need: finding programs, Windows' folders, and the display. */
+const INHERITED = ["PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", ...DISPLAY_VARIABLES];
 
 export interface DiggaLibrary {
   dataDir: string;
@@ -168,12 +167,9 @@ export class DiggaServer {
  * how the guard is loaded is the launcher's part.
  */
 export function diggaVariables(environment: DiggaEnvironment): NodeJS.ProcessEnv {
-  const inherited = INHERITED.filter((name) => process.env[name] !== undefined).map(
-    (name) => [name, process.env[name]] as const,
-  );
   const { home, library, serviceUrls } = environment;
   return {
-    ...Object.fromEntries(inherited),
+    ...parentVariables(INHERITED),
     DIGGA_DATA_DIR: library.dataDir,
     DIGGA_CONFIG_FILE: library.configFile,
     DIGGA_DISCOGS_API_URL: serviceUrls.discogsApi,
@@ -192,6 +188,12 @@ export function diggaVariables(environment: DiggaEnvironment): NodeJS.ProcessEnv
     ...(environment.token === undefined ? {} : { DISCOGS_TOKEN: environment.token }),
     ...(environment.dumpsDirFromApp ? {} : { DIGGA_DUMPS_DIR: library.dumpsDir }),
   };
+}
+
+/** The named variables this process has, with their values. */
+export function parentVariables(names: string[]): Record<string, string> {
+  const present = names.filter((name) => process.env[name] !== undefined);
+  return Object.fromEntries(present.map((name) => [name, process.env[name]!]));
 }
 
 /** The check that keeps the real library safe: it runs before the process exists. */

@@ -186,10 +186,8 @@ On macOS the toolbar is the title bar (decision 173): the Window Controls Overla
 toolbar starts at the window's top edge, is as tall as the overlay's area, and its first page link
 starts after the traffic lights. Elsewhere the system's title bar stays and the overlay is not
 visible. A window moved and resized to 1200 x 760 is saved there in `userData/window-state.json`
-when the app quits, and the relaunched window's minimum size is 1080 x 680; under Wayland, where
-the compositor places windows and tells the app no position, only the size is compared. The host
-sizes each window it launches, so `tests/electron-window.test.ts` checks how the saved bounds are
-restored
+when the app quits, and the relaunched window's minimum size is 1080 x 680. The host sizes each
+window it launches, so `tests/electron-window.test.ts` checks how the saved bounds are restored
 
 ## ELEC-18
 

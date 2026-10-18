@@ -94,11 +94,7 @@ test(
     const saved: unknown = JSON.parse(
       fs.readFileSync(path.join(electron.userDataDir, "window-state.json"), "utf8"),
     );
-    // A Wayland compositor places windows itself and tells the app no position.
-    const position = compositorPlacesWindows()
-      ? { x: expect.any(Number), y: expect.any(Number) }
-      : { x: placed.x, y: placed.y };
-    expect(saved).toEqual({ bounds: { ...placed, ...position }, maximized: false });
+    expect(saved).toEqual({ bounds: placed, maximized: false });
     const minimum = await electron.electronApp.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0]!.getMinimumSize(),
     );
@@ -847,11 +843,6 @@ function dumpsIn(folder: string): string[] {
 interface WindowControlsOverlay {
   visible: boolean;
   getTitlebarAreaRect(): DOMRect;
-}
-
-/** Electron uses Wayland on Linux when the host passes WAYLAND_DISPLAY to it (spawn.ts). */
-function compositorPlacesWindows(): boolean {
-  return process.platform === "linux" && Boolean(process.env.WAYLAND_DISPLAY);
 }
 
 /** Clicks an item of the app's menu bar as a user would, through the main process. */
