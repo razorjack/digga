@@ -211,7 +211,8 @@ incomplete checks are read there.
   Chromium applies an emulated scheme at its next frame, and a computed style read before then
   mixes the two schemes: the first light scans reported contrasts of 1.03 to 2.09 between one
   scheme's text colour and the other's background. The helper waits until the body's background
-  has changed before it scans, and again after it puts the dark scheme back.
+  has changed and a frame has been rendered before it scans, and again after it puts the dark
+  scheme back: elements that inherit their colour can lag behind the body until that frame.
 - Never disable a rule globally. A rule excluded for one element needs a comment in the spec and
   a sentence in the scenario saying why it does not apply; none is excluded today.
 - A contrast failure that needs a new colour is the owner's decision: record it as a product gap
