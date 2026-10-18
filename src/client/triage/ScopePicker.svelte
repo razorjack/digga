@@ -61,10 +61,26 @@
     if (!open && element.open) element.close();
   }
 
+  /**
+   * Chromium fires the close event with the next frame, which a window behind others may not draw
+   * for a while. The picker's own ways out tell the page at once, so an F pressed before the event
+   * opens the picker again.
+   */
+  function closePicker(element: HTMLDialogElement): void {
+    element.close();
+    reset(element);
+  }
+
+  /** The close event, which also follows a dig; it is stale once the picker has opened again. */
+  function onDialogClose(event: Event & { currentTarget: HTMLDialogElement }): void {
+    if (event.currentTarget.open) return;
+    reset(event.currentTarget);
+  }
+
   /** Opened from a shortcut, nothing had focus before, so focus would stay in the closed dialog. */
-  function reset(event: Event & { currentTarget: HTMLDialogElement }): void {
+  function reset(element: HTMLDialogElement): void {
     const focused = document.activeElement;
-    if (focused instanceof HTMLElement && event.currentTarget.contains(focused)) focused.blur();
+    if (focused instanceof HTMLElement && element.contains(focused)) focused.blur();
     search.clear();
     chosenKey = null;
     onclose();
@@ -101,12 +117,16 @@
   function closeOnEscape(event: KeyboardEvent & { currentTarget: HTMLDialogElement }): void {
     if (event.key !== "Escape" || event.isComposing) return;
     event.preventDefault();
-    event.currentTarget.close();
+    closePicker(event.currentTarget);
   }
 
   /** For browsers without `closedby`: a click on the backdrop targets the dialog itself. */
   function closeOnBackdrop(event: MouseEvent & { currentTarget: HTMLDialogElement }): void {
-    if (event.target === event.currentTarget) event.currentTarget.close();
+    if (event.target === event.currentTarget) closePicker(event.currentTarget);
+  }
+
+  function cancel(): void {
+    if (dialog) closePicker(dialog);
   }
 </script>
 
@@ -116,7 +136,7 @@
   aria-labelledby="{id}-title"
   closedby="any"
   {@attach syncOpen}
-  onclose={reset}
+  onclose={onDialogClose}
   onclick={closeOnBackdrop}
   onkeydown={(event) => {
     event.stopPropagation();
@@ -173,7 +193,7 @@
       <button type="submit" disabled={!checked} aria-keyshortcuts="Enter">
         <Key label="Enter" primary aria-hidden="true" /> dig
       </button>
-      <button type="button" aria-keyshortcuts="Escape" onclick={() => dialog?.close()}>
+      <button type="button" aria-keyshortcuts="Escape" onclick={cancel}>
         <Key label="Esc" aria-hidden="true" /> cancel
       </button>
     </div>
