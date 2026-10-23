@@ -2,7 +2,7 @@
 
 All keys are single presses without modifiers unless stated. Every action shows its key on screen,
 and `?` lists the keys of the current page. The definitions live in `src/client/keymap.ts`; the
-handlers are in `src/client/pages/Triage.svelte`, `Twelves.svelte` and `App.svelte`. Keys are
+handlers are in `src/client/pages/Triage.svelte`, `Twelves.svelte`, `Shop.svelte` and `App.svelte`. Keys are
 ignored while a text field has focus, while the `?` overlay is open, and when held with Cmd, Ctrl
 or Alt. A letter held with Shift runs no letter shortcut; only the track marks below use Shift. Keys
 that are not letters (`/`, `,`, the digits, the arrows) work with or without Shift, since some
@@ -15,6 +15,7 @@ in Twelves. Holding a key down never repeats a verdict.
 | --- | ---------------------- |
 | `T` | triage                 |
 | `W` | twelves                |
+| `H` | shop my wants          |
 | `,` | settings               |
 | `?` | show or hide the keys  |
 | Esc | close the keys overlay |
@@ -205,3 +206,23 @@ On reopening Digga, Resume session restores the saved digging filters, player se
 passes, and position. Playback waits for Space. Start fresh keeps the current queue instead.
 Records decided or filtered out since the checkpoint stay out of the resumed normal queue. Replay
 rounds can still include decided records. Account settings are not restored by Resume.
+
+## Shop: wants and shortlist
+
+Open **Shop** in the toolbar, **Shop my wants** in Twelves, or the shopping link in a seller's
+Triage scope. Select a saved seller or read a shop by username. **My wants** contains unreviewed
+copies of exact releases on the imported Discogs wantlist, regardless of digging filters and
+verdicts. **Shortlist** is the second listening pass; **Skipped** lets you revisit copies.
+
+- `A`: shortlist the copy and advance; in Shortlist, keep it and advance.
+- `R`: skip the copy and advance; in Shortlist, remove it and advance.
+- `Z`: undo the last shopping decision in this visit.
+- Space, `J`/`K`, arrows and `1`–`9`: the existing playback controls. Previously heard tracks
+  remain playable in this review.
+- `O`: open the selected listing on Discogs.
+
+Shopping decisions save immediately without changing wants or verdicts. The subtotal uses
+available copies with known prices, separated by currency, before shipping and taxes. Refresh
+shop checks the imported inventory again and flags price changes and missing copies. A partial
+inventory read reports missing copies as unknown. The shortlist stays in Digga; add chosen copies
+to the cart and complete the purchase on Discogs. See [Shopping](SHOPPING.md).

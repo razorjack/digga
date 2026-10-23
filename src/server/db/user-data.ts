@@ -1,3 +1,4 @@
+import { readShoppingDecisions, restoreShoppingDecisions } from "./shopping-backup.ts";
 import type { BackedUpData } from "../../shared/decisions-backup.ts";
 import {
   type MembershipKind,
@@ -38,6 +39,7 @@ export function readBackedUpData(db: Db): BackedUpData {
   return db.transaction(() => ({
     ...readHistory(db),
     sessions: readSessions(db),
+    shopping: readShoppingDecisions(db),
     verdicts: readVerdicts(db),
     memberships: readMemberships(db),
     trackMarks: readTrackMarks(db),
@@ -71,6 +73,7 @@ export function restoreBackedUpData(
         attachedVideos: { added: addAttachedVideos(db, data.attachedVideos) },
       };
       restoreHistory(db, data);
+      restoreShoppingDecisions(db, data.shopping);
       // The backup's keys may follow older rules or an older catalogue.
       remapTuneKeys(db);
       addHeardTunes(db, data.heardTunes);

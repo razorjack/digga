@@ -40,6 +40,7 @@ const RECORD_TYPES: Record<Section, string> = {
   noAudioVideos: "noAudioVideos",
   releaseNotes: "releaseNote",
   sessions: "session",
+  shopping: "shoppingDecision",
   listenLog: "listen",
   verdictLog: "verdictEvent",
   trackMarkLog: "trackMarkEvent",
@@ -324,7 +325,8 @@ function hasDiggaData(data: BackedUpData): boolean {
     data.listenLog.length > 0 ||
     data.verdictLog.some((entry) => entry.source === "triage" || entry.source === "manual") ||
     data.trackMarkLog.length > 0 ||
-    data.sessions.length > 0
+    data.sessions.length > 0 ||
+    data.shopping.length > 0
   );
 }
 

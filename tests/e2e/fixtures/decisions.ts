@@ -53,6 +53,7 @@ export function decisionsBackup(verdicts: BackedUpData["verdicts"]): DecisionsBa
     attachedVideos: [],
     noAudioVideos: [],
     sessions: [],
+    shopping: [],
     releaseNotes: [],
     listenLog: [],
     verdictLog: [],

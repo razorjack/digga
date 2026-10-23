@@ -128,6 +128,7 @@ export const GLOBAL_KEYS: KeyGroup = {
   keys: [
     { keys: ["T"], label: "triage" },
     { keys: ["W"], label: "twelves" },
+    { keys: ["H"], label: "shop my wants" },
     { keys: [","], label: "settings" },
     { keys: ["?"], label: "show or hide these keys" },
   ],
@@ -283,3 +284,24 @@ export function isSelectAll(
 ): boolean {
   return (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "a";
 }
+
+export const SHOP_KEYS = { keep: "A", skip: "R", undo: "Z" } as const;
+
+export const SHOP_KEY_GROUPS: KeyGroup[] = [
+  {
+    title: "Shopping",
+    keys: [
+      { keys: [SHOP_KEYS.keep], label: "shortlist or keep this copy, then next" },
+      {
+        keys: [SHOP_KEYS.skip],
+        label: "skip or remove this copy, then next; leave the wantlist unchanged",
+      },
+      { keys: [SHOP_KEYS.undo], label: "undo the last shopping decision" },
+      { keys: ["Space"], label: "play or pause" },
+      { keys: ["J", "K"], label: "next or previous track" },
+      { keys: ["←", "→"], label: "seek by the configured step" },
+      { keys: ["1–9"], label: "jump to 10–90%" },
+      { keys: ["O"], label: "open this copy on Discogs" },
+    ],
+  },
+];

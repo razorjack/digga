@@ -162,6 +162,7 @@ describe("verdicts when a dump load changes a release's key", () => {
         verdictLog: [],
         trackMarkLog: [],
         sessions: [],
+        shopping: [],
       },
       "2026-09-02T00:00:00.000Z",
     );

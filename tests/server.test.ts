@@ -15,6 +15,9 @@ import {
   type TrackMarksResponse,
   type TwelvesResponse,
 } from "../src/shared/api.ts";
+import { recordMembership } from "../src/server/db/memberships.ts";
+import { saveSellerShop } from "../src/server/db/sellers.ts";
+import type { ShoppingResponse } from "../src/shared/shopping.ts";
 import type { Job, TrackVerdict, Verdict } from "../src/shared/types.ts";
 import { FIXTURE_GZ, fixtureDb, silentLogger, testSecrets, tuneAt } from "./helpers.ts";
 
@@ -579,4 +582,43 @@ describe("createServer with its own database file", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+it("validates shopping decisions and persists only copies in the selected seller's queue", async () => {
+  recordMembership(db, {
+    kind: "wantlist",
+    releaseId: 1001,
+    masterId: 501,
+    dateAdded: null,
+    rating: null,
+    notes: null,
+  });
+  saveSellerShop(db, {
+    id: 6,
+    username: "Shop",
+    listingCount: 1,
+    read: 1,
+    listings: [
+      {
+        id: 12,
+        releaseId: 1001,
+        price: 2.99,
+        currency: "EUR",
+        mediaCondition: "VG+",
+        sleeveCondition: "Generic",
+        comments: "",
+        postedAt: null,
+      },
+    ],
+  });
+  expect((await get("/api/shopping/6garbage")).status).toBe(400);
+  expect((await get("/api/shopping/7")).status).toBe(404);
+  expect((await send("PUT", "/api/shopping/6/12", { state: "accepted" })).status).toBe(400);
+  expect((await send("PUT", "/api/shopping/7/12", { state: "shortlisted" })).status).toBe(404);
+  expect((await send("PUT", "/api/shopping/6/13", { state: "shortlisted" })).status).toBe(404);
+  const saved = await send<ShoppingResponse>("PUT", "/api/shopping/6/12", { state: "shortlisted" });
+  expect(saved.status).toBe(200);
+  expect(saved.body.items[0]).toMatchObject({ state: "shortlisted", listing: { price: 2.99 } });
+  expect((await get<ShoppingResponse>("/api/shopping/6")).body.items[0]?.state).toBe("shortlisted");
+  expect((await get<ReleaseDetail>("/api/releases/1001")).body.verdict).toBeNull();
 });

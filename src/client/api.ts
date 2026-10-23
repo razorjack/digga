@@ -31,6 +31,7 @@ import {
   type VerdictInput,
   type WantlistPushResponse,
 } from "../shared/api.ts";
+import type { ShoppingResponse, ShoppingSeller, ShoppingState } from "../shared/shopping.ts";
 import type { Config } from "../shared/config.ts";
 import type { SavedSession, SessionInput, SessionResolution } from "../shared/digging-session.ts";
 import { formatWait } from "../shared/display.ts";
@@ -44,6 +45,13 @@ import type { Job, Verdict, VerdictStatus } from "../shared/types.ts";
  * can replace createHttpApi() without touching any page.
  */
 export interface Api {
+  getShoppingSellers(): Promise<{ sellers: ShoppingSeller[] }>;
+  getShopping(sellerId: number): Promise<ShoppingResponse>;
+  putShoppingDecision(
+    sellerId: number,
+    listingId: number,
+    state: ShoppingState,
+  ): Promise<ShoppingResponse>;
   /** The digging session saved last, to offer resuming it; null when there is none. */
   getLatestSession(): Promise<SavedSession | null>;
   /** Saves where the digging session is. */
@@ -167,6 +175,10 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
   const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
   const callDialog = httpCaller(baseUrl, timeouts.dialogMs);
   return {
+    getShoppingSellers: () => call("GET", "/shopping"),
+    getShopping: (sellerId) => call("GET", `/shopping/${sellerId}`),
+    putShoppingDecision: (sellerId, listingId, state) =>
+      call("PUT", `/shopping/${sellerId}/${listingId}`, { state }),
     getLatestSession: () => call("GET", "/sessions/latest"),
     putSession: (input) => call("PUT", "/sessions/current", input),
     resolveSession: (id) => call("GET", `/sessions/${encodeURIComponent(id)}/resume`),

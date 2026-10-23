@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ShoppingRowSchema } from "./shopping-backup.ts";
 import { SessionRowSchema } from "./digging-session.ts";
 import { HISTORY_SCHEMAS } from "./history-backup.ts";
 import { toUtcTimestamp } from "./timestamp.ts";
@@ -108,6 +109,7 @@ export const DecisionsBackupSchema = z.object({
   verdictLog: z.array(HISTORY_SCHEMAS.verdictLog).default([]),
   trackMarkLog: z.array(HISTORY_SCHEMAS.trackMarkLog).default([]),
   sessions: z.array(SessionRowSchema).default([]),
+  shopping: z.array(ShoppingRowSchema).default([]),
   releaseNotes: z.array(HISTORY_SCHEMAS.releaseNotes).default([]),
   /**
    * The settings as saved, validated only when `digga restore --config` asks for them, so a
@@ -128,6 +130,7 @@ export type BackedUpData = Pick<
   | "attachedVideos"
   | "noAudioVideos"
   | "sessions"
+  | "shopping"
   | "releaseNotes"
   | "listenLog"
   | "verdictLog"
@@ -143,6 +146,7 @@ export const BACKUP_FIELDS: { [Section in keyof BackedUpData]: string[] } = {
   attachedVideos: Object.keys(BackupAttachedVideoSchema.shape),
   noAudioVideos: Object.keys(BackupNoAudioVideosSchema.shape),
   sessions: Object.keys(SessionRowSchema.shape),
+  shopping: ["listingId", "sellerId", "state", "snapshot", "updatedAt"],
   releaseNotes: Object.keys(HISTORY_SCHEMAS.releaseNotes.shape),
   listenLog: Object.keys(HISTORY_SCHEMAS.listenLog.shape),
   verdictLog: Object.keys(HISTORY_SCHEMAS.verdictLog.shape),

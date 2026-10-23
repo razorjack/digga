@@ -1,5 +1,5 @@
 /** The app's pages, as the hash names them. */
-export type Route = "triage" | "twelves" | "settings" | "setup";
+export type Route = "triage" | "twelves" | "settings" | "setup" | "shop";
 
 /** A page the toolbar reaches, with its key. */
 export interface Destination {
@@ -12,6 +12,7 @@ export interface Destination {
 export const PAGES: Destination[] = [
   { route: "triage", label: "Triage", key: "T" },
   { route: "twelves", label: "Twelves", key: "W" },
+  { route: "shop", label: "Shop", key: "H" },
 ];
 
 /** Settings has its own button at the toolbar's end, where apps keep it. */

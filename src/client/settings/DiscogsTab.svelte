@@ -272,6 +272,7 @@
         </div>
         <span class="hint" id="{id}-seller-hint">
           What a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just that.
+          <a href="#/shop">Shop my wants</a> matches their copies to your wantlist and keeps a shortlist.
         </span>
       </fieldset>
     </form>

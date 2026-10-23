@@ -14,7 +14,9 @@
     detailError,
     startAtFraction,
     seekStepSeconds,
+    mode = "triage",
   }: {
+    mode?: "triage" | "shopping";
     player: TriagePlayer;
     item: QueueItem | null;
     detail: ReleaseDetail | null;
@@ -94,12 +96,16 @@
           <p class="small">The browser holds back sound until you press a key here.</p>
         {:else if overlay.kind === "no_audio"}
           <p class="title">{overlay.title}</p>
+          {#if mode === "triage"}
           <p class="options">
             <span><Key label="S" /> search YouTube</span>
             <span><Key label="⌘V" /> paste a YouTube link to play it</span>
             <span><Key label="D" /> no audio, off the queue</span>
           </p>
           <p class="small">Verdict keys still work.</p>
+          {:else}
+            <p class="small">You can still shortlist or skip this copy, or open it on Discogs.</p>
+          {/if}
         {:else}
           <p class="title">{overlay.title}</p>
           {#if overlay.body}<p class="small">{overlay.body}</p>{/if}
@@ -145,7 +151,7 @@
     <span><Key label="←" /><Key label="→" /> {seekStepSeconds} s</span>
     <span><Key label="1–9" /> jump</span>
     <span><Key label="O" /> discogs</span>
-    <span><Key label="E" /> note</span>
+    {#if mode === "triage"}<span><Key label="E" /> note</span>{/if}
   </div>
 
   <Flash message={player.notice} label="Player notices" />

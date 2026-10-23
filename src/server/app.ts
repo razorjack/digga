@@ -12,6 +12,7 @@ import { registerDiscogsRoutes } from "./routes/discogs.ts";
 import { registerDataRoutes } from "./routes/data.ts";
 import { registerSetupRoutes } from "./routes/setup.ts";
 import { registerDesktopRoutes } from "./routes/desktop.ts";
+import { registerShoppingRoutes } from "./routes/shopping.ts";
 import { registerSessionRoutes } from "./routes/sessions.ts";
 import type { AppContext } from "./context.ts";
 import { discogsErrorMessage, discogsErrorStatus } from "./routes/request.ts";
@@ -33,6 +34,7 @@ export function createApp(context: AppContext): Hono {
     }),
   );
   registerSessionRoutes(api, context);
+  registerShoppingRoutes(api, context);
   registerCatalogRoutes(api, context);
   registerVerdictsRoutes(api, context);
   registerSettingsRoutes(api, context);

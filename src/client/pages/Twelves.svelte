@@ -235,6 +235,7 @@
 <div class="twelves">
   <aside class="sidebar">
     <h1>Twelves</h1>
+    <a class="shop-link" href="#/shop">Shop my wants <span>Find copies from one seller</span></a>
     <fieldset class="shelves">
       <legend class="visually-hidden">Shelf</legend>
       {#each SHELVES as option, index (option.id)}
@@ -520,6 +521,8 @@
     background: var(--surface);
     user-select: none;
   }
+  .shop-link { padding: 8px 12px; color: var(--fg-accent); }
+  .shop-link span { display: block; margin-top: 4px; color: var(--fg-muted); font-size: var(--text-sm); }
   .sidebar h1 {
     padding-inline: 12px;
     font-size: var(--text-lg);

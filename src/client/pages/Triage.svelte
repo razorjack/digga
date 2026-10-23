@@ -410,6 +410,9 @@
           Digging {SCOPE_NOUN[session.scope.kind]} <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
             <b>{formatCount(scopeRemaining)}</b> left under your filters{/if}.
         </span>
+        {#if session.scope.kind === "seller"}
+          <a href="#/shop/{session.scope.id}">Shop my wants from this seller</a>
+        {/if}
         <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
           <Key label="Esc" size="sm" aria-hidden="true" /> back to the whole queue
         </button>
@@ -495,7 +498,10 @@
                 <Key label="N" aria-hidden="true" /> go round the {formatCount(session.passed.length)} you passed
               </button>
             {/if}
-            <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
+            {#if session.scope.kind === "seller"}
+          <a href="#/shop/{session.scope.id}">Shop my wants from this seller</a>
+        {/if}
+        <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
               <Key label="Esc" primary aria-hidden="true" /> back to the whole queue
             </button>
           </p>

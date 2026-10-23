@@ -12,6 +12,7 @@ of a particular run. New scenarios get new IDs; keep existing IDs when moving do
 | Triage                    | [TRI](triage.md)         | `triage*.e2e.ts`, `digging-controls.e2e.ts`, `note-verdict.e2e.ts`      |
 | Sandbox                   | [SBX](sandbox.md)        | Retired; no current spec                                                |
 | Twelves                   | [TWL](twelves.md)        | `twelves*.e2e.ts`, `replay-verdict.e2e.ts`                              |
+| Shopping                  | [SHOP](shopping.md)      | `shopping.e2e.ts`                                                       |
 | Settings                  | [SET](settings.md)       | `settings*.e2e.ts`                                                      |
 | Persistence and lifecycle | [PER](persistence.md)    | `persistence.e2e.ts`, `resume-session.e2e.ts`, `resume-settings.e2e.ts` |
 | Accessibility             | [A11Y](accessibility.md) | `accessibility.e2e.ts`, `shell.e2e.ts` (A11Y-04)                        |

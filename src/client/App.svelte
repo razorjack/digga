@@ -6,6 +6,7 @@
   import LoadIndicator from "./components/LoadIndicator.svelte";
   import {
     GLOBAL_KEYS,
+    SHOP_KEY_GROUPS,
     hasCommandModifier,
     isControlKey,
     isInDialog,
@@ -16,6 +17,7 @@
   } from "./keymap.ts";
   import { loadStatus } from "./load-status.svelte.ts";
   import Settings from "./pages/Settings.svelte";
+  import Shop from "./pages/Shop.svelte";
   import Setup from "./pages/Setup.svelte";
   import Triage from "./pages/Triage.svelte";
   import Twelves from "./pages/Twelves.svelte";
@@ -38,6 +40,7 @@
       ];
     }
     if (route === "twelves") return [...TWELVES_KEY_GROUPS, GLOBAL_KEYS];
+    if (route === "shop") return [...SHOP_KEY_GROUPS, GLOBAL_KEYS];
     return [GLOBAL_KEYS];
   });
 
@@ -81,7 +84,7 @@
   });
 
   $effect(() => {
-    if (route === "triage" || route === "twelves") pageBeforeSettings = route;
+    if (route === "triage" || route === "twelves" || route === "shop") pageBeforeSettings = route;
   });
 
   // styles.css picks the root's color scheme from this attribute.
@@ -218,6 +221,8 @@
     </div>
     {#if route === "twelves"}
       <div class="page"><Twelves /></div>
+    {:else if route === "shop"}
+      <div class="page"><Shop /></div>
     {:else if route === "settings"}
       <div class="page"><Settings /></div>
     {:else if route === "setup"}

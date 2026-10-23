@@ -1436,3 +1436,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      in the scheme's text colour. Other desktops keep the system's title bar, since a tiling window
      manager draws none. The server now tells the app's `desktop` when Settings saves another colour
      scheme, so `nativeTheme` and the buttons follow at once instead of at the next start.
+
+197. **Shopping has a copy-level shortlist, separate from musical verdicts.** The Shop toolbar page
+     (`H`), a Twelves link and a seller-scope link make the buying workflow discoverable. Shop
+     intersects the seller inventory already read with active Discogs wantlist memberships by
+     exact release ID, without Triage's filters or master grouping. Each listing has its own
+     persistent shortlist or skip decision; neither changes wants or verdicts. A second pass keeps
+     or removes selections, with undo. Inventory refreshes preserve saved snapshots, show price
+     changes and retain missing copies; an incomplete read leaves their availability unknown.
+     The decisions backup includes shopping decisions and restores shops as unread until refreshed.
+     This extends decisions 84 and 146: buying and the actual cart remain on Discogs, while Digga
+     prepares a local shortlist with separate currency subtotals before shipping and taxes.
