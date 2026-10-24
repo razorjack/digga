@@ -89,6 +89,16 @@ A Discogs token is needed for wantlist updates, but your catalogue and verdicts 
 
 ## Run Digga
 
+The [release workflow](docs/ELECTRON_PLAN.md#github-releases) publishes a `.dmg` for Macs
+with Apple silicon and an `.AppImage` for x64 Linux to
+[GitHub releases](https://github.com/razorjack/digga/releases), with SHA-256 checksums. These packages do
+not need Node.js. For macOS, follow [the installation steps below](#install-a-downloaded-app-on-macos).
+On Linux, make the downloaded AppImage executable (`chmod +x Digga-<version>-linux-x64.AppImage`)
+and run it; it needs FUSE 2 as described below.
+
+To build or run from source, follow the steps below. Maintainers publish packages by
+[pushing a version tag](docs/ELECTRON_PLAN.md#github-releases).
+
 Use **Node.js 24.11+ on the 24.x line** and npm. Vite+ is installed with the project, so the commands
 below do not need a global `vp` installation.
 

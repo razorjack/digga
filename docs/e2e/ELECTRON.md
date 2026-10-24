@@ -5,11 +5,11 @@ Read this when running, changing or debugging the Electron test host. Start with
 contracts, [Electron scenarios](scenarios/electron.md) for coverage, and the product
 [Electron plan](../ELECTRON_PLAN.md) for packaging.
 
-The host runs the shared suite and the Electron-only scenarios on macOS, on the unpackaged app,
+The host runs the shared suite and the Electron-only scenarios on macOS and Linux, on the unpackaged app,
 `electron/main.ts` from this repository, or on the packaged app's inspectable variant
 ([The packaged app](#the-packaged-app)). It was built on 2026-10-07 after the spike in
-[HISTORY](HISTORY.md#the-electron-spike-electron-unpackaged). Windows and Linux wait for their
-packages ([PLAN](PLAN.md#electron)).
+[HISTORY](HISTORY.md#the-electron-spike-electron-unpackaged). Windows waits for its package
+([PLAN](PLAN.md#electron)).
 
 ## Running
 
@@ -20,8 +20,10 @@ packages ([PLAN](PLAN.md#electron)).
 [playwright.packaged.config.ts](../../tests/e2e/playwright.packaged.config.ts), whose project,
 `electron-packaged`, also sets `electronExecutable` to the inspectable variant's executable. The
 default configuration has only the web project and leaves out `@electron`, so `vp run e2e`,
-`vp run e2e:smoke`, `vp run verify` and CI never start Electron. CI also skips Electron's binary
-download and never packages.
+`vp run e2e:smoke`, `vp run verify` and ordinary branch CI never start Electron. Branch CI also
+skips Electron's binary download and never packages. The
+[release workflow](../ELECTRON_PLAN.md#github-releases) runs the packaged suite on macOS ARM64
+and Linux x64 for version tags.
 
 ```sh
 vp run e2e:electron                                                                    # build, then every Electron test
@@ -305,5 +307,6 @@ node scripts/electron-health-check.ts                         # release/mac-arm6
 node scripts/electron-health-check.ts path/to/Digga.app       # another build: an app, an AppImage or an executable
 ```
 
-**Linux CI** needs a display: `xvfb-run`, whose `DISPLAY` and `XAUTHORITY` the environment passes
-through. Running Electron in CI is not planned yet.
+**Linux CI** uses `xvfb-run`, whose `DISPLAY` and `XAUTHORITY` the environment passes through.
+The release workflow installs FUSE 2 for the AppImage health check and allows unprivileged user
+namespaces on its ephemeral Ubuntu runner so Electron can start its sandbox.

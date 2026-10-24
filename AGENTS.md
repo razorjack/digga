@@ -74,8 +74,9 @@ npx playwright test --config tests/e2e/playwright.electron.config.ts --workers 4
 
 Only `vp run e2e:electron`, `vp run e2e:packaged` and commands naming
 `playwright.electron.config.ts` or `playwright.packaged.config.ts` start Electron;
-`e2e`, `e2e:smoke`, `verify` and CI run the web project. A spec that also runs on Electron passes
-its burn-in on both.
+`e2e`, `e2e:smoke`, `verify` and branch CI run the web project. Version tags run the packaged
+Electron suite on macOS ARM64 and Linux x64 before publication (docs/ELECTRON_PLAN.md#github-releases).
+A spec that also runs on Electron passes its burn-in on both.
 
 The tests start every Digga process through `spawnDigga()` with a throwaway library in a temp
 folder; they never touch the real library, and they use only fake `e2e-token-*` tokens.

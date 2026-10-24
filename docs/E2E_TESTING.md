@@ -57,11 +57,17 @@ not exist yet.
 ### CI
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on GitHub Actions (Ubuntu 24.04,
-Node 24, Chromium) for every push to any branch and for pull requests from forks. Each run is
+Node 24, Chromium) for every push to any branch and for pull requests from forks. Version tags
+call the same workflow from [release.yml](../.github/workflows/release.yml). Each run is
 `npx vp run verify`, with the P0 smoke set, then the rest of the suite against the `dist/` that
 verify built (`--grep-invert @P0`), P2 included. Nothing runs on a schedule. Under `CI` one retry
 is allowed for diagnosis, but a test that passes only on retry fails the run
 ([Runner and configuration](e2e/HARNESS.md#runner-and-configuration)).
+
+The release workflow also packages the app and runs the full packaged Electron suite on macOS
+ARM64 and Linux x64, plus the fused release build's health check. Publication waits for the web
+checks and both package jobs. See [GitHub releases](ELECTRON_PLAN.md#github-releases) for the
+tag format, artifacts and reruns. Ordinary branch CI runs only the web project.
 
 Burn-ins run locally, never in CI. GitHub gives open-source projects their compute for free,
 and the owner decided on 2026-10-03 not to spend it on repeated runs, so the workflow has no

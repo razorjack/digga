@@ -1,11 +1,14 @@
 name: CI
 
-# Every push runs the whole suite: verify (with the P0 smoke set), then every other E2E test.
+# Every branch push runs the whole suite; version tags call it from the release workflow.
 # Nothing runs on a schedule, and burn-ins run locally, not here (docs/E2E_TESTING.md#ci).
 on:
   push:
+    branches: ["**"]
+    tags-ignore: ["v*"]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -13,7 +16,7 @@ permissions:
 # A newer push cancels the branch's running push. Runs on master and dispatched runs get a group
 # of their own, so nothing cancels them or leaves them pending behind a newer run.
 concurrency:
-  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && github.run_id || github.ref }}
+  group: checks-${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master') && github.run_id || github.ref }}
   cancel-in-progress: true
 
 jobs:

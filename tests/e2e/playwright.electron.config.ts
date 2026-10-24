@@ -5,8 +5,8 @@ import type { HostName } from "./support/test.ts";
 /**
  * The shared suite and the Electron-only scenarios on the unpackaged Electron app
  * (docs/e2e/ELECTRON.md). Run it through `vp run e2e:electron`, which builds the client first. The
- * default configuration keeps to the web host, so `vp run e2e`, the smoke set and CI never start
- * Electron.
+ * default configuration keeps to the web host, so `vp run e2e`, the smoke set and branch CI
+ * never start Electron. Version tags run the packaged configuration in the release workflow.
  */
 export default defineConfig<{ host: HostName }>({
   ...base,

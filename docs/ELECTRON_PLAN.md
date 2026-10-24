@@ -302,6 +302,46 @@ needs no package metadata (decision 191). electron-builder's rpm and deb targets
   archive. SIGTERM to the first quits the app through `before-quit`, as the health check does; a
   signal to the child unmounts the archive under the running app.
 
+## GitHub releases
+
+[The release workflow](../.github/workflows/release.yml) runs when a tag starting with `v` is
+pushed. It validates the tag, runs the existing CI checks and full web suite, and packages on
+macOS 15 ARM64 and Ubuntu 24.04 x64. Each package must pass its release health check and the
+full E2E suite on the inspectable variant before publication. Linux uses Xvfb and FUSE 2; the
+ephemeral runner allows unprivileged user namespaces for Electron's sandbox. Every test still
+uses a throwaway library and fake services.
+
+To release the current commit after the workflow is committed:
+
+```sh
+git tag -a v0.1.0 -m "Digga v0.1.0"
+git push origin v0.1.0
+```
+
+Use `vMAJOR.MINOR.PATCH`, optionally followed by a prerelease suffix such as `-beta.1`.
+Short tags such as `v0.1` also work and package version `0.1.0`; use only one spelling for a
+version. Tags with a prerelease suffix publish a GitHub prerelease. Build metadata (`+...`) is
+not supported. Invalid tags fail before checks or packaging start.
+
+The tag supplies the app version: the packaging jobs update `package.json` and
+`package-lock.json` in their checkouts without committing or creating another tag. The source
+version may stay `0.0.0` for local development. The release keeps the original tag as its title
+and contains:
+
+- `Digga-<version>-macos-arm64.dmg`, ad-hoc signed and not notarized;
+- `Digga-<version>-linux-x64.AppImage`;
+- `SHA256SUMS`, covering both installers.
+
+Only the publish job has `contents: write`, using GitHub's built-in token. No Apple credentials
+or personal access token are needed. It creates a draft with generated release notes, uploads
+both installers and the checksums, then publishes it. A failed upload leaves a draft that a
+rerun can finish. A published release is never overwritten; fixes get a new version tag.
+The inspectable variant is for tests only and is not uploaded.
+
+The workflow can be checked locally, but its first tag run still needs to confirm packaging and
+tests on GitHub's runners. Installation of a downloaded macOS copy remains an owner check
+([below](#what-is-left)); building on GitHub does not change the existing Gatekeeper behavior.
+
 ## What is left
 
 Before the first release:
@@ -309,7 +349,7 @@ Before the first release:
 - **The owner's checks** on a downloaded copy: the Gatekeeper dialogs and the README's install
   steps, which are a draft until then, and the Keychain prompt after a second build, declined and
   allowed (decision 158).
-- **A version.** `package.json` says `0.0.0`, which names the dmg.
+- **The first release run** on GitHub's macOS and Linux runners. The version comes from its tag.
 - **The ×10 burn-in** of the Electron configuration on a quiet machine ([PLAN](e2e/PLAN.md#electron)).
 
 Later:
