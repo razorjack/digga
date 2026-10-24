@@ -1,6 +1,8 @@
 import { SHOP_KEYS } from "../../../src/client/keymap.ts";
+import { PLAYER_STATUS_COPY } from "../../../src/client/player/status.ts";
 import { discogsListingUrl } from "../../../src/shared/discogs-urls.ts";
 import type { ShoppingResponse } from "../../../src/shared/shopping.ts";
+import type { ReleaseDetail } from "../../../src/shared/api.ts";
 import { NOT_IN_ANY_DUMP, SHOPKEEPER, SHOP_PRESSING } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { expectAccessible } from "../support/axe.ts";
@@ -92,10 +94,12 @@ test(
     const record = review.locator("[data-listing-id]");
     await expect(record).toHaveAttribute("data-release-id", String(SHOP_PRESSING.id));
     await expect(review.getByRole("list", { name: "Tracklist" })).toBeVisible();
+    const player = review.getByRole("region", { name: "Player" });
+    await expect(player.getByText(PLAYER_STATUS_COPY.playing, { exact: true })).toBeVisible();
     await app.page.keyboard.press("Space");
-    await expect(
-      review.getByRole("region", { name: "Player" }).getByText("playing", { exact: true }),
-    ).toBeVisible();
+    await expect(player.getByText(PLAYER_STATUS_COPY.paused, { exact: true })).toBeVisible();
+    await app.page.keyboard.press("Space");
+    await expect(player.getByText(PLAYER_STATUS_COPY.playing, { exact: true })).toBeVisible();
     const listingId = await record.getAttribute("data-listing-id");
     app.expectProblems({
       aborted: [/^PUT \/api\/shopping\//],
@@ -114,5 +118,61 @@ test(
     expect(
       app.apiRequests().filter((request) => request.startsWith("POST /api/verdicts")),
     ).toHaveLength(0);
+  },
+);
+
+test(
+  "SHOP-03 refreshes missing audio and plays it without changing the shortlist",
+  { tag: ["@SHOP-03", "@P1"] },
+  async ({ app }) => {
+    await app.given.sellerShop(SHOPKEEPER.username);
+    await app.api.send("POST", `/api/discogs/wantlist/${SHOP_PRESSING.id}`);
+    await app.given.listen({
+      releaseId: SHOP_PRESSING.id,
+      position: "B",
+      videoId: SHOP_PRESSING.laterVideos[0]!.id,
+      seconds: 5,
+    });
+    await app.open("#/shop");
+    const option = app.page.getByRole("option", { name: /shopkeeper/ });
+    await expect(option).toBeAttached();
+    const sellerId = (await option.getAttribute("value"))!;
+    await app.page.getByLabel("Seller", { exact: true }).selectOption(sellerId);
+    await app.page
+      .getByRole("complementary", { name: "Shopping copies" })
+      .getByRole("button", { name: new RegExp(SHOP_PRESSING.title) })
+      .click();
+    const review = app.page.getByRole("region", { name: "Shopping review" });
+    const track = review
+      .getByRole("list", { name: "Tracklist" })
+      .getByRole("button", { name: /Fault Line/ });
+    await expect(track).toBeDisabled();
+    const selected = await review.locator("[data-listing-id]").getAttribute("data-listing-id");
+    const refreshed = app.page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith(`/releases/${SHOP_PRESSING.id}/enrich`),
+    );
+    await app.page.keyboard.press(SHOP_KEYS.refreshAudio.toLowerCase());
+    const response = await refreshed;
+    expect(response.ok()).toBe(true);
+    await response.finished();
+    await expect(review.getByRole("button", { name: /Refresh audio/ })).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    await expect(track).toBeEnabled();
+    await track.click();
+    await expect(track).toHaveAttribute("aria-current", "true");
+    await expect.poll(() => app.youtube.audible()).toBe(SHOP_PRESSING.laterVideos[0]!.id);
+    await expect(review.locator("[data-listing-id]")).toHaveAttribute("data-listing-id", selected!);
+    await expect(app.page.getByLabel("Shortlist subtotal")).toContainText("0 shortlisted");
+    const detail = await app.api.get<ReleaseDetail>(`/api/releases/${SHOP_PRESSING.id}`);
+    expect(
+      detail.videos.some(
+        (video) =>
+          video.videoId === SHOP_PRESSING.laterVideos[0]!.id && video.matchedPosition === "B",
+      ),
+    ).toBe(true);
   },
 );

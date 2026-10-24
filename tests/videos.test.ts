@@ -49,6 +49,38 @@ describe("videos of other pressings", () => {
     expect(buildReleaseDetail(db, 1001)!.videos).toHaveLength(2);
     db.close();
   });
+
+  it("shares The Light Rmx with The Light (Remix) without merging other versions or artists", () => {
+    const artist = "d region feat sketch and dj code";
+    const pooled = poolVideos(
+      [{ position: "B", heardKey: `${artist} - the light remix` }],
+      [],
+      [
+        { video: video(132518, "Yt1RF97zDuU", "B"), heardKey: `${artist} - the light rmx` },
+        { video: video(2, "original", "A"), heardKey: `${artist} - the light` },
+        { video: video(3, "named-remix", "B"), heardKey: `${artist} - the light vip remix` },
+        { video: video(4, "other-artist", "B"), heardKey: "other artist - the light remix" },
+        { video: video(5, "unmatched", null), heardKey: null },
+      ],
+    );
+    expect(pooled.map((entry) => [entry.videoId, entry.matchedPosition])).toEqual([
+      ["Yt1RF97zDuU", "B"],
+    ]);
+    expect(
+      poolVideos(
+        [{ position: "2", heardKey: `${artist} - the light rmx` }],
+        [],
+        [{ video: video(4905752, "YUHPgtv-JMA", "B"), heardKey: `${artist} - the light remix` }],
+      )[0]?.matchedPosition,
+    ).toBe("2");
+    expect(
+      poolVideos(
+        [{ position: "A", heardKey: "rmx - the light" }],
+        [],
+        [{ video: video(6, "artist-name", "A"), heardKey: "remix - the light" }],
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("hasVideoOfLink", () => {

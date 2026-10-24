@@ -388,6 +388,7 @@ export const SHOP_PRESSING = release({
   label: { ...TEMPEST_AUDIO, catno: "TMP 001R" },
   year: 2001,
   videos: [video("hollowkinrp", "Hollow Circuit - Kinetic Drift (Repress)", 410)],
+  laterVideos: [video("hollowfault", "Hollow Circuit - Fault Line", 380)],
 });
 
 /**

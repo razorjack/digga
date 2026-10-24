@@ -8,6 +8,10 @@ The first pass contains unreviewed copies of the exact releases on that wantlist
 records already judged and records outside the digging filters. Two copies of one release are
 separate choices because their price, grading and comments can differ. The selected copy's asking
 price and currency, media and sleeve grades, comment and listing link appear beside the player.
+Videos from other pressings of the same master are shared for matching tunes, including the
+equivalent title spellings `Rmx` and `Remix`. If a track still has no video, **Refresh audio** (`P`)
+reads the selected release's current video links from Discogs. A failed refresh keeps the cached
+audio playable; refreshing does not change your shopping decision.
 
 `A` shortlists the copy and advances; `R` skips it for shopping. Neither changes the Discogs
 wantlist or the record's Triage verdict. Every decision saves before advancing. `Z` undoes a

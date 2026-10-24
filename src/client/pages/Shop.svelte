@@ -109,6 +109,7 @@
       [SHOP_KEYS.keep.toLowerCase()]: () => void session.decide("shortlisted"),
       [SHOP_KEYS.skip.toLowerCase()]: () => void session.decide("skipped"),
       [SHOP_KEYS.undo.toLowerCase()]: () => void session.undo(),
+      [SHOP_KEYS.refreshAudio.toLowerCase()]: () => void session.refreshAudio(),
     };
     return actions[key];
   }
@@ -226,6 +227,9 @@
       <div class="audio" hidden={!current}>
         <PlayerPanel {player} item={current?.release ?? null} detail={session.detail} detailError={session.detailError} mode="shopping" startAtFraction={settings.value?.player.startAtFraction ?? 0.5} seekStepSeconds={settings.value?.player.seekStepSeconds ?? 10} />
         <div class="tracks">
+          <button type="button" disabled={locked || session.refreshingAudio || !current} aria-busy={session.refreshingAudio} aria-keyshortcuts={SHOP_KEYS.refreshAudio} onmousedown={keepFocus} onclick={() => void session.refreshAudio()}>
+            <Key label={SHOP_KEYS.refreshAudio} /> {session.refreshingAudio ? "Refreshing audio…" : "Refresh audio"}
+          </button>
           {#if session.detail}<Tracklist detail={session.detail} {player} onplay={(index) => player.playEntry(index)} />{/if}
           {#if session.detailError}<button type="button" onclick={() => session.select(session.selectedId)}>Retry release</button>{/if}
         </div>

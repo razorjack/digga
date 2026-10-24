@@ -220,6 +220,7 @@ verdicts. **Shortlist** is the second listening pass; **Skipped** lets you revis
 - Space, `J`/`K`, arrows and `1`–`9`: the existing playback controls. Previously heard tracks
   remain playable in this review.
 - `O`: open the selected listing on Discogs.
+- `P`: refresh the selected release's audio links from Discogs.
 
 Shopping decisions save immediately without changing wants or verdicts. The subtotal uses
 available copies with known prices, separated by currency, before shipping and taxes. Refresh

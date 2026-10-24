@@ -49,6 +49,7 @@ function client() {
     ...createHttpApi(),
     getShopping: vi.fn(async () => shoppingQueue(db, 6)!),
     getRelease: vi.fn(async () => buildReleaseDetail(db, 1001)!),
+    enrichRelease: vi.fn(async () => buildReleaseDetail(db, 1001)!),
     putShoppingDecision: vi.fn(async (sellerId: number, listingId: number, state: ShoppingState) =>
       saveShoppingDecision(db, sellerId, listingId, state)!,
     ),
@@ -56,6 +57,64 @@ function client() {
 }
 
 describe("shopping session", () => {
+  it("refreshes audio without changing the selected copy or its shopping decision", async () => {
+    const api = client();
+    const refreshed = buildReleaseDetail(db, 1001)!;
+    api.getRelease.mockResolvedValue({ ...refreshed, videos: [] });
+    session = new ShoppingSession(api);
+    await session.open(6);
+    expect(session.detail?.videos).toEqual([]);
+    await session.refreshAudio();
+    expect(session.detail).toEqual(refreshed);
+    expect(session.current?.listing.id).toBe(1);
+    expect(session.current?.state).toBe("pending");
+    expect(api.putShoppingDecision).not.toHaveBeenCalled();
+    expect(session.refreshingAudio).toBe(false);
+  });
+
+  it("keeps cached audio on refresh failure and permits a retry", async () => {
+    const api = client();
+    api.enrichRelease.mockRejectedValueOnce(new Error("offline"));
+    session = new ShoppingSession(api);
+    await session.open(6);
+    const cached = session.detail;
+    await session.refreshAudio();
+    expect(session.detail).toBe(cached);
+    expect(session.error).toContain("Audio refresh failed: offline");
+    expect(session.refreshingAudio).toBe(false);
+    await session.refreshAudio();
+    expect(session.error).toBeNull();
+    expect(api.enrichRelease).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores repeated refreshes and discards results after selection changes or destruction", async () => {
+    const api = client();
+    const pending = Promise.withResolvers<ReleaseDetail>();
+    api.enrichRelease.mockReturnValueOnce(pending.promise);
+    session = new ShoppingSession(api);
+    await session.open(6);
+    const refreshing = session.refreshAudio();
+    await session.refreshAudio();
+    expect(api.enrichRelease).toHaveBeenCalledTimes(1);
+    session.select(2);
+    await Promise.resolve();
+    const selected = session.detail;
+    pending.resolve({ ...buildReleaseDetail(db, 1001)!, videos: [] });
+    await refreshing;
+    expect(session.detail).toBe(selected);
+    expect(session.message).toBe("");
+    expect(session.refreshingAudio).toBe(false);
+
+    const afterClose = Promise.withResolvers<ReleaseDetail>();
+    api.enrichRelease.mockReturnValueOnce(afterClose.promise);
+    const closing = session.refreshAudio();
+    session.destroy();
+    afterClose.resolve({ ...buildReleaseDetail(db, 1001)!, videos: [] });
+    await closing;
+    expect(session.detail).toBe(selected);
+    expect(session.message).toBe("");
+  });
+
   it("keeps the current copy after a failed write and retries before advancing", async () => {
     const api = client();
     api.putShoppingDecision.mockRejectedValueOnce(new Error("offline"));

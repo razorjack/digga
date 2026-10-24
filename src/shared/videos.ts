@@ -53,18 +53,28 @@ export function poolVideos(
   pressings: PressingVideo[],
 ): VideoRecord[] {
   const positions = new Map<string, string>();
-  for (const track of tracks)
-    if (track.position !== "" && !positions.has(track.heardKey))
-      positions.set(track.heardKey, track.position);
+  for (const track of tracks) {
+    const key = pressingTuneKey(track.heardKey);
+    if (track.position !== "" && !positions.has(key)) positions.set(key, track.position);
+  }
   const videos = [...own];
   const seen = new Set(own.map((video) => video.videoId));
   for (const { video, heardKey } of pressings) {
-    const position = heardKey === null ? undefined : positions.get(heardKey);
+    const position = heardKey === null ? undefined : positions.get(pressingTuneKey(heardKey));
     if (position === undefined || seen.has(video.videoId)) continue;
     seen.add(video.videoId);
     videos.push({ ...video, matchedPosition: position });
   }
   return videos;
+}
+
+/** Pressings abbreviate Remix as Rmx; preserve artist identity and every other version word. */
+function pressingTuneKey(heardKey: string): string {
+  const titleStart = heardKey.indexOf(" - ");
+  if (titleStart === -1) return heardKey;
+  const artist = heardKey.slice(0, titleStart + 3);
+  const title = heardKey.slice(titleStart + 3).replace(/\brmx\b/g, "remix");
+  return artist + title;
 }
 
 /** Whether the videos hold the one a YouTube link points at. */

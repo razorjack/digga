@@ -23,6 +23,7 @@ export class ShoppingSession {
   message = $state("");
   busy = $state(false);
   loading = $state(false);
+  refreshingAudio = $state(false);
   history = $state.raw<Undo[]>([]);
   items = $derived(this.shop?.items.filter((item) => item.state === this.view) ?? []);
   current = $derived(this.items.find((item) => item.listing.id === this.selectedId) ?? null);
@@ -68,6 +69,7 @@ export class ShoppingSession {
     this.selectedId = listingId;
     this.detail = null;
     this.detailError = null;
+    this.refreshingAudio = false;
     const generation = ++this.#detailGeneration;
     const item = this.shop?.items.find((copy) => copy.listing.id === listingId);
     if (item) void this.#readDetail(item, generation);
@@ -126,6 +128,27 @@ export class ShoppingSession {
     } catch (error) {
       if (!this.#closed && generation === this.#detailGeneration)
         this.detailError = errorMessage(error);
+    }
+  }
+
+  async refreshAudio(): Promise<void> {
+    const item = this.current;
+    if (!item || this.refreshingAudio || this.busy || this.#closed) return;
+    const generation = ++this.#detailGeneration;
+    this.refreshingAudio = true;
+    this.error = null;
+    this.message = "";
+    try {
+      const detail = await this.#api.enrichRelease(item.release.id);
+      if (this.#closed || generation !== this.#detailGeneration) return;
+      this.detail = detail;
+      this.detailError = null;
+      this.message = "Audio links refreshed from Discogs.";
+    } catch (error) {
+      if (!this.#closed && generation === this.#detailGeneration)
+        this.error = `Audio refresh failed: ${errorMessage(error)}`;
+    } finally {
+      if (!this.#closed && generation === this.#detailGeneration) this.refreshingAudio = false;
     }
   }
 

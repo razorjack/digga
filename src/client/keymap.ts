@@ -285,7 +285,7 @@ export function isSelectAll(
   return (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "a";
 }
 
-export const SHOP_KEYS = { keep: "A", skip: "R", undo: "Z" } as const;
+export const SHOP_KEYS = { keep: "A", skip: "R", undo: "Z", refreshAudio: "P" } as const;
 
 export const SHOP_KEY_GROUPS: KeyGroup[] = [
   {
@@ -297,6 +297,7 @@ export const SHOP_KEY_GROUPS: KeyGroup[] = [
         label: "skip or remove this copy, then next; leave the wantlist unchanged",
       },
       { keys: [SHOP_KEYS.undo], label: "undo the last shopping decision" },
+      { keys: [SHOP_KEYS.refreshAudio], label: "refresh audio links from Discogs" },
       { keys: ["Space"], label: "play or pause" },
       { keys: ["J", "K"], label: "next or previous track" },
       { keys: ["←", "→"], label: "seek by the configured step" },
