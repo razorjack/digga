@@ -210,7 +210,7 @@ rounds can still include decided records. Account settings are not restored by R
 ## Shop: wants and shortlist
 
 Open **Shop** in the toolbar, **Shop my wants** in Twelves, or the shopping link in a seller's
-Triage scope. Select a saved seller or read a shop by username. **My wants** contains unreviewed
+Triage scope. Select a saved seller or read a shop by username. **To review** contains unreviewed
 copies of exact releases on the imported Discogs wantlist, regardless of digging filters and
 verdicts. **Shortlist** is the second listening pass; **Skipped** lets you revisit copies.
 

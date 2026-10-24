@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { discogsListingUrl } from "../../shared/discogs-urls.ts";
-  import { formatAge, formatCount, formatPrice } from "../../shared/display.ts";
-  import { shortlistTotals } from "../../shared/shopping.ts";
+  import { formatAge, formatCount, formatCounted, formatPrice } from "../../shared/display.ts";
+  import { type GradeTone, listingGrade } from "../../shared/listings.ts";
+  import { type ShoppingItem, shortlistTotals } from "../../shared/shopping.ts";
   import { api } from "../api.ts";
   import Key from "../components/Key.svelte";
-  import { hasCommandModifier, isControlKey, isInDialog, SHOP_KEYS, shortcutKey } from "../keymap.ts";
+  import Stamp from "../components/Stamp.svelte";
+  import { hasCommandModifier, isControlKey, isInDialog, SHOP_KEYS, shortcutKey, type StampTone } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
   import { getAnchor, navigate, openExternal } from "../router.svelte.ts";
   import { ShoppingSession, type ShoppingView } from "../shopping/session.svelte.ts";
@@ -25,17 +27,29 @@
   const anchor = $derived(getAnchor());
   const current = $derived(session.current);
   const seller = $derived(session.shop?.seller ?? null);
-  const metadata = $derived(current ? [current.release.labelName, current.release.catno, current.release.year, current.release.country, current.release.formatSummary].filter(Boolean).join(" · ") : "");
+  const pressing = $derived(current ? [current.release.year, current.release.country, current.release.formatSummary].filter(Boolean).join(" · ") : "");
+  const grade = $derived(current ? listingGrade(current.listing) : null);
   const locked = $derived(session.busy || shops.busy || session.loading);
   const totals = $derived(shortlistTotals(session.shop?.items ?? []));
   const sellers = $derived(shops.sellers.map((shop) => shop.id === seller?.id ? seller : shop));
   const shortlist = $derived(session.shop?.items.filter((item) => item.state === "shortlisted") ?? []);
   const unpriced = $derived(shortlist.filter((item) => item.availability !== "available" || item.listing.price === null || item.listing.currency === null).length);
+  const partial = $derived(seller !== null && seller.listingsRead < seller.listings);
+  const reviewing = $derived(session.view === "shortlisted");
   const views: { value: ShoppingView; label: string }[] = [
-    { value: "pending", label: "My wants" },
+    { value: "pending", label: "To review" },
     { value: "shortlisted", label: "Shortlist" },
     { value: "skipped", label: "Skipped" },
   ];
+  const STAMP_TONES: Record<GradeTone, StampTone> = { top: "accent", fair: "plain", worn: "muted" };
+
+  function viewCount(view: ShoppingView): number {
+    return session.shop?.items.filter((item) => item.state === view).length ?? 0;
+  }
+
+  function copyPrice(item: ShoppingItem): string {
+    return item.listing.price === null ? "Price unavailable" : formatPrice(item.listing.price, item.listing.currency);
+  }
 
   onMount(() => {
     void shops.load();
@@ -118,130 +132,174 @@
 <svelte:window {onkeydown} />
 
 <div class="shop">
-  <header class="heading">
-    <div>
+  <header class="bar">
+    <div class="seller">
       <h1>Shop my wants</h1>
-      <p>Hear a seller’s copies of your wantlist, then review your shortlist before buying.</p>
-    </div>
-    <a href="#/twelves">Back to Twelves</a>
-  </header>
-
-  <div class="shop-tools">
-    <label>Seller
       <select aria-label="Seller" value={seller?.id ?? ""} disabled={locked} onchange={(event) => selectSeller(event.currentTarget.value)}>
         <option value="" disabled>Choose a saved shop</option>
         {#each sellers as shop (shop.id)}
-          <option value={shop.id}>{shop.username} · {shop.wants} wants · {shop.shortlisted} shortlisted</option>
+          <option value={shop.id}>{shop.username} · {formatCounted(shop.wants, "want")}</option>
         {/each}
       </select>
-    </label>
-    <form onsubmit={readShop}>
-      <label for="shopping-username">Read a seller’s shop</label>
-      <input id="shopping-username" bind:value={username} placeholder="Discogs username" required autocomplete="off" spellcheck="false" disabled={locked} />
-      <button type="submit" disabled={locked || !username.trim()}>Read shop</button>
-    </form>
-    <button type="button" disabled={locked || !settings.value?.discogs.username} onclick={() => void refresh("wantlist")}>Refresh my wantlist</button>
-  </div>
-
-  <p class="notice" role="status">{session.message || shops.message}</p>
-  <p class="error" role="alert">{shops.error || session.error || ""}</p>
-
-  {#if seller}
-    <div class="scope">
-      <p><b>{seller.username}</b> · {formatCount(seller.wants)} matching wants · read {formatAge(seller.readAt)}. Exact pressings; digging filters do not apply.</p>
-      <button type="button" disabled={locked} onclick={() => void refresh("seller")}>Refresh shop</button>
+      {#if seller}
+        <p class="quiet">
+          read <time datetime={seller.readAt}>{formatAge(seller.readAt)}</time>
+          {#if partial}<span class="warning">· {formatCount(seller.listingsRead)} of {formatCount(seller.listings)} listings, some wants may be missing</span>{/if}
+        </p>
+        <button type="button" class="text" disabled={locked} onclick={() => void refresh("seller")}>Refresh shop</button>
+      {/if}
     </div>
-    {#if seller.listingsRead < seller.listings}
-      <p class="notice">Partial inventory: {formatCount(seller.listingsRead)} of {formatCount(seller.listings)} listings read. Some wants may be missing; absent shortlisted copies have unknown availability.</p>
-    {/if}
-    <div class="review-tools">
-      <fieldset>
-        <legend class="visually-hidden">Shopping view</legend>
-        {#each views as view (view.value)}
-          <label>
-            <input type="radio" name="shopping-view" value={view.value} checked={session.view === view.value} disabled={locked} onchange={() => session.switchView(view.value)} />
-            {view.label} <span>{session.shop?.items.filter((item) => item.state === view.value).length ?? 0}</span>
-          </label>
-        {/each}
-      </fieldset>
-      <p aria-label="Shortlist subtotal">
-        <b>{shortlist.length} shortlisted</b>
-        {#each totals as total (total.currency)} · {formatPrice(total.amount, total.currency)}{/each}
-        <span class="quiet"> · before shipping and taxes{unpriced > 0 ? ` · ${unpriced} copies excluded from subtotal` : ""}</span>
-      </p>
+    <div class="sources">
+      <form onsubmit={readShop}>
+        <label for="shopping-username">Read a seller’s shop</label>
+        <input id="shopping-username" bind:value={username} placeholder="Discogs username" required autocomplete="off" spellcheck="false" disabled={locked} />
+        <button type="submit" disabled={locked || !username.trim()}>Read shop</button>
+      </form>
+      <button type="button" class="text" disabled={locked || !settings.value?.discogs.username} onclick={() => void refresh("wantlist")}>Refresh my wantlist</button>
     </div>
-  {/if}
+  </header>
 
-  <div class="workspace">
-    <aside aria-label="Shopping copies">
-      {#if session.loading}<p>Loading shop…</p>
-      {:else if !seller}
-        <h2>Start with a seller</h2>
-        <p>Choose a shop you already read, or enter a Discogs username above.</p>
-        <p>Your Discogs wantlist supplies the matches. <a href="#/settings/discogs">Connect your Discogs account</a> if you have not imported it yet.</p>
-        <button type="button" onclick={() => void shops.load()}>Reload saved shops</button>
-      {:else}
-        <h2>{views.find((view) => view.value === session.view)?.label}</h2>
-        <ul>
-          {#each session.items as item (item.listing.id)}
-            <li>
-              <button type="button" aria-current={current?.listing.id === item.listing.id ? "true" : undefined} disabled={locked} onmousedown={keepFocus} onclick={() => session.select(item.listing.id)}>
-                <span class="artist">{item.release.artistDisplay}</span>
-                <span>{item.release.title}</span>
-                <span class="copy-price">{item.listing.price === null ? "Price unavailable" : formatPrice(item.listing.price, item.listing.currency)} · {item.release.catno ?? `release ${item.release.id}`}</span>
-                {#if item.availability !== "available"}<span class="quiet">{item.availability === "unknown" ? "Availability unknown" : "No longer listed"}</span>{/if}
-              </button>
-            </li>
+  <div class="workspace" class:started={seller !== null}>
+    {#if seller}
+      <div class="copies">
+        <fieldset class="views">
+          <legend class="visually-hidden">Shopping view</legend>
+          {#each views as view (view.value)}
+            <label>
+              <input type="radio" name="shopping-view" value={view.value} checked={session.view === view.value} disabled={locked} onchange={() => session.switchView(view.value)} />
+              {view.label} <span class="count">{viewCount(view.value)}</span>
+            </label>
           {/each}
-        </ul>
-        {#if session.items.length === 0}
-          <p>{session.view === "pending" ? "No unreviewed matching copies. Refresh your wantlist or shop, review your shortlist, or revisit skipped copies." : "No copies here yet."}</p>
-        {/if}
-      {/if}
-    </aside>
+        </fieldset>
 
-    <section class="listening" aria-label="Shopping review" aria-busy={session.busy}>
-      <div class="review-content">
-      {#if current}
-        <header class="record" data-release-id={current.release.id} data-listing-id={current.listing.id}>
-          <p class="quiet">{metadata}</p>
-          <h2>{current.release.artistDisplay}</h2>
-          <p class="record-title">{current.release.title}</p>
-          <div class="copy">
-            <strong>{current.listing.price === null ? "Price unavailable" : formatPrice(current.listing.price, current.listing.currency)}</strong>
-            <p>Media: {current.listing.mediaCondition ?? "Not graded"}<br />Sleeve: {current.listing.sleeveCondition ?? "Not graded"}</p>
-            <a href={discogsListingUrl(current.listing.id)} target="_blank" rel="noopener noreferrer" aria-keyshortcuts="O">View copy on Discogs</a>
+        <aside aria-label="Shopping copies">
+          <ul>
+            {#each session.items as item (item.listing.id)}
+              <li>
+                <button type="button" aria-current={current?.listing.id === item.listing.id ? "true" : undefined} disabled={locked} onmousedown={keepFocus} onclick={() => session.select(item.listing.id)}>
+                  <span class="artist">{item.release.artistDisplay}</span>
+                  <span class="price">{copyPrice(item)}</span>
+                  <span class="title">{item.release.title}</span>
+                  <span class="catno">{item.release.catno ?? `release ${item.release.id}`}</span>
+                  {#if item.availability !== "available"}<span class="warning">{item.availability === "unknown" ? "Availability unknown" : "No longer listed"}</span>{/if}
+                </button>
+              </li>
+            {/each}
+          </ul>
+          {#if session.items.length === 0}
+            <p class="quiet">{session.view === "pending" ? "No unreviewed matching copies. Refresh your wantlist or shop, review your shortlist, or revisit skipped copies." : "No copies here yet."}</p>
+          {/if}
+        </aside>
+
+        <div class="subtotal" role="group" aria-label="Shortlist subtotal">
+          <p><b>{shortlist.length} shortlisted</b></p>
+          {#if shortlist.length > 0}
+            {#each totals as total (total.currency)}<p class="amount">{formatPrice(total.amount, total.currency)}</p>{/each}
+            <p class="quiet">before shipping and taxes{unpriced > 0 ? `, ${formatCounted(unpriced, "copy", "copies")} not counted` : ""}</p>
+            <p class="quiet">Open each copy on Discogs to buy it.</p>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
+    <section class="review" aria-label="Shopping review" aria-busy={session.busy}>
+      <div class="desk">
+        {#if session.loading}
+          <p class="state quiet">Loading shop…</p>
+        {:else if !seller}
+          <div class="state">
+            <h2>Start with a seller</h2>
+            <p>Hear a seller’s copies of your wantlist, then review your shortlist before buying.</p>
+            {#if sellers.length > 0}
+              <ul class="saved" aria-label="Saved shops">
+                {#each sellers as shop (shop.id)}
+                  <li>
+                    <button type="button" disabled={locked} onclick={() => selectSeller(String(shop.id))}>
+                      <span class="name">{shop.username}</span>
+                      <span class="quiet">{formatCounted(shop.wants, "want")} · {shop.shortlisted} shortlisted · read <time datetime={shop.readAt}>{formatAge(shop.readAt)}</time></span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+            <p class="quiet">Choose a saved shop or read one by Discogs username. Matches are the exact pressings on your Discogs wantlist; digging filters and verdicts do not apply.</p>
+            <p class="quiet"><a href="#/settings/discogs">Connect your Discogs account</a> if you have not imported your wantlist yet.</p>
+            {#if shops.error}<button type="button" onclick={() => void shops.load()}>Reload saved shops</button>{/if}
           </div>
-          {#if current.listing.comments}<p class="comment">{current.listing.comments}</p>{/if}
-          {#if current.priceChanged}<p class="warning">Price changed since your decision: previously {current.savedPrice === null ? "unknown" : formatPrice(current.savedPrice, current.savedCurrency)}.</p>{/if}
-          {#if current.availability !== "available"}<p class="warning">{current.availability === "unknown" ? "This copy was not found in the partial inventory. Check availability on Discogs." : "This copy is no longer in the seller’s inventory. Your saved selection remains here."}</p>{/if}
-        </header>
-      {:else if seller && !session.loading}
-        <div class="empty">
-          <h2>{session.view === "shortlisted" && session.items.length > 0 ? "Review complete" : "Ready for another pass?"}</h2>
-          <p>Your decisions are saved. Skipping a copy leaves your wantlist unchanged.</p>
-          <button type="button" disabled={locked} onclick={() => session.switchView("shortlisted")}>Review shortlist</button>
-        </div>
-      {/if}
+        {:else if !current}
+          <div class="state">
+            <h2>{reviewing && session.items.length > 0 ? "Review complete" : "Ready for another pass?"}</h2>
+            <p class="quiet">Your decisions are saved. Skipping a copy leaves your wantlist unchanged.</p>
+            <button type="button" disabled={locked} onclick={() => session.switchView("shortlisted")}>Review shortlist</button>
+          </div>
+        {/if}
 
-      <div class="audio" hidden={!current}>
-        <PlayerPanel {player} item={current?.release ?? null} detail={session.detail} detailError={session.detailError} mode="shopping" startAtFraction={settings.value?.player.startAtFraction ?? 0.5} seekStepSeconds={settings.value?.player.seekStepSeconds ?? 10} />
-        <div class="tracks">
-          <button type="button" disabled={locked || session.refreshingAudio || !current} aria-busy={session.refreshingAudio} aria-keyshortcuts={SHOP_KEYS.refreshAudio} onmousedown={keepFocus} onclick={() => void session.refreshAudio()}>
-            <Key label={SHOP_KEYS.refreshAudio} /> {session.refreshingAudio ? "Refreshing audio…" : "Refresh audio"}
-          </button>
-          {#if session.detail}<Tracklist detail={session.detail} {player} onplay={(index) => player.playEntry(index)} />{/if}
-          {#if session.detailError}<button type="button" onclick={() => session.select(session.selectedId)}>Retry release</button>{/if}
+        <div class="listening" hidden={!current}>
+          <div class="record">
+            {#if current}
+              <div class="facts" data-release-id={current.release.id} data-listing-id={current.listing.id}>
+                <header class="identity">
+                  <div class="label-line">
+                    {#if current.release.catno}<Stamp text={current.release.catno} seed={current.release.id} size="lg" />{/if}
+                    <p class="label">{current.release.labelName ?? "Unknown label"}</p>
+                  </div>
+                  <h2>{current.release.artistDisplay}</h2>
+                  <p class="title">{current.release.title}</p>
+                  <p class="quiet">{pressing}</p>
+                </header>
+
+                <div class="copy">
+                  <p class="eyebrow">{seller?.username}’s copy</p>
+                  <div class="offer">
+                    <strong>{copyPrice(current)}</strong>
+                    {#if grade}
+                      <span aria-hidden="true"><Stamp text={grade.text} tone={grade.tone ? STAMP_TONES[grade.tone] : "plain"} seed={current.listing.id} /></span>
+                      <span class="visually-hidden">{grade.spoken}</span>
+                    {/if}
+                    <a href={discogsListingUrl(current.listing.id)} target="_blank" rel="noopener noreferrer" aria-keyshortcuts="O">View copy on Discogs</a>
+                  </div>
+                  {#if current.listing.comments}<p class="comment">{current.listing.comments}</p>{/if}
+                  {#if current.priceChanged}<p class="warning">Price changed since your decision: previously {current.savedPrice === null ? "unknown" : formatPrice(current.savedPrice, current.savedCurrency)}.</p>{/if}
+                  {#if current.availability !== "available"}<p class="warning">{current.availability === "unknown" ? "This copy was not found in the partial inventory. Check availability on Discogs." : "This copy is no longer in the seller’s inventory. Your saved selection remains here."}</p>{/if}
+                </div>
+              </div>
+            {/if}
+
+            <div class="tracks">
+              {#if session.detail}<Tracklist detail={session.detail} {player} onplay={(index) => player.playEntry(index)} />{/if}
+              <div class="track-tools">
+                <button type="button" class="text" disabled={locked || session.refreshingAudio || !current} aria-busy={session.refreshingAudio} aria-keyshortcuts={SHOP_KEYS.refreshAudio} onmousedown={keepFocus} onclick={() => void session.refreshAudio()}>
+                  <Key label={SHOP_KEYS.refreshAudio} size="sm" aria-hidden="true" /> {session.refreshingAudio ? "Refreshing audio…" : "Refresh audio"}
+                </button>
+                {#if session.detailError}<button type="button" class="text" onclick={() => session.select(session.selectedId)}>Retry release</button>{/if}
+              </div>
+            </div>
+          </div>
+
+          <div class="side">
+            <PlayerPanel {player} item={current?.release ?? null} detail={session.detail} detailError={session.detailError} mode="shopping" startAtFraction={settings.value?.player.startAtFraction ?? 0.5} seekStepSeconds={settings.value?.player.seekStepSeconds ?? 10} />
+          </div>
         </div>
       </div>
-      </div>
-      <footer>
-        <div class="actions">
-          <button type="button" class="primary" disabled={!current || locked} onmousedown={keepFocus} aria-keyshortcuts={SHOP_KEYS.keep} onclick={() => void session.decide("shortlisted")}><Key label={SHOP_KEYS.keep} /> {session.view === "shortlisted" ? "Keep & next" : "Shortlist & next"}</button>
-          <button type="button" disabled={!current || locked} onmousedown={keepFocus} aria-keyshortcuts={SHOP_KEYS.skip} onclick={() => void session.decide("skipped")}><Key label={SHOP_KEYS.skip} /> {session.view === "shortlisted" ? "Remove & next" : "Skip & next"}</button>
-          <button type="button" disabled={locked || session.history.length === 0} onmousedown={keepFocus} aria-keyshortcuts={SHOP_KEYS.undo} onclick={() => void session.undo()}><Key label={SHOP_KEYS.undo} /> Undo</button>
+
+      <footer class:idle={!seller}>
+        {#if seller}
+          <div class="actions">
+            <button type="button" class="decision accent" disabled={!current || locked} onmousedown={keepFocus} aria-keyshortcuts={SHOP_KEYS.keep} onclick={() => void session.decide("shortlisted")}>
+              <Key label={SHOP_KEYS.keep} primary size="lg" aria-hidden="true" /> <span>{reviewing ? "Keep & next" : "Shortlist & next"}</span>
+            </button>
+            <button type="button" class="decision" disabled={!current || locked} onmousedown={keepFocus} aria-keyshortcuts={SHOP_KEYS.skip} onclick={() => void session.decide("skipped")}>
+              <Key label={SHOP_KEYS.skip} primary size="lg" aria-hidden="true" /> <span>{reviewing ? "Remove & next" : "Skip & next"}</span>
+            </button>
+            <button type="button" class="text" disabled={locked || session.history.length === 0} onmousedown={keepFocus} aria-keyshortcuts={SHOP_KEYS.undo} onclick={() => void session.undo()}>
+              <Key label={SHOP_KEYS.undo} aria-hidden="true" /> undo
+            </button>
+          </div>
+        {/if}
+        <div class="messages">
+          <p class="error" role="alert">{shops.error || session.error || ""}</p>
+          <p role="status">{session.message || shops.message}</p>
         </div>
-        <p class="quiet">Saved in Digga. Open the chosen copies on Discogs to add them to your cart and buy.</p>
       </footer>
     </section>
   </div>
@@ -251,50 +309,91 @@
   button { border: 1px solid var(--rule); border-radius: var(--radius); background: var(--surface); color: var(--fg); padding: 6px 10px; }
   button:disabled { color: var(--fg-faint); }
   button:not(:disabled):hover { border-color: var(--fg-muted); }
-  .shop { height: 100%; display: flex; flex-direction: column; overflow: auto; }
-  .heading, .shop-tools, .scope, .review-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; padding: 12px 24px; border-bottom: 1px solid var(--rule); }
-  .heading { justify-content: space-between; padding-block: 20px; }
-  h1 { font-family: var(--display); font-size: var(--text-lg); }
-  .heading p, .quiet, .scope, aside p { color: var(--fg-muted); font-size: var(--text-sm); }
-  .heading p { margin-top: 8px; }
-  .shop-tools { background: var(--surface); font-size: var(--text-sm); }
-  .shop-tools label, form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-  input { width: 18em; }
-  select { max-width: 28em; }
-  .notice:not(:empty), .error:not(:empty) { padding: 8px 24px; font-size: var(--text-sm); }
-  .error, .warning { color: var(--fg-accent); }
-  .scope { justify-content: space-between; }
-  fieldset { display: flex; gap: 16px; border: 0; }
-  fieldset label { display: flex; gap: 6px; align-items: center; }
-  fieldset input { width: auto; accent-color: var(--accent-mark); }
-  fieldset label:has(:checked) { color: var(--fg-accent); }
-  .review-tools { justify-content: space-between; font-size: var(--text-sm); }
-  .workspace { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; min-height: 0; }
-  aside { padding: 20px 12px; border-right: 1px solid var(--rule); overflow: auto; background: var(--surface); }
-  aside h2, aside > p { margin: 0 12px 16px; }
-  aside h2 { font-size: var(--text-sm); }
+  button.text { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 0; color: var(--fg-muted); }
+  button.text:not(:disabled):hover { color: var(--fg); }
+  button.text:disabled { opacity: 0.5; }
+  .quiet { color: var(--fg-muted); font-size: var(--text-sm); }
+  .warning, .error { color: var(--fg-accent); }
+  .shop { height: 100%; display: flex; flex-direction: column; }
+
+  /* One row: which shop, then where the shops and the wants come from. */
+  .bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 32px; padding: 12px 24px; border-bottom: 1px solid var(--rule); font-size: var(--text-sm); }
+  .seller, .sources, form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-width: 0; }
+  form { gap: 8px; }
+  h1 { font-family: var(--display); font-size: var(--text-md); margin-right: 8px; }
+  select { flex: none; width: 20em; max-width: 100%; }
+  .bar button.text { color: var(--fg); }
+  label { color: var(--fg-muted); }
+  input { width: 12em; }
+
+  .workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+  .workspace.started { grid-template-columns: 300px minmax(0, 1fr); }
+
+  .copies { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--rule); background: var(--surface); }
+  .views { display: flex; gap: 2px; margin: 0; padding: 12px; border: 0; border-bottom: 1px solid var(--rule); font-size: var(--text-sm); }
+  .views label { position: relative; flex: 1; display: flex; justify-content: center; align-items: baseline; gap: 6px; padding: 6px 4px; border-radius: var(--radius); color: var(--fg-muted); white-space: nowrap; }
+  .views label:has(:checked) { background: var(--bg); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent-mark); }
+  .views label:has(:focus-visible) { outline: 2px solid var(--accent-mark); outline-offset: 1px; }
+  .views label:has(:disabled) { opacity: 0.6; }
+  .views input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; }
+  .count { color: var(--fg-faint); font-size: var(--text-xs); }
+  aside { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 0; }
+  aside > p { margin: 12px 16px; }
   ul { list-style: none; margin: 0; padding: 0; }
-  li button { display: grid; gap: 4px; width: 100%; text-align: left; background: transparent; border: 0; padding: 12px; font-size: var(--text-sm); }
+  li button { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; width: 100%; padding: 10px 16px; border: 0; border-radius: 0; background: transparent; text-align: left; font-size: var(--text-sm); }
   li button[aria-current] { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent-mark); }
-  .artist { font-weight: 600; }
-  .copy-price { margin-top: 4px; color: var(--fg-accent); }
-  .listening { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  .review-content { flex: 1; min-height: 0; overflow: auto; padding: 24px; }
-  .record { margin-bottom: 20px; }
-  .record h2 { font-family: var(--display); font-size: var(--text-xl); margin-block: 12px 4px; }
-  .record-title { font-size: var(--text-lg); }
-  .copy { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 28px; margin-top: 20px; padding-left: 14px; box-shadow: inset 3px 0 0 var(--accent-mark); }
-  .copy strong { font-size: var(--text-xl); }
-  .copy p, .copy a, .comment, .warning { font-size: var(--text-sm); }
-  .comment, .warning { margin-top: 12px; white-space: pre-wrap; }
-  .audio { display: grid; grid-template-columns: minmax(280px, 480px) minmax(240px, 1fr); gap: 24px; }
-  .audio[hidden] { display: none; }
-  .tracks { min-width: 0; }
-  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
-  .actions button { display: flex; align-items: center; gap: 8px; }
-  .primary { background: var(--accent); color: var(--on-accent); }
-  footer { flex: none; padding: 14px 24px; background: var(--surface); border-top: 1px solid var(--rule); }
-  .empty { padding-block: 24px; display: grid; justify-items: start; gap: 16px; }
-  @media (max-width: 1200px) { .audio { grid-template-columns: 1fr; } }
-  @media (max-width: 800px) { .workspace { grid-template-columns: 1fr; } aside { max-height: 220px; } .shop { overflow: auto; } .workspace { min-height: auto; } }
+  li button:disabled { color: inherit; }
+  .artist, .name { font-weight: 600; }
+  .price { text-align: right; }
+  .title, .catno { color: var(--fg-muted); }
+  .catno { text-align: right; font-size: var(--text-xs); align-self: center; }
+  li .warning { grid-column: 1 / -1; font-size: var(--text-xs); }
+  .subtotal { display: grid; gap: 2px; padding: 14px 16px 16px; border-top: 1px solid var(--rule); font-size: var(--text-sm); }
+  .amount { font-size: var(--text-xl); font-weight: 600; margin-block: 2px 4px; }
+
+  .review { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .desk { flex: 1; min-height: 0; overflow-y: auto; padding: 28px 32px 20px; }
+  .state { display: grid; justify-items: start; gap: 14px; max-width: 60ch; }
+  .saved { display: grid; gap: 8px; width: 100%; margin-block: 8px; }
+  .saved button { display: grid; gap: 2px; width: 100%; padding: 10px 14px; text-align: left; background: var(--surface); }
+  .state h2 { font-family: var(--display); font-size: var(--text-xl); line-height: 1.3; }
+  .listening { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr); gap: 40px; }
+  .listening[hidden] { display: none; }
+  .record, .facts { display: grid; align-content: start; gap: var(--space-heading); min-width: 0; }
+  .identity { display: grid; gap: 8px; min-width: 0; }
+  .label-line { display: flex; align-items: center; gap: 16px; margin-bottom: 4px; min-width: 0; }
+  .label { color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .identity h2 { font-family: var(--display); font-size: clamp(22px, 2.2vw, var(--text-2xl)); line-height: 1.2; overflow-wrap: anywhere; }
+  .identity .title { color: var(--fg); font-size: var(--text-lg); font-weight: 500; overflow-wrap: anywhere; }
+  .copy { display: grid; gap: 8px; padding-left: 14px; box-shadow: inset 3px 0 0 var(--accent-mark); }
+  .eyebrow { color: var(--fg-faint); font-size: var(--text-xs); letter-spacing: 0.08em; text-transform: uppercase; }
+  .offer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; }
+  .offer strong { font-size: var(--text-xl); font-weight: 600; }
+  .offer a { font-size: var(--text-sm); color: var(--fg-muted); }
+  .comment { color: var(--fg-muted); font-size: var(--text-sm); white-space: pre-wrap; max-width: 70ch; }
+  .copy .warning { font-size: var(--text-sm); }
+  .tracks { display: grid; gap: 8px; min-width: 0; }
+  .track-tools { display: flex; gap: 20px; font-size: var(--text-sm); }
+  .side { min-width: 0; }
+
+  footer { flex: none; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; padding: 14px 32px 16px; border-top: 1px solid var(--rule); background: var(--surface); }
+  .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .decision { display: inline-flex; align-items: center; gap: 12px; padding: 8px 18px 8px 8px; background: var(--bg); }
+  .decision span { font-family: var(--display); font-size: var(--text-md); }
+  .decision:disabled { opacity: 0.4; color: var(--fg); }
+  .accent span { color: var(--fg-accent); }
+  .actions .text { margin-left: 14px; font-size: var(--text-sm); }
+  .messages { font-size: var(--text-sm); text-align: right; color: var(--fg-muted); }
+
+  footer.idle { border-top: 0; background: none; }
+
+  @media (max-width: 1080px) { .listening { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
+  @media (max-width: 800px) {
+    .shop { height: auto; min-height: 100%; }
+    .workspace.started { grid-template-columns: minmax(0, 1fr); }
+    .copies { border-right: 0; border-bottom: 1px solid var(--rule); }
+    aside { max-height: 240px; }
+    .desk { padding: 20px; }
+    footer { padding: 12px 20px; }
+  }
 </style>
