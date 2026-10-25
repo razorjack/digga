@@ -96,8 +96,8 @@ const BY_ARTIST = `(EXISTS (SELECT 1 FROM json_each(r.artists_json) sa
        OR EXISTS (SELECT 1 FROM tracks st, json_each(st.artists_json) sta
          WHERE st.release_id = r.id AND json_extract(sta.value, '$.id') = ?))`;
 
-const FOR_SALE = `EXISTS (SELECT 1 FROM seller_releases ss
-       WHERE ss.seller_id = ? AND ss.release_id = r.id)`;
+// IN, not a correlated EXISTS, so SQLite starts from the shop's releases instead of the universe.
+const FOR_SALE = `r.id IN (SELECT ss.release_id FROM seller_releases ss WHERE ss.seller_id = ?)`;
 
 /**
  * Releases on the label, any of their labels; by the artist, on the release or a track; for
