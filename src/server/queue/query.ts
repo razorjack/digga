@@ -3,9 +3,10 @@ import type { Filters, HiddenLabel, QueueStrategy } from "../../shared/config.ts
 import { formatSummary } from "../../shared/formats.ts";
 import type { ScopeRef } from "../../shared/scope.ts";
 import type { FormatRef, LabelRef } from "../../shared/types.ts";
+import { rememberForCatalogue } from "../db/catalogue-memo.ts";
 import type { Db } from "../db/db.ts";
 import type { ReleaseRow } from "../db/releases.ts";
-import { ON_COVERAGE } from "./coverage.ts";
+import { coverageIds, ON_COVERAGE } from "./coverage.ts";
 
 /**
  * The queue is a query, not a table: releases grouped by triage key, without a verdict,
@@ -242,9 +243,18 @@ const SPECIAL_PRESSING = `EXISTS (SELECT 1 FROM json_each(r.formats_json) pf,
   WHERE json_extract(pf.value, '$.name') = 'Vinyl' AND pd.value IN ('White Label', 'Test Pressing'))`;
 const REPRESENTATIVE_ORDER = "special_pressing ASC, is_main_release DESC, video_count DESC, id ASC";
 
+const RANKING_COLUMNS = `(SELECT COUNT(*) FROM videos vd WHERE vd.release_id = r.id) AS video_count,
+    ${SPECIAL_PRESSING} AS special_pressing`;
+
 const BASE_SELECT = `
-  SELECT r.*, (SELECT COUNT(*) FROM videos vd WHERE vd.release_id = r.id) AS video_count,
-    ${SPECIAL_PRESSING} AS special_pressing
+  SELECT r.*, ${RANKING_COLUMNS}
+  FROM releases r
+  WHERE `;
+
+// What ranking and every strategy's order read, for the remembered queue order.
+const ORDER_SELECT = `
+  SELECT r.id, r.triage_key, r.label_name, r.catno, r.country, r.year, r.is_main_release,
+    ${RANKING_COLUMNS}
   FROM releases r
   WHERE `;
 
@@ -307,14 +317,112 @@ export function rowToQueueItem(row: QueueRow): QueueItem {
   };
 }
 
+/**
+ * Without a scope, the queue reads the records the filters keep in the strategy's order, which
+ * stay remembered until the catalogue changes, and leaves out those decided since.
+ */
 export function queryQueue(db: Db, query: QueueParams): QueueItem[] {
+  if (query.scope) return queryScopedQueue(db, query);
+  const skipped = new Set(query.exclude ?? []);
+  if (!query.includeDecided) for (const key of decidedKeys(db, query.filters)) skipped.add(key);
+
+  const records = queueOrder(db, query).filter((record) => !skipped.has(record.triage_key));
+  const offset = query.offset ?? 0;
+  const page = records.slice(offset, offset + query.limit);
+  return queueItems(
+    db,
+    page.map((record) => record.id),
+  );
+}
+
+/** A scope starts from its own releases, and picks each record's representative among them. */
+function queryScopedQueue(db: Db, query: QueueParams): QueueItem[] {
   const { sql, params } = buildQueueSql(query);
   const rows = db.prepare(sql).all(...params) as QueueRow[];
   return rows.map(rowToQueueItem);
 }
 
+interface OrderedRecord {
+  /** The record's representative. */
+  id: number;
+  triage_key: string;
+}
+
+/** Every record the filters keep, decided or not, by its representative in the strategy's order. */
+function queueOrder(db: Db, query: QueueParams): OrderedRecord[] {
+  const seed = query.seed ?? 0;
+  const memoKey = catalogueKey(db, query.filters, ["queue order", query.strategy, seed]);
+  return rememberForCatalogue(db, memoKey, () => {
+    const where = buildFilterWhere(query.filters, { includeDecided: true });
+    const order = orderClause(query.strategy, seed);
+    const sql = `WITH base AS (${ORDER_SELECT}${where.sql}
+), ${RANKED}
+SELECT id, triage_key FROM ranked WHERE rn = 1 ORDER BY ${order.sql}`;
+    return db.prepare(sql).all(...where.params, ...order.params) as OrderedRecord[];
+  });
+}
+
+/**
+ * Names a result of the filters for rememberForCatalogue(). Records of unknown year on the
+ * coverage follow the wants and grails, so their labels and artists are part of the name.
+ */
+function catalogueKey(db: Db, filters: Filters, parts: unknown[]): string {
+  const readsCoverage = !filters.includeUnknownYear && filters.includeUnknownYearOnCoverage;
+  return JSON.stringify([...parts, filters, readsCoverage ? coverageIds(db) : null]);
+}
+
+/** The releases as queue items, in the order of `ids`. */
+function queueItems(db: Db, ids: number[]): QueueItem[] {
+  const rows = db
+    .prepare(`${BASE_SELECT} r.id IN (SELECT value FROM json_each(?))`)
+    .all(JSON.stringify(ids)) as QueueRow[];
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const items: QueueItem[] = [];
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (row) items.push(rowToQueueItem(row));
+  }
+  return items;
+}
+
+/** The keys undecidedClause() leaves out, for reading the remembered records. */
+function decidedKeys(db: Db, filters: Filters): Set<string> {
+  const keys = db
+    .prepare(`SELECT v.key FROM verdicts v WHERE @every_verdict = 1 OR v.status <> 'seen'
+      UNION SELECT mr.triage_key FROM memberships m JOIN releases mr ON mr.id = m.release_id`)
+    .pluck()
+    .all({ every_verdict: filters.skipHistory ? 1 : 0 }) as string[];
+  return new Set(keys);
+}
+
+interface FilteredRelease {
+  triage_key: string;
+  added_by_load: number | null;
+}
+
+/** Every release the filters keep, decided or not; remembered until the catalogue changes. */
+function filteredReleases(db: Db, filters: Filters): FilteredRelease[] {
+  return rememberForCatalogue(db, catalogueKey(db, filters, ["filtered releases"]), () => {
+    const where = buildFilterWhere(filters, { includeDecided: true });
+    return db
+      .prepare(`SELECT r.triage_key, r.added_by_load FROM releases r WHERE ${where.sql}`)
+      .all(...where.params) as FilteredRelease[];
+  });
+}
+
 /** Triage keys in the filtered universe, or in a scope of it, that still have no verdict. */
 export function countRemaining(db: Db, filters: Filters, scope: ScopeRef | null = null): number {
+  if (scope !== null && scope.kind !== "load") return countScopeRemaining(db, filters, scope);
+  const decided = decidedKeys(db, filters);
+  const keys = new Set<string>();
+  for (const release of filteredReleases(db, filters)) {
+    if (scope !== null && release.added_by_load !== scope.id) continue;
+    if (!decided.has(release.triage_key)) keys.add(release.triage_key);
+  }
+  return keys.size;
+}
+
+function countScopeRemaining(db: Db, filters: Filters, scope: ScopeRef): number {
   const where = buildFilterWhere(filters, { includeDecided: false, scope });
   const row = db
     .prepare(`SELECT COUNT(DISTINCT r.triage_key) AS n FROM releases r WHERE ${where.sql}`)
@@ -327,19 +435,15 @@ export function countRemaining(db: Db, filters: Filters, scope: ScopeRef | null 
 /** Triage keys in the universe, optionally after the query-time filters. */
 export function countUniverseKeys(db: Db, filters: Filters | null): number {
   if (filters === null) {
-    return (
-      db
+    return rememberForCatalogue(db, "universe keys", () => {
+      const row = db
         .prepare("SELECT COUNT(DISTINCT triage_key) AS n FROM releases WHERE in_universe = 1")
-        .get() as { n: number }
-    ).n;
+        .get() as { n: number };
+      return row.n;
+    });
   }
-  const where = buildFilterWhere(filters, { includeDecided: true });
-  const row = db
-    .prepare(`SELECT COUNT(DISTINCT r.triage_key) AS n FROM releases r WHERE ${where.sql}`)
-    .get(...where.params) as {
-    n: number;
-  };
-  return row.n;
+  const keys = new Set(filteredReleases(db, filters).map((release) => release.triage_key));
+  return keys.size;
 }
 
 export function countUniverseReleases(db: Db): number {

@@ -95,6 +95,14 @@ digs one with `F` (decisions 83, 84 and 92). A seller's records are the releases
 `import seller` job read from their shop (`seller_releases`); the release detail carries the
 copies read with them (`seller_listings`), which Triage shows in that seller's scope.
 
+Without a scope, the records the filters keep, in the strategy's order, and the releases behind
+the counts are remembered per connection (`src/server/db/catalogue-memo.ts`) until the catalogue
+changes: a write on that connection to `releases`, `tracks`, `videos` or `user_videos`, reported
+by TEMP triggers, or another connection's commit, reported by `PRAGMA data_version`. Verdicts and
+memberships are applied when the queue is read, and a result that reads the coverage has the
+coverage's labels and artists in its key. A scope starts from its own releases (`seller_releases`,
+`release_credits`) and is not remembered.
+
 A record plays the videos of all its pressings. `buildReleaseDetail()` returns the release's own
 videos, then those of other releases on the same master whose matched track is a tune on this
 release (same heard key), placed at this release's position for it (`poolVideos()` in

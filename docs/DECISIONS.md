@@ -1453,3 +1453,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      artist tests read JSON. Since 2026-10-26 a scope is `r.id IN (...)` over `seller_releases` or
      the new `release_credits`, which a load writes with each release, and takes 1 to 17 ms. The
      migration fills the table in about 4.5 s on that library and adds about 35 MB.
+199. **The queue remembers what the filters keep.** With 184,528 releases each queue read, count
+     and stats refresh scanned the universe again: 0.7 s for a queue read, 1.7 to 2.4 s for the
+     stats Triage refreshes after every verdict. Since 2026-10-26 the records the filters keep,
+     decided or not, are remembered with their representative and order until the catalogue
+     changes, and the verdicts and memberships are applied when the queue is read. A queue read
+     then takes about 15 ms and the stats about 50 ms. A want that adds labels or artists to the
+     coverage computes them again when the filters include records of unknown year on it. At most
+     eight results are kept, 85 MB when all eight hold every record of that library.
