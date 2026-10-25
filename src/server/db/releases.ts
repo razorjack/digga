@@ -291,6 +291,18 @@ export function upsertRelease(db: Db, release: ReleaseWrite, loadId: number | nu
   db.prepare(UPSERT_RELEASE).run(releaseParams(release, now, loadId));
   writeTracks(db, release.id, release.tracks);
   writeVideos(db, release.id, release.videos, { replace: true });
+  writeCredits(db, release);
+}
+
+/** Replaces the release's labels and artists, its tracks' artists included, for the scopes. */
+function writeCredits(db: Db, release: ReleaseWrite): void {
+  db.prepare("DELETE FROM release_credits WHERE release_id = ?").run(release.id);
+  const insert = db.prepare(`INSERT OR IGNORE INTO release_credits (kind, credit_id, release_id)
+    VALUES (?, ?, ?)`);
+  const artists = [release.artists, ...release.tracks.map((track) => track.artists)].flat();
+  for (const label of release.labels)
+    if (label.id !== null) insert.run("label", label.id, release.id);
+  for (const artist of artists) if (artist.id !== null) insert.run("artist", artist.id, release.id);
 }
 
 /**
@@ -315,7 +327,9 @@ export function insertStubRelease(db: Db, release: ReleaseWrite): boolean {
   const info = db
     .prepare(INSERT_STUB)
     .run(releaseParams({ ...release, inUniverse: false }, nowIso()));
-  return info.changes > 0;
+  if (info.changes === 0) return false;
+  writeCredits(db, release);
+  return true;
 }
 
 export function getRelease(db: Db, id: number): ReleaseRecord | null {

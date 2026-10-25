@@ -1447,3 +1447,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      The decisions backup includes shopping decisions and restores shops as unread until refreshed.
      This extends decisions 84 and 146: buying and the actual cart remain on Discogs, while Digga
      prepares a local shortlist with separate currency subtotals before shipping and taxes.
+198. **Scopes start from their own releases.** With the whole style loaded (184,528 releases), a
+     seller, label or artist scope took 0.6 to 0.8 s per queue read and per count, the same as the
+     whole universe: each tested every release with a correlated `EXISTS`, and the label and
+     artist tests read JSON. Since 2026-10-26 a scope is `r.id IN (...)` over `seller_releases` or
+     the new `release_credits`, which a load writes with each release, and takes 1 to 17 ms. The
+     migration fills the table in about 4.5 s on that library and adds about 35 MB.

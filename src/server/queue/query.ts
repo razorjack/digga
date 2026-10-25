@@ -87,16 +87,15 @@ function undecidedClause(filters: Filters): string {
       WHERE mr.triage_key = r.triage_key)`;
 }
 
-const ON_LABEL = `EXISTS (SELECT 1 FROM json_each(r.labels_json) sl
-       WHERE json_extract(sl.value, '$.id') = ?)`;
+// A scope is IN, not a correlated EXISTS, so SQLite starts from the scope's releases instead of
+// testing every release in the universe.
+const ON_LABEL = `r.id IN (SELECT sc.release_id FROM release_credits sc
+       WHERE sc.kind = 'label' AND sc.credit_id = ?)`;
 
-// Compilations credit their artists on the tracks, not on the release.
-const BY_ARTIST = `(EXISTS (SELECT 1 FROM json_each(r.artists_json) sa
-       WHERE json_extract(sa.value, '$.id') = ?)
-       OR EXISTS (SELECT 1 FROM tracks st, json_each(st.artists_json) sta
-         WHERE st.release_id = r.id AND json_extract(sta.value, '$.id') = ?))`;
+// Compilations credit their artists on the tracks, which release_credits includes.
+const BY_ARTIST = `r.id IN (SELECT sc.release_id FROM release_credits sc
+       WHERE sc.kind = 'artist' AND sc.credit_id = ?)`;
 
-// IN, not a correlated EXISTS, so SQLite starts from the shop's releases instead of the universe.
 const FOR_SALE = `r.id IN (SELECT ss.release_id FROM seller_releases ss WHERE ss.seller_id = ?)`;
 
 /**
@@ -109,7 +108,7 @@ function scopeClause(scope: ScopeRef | null | undefined): SqlFragment | null {
     case "label":
       return { sql: ON_LABEL, params: [scope.id] };
     case "artist":
-      return { sql: BY_ARTIST, params: [scope.id, scope.id] };
+      return { sql: BY_ARTIST, params: [scope.id] };
     case "seller":
       return { sql: FOR_SALE, params: [scope.id] };
     case "load":

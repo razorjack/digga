@@ -251,6 +251,15 @@ Discogs' "Various" left out. Indexed by `records` so a search stops at its limit
 `meta.scope_names_fresh` before it writes and rebuilds the table as it ends; while the key is
 missing, a search reads the releases instead, and opening the library rebuilds the table.
 
+## release_credits
+
+The labels and artists each release credits (migration 26): `(kind, credit_id, release_id)` PK
+with `kind` in `label | artist`, a credit without a Discogs id left out. The artists include
+those on the release's tracks, which is how a compilation credits them. A label or artist scope
+in Triage reads its releases here instead of every release's `labels_json` and `artists_json`.
+`upsertRelease()` and `insertStubRelease()` write a release's rows with the release; deleting the
+release deletes them.
+
 ## meta
 
 Key/value: `schema_version`, `dump_date` (from the dump file name), `dump_file`, `dump_loaded_at`,

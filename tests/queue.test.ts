@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { type ReleaseWrite, upsertRelease } from "../src/server/db/releases.ts";
 import { upsertVerdict } from "../src/server/db/verdicts.ts";
 import {
   buildQueueSql,
@@ -363,10 +364,68 @@ describe("queue query", () => {
     db.close();
   });
 
+  it("follows a release that a newer dump credits to another label or track artist", async () => {
+    const db = await fixtureDb();
+    const ids = (scope: ScopeRef) =>
+      queryQueue(db, {
+        filters: filters({ yearFrom: null, formats: [], skipWithoutVideos: false }),
+        strategy: "label_sweep",
+        limit: 10,
+        scope,
+      }).map((item) => item.id);
+    const track = (artistId: number) => ({
+      seq: 1,
+      position: "A",
+      title: "Tune",
+      artists: [{ id: artistId, name: `Artist ${artistId}`, anv: "", join: "" }],
+      artistDisplay: `Artist ${artistId}`,
+      durationSeconds: null,
+      heardKey: `artist ${artistId} - tune`,
+    });
+    const release = (labelId: number, artistId: number): ReleaseWrite => ({
+      id: 2001,
+      masterId: null,
+      isMainRelease: false,
+      title: "Moved",
+      artists: [],
+      artistDisplay: "Various",
+      labels: [{ id: labelId, name: `Label ${labelId}`, catno: "M 1" }],
+      labelName: `Label ${labelId}`,
+      catno: "M 1",
+      year: 2000,
+      releasedRaw: "2000",
+      country: "UK",
+      formats: [],
+      isVinyl: true,
+      genres: [],
+      styles: ["Drum n Bass"],
+      inUniverse: true,
+      triageKey: "r:2001",
+      tracks: [track(artistId)],
+      videos: [],
+    });
+    upsertRelease(db, release(901, 931));
+    expect([ids({ kind: "label", id: 901 }), ids({ kind: "artist", id: 931 })]).toEqual([
+      [2001],
+      [2001],
+    ]);
+    upsertRelease(db, release(902, 932));
+    expect(ids({ kind: "label", id: 901 })).toEqual([]);
+    expect(ids({ kind: "artist", id: 931 })).toEqual([]);
+    expect([ids({ kind: "label", id: 902 }), ids({ kind: "artist", id: 932 })]).toEqual([
+      [2001],
+      [2001],
+    ]);
+    db.close();
+  });
+
   it("shows the pressing in the scope, not the master's main release", async () => {
     const db = await fixtureDb();
     db.prepare(
       `UPDATE releases SET labels_json = '[{"id":99,"name":"Boxcutter","catno":"BOX 1"}]' WHERE id = 1002`,
+    ).run();
+    db.prepare(
+      "UPDATE release_credits SET credit_id = 99 WHERE kind = 'label' AND release_id = 1002",
     ).run();
     const items = queryQueue(db, {
       filters: filters({}),
@@ -444,6 +503,6 @@ describe("queue query", () => {
       scope: { kind: "artist", id: 21 },
       exclude: ["m:501"],
     });
-    expect(scoped.params).toEqual([21, 21, 1998, 2002, "Vinyl", '["m:501"]', 10, 0]);
+    expect(scoped.params).toEqual([21, 1998, 2002, "Vinyl", '["m:501"]', 10, 0]);
   });
 });
