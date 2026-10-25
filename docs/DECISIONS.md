@@ -1461,3 +1461,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      then takes about 15 ms and the stats about 50 ms. A want that adds labels or artists to the
      coverage computes them again when the filters include records of unknown year on it. At most
      eight results are kept, 85 MB when all eight hold every record of that library.
+200. **A seek shows where it goes at once.** YouTube reports the time before a seek until it has
+     buffered the target, so the player's tick put the playhead back after `1` to `9` or an arrow,
+     and the key seemed to do nothing until the video moved. Since 2026-10-26 the player shows the
+     target, and "seeking" under the video, until YouTube reports a time within 2 s of it, for at
+     most 10 s. Arrows pressed in a row step from the last target. The status stays as it was, so
+     Space still pauses a video that is buffering after a seek.

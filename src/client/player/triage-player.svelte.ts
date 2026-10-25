@@ -27,6 +27,10 @@ const SHORTEST_PLAY_SECONDS = 0.05;
 const TICK_MS = 250;
 /** How long a "play" load may sit unstarted before we assume the browser blocked sound. */
 const BLOCKED_AFTER_MS = 3500;
+/** YouTube lands a seek on a keyframe near the target, and reports the old time until it has. */
+const SEEK_LANDED_SECONDS = 2;
+/** A seek YouTube never reports, as past the end, stops holding the time after this long. */
+const SEEK_HOLD_MS = 10_000;
 
 interface Listen {
   /** Saved with each post; `startSeconds` moves to where the next post's playback starts. */
@@ -61,6 +65,8 @@ export class TriagePlayer {
   current = $state<number | null>(null);
   time = $state(0);
   duration = $state(0);
+  /** Where the listener seeked to, shown until the player reports the new time. */
+  #seek = $state<{ seconds: number; since: number } | null>(null);
   /** Short message about the player, such as a video that would not embed. */
   notice = $state<string | null>(null);
   /** The first video of the next release is buffered. */
@@ -126,6 +132,11 @@ export class TriagePlayer {
     if (id === this.#sessionId) return;
     this.#sessionId = id;
     this.#restartListen();
+  }
+
+  /** A seek or jump is on its way: the time shown is its target, and YouTube may be buffering. */
+  get seeking(): boolean {
+    return this.#seek !== null;
   }
 
   get entry(): PlaylistEntry | null {
@@ -256,7 +267,9 @@ export class TriagePlayer {
     const deck = this.#activeDeck();
     if (!deck?.videoId || !this.#holdsOpenRelease(deck)) return;
     const end = this.duration > 0 ? this.duration - 1 : Number.POSITIVE_INFINITY;
-    this.seekTo(Math.max(0, Math.min(end, deck.currentTime() + seconds)));
+    // Arrows pressed in a row step from the last target, which YouTube may not have reached.
+    const from = this.#seek?.seconds ?? deck.currentTime();
+    this.seekTo(Math.max(0, Math.min(end, from + seconds)));
   }
 
   /** Seeks to a fraction of the video; a paused video stays paused there, as after an arrow. */
@@ -273,6 +286,7 @@ export class TriagePlayer {
     this.time = deck.currentTime();
     this.#flushListen();
     this.time = Math.max(0, seconds);
+    this.#seek = { seconds: this.time, since: performance.now() };
     this.#atStartPoint = false;
     deck.seekTo(this.time);
     this.#beginListen(this.release.release.id, this.entry);
@@ -286,6 +300,7 @@ export class TriagePlayer {
     this.#flushListen();
     this.current = index;
     this.played.add(entry.video.videoId);
+    this.#seek = null;
     this.time = atSeconds ?? startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
     this.#atStartPoint = atSeconds === undefined;
     this.duration = entry.video.durationSeconds ?? 0;
@@ -424,6 +439,7 @@ export class TriagePlayer {
     this.heardNow.clear();
     this.notice = null;
     this.release = detail;
+    this.#seek = null;
     this.time = 0;
     this.duration = 0;
     const active = this.#activeDeck();
@@ -464,6 +480,7 @@ export class TriagePlayer {
     this.nextReady = false;
     this.current = index;
     this.played.add(entry.video.videoId);
+    this.#seek = null;
     this.duration = entry.video.durationSeconds ?? 0;
     this.time = startSeconds(entry.video.durationSeconds, this.#fraction()) ?? 0;
     this.#atStartPoint = true;
@@ -580,7 +597,7 @@ export class TriagePlayer {
     const deck = this.#activeDeck();
     if (!deck?.ready || !deck.videoId || !this.#holdsOpenRelease(deck)) return;
     if (this.status === "playing" || this.status === "paused") {
-      this.time = deck.currentTime();
+      this.time = this.#reportedTime(deck, now);
       const duration = deck.duration();
       if (duration > 0) this.duration = duration;
     }
@@ -592,6 +609,17 @@ export class TriagePlayer {
       this.status = "needs_gesture";
     }
     if (deck.state === PlayerState.PLAYING) this.#countListen(elapsedSeconds);
+  }
+
+  /** The deck's time, or the seek target while the deck still reports the time before the seek. */
+  #reportedTime(deck: Deck, now: number): number {
+    const reported = deck.currentTime();
+    const seek = this.#seek;
+    if (!seek) return reported;
+    const landed = Math.abs(reported - seek.seconds) < SEEK_LANDED_SECONDS;
+    if (!landed && now - seek.since < SEEK_HOLD_MS) return seek.seconds;
+    this.#seek = null;
+    return reported;
   }
 
   #countListen(elapsedSeconds: number): void {

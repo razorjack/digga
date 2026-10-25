@@ -24,3 +24,6 @@ export const PLAYER_STATUS_COPY: Record<PlayerStatus, string> = {
   needs_gesture: "waiting for Space",
   unavailable: "player unavailable",
 };
+
+/** Under the video while a seek or jump waits for YouTube, whatever the status. */
+export const SEEKING_COPY = "seeking";

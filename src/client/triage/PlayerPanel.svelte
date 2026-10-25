@@ -4,7 +4,7 @@
   import { formatDuration } from "../../shared/display.ts";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
-  import { PLAYER_STATUS_COPY } from "../player/status.ts";
+  import { PLAYER_STATUS_COPY, SEEKING_COPY } from "../player/status.ts";
   import type { TriagePlayer } from "../player/triage-player.svelte.ts";
 
   let {
@@ -74,7 +74,7 @@
   });
 
   const progress = $derived(player.duration > 0 ? Math.min(1, player.time / player.duration) : 0);
-  const statusCopy = $derived(PLAYER_STATUS_COPY[player.status]);
+  const statusCopy = $derived(player.seeking ? SEEKING_COPY : PLAYER_STATUS_COPY[player.status]);
 
   const position = $derived(`${formatDuration(player.time)} of ${formatDuration(player.duration)}`);
 

@@ -148,6 +148,38 @@ describe("player deck ownership", () => {
     expect(player.status).toBe("paused");
   });
 
+  it("shows a jump's position until the player reports it, then the reported time", async () => {
+    vi.useFakeTimers();
+    const player = await setup();
+    const active = fake.decks[player.active]!;
+    active.emitState(PlayerState.PLAYING);
+    active.currentTime = () => 150;
+    await vi.advanceTimersByTimeAsync(250);
+
+    player.jumpTo(0.3);
+    expect([player.time, player.seeking]).toEqual([90, true]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect([player.time, player.seeking]).toEqual([90, true]);
+
+    active.currentTime = () => 89.5;
+    await vi.advanceTimersByTimeAsync(250);
+    expect([player.time, player.seeking]).toEqual([89.5, false]);
+  });
+
+  it("steps arrows pressed in a row from the last target, and lets go of one never reported", async () => {
+    vi.useFakeTimers();
+    const player = await setup();
+    const active = fake.decks[player.active]!;
+    active.emitState(PlayerState.PLAYING);
+    active.currentTime = () => 150;
+
+    player.seekBy(10);
+    player.seekBy(10);
+    expect(active.seekTo).toHaveBeenLastCalledWith(170);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect([player.time, player.seeking]).toEqual([150, false]);
+  });
+
   it("adopts the next release's preload without loading it again", async () => {
     const player = await setup();
     const [first, second] = fake.decks;
