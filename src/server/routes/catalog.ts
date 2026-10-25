@@ -13,11 +13,9 @@ import {
   TwelvesQuerySchema,
   type TwelvesResponse,
 } from "../../shared/api.ts";
-import { countRemaining, queryQueue } from "../queue/query.ts";
 import { searchScopes } from "../queue/scopes.ts";
 import { queryTwelves } from "../queue/twelves.ts";
 import { listMarkedTracks } from "../queue/track-marks.ts";
-import { computeStats } from "../stats.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, parseId, parseJson, parseQuery } from "./request.ts";
 import { attachVideo } from "../attach-video.ts";
@@ -41,25 +39,28 @@ function health(request: Context) {
   return request.json({ ok: true, name: "digga" });
 }
 
-function queueFromQuery(request: Context, context: AppContext) {
+async function queueFromQuery(request: Context, context: AppContext) {
   const query = parseQuery(request, QueueQuerySchema);
   if (!query.ok) return query.response;
-  return request.json(readQueue(context, query.data));
+  return request.json(await readQueue(context, query.data));
 }
 
 async function queueFromBody(request: Context, context: AppContext) {
   const body = await parseJson(request, QueueReadInputSchema);
   if (!body.ok) return body.response;
-  return request.json(readQueue(context, body.data));
+  return request.json(await readQueue(context, body.data));
 }
 
-function readQueue(context: AppContext, read: QueueQuery & { exclude?: string[] }): QueueResponse {
+async function readQueue(
+  context: AppContext,
+  read: QueueQuery & { exclude?: string[] },
+): Promise<QueueResponse> {
   const config = context.getConfig();
   const strategy = read.strategy ?? config.queue.strategy;
   const filters = read.filters ?? config.filters;
   const scope = read.scope ?? null;
   const seed = strategy === "random" ? (read.seed ?? daySeed()) : null;
-  const items = queryQueue(context.db, {
+  const page = await context.reader.queue({
     filters,
     strategy,
     limit: read.limit ?? config.queue.limit,
@@ -68,7 +69,7 @@ function readQueue(context: AppContext, read: QueueQuery & { exclude?: string[] 
     scope,
     exclude: read.exclude,
   });
-  return { items, remaining: countRemaining(context.db, filters, scope), strategy, seed, filters };
+  return { ...page, strategy, seed, filters };
 }
 
 function scopes(request: Context, context: AppContext) {
@@ -116,13 +117,12 @@ function trackMarks(request: Context, context: AppContext) {
   return request.json(body);
 }
 
-function stats(request: Context, context: AppContext) {
-  const { db } = context;
+async function stats(request: Context, context: AppContext) {
   const query = parseQuery(request, StatsQuerySchema);
   if (!query.ok) return query.response;
   const config = context.getConfig();
   const filters = query.data.filters ?? config.filters;
-  return request.json(computeStats(db, { ...config, filters }, query.data.scope ?? null));
+  return request.json(await context.reader.stats({ ...config, filters }, query.data.scope ?? null));
 }
 
 function daySeed(): number {

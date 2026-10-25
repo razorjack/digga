@@ -141,7 +141,13 @@ outcome. The HTTP routes start jobs and return `202` with the job; the CLI waits
 loader is the only CPU-heavy job and runs in a `worker_threads` Worker
 (`jobs/dump-load-worker.ts`) with its own database connection when started from the server: the
 job awaits `runWorker()` (`jobs/worker.ts`), which forwards the worker's progress, terminates it
-on cancel and settles once it has exited. The CLI runs the loader inline. Enrichment is not a
+on cancel and settles once it has exited. The CLI runs the loader inline. The queue and the
+stats, which scan the universe when the catalogue has changed, are read in another Worker
+(`queue/reader-worker.ts`) with a read-only connection, so the Electron app's window, whose
+thread the server shares, keeps answering keys meanwhile. `queue/reader.ts` sends each read with
+the catalogue's version on the server's connection, which the worker keeps its results under: a
+verdict commits through the server's connection and would otherwise make the worker compute
+everything again. A server on an injected or in-memory database reads inline. Enrichment is not a
 job: `P` in Triage fetches price, have/want and current videos for the record on screen
 (`src/server/enrich.ts`, decisions 95 and 97).
 The dump update (`POST /api/jobs/dump-update`, `digga dump update`) is one job of two steps,

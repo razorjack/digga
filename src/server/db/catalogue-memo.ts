@@ -26,40 +26,68 @@ const TRIGGERS: Record<string, string> = {
 };
 
 /**
- * Remembers what `compute` returns from the catalogue until a write could change it. The results
- * belong to the connection, whose triggers report its writes, so they are kept per connection.
+ * Remembers what `compute` returns from the catalogue until a write could change it, by the
+ * connection's catalogueVersion() or the version followCatalogueVersion() gave it.
  */
 export function rememberForCatalogue<T>(db: Db, key: string, compute: () => T): T {
+  // A transaction can still roll back the writes the result would be computed from.
+  if (db.inTransaction) return compute();
+  const version = followed.get(db) ?? catalogueVersion(db);
   let memo = memos.get(db);
   if (!memo) {
-    memo = new CatalogueMemo(db);
+    memo = new CatalogueMemo();
     memos.set(db, memo);
   }
-  return memo.remember(key, compute);
+  return memo.remember(version, key, compute);
+}
+
+/**
+ * Changes whenever the catalogue may have: on a write through this connection, or a commit
+ * through another. Read before computing: a commit meanwhile only makes the next call compute
+ * again.
+ */
+export function catalogueVersion(db: Db): string {
+  if (!watched.has(db)) {
+    watchCatalogueWrites(db);
+    watched.add(db);
+  }
+  const others = db.pragma("data_version", { simple: true }) as number;
+  const own = db.prepare("SELECT n FROM temp.catalogue_changes").pluck().get() as number;
+  return `${others}:${own}`;
+}
+
+/**
+ * For a connection that only reads, such as the queue reader's: its own data_version would change
+ * with every verdict, so the connection that writes says what version the catalogue is at.
+ */
+export function followCatalogueVersion(db: Db, version: string): void {
+  followed.set(db, version);
 }
 
 const memos = new WeakMap<Db, CatalogueMemo>();
+const watched = new WeakSet<Db>();
+const followed = new WeakMap<Db, string>();
+
+function watchCatalogueWrites(db: Db): void {
+  db.exec(`CREATE TEMP TABLE IF NOT EXISTS catalogue_changes (n INTEGER NOT NULL);
+    INSERT INTO catalogue_changes SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM catalogue_changes);`);
+  for (const [name, event] of Object.entries(TRIGGERS))
+    db.exec(`CREATE TEMP TRIGGER IF NOT EXISTS catalogue_${name} ${event}
+      BEGIN UPDATE catalogue_changes SET n = n + 1; END`);
+}
 
 class CatalogueMemo {
-  #db: Db;
   #version = "";
   #results = new Map<string, unknown>();
 
-  constructor(db: Db) {
-    this.#db = db;
-    db.exec(`CREATE TEMP TABLE IF NOT EXISTS catalogue_changes (n INTEGER NOT NULL);
-      INSERT INTO catalogue_changes SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM catalogue_changes);`);
-    for (const [name, event] of Object.entries(TRIGGERS))
-      db.exec(`CREATE TEMP TRIGGER IF NOT EXISTS catalogue_${name} ${event}
-        BEGIN UPDATE catalogue_changes SET n = n + 1; END`);
-  }
-
-  remember<T>(key: string, compute: () => T): T {
-    // A transaction can still roll back the writes the result would be computed from.
-    if (this.#db.inTransaction) return compute();
-    this.#forgetIfChanged();
+  remember<T>(version: string, key: string, compute: () => T): T {
+    if (version !== this.#version) {
+      this.#version = version;
+      this.#results.clear();
+    }
     if (this.#results.has(key)) {
       const value = this.#results.get(key) as T;
+      // Most recently used last, so the first key is the one to drop.
       this.#results.delete(key);
       this.#results.set(key, value);
       return value;
@@ -68,15 +96,5 @@ class CatalogueMemo {
     this.#results.set(key, value);
     if (this.#results.size > MAX_RESULTS) this.#results.delete(this.#results.keys().next().value!);
     return value;
-  }
-
-  /** Read before computing: a commit meanwhile then only makes the next call compute again. */
-  #forgetIfChanged(): void {
-    const others = this.#db.pragma("data_version", { simple: true }) as number;
-    const own = this.#db.prepare("SELECT n FROM temp.catalogue_changes").pluck().get() as number;
-    const version = `${others}:${own}`;
-    if (version === this.#version) return;
-    this.#version = version;
-    this.#results.clear();
   }
 }

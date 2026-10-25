@@ -5,6 +5,7 @@ import { createApp } from "./app.ts";
 import { saveConfig } from "./config-file.ts";
 import type { AppContext } from "./context.ts";
 import { type DailyBackups, startDailyBackups } from "./daily-backups.ts";
+import { catalogueVersion } from "./db/catalogue-memo.ts";
 import { type Db, openDb } from "./db/db.ts";
 import { type Desktop, desktopJobListener } from "./desktop.ts";
 import { failStaleJobs } from "./db/jobs.ts";
@@ -14,6 +15,7 @@ import { createJobRunner, type JobRunner } from "./jobs/runner.ts";
 import { type LibraryLock, lockLibrary } from "./library-lock.ts";
 import type { Logger } from "./logger.ts";
 import { type Paths, saveChosenDumpsDir } from "./paths.ts";
+import { inlineQueueReader, type QueueReader, workerQueueReader } from "./queue/reader.ts";
 import type { Secrets } from "./secrets.ts";
 import { createVideoTitleLookup } from "./youtube.ts";
 
@@ -66,6 +68,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
   if (stale > 0) logger.warn(`marked ${stale} interrupted job(s) as failed`);
   const backups = lock ? startDailyBackups(db, { ...options, getConfig: () => config }) : null;
   const jobs = createJobRunner(db, logger.child("jobs"), desktopJobListener(options.desktop));
+  const reader = openQueueReader(db, lock ? options.paths.dbFile : null);
 
   const context: AppContext = {
     db,
@@ -73,6 +76,7 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     secrets: options.secrets,
     logger,
     jobs,
+    reader,
     getConfig: () => config,
     setConfig: (next) => {
       if (options.persistConfig !== false) saveConfig(options.paths.configFile, next);
@@ -102,7 +106,8 @@ export function createServer(options: CreateServerOptions): DiggaServer {
     jobs,
     getConfig: () => config,
     start: (port, host) => listener.start(port ?? config.server.port, host ?? config.server.host),
-    stop: () => (stopping ??= stopServer({ listener, jobs, backups, db, ownsDb, lock, logger })),
+    stop: () =>
+      (stopping ??= stopServer({ listener, jobs, reader, backups, db, ownsDb, lock, logger })),
   };
 }
 
@@ -120,6 +125,12 @@ function openLibrary(options: CreateServerOptions): { db: Db; lock: LibraryLock 
     lock.release();
     throw error;
   }
+}
+
+/** A worker for the library file this process holds; an injected or in-memory database is read here. */
+function openQueueReader(db: Db, libraryFile: string | null): QueueReader {
+  if (libraryFile === null) return inlineQueueReader(db);
+  return workerQueueReader(libraryFile, () => catalogueVersion(db));
 }
 
 /** The clients of the services Digga reads: Discogs, data.discogs.com and YouTube's oEmbed. */
@@ -168,6 +179,7 @@ function discogsProvider(options: CreateServerOptions): () => DiscogsClient {
 async function stopServer(context: {
   listener: HttpListener;
   jobs: JobRunner;
+  reader: QueueReader;
   backups: DailyBackups | null;
   db: Db;
   ownsDb: boolean;
@@ -176,6 +188,7 @@ async function stopServer(context: {
 }): Promise<void> {
   await context.listener.stop();
   await context.jobs.stop();
+  await context.reader.close();
   await context.backups?.stop();
   if (context.ownsDb) context.db.close();
   context.lock?.release();

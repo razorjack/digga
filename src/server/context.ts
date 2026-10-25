@@ -7,6 +7,7 @@ import type { DataDumpClient } from "./discogs/data-dumps.ts";
 import type { JobRunner } from "./jobs/runner.ts";
 import type { Logger } from "./logger.ts";
 import type { Paths } from "./paths.ts";
+import type { QueueReader } from "./queue/reader.ts";
 import type { Secrets } from "./secrets.ts";
 import type { VideoTitleLookup } from "./youtube.ts";
 export interface AppContext {
@@ -16,6 +17,8 @@ export interface AppContext {
   secrets: Secrets;
   logger: Logger;
   jobs: JobRunner;
+  /** Reads the queue and the stats off the server's thread when the library is a file. */
+  reader: QueueReader;
   getConfig(): Config;
   setConfig(config: Config): void;
   getDiscogs(): DiscogsClient;

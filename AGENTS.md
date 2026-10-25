@@ -128,11 +128,12 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        desktop.ts (what the Digga app adds: it hears every job change)
                        db/ (db.ts wrapper, migrations/*.sql, releases.ts, verdicts.ts, jobs.ts, backup.ts,
                        export.ts, no-audio.ts, sellers.ts, dump-loads.ts, user-data.ts, seed-tally.ts,
-                       style-census.ts)
+                       style-census.ts, catalogue-memo.ts)
                        discogs/ (client, transport, types, lists, data-dumps), importers/ (collection, wantlist,
                        list, seller, seeds)
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
-                       queue/ (query, scopes, detail, twelves, coverage)
+                       queue/ (query, scopes, detail, twelves, coverage, reader + reader-worker: the
+                       queue and stats off the server's thread)
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
                        environment.ts (what the environment and a .env set, for the CLI and Electron)
 electron/              the Electron main process: main.ts (server, quit), window.ts (window, links, downloads,
@@ -398,8 +399,9 @@ client TypeScript and CSS.
 5. **Jobs are library functions** in `src/server/jobs/` taking `{ db, discogs, logger }`, options and
    `onProgress`; status goes to the `jobs` table through `jobs/runner.ts`.
 6. **Heavy work never blocks the server thread.** `POST /api/jobs/dump-load` runs the loader in a
-   `worker_threads` Worker with its own DB connection and serialisable arguments; the network-bound
-   jobs are async and cancellable through `AbortSignal`.
+   `worker_threads` Worker with its own DB connection and serialisable arguments; the queue and
+   the stats are read by another (`queue/reader.ts`), since in the Electron app the server's
+   thread is the window's; the network-bound jobs are async and cancellable through `AbortSignal`.
 7. **Frontend is environment-agnostic.** `src/shared` imports nothing from Node; `src/client` reads no
    env, filesystem, or `window.location` beyond the hash router. Vite `base: './'`, hash routing only.
    The YouTube IFrame API needs an http(s) origin, which the localhost server provides.

@@ -1467,3 +1467,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      target, and "seeking" under the video, until YouTube reports a time within 2 s of it, for at
      most 10 s. Arrows pressed in a row step from the last target. The status stays as it was, so
      Space still pauses a video that is buffering after a seek.
+201. **The queue and the stats are read off the server's thread.** The Electron app runs the server
+     in its main process, the thread that also passes the window its keys, so a 2 s stats query
+     after a verdict froze the window: `J` pressed meanwhile acted only when the query ended.
+     Since 2026-10-26 `GET` and `POST /api/queue` and `GET /api/stats` run in a worker with a
+     read-only connection to the library, which keeps the remembered queue (decision 199). The
+     server's connection says which catalogue version a read is for, since every verdict it
+     commits would change the worker's own `data_version`. Measured on a 184,528-release library,
+     release details answered in 2 to 8 ms while a stats read computed for 0.8 s. Moving the whole
+     server into a `utilityProcess` was not needed: `safeStorage`, the native dialogs and the E2E
+     guard stay in the main process with it.
