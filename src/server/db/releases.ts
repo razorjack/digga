@@ -374,21 +374,26 @@ export function getPressingVideos(db: Db, release: ReleaseRecord): PressingVideo
   if (release.masterId === null) return [];
   const rows = db
     .prepare(
+      // Each arm joins the pressings itself: with the filter outside the UNION, SQLite reads
+      // every video in the library before it keeps the master's.
       `SELECT p.*, t.heard_key FROM (
          SELECT v.release_id, v.video_id, v.src, v.title, v.duration_seconds, v.embeddable,
-           v.matched_position, 0 AS attached, v.rowid AS added
-         FROM videos v
+           v.matched_position, 0 AS attached, v.rowid AS added, r.is_main_release
+         FROM releases r JOIN videos v ON v.release_id = r.id
+         WHERE r.master_id = @master_id AND r.id != @release_id
          UNION ALL
-         SELECT u.release_id, u.video_id, u.src, u.title, NULL, 1, u.matched_position, 1, u.rowid
-         FROM user_videos u
+         SELECT u.release_id, u.video_id, u.src, u.title, NULL, 1, u.matched_position, 1, u.rowid,
+           r.is_main_release
+         FROM releases r JOIN user_videos u ON u.release_id = r.id
+         WHERE r.master_id = @master_id AND r.id != @release_id
        ) p
-       JOIN releases r ON r.id = p.release_id
        LEFT JOIN tracks t ON t.release_id = p.release_id AND t.seq = (
          SELECT MIN(s.seq) FROM tracks s WHERE s.release_id = p.release_id AND s.position = p.matched_position)
-       WHERE r.master_id = ? AND r.id != ?
-       ORDER BY r.is_main_release DESC, r.id, p.attached, p.added`,
+       ORDER BY p.is_main_release DESC, p.release_id, p.attached, p.added`,
     )
-    .all(release.masterId, release.id) as (VideoRow & { heard_key: string | null })[];
+    .all({ master_id: release.masterId, release_id: release.id }) as (VideoRow & {
+    heard_key: string | null;
+  })[];
   return rows.map((row) => ({ video: rowToVideo(row), heardKey: row.heard_key }));
 }
 
