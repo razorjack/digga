@@ -5,15 +5,19 @@ import type {
 } from "../../shared/api.ts";
 import type { Config } from "../../shared/config.ts";
 import type { StyleCensus } from "../../shared/style-census.ts";
-import { DOWNLOAD_RETRIED_ERROR, isActiveJob, type Job } from "../../shared/types.ts";
+import { isActiveJob, type Job } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
 import { errorMessage, settings, stats } from "../stores.svelte.ts";
 import {
+  awaitsRetriedDownload,
   checksumRetryNote,
+  cratePhaseOf,
+  crateStopOf,
   DIG_THRESHOLD,
   keptNothing,
   loadYearsFor,
+  loadWaitsForUser,
   quitDownloadMessage,
   stoppedDownloadMessage,
   type YearSpan,
@@ -89,14 +93,12 @@ export class SetupFlow {
   downloadQuit = $derived(this.load ? null : quitDownloadMessage(this.download));
   /** The download did not match Discogs' checksum and runs once more by itself. */
   checksumRetry = $derived(checksumRetryNote(this.download));
-  /**
-   * The load has stopped and waits for the user. A load whose download is running once more
-   * after a checksum mismatch does not: the setup starts it again on the new download.
-   */
-  loadStopped = $derived(
-    (this.load?.status === "failed" || this.load?.status === "cancelled") &&
-      !(awaitsRetriedDownload(this.load) && this.download?.status !== "failed"),
-  );
+  /** The load has stopped and waits for the user to pick it up or change the picks. */
+  loadStopped = $derived(loadWaitsForUser(this.load, this.download));
+  /** What the crate step's heading says. */
+  cratePhase = $derived(cratePhaseOf(this.load));
+  /** Why the crate stopped filling, which the crate step reports with what it offers. */
+  crateStop = $derived(crateStopOf(this.load, this.download));
   #timer: ReturnType<typeof setTimeout> | null = null;
   #statsAt = 0;
   #closed = false;
@@ -461,11 +463,6 @@ export class SetupFlow {
       this.busy = false;
     }
   }
-}
-
-/** The load stopped because its download is downloading once more after a checksum mismatch. */
-function awaitsRetriedDownload(load: Job): boolean {
-  return load.status === "failed" && load.error === DOWNLOAD_RETRIED_ERROR;
 }
 
 export interface SettingsChange {

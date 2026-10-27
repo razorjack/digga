@@ -2,6 +2,7 @@ import type { SeedTally } from "../../shared/api.ts";
 import { formatBytes, formatEta } from "../../shared/display.ts";
 import type { CensusStyle, StyleCensus } from "../../shared/style-census.ts";
 import {
+  DOWNLOAD_RETRIED_ERROR,
   INTERRUPTED_JOB_ERROR,
   isActiveJob,
   type Job,
@@ -294,4 +295,41 @@ export function checksumRetryNote(download: Job | null): string | null {
 export function keptNothing(load: Job | null): boolean {
   if (load?.type !== "dump_load" || load.status !== "done" || !load.progress) return false;
   return load.progress.matched + load.progress.coverage === 0;
+}
+
+/** The load stopped because its download is downloading once more after a checksum mismatch. */
+export function awaitsRetriedDownload(load: Job): boolean {
+  return load.status === "failed" && load.error === DOWNLOAD_RETRIED_ERROR;
+}
+
+/**
+ * The load has stopped and waits for the user. A load whose download is running once more after
+ * a checksum mismatch does not: the setup starts it again on the new download.
+ */
+export function loadWaitsForUser(load: Job | null, download: Job | null): boolean {
+  if (load?.status !== "failed" && load?.status !== "cancelled") return false;
+  return !awaitsRetriedDownload(load) || download?.status === "failed";
+}
+
+/** What the crate step's heading says: the picks matched nothing, the load is done, or it runs. */
+export type CratePhase = "nothing-matches" | "ready" | "filling";
+
+export function cratePhaseOf(load: Job | null): CratePhase {
+  if (keptNothing(load)) return "nothing-matches";
+  return load?.status === "done" ? "ready" : "filling";
+}
+
+/** Why the crate stopped filling, and what the step offers; null while nothing stopped it. */
+export type CrateStop =
+  | { kind: "checksum-retry"; note: string }
+  | { kind: "download-stopped"; message: string }
+  | { kind: "load-stopped"; message: string };
+
+export function crateStopOf(load: Job | null, download: Job | null): CrateStop | null {
+  const note = checksumRetryNote(download);
+  if (note !== null) return { kind: "checksum-retry", note };
+  if (!loadWaitsForUser(load, download)) return null;
+  const downloadMessage = stoppedDownloadMessage(download);
+  if (downloadMessage !== null) return { kind: "download-stopped", message: downloadMessage };
+  return { kind: "load-stopped", message: stoppedLoadMessage(load) };
 }

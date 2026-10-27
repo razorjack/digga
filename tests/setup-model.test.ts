@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  cratePhaseOf,
+  crateStopOf,
   defaultYearSpan,
   estimateCatalogue,
   loadYearsFor,
@@ -19,7 +21,12 @@ import { withChange } from "../src/client/setup/flow.svelte.ts";
 import type { SeedTally } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { CensusStyle, StyleCensus } from "../src/shared/style-census.ts";
-import { INTERRUPTED_JOB_ERROR, type Job, QUIT_JOB_ERROR } from "../src/shared/types.ts";
+import {
+  DOWNLOAD_RETRIED_ERROR,
+  INTERRUPTED_JOB_ERROR,
+  type Job,
+  QUIT_JOB_ERROR,
+} from "../src/shared/types.ts";
 
 function style(name: string, genre: string, firstYear: number, years: number[]): CensusStyle {
   const releases = years.reduce((sum, count) => sum + count, 0);
@@ -306,6 +313,53 @@ describe("a load that stopped", () => {
     // A load in a worker that a stopping server cancels records the worker's "Cancelled".
     expect(stoppedLoadMessage(load("cancelled", "Cancelled"))).toBe(
       "The catalogue stopped loading.",
+    );
+  });
+});
+
+describe("the crate step's state", () => {
+  function job(type: "dump_load" | "dump_download", status: Job["status"], error: string | null) {
+    return {
+      id: type,
+      type,
+      status,
+      error,
+      createdAt: "2026-10-02T10:00:00.000Z",
+      startedAt: "2026-10-02T10:00:00.000Z",
+      finishedAt: null,
+      progress:
+        type === "dump_load"
+          ? { phase: "done", scanned: 1500, matched: 10, coverage: 0, upserted: 10 }
+          : {
+              phase: "downloading",
+              file: "discogs_20260901_releases.xml.gz",
+              receivedBytes: 10,
+              totalBytes: 100,
+              alreadyDownloaded: false,
+              checksumMismatches: 0,
+            },
+    } as Job;
+  }
+
+  it("fills until the load is done", () => {
+    expect(cratePhaseOf(null)).toBe("filling");
+    expect(cratePhaseOf(job("dump_load", "running", null))).toBe("filling");
+    expect(cratePhaseOf(job("dump_load", "done", null))).toBe("ready");
+  });
+
+  it("reports a stopped load, or the stopped download behind it", () => {
+    const cancelled = job("dump_load", "cancelled", null);
+    expect(crateStopOf(cancelled, null)?.kind).toBe("load-stopped");
+    expect(crateStopOf(cancelled, job("dump_download", "failed", "fetch failed"))?.kind).toBe(
+      "download-stopped",
+    );
+  });
+
+  it("waits quietly while the download runs again after a checksum mismatch", () => {
+    const retried = job("dump_load", "failed", DOWNLOAD_RETRIED_ERROR);
+    expect(crateStopOf(retried, job("dump_download", "running", null))).toBeNull();
+    expect(crateStopOf(retried, job("dump_download", "failed", "fetch failed"))?.kind).toBe(
+      "download-stopped",
     );
   });
 });

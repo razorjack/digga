@@ -12,7 +12,7 @@
   import { settings, stats } from "../stores.svelte.ts";
   import Action from "./Action.svelte";
   import type { SetupFlow } from "./flow.svelte.ts";
-  import { DIG_THRESHOLD, homeRelative, stoppedLoadMessage, transferLeft, yearHistogram } from "./model.ts";
+  import { DIG_THRESHOLD, homeRelative, transferLeft, yearHistogram } from "./model.ts";
   import ProgressRow from "./ProgressRow.svelte";
   import YearHistogram from "./YearHistogram.svelte";
 
@@ -23,7 +23,6 @@
   const loadProgress = $derived<DumpLoadProgress | null>(
     flow.load?.type === "dump_load" ? flow.load.progress : null,
   );
-  const stopped = $derived(flow.loadStopped);
   const toDig = $derived(stats.value?.remaining ?? 0);
   /** At 20 seconds a record. */
   const digHours = $derived(Math.max(1, Math.round((toDig * 20) / 3600)));
@@ -97,7 +96,7 @@
 <svelte:window {onkeydown} />
 
 <section class="step" aria-labelledby="crate-title">
-  {#if flow.nothingMatches}
+  {#if flow.cratePhase === "nothing-matches"}
     <h1 id="crate-title">Nothing in the catalogue matches these picks</h1>
     <p class="lead">
       Digga read every release and kept none in these styles and years. Pick others, and the load reads the catalogue
@@ -106,7 +105,7 @@
     <div class="actions">
       <Action primary onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
     </div>
-  {:else if flow.loadDone}
+  {:else if flow.cratePhase === "ready"}
     <div class="ready">
       <Stamp text="ready to dig" tone="accent" size="xl" seed={4} slam />
       <h1 id="crate-title" class="headline">
@@ -128,14 +127,14 @@
 
   <!-- The alert is in the page before its text, so screen readers announce it. -->
   <div role="alert">
-    {#if flow.checksumRetry}
+    {#if flow.crateStop?.kind === "checksum-retry"}
       <div class="notice">
-        <p>{flow.checksumRetry}</p>
+        <p>{flow.crateStop.note}</p>
         <p class="quiet">What loaded so far stays; the load reads the new download from the start.</p>
       </div>
-    {:else if stopped && flow.downloadStopped}
+    {:else if flow.crateStop?.kind === "download-stopped"}
       <div class="notice">
-        <p>{flow.downloadStopped}</p>
+        <p>{flow.crateStop.message}</p>
         <p class="quiet">
           What loaded so far stays, and so does anything you dug. Starting again downloads the catalogue and reads it
           from the start.
@@ -145,9 +144,9 @@
           <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
         </div>
       </div>
-    {:else if stopped}
+    {:else if flow.crateStop?.kind === "load-stopped"}
       <div class="notice">
-        <p>{stoppedLoadMessage(flow.load)}</p>
+        <p>{flow.crateStop.message}</p>
         <p class="quiet">
           What loaded so far stays, and so does anything you dug. Picking up reads the catalogue from the start, and
           downloads it again if it was not whole.
@@ -202,7 +201,7 @@
     </p>
   {/if}
 
-  {#if !flow.nothingMatches}
+  {#if flow.cratePhase !== "nothing-matches"}
     {#if flow.account?.tokenUsername}
       <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
     {/if}
@@ -245,12 +244,12 @@
   <div class="outcome">
     <!-- In the page before its text, so screen readers announce it. -->
     <p class="problem" role="alert">{flow.error ?? ""}</p>
-    {#if !flow.nothingMatches}
+    {#if flow.cratePhase !== "nothing-matches"}
       <div class="actions">
         <Action primary keys="T" shortcuts="T Enter" onclick={startDigging} disabled={!flow.canDig}>
           Start digging
         </Action>
-        {#if !flow.canDig && !stopped}
+        {#if !flow.canDig && !flow.loadStopped}
           <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
         {/if}
         {#if flow.loadRunning}
