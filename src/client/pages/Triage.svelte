@@ -3,7 +3,7 @@
   import type { QueueItem } from "../../shared/api.ts";
   import { type Config, type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-  import { formatCount, nounFor } from "../../shared/display.ts";
+  import { formatCount } from "../../shared/display.ts";
   import { normalizeNote } from "../../shared/notes.ts";
   import { sellerCopies } from "../../shared/listings.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
@@ -11,10 +11,8 @@
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
-  import Art from "../components/Art.svelte";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
-  import Stamp from "../components/Stamp.svelte";
   import {
     hasCommandModifier,
     isControlKey,
@@ -26,9 +24,10 @@
     verdictForKey,
   } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
-  import { navigate, openExternal } from "../router.svelte.ts";
+  import { openExternal } from "../router.svelte.ts";
   import { errorMessage, settings, stats, ui } from "../stores.svelte.ts";
   import PlayerPanel from "../triage/PlayerPanel.svelte";
+  import QueueState from "../triage/QueueState.svelte";
   import ReleaseFacts from "../triage/ReleaseFacts.svelte";
   import ScopePicker from "../triage/ScopePicker.svelte";
   import ShopCopies from "../triage/ShopCopies.svelte";
@@ -36,9 +35,9 @@
   import { SessionCheckpoint } from "../triage/checkpoint.svelte.ts";
   import { queueSettingsChange, type QueueSettingsChange } from "../triage/queue-settings.ts";
   import ResumeSession from "../triage/ResumeSession.svelte";
+  import { triageScreen } from "../triage/screen.ts";
   import { type Round, TriageSession } from "../triage/session.svelte.ts";
   import Slip from "../triage/Slip.svelte";
-  import { endOfQueueHeadline } from "../triage/end-of-queue.ts";
   import Tracklist from "../triage/Tracklist.svelte";
   import NoteLine from "../triage/NoteLine.svelte";
   import VerdictBar from "../triage/VerdictBar.svelte";
@@ -229,12 +228,16 @@
   }
 
   const snoozedCount = $derived(stats.value?.verdicts.snoozed ?? 0);
-  const noReleases = $derived(stats.value !== null && stats.value.universe.releases === 0);
-  const loadedRecords = $derived(stats.value?.universe.keys ?? 0);
-  const nothingMatches = $derived(
-    stats.value !== null &&
-      stats.value.universe.releases > 0 &&
-      stats.value.universe.filteredKeys === 0,
+  const screen = $derived(
+    triageScreen({
+      settingsFailed,
+      queueFailed: session.status === "error",
+      finished: session.finished,
+      current: session.current,
+      scope: session.scope,
+      stats: stats.value,
+      load: loadStatus.loading ? { fraction: loadStatus.fraction } : null,
+    }),
   );
 
   $effect(() => {
@@ -288,11 +291,11 @@
 
   /** Returns false when there is nothing to retry, so Enter keeps its usual meaning. */
   function retry(): boolean {
-    if (settingsFailed) {
+    if (screen.kind === "settings-failed") {
       void settings.retry();
       return true;
     }
-    if (session.status === "error" && settings.value) {
+    if (screen.kind === "queue-failed" && settings.value) {
       const config = settings.value;
       void session.start(config.queue.limit);
       return true;
@@ -418,120 +421,12 @@
   <p class="quiet" role="status" aria-label="Note save status">{session.noteStatus ?? ""}</p>
   <div class="desk">
     <div class="record">
-      {#if settingsFailed}
-        <div class="state">
-          <h1 class="headline">The settings did not load.</h1>
-          <p class="quiet">{settings.error}</p>
-          <p class="quiet">The queue starts from your settings. Check that the server runs, then try again.</p>
-          <p class="actions">
-            <button
-              type="button"
-              aria-keyshortcuts="Enter"
-              aria-busy={settings.loading}
-              onclick={() => void settings.retry()}
-            >
-              <Key label="Enter" primary aria-hidden="true" /> try again
-            </button>
-          </p>
-        </div>
-      {:else if session.status === "error"}
-        <div class="state">
-          <h1 class="headline">The queue did not load.</h1>
-          <p class="quiet">{session.error}</p>
-          <p class="quiet">
-            Check that the server runs (<code>npm run digga -- serve</code>), then press
-            <Key label="Enter" /> to try again.
-          </p>
-        </div>
-      {:else if session.finished && loadStatus.loading}
-        <div class="state">
-          <Art name="press" size={160} />
-          <h1 class="headline">You have dug everything loaded so far.</h1>
-          <p class="quiet">
-            {loadStatus.fraction === null ? "The catalogue is loading" : `${Math.floor(loadStatus.fraction * 100)}% of the catalogue is read`};
-            records join the queue as they arrive, and the next one shows here.
-          </p>
-        </div>
-      {:else if session.finished && noReleases}
-        <div class="state">
-          <Art name="press" size={160} />
-          <h1 class="headline">No releases loaded yet.</h1>
-          <p class="quiet">
-            Digga digs a Discogs releases dump. In settings, under Library, "Update from the newest dump"
-            downloads the latest one, over 10 GB, and loads it. The styles and years it keeps are under
-            Universe beside it.
-          </p>
-          <p class="actions">
-            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings", "library")}>
-              <Key label="," aria-hidden="true" /> settings
-            </button>
-          </p>
-        </div>
-      {:else if session.finished && nothingMatches}
-        <div class="state">
-          <h1 class="headline">Your filters match no records.</h1>
-          <p class="quiet">
-            {formatCount(loadedRecords)} {nounFor(loadedRecords, "record is", "records are")} loaded. Widen the years, formats or
-            countries in settings{settings.value?.filters.skipWithoutVideos
-              ? ", or let in releases without videos"
-              : ""}.
-          </p>
-          <p class="actions">
-            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
-              <Key label="," aria-hidden="true" /> settings
-            </button>
-          </p>
-        </div>
-      {:else if session.finished && session.scope}
-        <div class="state">
-          <h1 class="headline">Nothing is left to dig from {SCOPE_NOUN[session.scope.kind]} {session.scope.name}.</h1>
-          <p class="quiet">
-            Under your filters, that is: widen the years, formats or countries in settings to dig further.
-          </p>
-          <p class="actions">
-            {#if session.passed.length > 0}
-              <button type="button" aria-keyshortcuts="N" onclick={() => session.goRound()}>
-                <Key label="N" aria-hidden="true" /> go round the {formatCount(session.passed.length)} you passed
-              </button>
-            {/if}
-            {#if session.scope.kind === "seller"}
-          <a href="#/shop/{session.scope.id}">Shop my wants from this seller</a>
-        {/if}
-        <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
-              <Key label="Esc" primary aria-hidden="true" /> back to the whole queue
-            </button>
-          </p>
-        </div>
-      {:else if session.finished}
-        <div class="state finished">
-          <Stamp text="all dug" tone="accent" size="xl" seed={1} slam />
-          <h1 class="headline">{endOfQueueHeadline(session.passed.length)}</h1>
-          <p class="quiet">
-            {stats.value ? `${formatCount(stats.value.dug)} dug so far.` : ""}
-            Widen the years, formats or countries in settings to dig further.
-          </p>
-          <p class="actions">
-            {#if session.passed.length > 0}
-              <button type="button" aria-keyshortcuts="N" onclick={() => session.goRound()}>
-                <Key label="N" primary aria-hidden="true" /> go round the {formatCount(session.passed.length)} you passed
-              </button>
-            {/if}
-            {#if snoozedCount > 0}
-              <button type="button" disabled={loadingSnoozed} onclick={() => void hearSnoozed()}>
-                hear the {formatCount(snoozedCount)} snoozed again
-              </button>
-            {/if}
-            <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
-              <Key label="," aria-hidden="true" /> settings
-            </button>
-          </p>
-        </div>
-      {:else if session.current}
+      {#if screen.kind === "record"}
         <div class="head">
           <ReleaseFacts
-            item={session.current}
+            item={screen.item}
             detail={session.currentDetail}
-            pricing={session.pricing.has(session.current.id)}
+            pricing={session.pricing.has(screen.item.id)}
             onprice={() => void session.price()}
           />
           {#if note || pressingNote || editingNote}
@@ -548,7 +443,20 @@
           <p class="state quiet">Loading the tracklist…</p>
         {/if}
       {:else}
-        <p class="state quiet">Loading the queue…</p>
+        <QueueState
+          {screen}
+          settingsError={settings.error}
+          retryingSettings={settings.loading}
+          queueError={session.error}
+          passed={session.passed.length}
+          snoozed={snoozedCount}
+          {loadingSnoozed}
+          skipsWithoutVideos={settings.value?.filters.skipWithoutVideos ?? false}
+          onretrysettings={() => void settings.retry()}
+          ongoround={() => session.goRound()}
+          onleavescope={() => void session.setScope(null)}
+          onhearsnoozed={() => void hearSnoozed()}
+        />
       {/if}
     </div>
 
@@ -663,39 +571,9 @@
     gap: 14px;
     padding-top: 24px;
   }
-  .finished {
-    gap: 22px;
-    padding-top: 56px;
-  }
-  .headline {
-    font-family: var(--display);
-    font-size: var(--text-xl);
-    line-height: 1.3;
-    max-width: 24em;
-  }
   .quiet {
     color: var(--fg-muted);
     max-width: 60ch;
-  }
-  code {
-    font-family: inherit;
-    color: var(--fg);
-  }
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px 28px;
-  }
-  .actions button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    border: 0;
-    background: none;
-    padding: 0;
-  }
-  .actions button:disabled {
-    opacity: 0.5;
   }
   @media (max-width: 980px) {
     .triage {
