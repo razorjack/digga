@@ -5,6 +5,7 @@ import {
   type TrackVerdictInput,
 } from "../../shared/api.ts";
 import { type HiddenLabel, isSameLabel } from "../../shared/config.ts";
+import { normalizeNote } from "../../shared/notes.ts";
 import type { SessionResolution, SessionState } from "../../shared/digging-session.ts";
 import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
 import type { QueueScope } from "../../shared/scope.ts";
@@ -435,7 +436,7 @@ export class TriageSession {
   setNote(item: QueueItem, text: string): void {
     const key = item.triageKey;
     const write = this.#noteWrites.get(key) ?? { saved: this.noteFor(item), version: 0 };
-    const note = text.trim() === "" ? null : text.trim();
+    const note = normalizeNote(text);
     const version = ++write.version;
     this.#noteWrites.set(key, write);
     this.notes = new Map(this.notes).set(key, note);

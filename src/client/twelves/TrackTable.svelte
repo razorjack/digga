@@ -3,6 +3,7 @@
   import type { MarkedTrack } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatDay, formatDuration } from "../../shared/display.ts";
+  import { normalizeNote } from "../../shared/notes.ts";
   import Stamp from "../components/Stamp.svelte";
   import { STATUS_COPY } from "../keymap.ts";
   import { columnSort, MARK_COPY, type SortId, trackKey } from "./model.ts";
@@ -51,9 +52,9 @@
     event.stopPropagation();
     if (event.key === "Escape") oncancel();
     if (event.key !== "Enter") return;
-    const notes = draft.trim() === "" ? null : draft.trim();
-    if (notes === track.mark.notes) oncancel();
-    else onsave(track, notes);
+    const note = normalizeNote(draft);
+    if (note === track.mark.notes) oncancel();
+    else onsave(track, note);
   }
 </script>
 

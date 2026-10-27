@@ -4,6 +4,7 @@
   import { type Config, type HiddenLabel, withLabelExcluded } from "../../shared/config.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, nounFor } from "../../shared/display.ts";
+  import { normalizeNote } from "../../shared/notes.ts";
   import { sellerCopies } from "../../shared/listings.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
   import { replayItemOf } from "../../shared/replay.ts";
@@ -182,7 +183,7 @@
   }
 
   function saveNote(text: string): void {
-    if (noteItem && (session.noteFor(noteItem) ?? "") !== text.trim()) session.setNote(noteItem, text);
+    if (noteItem && session.noteFor(noteItem) !== normalizeNote(text)) session.setNote(noteItem, text);
     cancelNote();
   }
 

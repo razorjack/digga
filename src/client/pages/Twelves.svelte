@@ -3,6 +3,7 @@
   import type { TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+  import { normalizeNote } from "../../shared/notes.ts";
   import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
   import Art from "../components/Art.svelte";
   import Flash from "../components/Flash.svelte";
@@ -117,8 +118,8 @@
 
   function saveNote(item: TwelvesItem): void {
     editingKey = null;
-    const notes = noteDraft.trim() === "" ? null : noteDraft.trim();
-    if (notes !== item.note) shelfState.saveNote(item, notes);
+    const note = normalizeNote(noteDraft);
+    if (note !== item.note) shelfState.saveNote(item, note);
   }
 
   const ACTIONS: Record<string, () => void> = {

@@ -116,7 +116,7 @@ scripts/               check-portability.ts, package-electron.ts (electron-build
 build/                 the app icon: icon.icns for the macOS package, icon.png for an unpackaged run's Dock,
                        icons/ (16 to 512 px) for Linux
 src/shared/            types, config schema, API contracts, pure logic (normalize, match-videos, discogs-urls,
-                       triage-key, youtube, formats, playlist, rate, display, integer, videos), typed jobs,
+                       triage-key, youtube, formats, playlist, rate, display, integer, videos, notes), typed jobs,
                        the decisions backup format (decisions-backup), the style census format (style-census).
                        Imports nothing from Node.
 src/server/            server.ts (createServer), http.ts (listener), app.ts (route registration), routes/,
