@@ -1,5 +1,6 @@
 import type { ShoppingSeller } from "../../shared/shopping.ts";
 import type { Api } from "../api.ts";
+import { Generation } from "../async.ts";
 import { waitForJob } from "../jobs.ts";
 import { errorMessage } from "../stores.svelte.ts";
 
@@ -11,23 +12,22 @@ export class ShoppingShops {
   message = $state("");
   #api: Api;
   #controller = new AbortController();
-  #version = 0;
+  #loads = new Generation();
 
   constructor(api: Api) {
     this.#api = api;
   }
 
   async load(): Promise<boolean> {
-    const version = ++this.#version;
+    const isCurrent = this.#loads.next();
     try {
       const response = await this.#api.getShoppingSellers();
-      if (this.#controller.signal.aborted || version !== this.#version) return false;
+      if (!isCurrent()) return false;
       this.sellers = response.sellers;
       this.error = null;
       return true;
     } catch (error) {
-      if (!this.#controller.signal.aborted && version === this.#version)
-        this.error = errorMessage(error);
+      if (isCurrent()) this.error = errorMessage(error);
       return false;
     }
   }
@@ -70,5 +70,6 @@ export class ShoppingShops {
 
   destroy(): void {
     this.#controller.abort();
+    this.#loads.end();
   }
 }

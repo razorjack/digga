@@ -3,6 +3,7 @@ import type { ColorScheme, Config } from "../shared/config.ts";
 import type { ReplayRequest } from "../shared/replay.ts";
 import type { ScopeRef } from "../shared/scope.ts";
 import { api } from "./api.ts";
+import { SerialQueue } from "./async.ts";
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -53,7 +54,7 @@ class SettingsStore {
   loading = $state(false);
   /** Increments on every save but a color scheme change, so the triage queue knows to reload. */
   version = $state(0);
-  #writes: Promise<unknown> = Promise.resolve();
+  #writes = new SerialQueue();
   #read: Promise<void> | null = null;
 
   async load(): Promise<void> {
@@ -83,7 +84,7 @@ class SettingsStore {
   save(next: Config): Promise<Config> {
     const before = $state.snapshot(this.value);
     const requested = $state.snapshot(next);
-    return this.#enqueue(async () => {
+    return this.#writes.run(async () => {
       const config =
         before && this.value
           ? mergeSettings(before, requested, $state.snapshot(this.value))
@@ -97,13 +98,7 @@ class SettingsStore {
 
   /** Theme changes share the settings write queue but do not restart Triage. */
   saveColorScheme(colorScheme: ColorScheme): Promise<Config> {
-    return this.#enqueue(() => this.#putColorScheme(colorScheme));
-  }
-
-  #enqueue(operation: () => Promise<Config>): Promise<Config> {
-    const write = this.#writes.then(operation);
-    this.#writes = write.catch(() => undefined);
-    return write;
+    return this.#writes.run(() => this.#putColorScheme(colorScheme));
   }
 
   async #putColorScheme(colorScheme: ColorScheme): Promise<Config> {

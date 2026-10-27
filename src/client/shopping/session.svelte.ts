@@ -1,6 +1,7 @@
 import type { ReleaseDetail } from "../../shared/api.ts";
 import type { ShoppingItem, ShoppingResponse, ShoppingState } from "../../shared/shopping.ts";
 import type { Api } from "../api.ts";
+import { Generation, type CurrentCheck } from "../async.ts";
 import { errorMessage } from "../stores.svelte.ts";
 
 export type ShoppingView = "pending" | "shortlisted" | "skipped";
@@ -28,9 +29,10 @@ export class ShoppingSession {
   items = $derived(this.shop?.items.filter((item) => item.state === this.view) ?? []);
   current = $derived(this.items.find((item) => item.listing.id === this.selectedId) ?? null);
   #api: Api;
-  #generation = 0;
-  #detailGeneration = 0;
-  #closed = false;
+  /** The shop open now; open() starts a new one. */
+  #shops = new Generation();
+  /** The detail read for the selected copy; each selection starts a new one. */
+  #details = new Generation();
 
   constructor(api: Api) {
     this.#api = api;
@@ -38,7 +40,7 @@ export class ShoppingSession {
 
   async open(sellerId: number): Promise<void> {
     if (this.busy) return;
-    const generation = ++this.#generation;
+    const isCurrent = this.#shops.next();
     this.loading = true;
     this.error = null;
     this.shop = null;
@@ -47,13 +49,13 @@ export class ShoppingSession {
     this.select(null);
     try {
       const shop = await this.#api.getShopping(sellerId);
-      if (!this.#owns(generation)) return;
+      if (!isCurrent()) return;
       this.shop = shop;
       this.switchView("pending");
     } catch (error) {
-      if (this.#owns(generation)) this.error = errorMessage(error);
+      if (isCurrent()) this.error = errorMessage(error);
     } finally {
-      if (this.#owns(generation)) this.loading = false;
+      if (isCurrent()) this.loading = false;
     }
   }
 
@@ -70,9 +72,9 @@ export class ShoppingSession {
     this.detail = null;
     this.detailError = null;
     this.refreshingAudio = false;
-    const generation = ++this.#detailGeneration;
+    const isCurrent = this.#details.next();
     const item = this.shop?.items.find((copy) => copy.listing.id === listingId);
-    if (item) void this.#readDetail(item, generation);
+    if (item) void this.#readDetail(item, isCurrent);
   }
 
   async decide(state: ShoppingState): Promise<void> {
@@ -101,64 +103,57 @@ export class ShoppingSession {
 
   async #save(listingId: number, state: ShoppingState): Promise<boolean> {
     if (!this.shop) return false;
-    const generation = this.#generation;
+    const isCurrent = this.#shops.current();
     this.busy = true;
     this.error = null;
     try {
       const shop = await this.#api.putShoppingDecision(this.shop.seller.id, listingId, state);
-      if (!this.#owns(generation)) return false;
+      if (!isCurrent()) return false;
       this.shop = shop;
       return true;
     } catch (error) {
-      if (this.#owns(generation)) this.error = `Not saved: ${errorMessage(error)}`;
+      if (isCurrent()) this.error = `Not saved: ${errorMessage(error)}`;
       return false;
     } finally {
-      if (this.#owns(generation)) this.busy = false;
+      if (isCurrent()) this.busy = false;
     }
   }
 
-  async #readDetail(item: ShoppingItem, generation: number): Promise<void> {
+  async #readDetail(item: ShoppingItem, isCurrent: CurrentCheck): Promise<void> {
     try {
       let detail = await this.#api.getRelease(item.release.id);
-      if (this.#closed || generation !== this.#detailGeneration) return;
+      if (!isCurrent()) return;
       // Wantlist stubs have no tracks until they are read from Discogs or a dump.
       if (!item.release.enrichedAt && detail.tracks.length === 0)
         detail = await this.#api.enrichRelease(item.release.id);
-      if (!this.#closed && generation === this.#detailGeneration) this.detail = detail;
+      if (isCurrent()) this.detail = detail;
     } catch (error) {
-      if (!this.#closed && generation === this.#detailGeneration)
-        this.detailError = errorMessage(error);
+      if (isCurrent()) this.detailError = errorMessage(error);
     }
   }
 
   async refreshAudio(): Promise<void> {
     const item = this.current;
-    if (!item || this.refreshingAudio || this.busy || this.#closed) return;
-    const generation = ++this.#detailGeneration;
+    if (!item || this.refreshingAudio || this.busy || this.#details.ended) return;
+    const isCurrent = this.#details.next();
     this.refreshingAudio = true;
     this.error = null;
     this.message = "";
     try {
       const detail = await this.#api.enrichRelease(item.release.id);
-      if (this.#closed || generation !== this.#detailGeneration) return;
+      if (!isCurrent()) return;
       this.detail = detail;
       this.detailError = null;
       this.message = "Audio links refreshed from Discogs.";
     } catch (error) {
-      if (!this.#closed && generation === this.#detailGeneration)
-        this.error = `Audio refresh failed: ${errorMessage(error)}`;
+      if (isCurrent()) this.error = `Audio refresh failed: ${errorMessage(error)}`;
     } finally {
-      if (!this.#closed && generation === this.#detailGeneration) this.refreshingAudio = false;
+      if (isCurrent()) this.refreshingAudio = false;
     }
   }
 
-  #owns(generation: number): boolean {
-    return !this.#closed && generation === this.#generation;
-  }
-
   destroy(): void {
-    this.#closed = true;
-    this.#generation += 1;
-    this.#detailGeneration += 1;
+    this.#shops.end();
+    this.#details.end();
   }
 }

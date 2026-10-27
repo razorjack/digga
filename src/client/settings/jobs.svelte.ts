@@ -1,5 +1,6 @@
 import { isActiveJob, type Job } from "../../shared/types.ts";
 import { api, type Api } from "../api.ts";
+import { Generation } from "../async.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
 export const SAVE_BEFORE_JOB = "Save or discard your settings changes before starting a job.";
@@ -11,8 +12,7 @@ export class SettingsJobs {
   #api: Api;
   #refreshStats: () => Promise<void>;
   #timer: ReturnType<typeof setTimeout> | null = null;
-  #version = 0;
-  #closed = false;
+  #reads = new Generation();
   #loaded = false;
 
   constructor(client: Api = api, refreshStats: () => Promise<void> = () => stats.refresh()) {
@@ -21,22 +21,22 @@ export class SettingsJobs {
   }
 
   async load(): Promise<void> {
-    if (this.#closed) return;
+    if (this.#reads.ended) return;
     if (this.#timer) clearTimeout(this.#timer);
-    const version = ++this.#version;
+    const isCurrent = this.#reads.next();
     const before = this.#loaded ? this.items : null;
     try {
       const response = await this.#api.getJobs();
-      if (!this.#current(version)) return;
+      if (!isCurrent()) return;
       this.items = response.jobs;
       this.error = null;
       // What a job imported or loaded shows in the counts, also when it ended between two reads.
       if (before && someJobEnded(before, this.items)) void this.#refreshStats();
       this.#loaded = true;
     } catch (error) {
-      if (this.#current(version)) this.error = errorMessage(error);
+      if (isCurrent()) this.error = errorMessage(error);
     } finally {
-      if (this.#current(version) && this.running) {
+      if (isCurrent() && this.running) {
         this.#timer = setTimeout(() => void this.load(), 1000);
       }
     }
@@ -48,12 +48,8 @@ export class SettingsJobs {
   }
 
   destroy(): void {
-    this.#closed = true;
+    this.#reads.end();
     if (this.#timer) clearTimeout(this.#timer);
-  }
-
-  #current(version: number): boolean {
-    return !this.#closed && version === this.#version;
   }
 }
 

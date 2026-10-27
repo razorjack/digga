@@ -2,6 +2,7 @@ import { formatCounted } from "../shared/display.ts";
 import type { Stats } from "../shared/api.ts";
 import { isActiveJob, type Job } from "../shared/types.ts";
 import { api, type Api } from "./api.ts";
+import { Generation } from "./async.ts";
 import { stats } from "./stores.svelte.ts";
 
 const DUMP_JOBS = new Set<Job["type"]>(["dump_download", "dump_load", "dump_update"]);
@@ -33,7 +34,7 @@ export class LoadStatusStore {
   #api: Pick<Api, "getJobs">;
   #stats: StatsSource;
   #timer: ReturnType<typeof setTimeout> | null = null;
-  #version = 0;
+  #checks = new Generation();
 
   constructor(client: Pick<Api, "getJobs"> = api, statsSource: StatsSource = stats) {
     this.#api = client;
@@ -48,12 +49,12 @@ export class LoadStatusStore {
   async check(): Promise<void> {
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
-    const version = ++this.#version;
+    const isCurrent = this.#checks.next();
     const watched = this.job;
     try {
       const { jobs } = await this.#api.getJobs();
       // An answer read before a later check may predate the job that check was asked about.
-      if (version !== this.#version) return;
+      if (!isCurrent()) return;
       this.job = runningDumpJob(jobs);
       this.checked = true;
       if (watched && watched.type !== "dump_download" && !this.loading)
@@ -61,7 +62,7 @@ export class LoadStatusStore {
     } catch {
       // The header says the server is unreachable; the next start checks again.
     }
-    if (version !== this.#version) return;
+    if (!isCurrent()) return;
     if (this.job) this.#timer = setTimeout(() => void this.check(), POLL_MS);
   }
 
