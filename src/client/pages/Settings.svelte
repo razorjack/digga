@@ -7,6 +7,7 @@
   import { getAnchor, guardLeaving, navigate } from "../router.svelte.ts";
   import type { Route } from "../routes.ts";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
+  import { TimedMessage } from "../timed-message.svelte.ts";
   import Backups from "../settings/Backups.svelte";
   import { DiscogsSettings } from "../settings/discogs.svelte.ts";
   import DiggingTab from "../settings/DiggingTab.svelte";
@@ -30,11 +31,10 @@
   const formId = `${id}-settings`;
   const jobState = new SettingsJobs();
   const discogs = new DiscogsSettings();
-  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+  const flash = new TimedMessage(6000);
 
   let draft = $state<Config | null>(null);
   let saving = $state(false);
-  let flash = $state<string | null>(null);
   /** The tab's sections, which scroll beside the list of tabs. */
   let sections = $state<HTMLElement | null>(null);
   /** Where the user tried to go with unsaved changes, while the dialog asks what to do with them. */
@@ -49,7 +49,7 @@
   const issues = $derived(validation && !validation.ok ? validation.issues : []);
   const unsaved = $derived(draft && saved ? unsavedTabs(draft, saved) : []);
   /** The save bar shows only with something to say: a problem, a message or unsaved changes. */
-  const idle = $derived(problems.length === 0 && flash === null && !dirty);
+  const idle = $derived(problems.length === 0 && flash.text === null && !dirty);
   const tab = $derived(settingsTab(getAnchor()));
   /** Derived, so saves that keep the username do not fetch the lists again. */
   const discogsUsername = $derived(saved?.discogs.username ?? "");
@@ -87,15 +87,11 @@
   onDestroy(() => {
     jobState.destroy();
     discogs.destroy();
-    if (flashTimer) clearTimeout(flashTimer);
+    flash.destroy();
   });
 
   function showFlash(message: string): void {
-    flash = message;
-    if (flashTimer) clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => {
-      if (flash === message) flash = null;
-    }, 6000);
+    flash.show(message);
   }
 
   function submit(event: SubmitEvent): void {
@@ -248,8 +244,8 @@
         <p class="status" role="status">
           {#if problems.length > 0}
             <span class="problem">{problems[0]}</span>
-          {:else if flash}
-            <span class="flash">{flash}</span>
+          {:else if flash.text}
+            <span class="flash">{flash.text}</span>
           {:else if dirty}
             Unsaved changes.
           {/if}

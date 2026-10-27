@@ -18,6 +18,7 @@ import { type Api, ApiRequestError, api as appApi, isConflict } from "../api.ts"
 import type { TriageStatus } from "../keymap.ts";
 import type { VideosChange } from "../player/triage-player.svelte.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
+import { TimedMessage } from "../timed-message.svelte.ts";
 
 type VerdictEntry = {
   kind: "verdict";
@@ -113,7 +114,7 @@ export class TriageSession {
   slip = $state.raw<Slip | null>(null);
   /** The slip whose verdict or undo is still being written. */
   #savingSlip = $state<number | null>(null);
-  flash = $state<string | null>(null);
+  #flash = new TimedMessage(6000);
   round = $state.raw<Round | null>(null);
   /** The label, artist or seller the queue is narrowed to; null digs everything the filters let in. */
   scope = $state.raw<QueueScope | null>(null);
@@ -166,7 +167,6 @@ export class TriageSession {
   #roundWants = new Map<string, number[]>();
   #writes: Promise<unknown> = Promise.resolve();
   #slipSeq = 0;
-  #flashTimer: ReturnType<typeof setTimeout> | null = null;
   #retryTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
 
   constructor(api: Api = appApi, opts: SessionOptions = {}) {
@@ -179,7 +179,7 @@ export class TriageSession {
     stats.setScope(null);
     this.#generation += 1;
     this.#destroyed = true;
-    if (this.#flashTimer) clearTimeout(this.#flashTimer);
+    this.#flash.destroy();
     for (const [timer, resolve] of this.#retryTimers) {
       clearTimeout(timer);
       resolve();
@@ -274,7 +274,7 @@ export class TriageSession {
       await this.#refill();
     } catch (error) {
       if (generation === this.#generation)
-        this.#flash(`Could not look for new records: ${errorMessage(error)}`);
+        this.#flash.show(`Could not look for new records: ${errorMessage(error)}`);
     }
   }
 
@@ -299,7 +299,7 @@ export class TriageSession {
       });
     } catch (error) {
       if (generation === this.#generation)
-        this.#flash(`Could not read the queue again: ${errorMessage(error)}`);
+        this.#flash.show(`Could not read the queue again: ${errorMessage(error)}`);
     }
   }
 
@@ -331,7 +331,7 @@ export class TriageSession {
       this.#prefetch();
     } catch (error) {
       if (!this.#destroyed && generation === this.#generation)
-        this.#flash(`Could not refresh the replay: ${errorMessage(error)}`);
+        this.#flash.show(`Could not refresh the replay: ${errorMessage(error)}`);
     }
   }
 
@@ -402,7 +402,7 @@ export class TriageSession {
   }
 
   #recoverVerdict(entry: VerdictEntry, error: unknown): void {
-    this.#flash(`The verdict was not saved: ${errorMessage(error)}`);
+    this.#flash.show(`The verdict was not saved: ${errorMessage(error)}`);
     stats.refreshSoon(0);
     if (!this.history.includes(entry)) return;
     this.history = this.history.filter((item) => item !== entry);
@@ -419,6 +419,11 @@ export class TriageSession {
       returned,
       ...this.upcoming.filter((next) => next.triageKey !== item.triageKey),
     ];
+  }
+
+  /** A short message about what just failed or happened, which clears itself. */
+  get flash(): string | null {
+    return this.#flash.text;
   }
 
   /** The slip reports a write the server has not answered yet, or the page has not acted on. */
@@ -573,7 +578,7 @@ export class TriageSession {
     const item = this.current;
     if (!item || !this.#setLabelHidden) return;
     if (!item.labelName) {
-      this.#flash("This record has no label to hide.");
+      this.#flash.show("This record has no label to hide.");
       return;
     }
     const label = { id: item.labelId, name: item.labelName };
@@ -585,7 +590,7 @@ export class TriageSession {
     try {
       await this.#setLabelHidden(label, true);
     } catch (error) {
-      this.#flash(`The label was not hidden: ${errorMessage(error)}`);
+      this.#flash.show(`The label was not hidden: ${errorMessage(error)}`);
       return;
     }
     this.leaveOutLabel(label);
@@ -614,7 +619,7 @@ export class TriageSession {
   undo(): void {
     const entry = this.history.at(-1);
     if (!entry) {
-      this.#flash("Nothing to undo.");
+      this.#flash.show("Nothing to undo.");
       return;
     }
     if (entry.kind === "label") {
@@ -657,7 +662,7 @@ export class TriageSession {
       await this.#setLabelHidden?.(entry.label, false);
     } catch (error) {
       this.history = [...this.history, entry];
-      this.#flash(`${entry.label.name} is still hidden: ${errorMessage(error)}`);
+      this.#flash.show(`${entry.label.name} is still hidden: ${errorMessage(error)}`);
       return;
     }
     if (this.round) this.upcoming = [...entry.roundRecords, ...this.upcoming];
@@ -685,7 +690,7 @@ export class TriageSession {
   }
 
   #recoverUndo(entry: VerdictEntry, error: unknown): void {
-    this.#flash(`Undo failed: ${errorMessage(error)}`);
+    this.#flash.show(`Undo failed: ${errorMessage(error)}`);
     const key = entry.item.triageKey;
     // A later action on this record owns its optimistic state.
     if (!this.history.some((later) => later.item.triageKey === key)) {
@@ -759,7 +764,7 @@ export class TriageSession {
       // Later queued marks own their optimistic value until their own write settles.
       if (state?.version === write.version)
         this.#setTrackMark(releaseId, tune.heardKey, state.saved);
-      this.#flash(`The track mark was not saved: ${errorMessage(error)}`);
+      this.#flash.show(`The track mark was not saved: ${errorMessage(error)}`);
     }
   }
 
@@ -777,7 +782,7 @@ export class TriageSession {
     const item = this.current;
     if (!item) return;
     if (hasVideoOfLink(this.currentDetail?.videos ?? [], url)) {
-      this.#flash("Already attached to this release.");
+      this.#flash.show("Already attached to this release.");
       return;
     }
     try {
@@ -785,9 +790,9 @@ export class TriageSession {
       if (this.#destroyed) return;
       this.videosChange = "attached";
       this.details = new Map(this.details).set(item.id, detail);
-      this.#flash("Attached to this release; it plays here from now on.");
+      this.#flash.show("Attached to this release; it plays here from now on.");
     } catch (error) {
-      if (!this.#destroyed) this.#flash(`The link was not attached: ${errorMessage(error)}`);
+      if (!this.#destroyed) this.#flash.show(`The link was not attached: ${errorMessage(error)}`);
     }
   }
 
@@ -800,7 +805,7 @@ export class TriageSession {
       const detail = await this.#api.enrichRelease(item.id);
       if (!this.#destroyed) this.#applyEnrichment(detail);
     } catch (error) {
-      if (!this.#destroyed) this.#flash(`The price did not load: ${errorMessage(error)}`);
+      if (!this.#destroyed) this.#flash.show(`The price did not load: ${errorMessage(error)}`);
     } finally {
       if (!this.#destroyed) this.#setPricing(item.id, false);
     }
@@ -821,7 +826,7 @@ export class TriageSession {
   }
 
   showFlash(message: string): void {
-    this.#flash(message);
+    this.#flash.show(message);
   }
 
   /**
@@ -859,7 +864,7 @@ export class TriageSession {
         if (this.#destroyed) return null;
         const delayMs = this.#pushRetryDelaysMs[tries];
         if (delayMs === undefined || !mayPassLater(error)) {
-          this.#flash(
+          this.#flash.show(
             `${item.artistDisplay} – ${item.title} is not on the Discogs wantlist: ${errorMessage(error)}. A in Twelves tries again.`,
           );
           return "failed";
@@ -886,10 +891,10 @@ export class TriageSession {
     try {
       if ((await this.#syncWantlist(item)) !== "removed") return;
       if (this.#destroyed) return;
-      this.#flash("Taken off your Discogs wantlist again.");
+      this.#flash.show("Taken off your Discogs wantlist again.");
     } catch (error) {
       if (this.#destroyed) return;
-      this.#flash(`Still on your Discogs wantlist: ${errorMessage(error)}`);
+      this.#flash.show(`Still on your Discogs wantlist: ${errorMessage(error)}`);
     }
   }
 
@@ -996,7 +1001,7 @@ export class TriageSession {
     if (this.round && this.upcoming.length === 0) {
       const { kind } = this.round;
       this.endRound();
-      this.#flash(ROUND_FINISHED[kind]);
+      this.#flash.show(ROUND_FINISHED[kind]);
       return;
     }
     this.#prefetch();
@@ -1005,7 +1010,7 @@ export class TriageSession {
       this.#refill().catch((error: unknown) => {
         if (generation !== this.#generation) return;
         const message = `Could not fetch more of the queue: ${errorMessage(error)}`;
-        this.#flash(message);
+        this.#flash.show(message);
         // With nothing buffered, the page needs the error state so Enter can retry.
         if (this.upcoming.length === 0) {
           this.status = "error";
@@ -1178,14 +1183,6 @@ export class TriageSession {
       ...this.history.slice(-20).map((h) => h.item.id),
     ]);
     this.details = new Map([...this.details].filter(([id]) => keep.has(id)));
-  }
-
-  #flash(message: string): void {
-    this.flash = message;
-    if (this.#flashTimer) clearTimeout(this.#flashTimer);
-    this.#flashTimer = setTimeout(() => {
-      this.flash = null;
-    }, 6000);
   }
 }
 

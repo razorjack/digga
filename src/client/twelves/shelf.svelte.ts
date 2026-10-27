@@ -5,6 +5,7 @@ import { waitForJob } from "../jobs.ts";
 import { formatCount, formatCounted } from "../../shared/display.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import { errorMessage, stats, settings } from "../stores.svelte.ts";
+import { TimedMessage } from "../timed-message.svelte.ts";
 import {
   type ShelfId,
   type SortId,
@@ -39,7 +40,7 @@ type WantlistChange = Extract<UndoEntry, { kind: "verdict" }>["wantlist"];
 export class TwelvesShelf {
   #client: Api;
   #closed = new AbortController();
-  #flashTimer: ReturnType<typeof setTimeout> | null = null;
+  #flash = new TimedMessage(5000);
   #loadVersion = 0;
 
   constructor(api: Api = appApi) {
@@ -48,7 +49,7 @@ export class TwelvesShelf {
 
   destroy(): void {
     this.#closed.abort();
-    if (this.#flashTimer) clearTimeout(this.#flashTimer);
+    this.#flash.destroy();
   }
 
   #current(): boolean {
@@ -64,7 +65,6 @@ export class TwelvesShelf {
   sort = $state<SortId>("newest");
   query = $state("");
   selectedKey = $state<string | null>(null);
-  flash = $state<string | null>(null);
   undoStack = $state.raw<UndoEntry[]>([]);
   checking = $state(false);
   pushing = $state(false);
@@ -107,13 +107,13 @@ export class TwelvesShelf {
     }
   }
 
+  /** A short message about what just happened, which clears itself. */
+  get flash(): string | null {
+    return this.#flash.text;
+  }
+
   showFlash(message: string): void {
-    if (!this.#current()) return;
-    this.flash = message;
-    if (this.#flashTimer) clearTimeout(this.#flashTimer);
-    this.#flashTimer = setTimeout(() => {
-      if (this.flash === message) this.flash = null;
-    }, 5000);
+    if (this.#current()) this.#flash.show(message);
   }
 
   async wantlistWrite(releaseId: number, add: boolean): Promise<string | null> {
@@ -304,7 +304,7 @@ export class TwelvesShelf {
       const releaseId = releaseIdOf(item);
       if (releaseId === null) continue;
       if (list.length > 1)
-        this.flash = `Adding to your Discogs wantlist: ${added + 1} of ${list.length}…`;
+        this.#flash.hold(`Adding to your Discogs wantlist: ${added + 1} of ${list.length}…`);
       error = await this.wantlistWrite(releaseId, true);
       if (error) break;
       added += 1;

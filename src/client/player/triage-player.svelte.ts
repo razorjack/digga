@@ -15,6 +15,7 @@ import type { Api } from "../api.ts";
 import { bookmarkedEntry } from "./bookmark.ts";
 import { Deck, type DeckListener } from "./deck.ts";
 import type { PlayerStatus } from "./status.ts";
+import { TimedMessage } from "../timed-message.svelte.ts";
 import { embedErrorReason, loadYouTubeApi, PlayerState } from "./youtube.ts";
 
 /** Why the open release's videos changed: a link pasted on it, or videos `P` found on Discogs. */
@@ -68,7 +69,7 @@ export class TriagePlayer {
   /** Where the listener seeked to, shown until the player reports the new time. */
   #seek = $state<{ seconds: number; since: number } | null>(null);
   /** Short message about the player, such as a video that would not embed. */
-  notice = $state<string | null>(null);
+  #notice = new TimedMessage(5000);
   /** The first video of the next release is buffered. */
   nextReady = $state(false);
   /** Index of the visible deck, which plays the open release. */
@@ -106,7 +107,6 @@ export class TriagePlayer {
   /** A saved moment to play once its release opens, from Twelves or a resumed session. */
   #pendingPlayback: PlaybackPosition | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
-  #noticeTimer: ReturnType<typeof setTimeout> | null = null;
   #lastTick = 0;
   #loadingSince = 0;
   #destroyed = false;
@@ -121,6 +121,10 @@ export class TriagePlayer {
     this.#api = api;
     this.#fraction = settings.startAtFraction;
     this.#skipHeard = settings.skipHeard ?? (() => true);
+  }
+
+  get notice(): string | null {
+    return this.#notice.text;
   }
 
   get sessionId(): string | null {
@@ -158,7 +162,7 @@ export class TriagePlayer {
     } catch (error) {
       if (this.#destroyed) return;
       this.status = "unavailable";
-      this.notice = error instanceof Error ? error.message : String(error);
+      this.#notice.hold(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -166,7 +170,7 @@ export class TriagePlayer {
     this.#destroyed = true;
     this.#flushListen();
     if (this.#timer) clearInterval(this.#timer);
-    if (this.#noticeTimer) clearTimeout(this.#noticeTimer);
+    this.#notice.destroy();
     for (const deck of this.#decks) deck.destroy();
     this.#decks = [];
   }
@@ -253,13 +257,13 @@ export class TriagePlayer {
 
   nextTrack(): void {
     const next = nextEntry(this.entries, this.current, this.#playlistState(), { fallback: true });
-    if (next === null) this.#notify("That was the last track. Judge it.");
+    if (next === null) this.#notice.show("That was the last track. Judge it.");
     else this.playEntry(next);
   }
 
   previousTrack(): void {
     const previous = previousEntry(this.entries, this.current, this.#playlistState());
-    if (previous === null) this.#notify("Already on the first track.");
+    if (previous === null) this.#notice.show("Already on the first track.");
     else this.playEntry(previous);
   }
 
@@ -437,7 +441,7 @@ export class TriagePlayer {
     this.#flushListen();
     this.played.clear();
     this.heardNow.clear();
-    this.notice = null;
+    this.#notice.clear();
     this.release = detail;
     this.#seek = null;
     this.time = 0;
@@ -567,7 +571,7 @@ export class TriagePlayer {
     const entry = this.entry;
     this.#listen = null;
     const what = entry?.track ? `${entry.track.position} ${entry.track.title}` : "This video";
-    this.#notify(`${what} won't play here: ${embedErrorReason(code)}. Skipped.`);
+    this.#notice.show(`${what} won't play here: ${embedErrorReason(code)}. Skipped.`);
     const state = this.#playlistState();
     const next =
       nextEntry(this.entries, this.current, state, { fallback: true }) ??
@@ -700,14 +704,6 @@ export class TriagePlayer {
         // Listening remains best effort; a missed sample must not interrupt digging.
       });
     listen.context.startSeconds = this.time;
-  }
-
-  #notify(message: string): void {
-    this.notice = message;
-    if (this.#noticeTimer) clearTimeout(this.#noticeTimer);
-    this.#noticeTimer = setTimeout(() => {
-      this.notice = null;
-    }, 5000);
   }
 }
 
