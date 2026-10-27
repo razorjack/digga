@@ -23,7 +23,7 @@
     shortcutKey,
     trackMarkForKey,
     type TriageStatus,
-    VERDICT_KEYS,
+    verdictForKey,
   } from "../keymap.ts";
   import { TriagePlayer } from "../player/triage-player.svelte.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
@@ -153,8 +153,8 @@
     try {
       const snoozed = await api.getTwelves({ status: ["snoozed"] });
       session.startRound(snoozed.items.map(replayItemOf).toReversed());
-    } catch (event) {
-      session.showFlash(`The snoozed records did not load: ${errorMessage(event)}`);
+    } catch (error) {
+      session.showFlash(`The snoozed records did not load: ${errorMessage(error)}`);
     } finally {
       loadingSnoozed = false;
     }
@@ -343,27 +343,22 @@
       player.seekBy(key === "ArrowLeft" ? -seekStep : seekStep);
       return true;
     }
+    // Enter and Esc only count as shortcuts when they have something to do.
+    if (key === "Enter") return !event.repeat && retry();
+    if (key === "Escape") return !event.repeat && leaveRoundOrScope();
+    const shortcut = shortcutFor(key);
+    if (!shortcut) return false;
     // Holding a key down must not judge a run of releases.
-    if (event.repeat) return /^[ jknozspexf1-9radmc]$/.test(key);
-    return runShortcut(key);
+    if (!event.repeat) shortcut();
+    return true;
   }
 
-  function runShortcut(key: string): boolean {
-    const action = ACTIONS[key];
-    if (action) {
-      action();
-      return true;
-    }
-    if (key === "Enter") return retry();
-    if (key === "Escape") return leaveRoundOrScope();
-    if (/^[1-9]$/.test(key)) {
-      player.jumpTo(Number(key) / 10);
-      return true;
-    }
-    const verdict = VERDICT_KEYS.find((verdict) => verdict.key.toLowerCase() === key);
-    if (!verdict) return false;
-    judge(verdict.status);
-    return true;
+  /** The action of a single-key shortcut, or null when the key is none. */
+  function shortcutFor(key: string): (() => void) | null {
+    if (/^[1-9]$/.test(key)) return () => player.jumpTo(Number(key) / 10);
+    const verdict = verdictForKey(key);
+    if (verdict) return () => judge(verdict.status);
+    return ACTIONS[key] ?? null;
   }
 
   /** A YouTube link pasted anywhere on the page belongs to the release on screen. */

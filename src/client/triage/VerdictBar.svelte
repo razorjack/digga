@@ -1,6 +1,6 @@
 <script lang="ts">
   import Key from "../components/Key.svelte";
-  import { type TriageStatus, VERDICT_KEYS } from "../keymap.ts";
+  import { STATUS_COPY, STATUS_TONE, type TriageStatus, VERDICT_KEYS } from "../keymap.ts";
 
   let {
     disabled,
@@ -23,28 +23,30 @@
   } = $props();
 
   const judged = $derived(
-    VERDICT_KEYS.filter((v) => v.group === "judge" && (hasMaybeList || !v.needsMaybeList)),
+    VERDICT_KEYS.filter(
+      (verdict) => verdict.group === "judge" && (hasMaybeList || !verdict.needsMaybeList),
+    ),
   );
-  const deferred = VERDICT_KEYS.filter((v) => v.group === "defer");
+  const deferred = VERDICT_KEYS.filter((verdict) => verdict.group === "defer");
   // Buttons never keep focus, so Space always reaches the player instead of the last button clicked.
-  const keepFocus = (e: MouseEvent) => e.preventDefault();
+  const keepFocus = (event: MouseEvent) => event.preventDefault();
 </script>
 
 <div class="bar" role="group" aria-label="Verdicts">
   <div class="verdicts">
-    {#each judged as v (v.status)}
+    {#each judged as verdict (verdict.status)}
       <button
         type="button"
-        class="verdict {v.tone}"
+        class="verdict {STATUS_TONE[verdict.status]}"
         tabindex="-1"
         {disabled}
-        aria-keyshortcuts={v.key}
+        aria-keyshortcuts={verdict.key}
         onmousedown={keepFocus}
-        onclick={() => onjudge(v.status)}
+        onclick={() => onjudge(verdict.status)}
       >
-        <Key label={v.key} primary size="lg" aria-hidden="true" />
-        <span class="copy">{v.copy}</span>
-        <span class="hint">{v.hint}</span>
+        <Key label={verdict.key} primary size="lg" aria-hidden="true" />
+        <span class="copy">{STATUS_COPY[verdict.status]}</span>
+        <span class="hint">{verdict.hint}</span>
       </button>
     {/each}
   </div>
@@ -52,17 +54,17 @@
     <button type="button" tabindex="-1" aria-keyshortcuts="N" onmousedown={keepFocus} onclick={onpass}>
       <Key label="N" aria-hidden="true" /> next
     </button>
-    {#each deferred as v (v.status)}
+    {#each deferred as verdict (verdict.status)}
       <button
         type="button"
         tabindex="-1"
         {disabled}
-        aria-keyshortcuts={v.key}
+        aria-keyshortcuts={verdict.key}
         onmousedown={keepFocus}
-        onclick={() => onjudge(v.status)}
+        onclick={() => onjudge(verdict.status)}
       >
-        <Key label={v.key} aria-hidden="true" />
-        {v.copy}
+        <Key label={verdict.key} aria-hidden="true" />
+        {STATUS_COPY[verdict.status]}
       </button>
     {/each}
     <button

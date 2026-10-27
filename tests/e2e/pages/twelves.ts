@@ -1,8 +1,11 @@
 import { expect, type Locator, type Response } from "@playwright/test";
-import { type RecordStamp, STATUS_COPY } from "../../../src/client/keymap.ts";
 import {
-  JUDGE_KEYS,
-  type JudgedStatus,
+  type RecordStamp,
+  STATUS_COPY,
+  type TriageStatus,
+  VERDICT_KEYS,
+} from "../../../src/client/keymap.ts";
+import {
   rejudgedSentence,
   type ShelfId,
   SHELVES,
@@ -17,11 +20,11 @@ import { isRequest, TriagePage, waitForResponses } from "./triage.ts";
 export type MoveKey = "j" | "k" | "ArrowDown" | "ArrowUp";
 export type TurnKey = "ArrowRight" | "ArrowLeft";
 
-/** The key that re-judges the selected record, from Twelves' own key table. */
+/** The key that re-judges the selected record, from the app's verdict keys. */
 export function judgeKey(status: VerdictStatus): string {
-  const key = Object.keys(JUDGE_KEYS).find((candidate) => JUDGE_KEYS[candidate] === status);
-  if (!key) throw new Error(`no key in Twelves judges ${status}`);
-  return key;
+  const verdict = VERDICT_KEYS.find((candidate) => candidate.status === status);
+  if (!verdict) throw new Error(`no key in Twelves judges ${status}`);
+  return verdict.key.toLowerCase();
 }
 
 /**
@@ -269,7 +272,7 @@ export class TwelvesPage {
    * loaded again and says what changed; a change that adds to or takes from the Discogs wantlist
    * says so only after the server has answered, which it does after the fake has.
    */
-  async rejudge(status: JudgedStatus): Promise<void> {
+  async rejudge(status: TriageStatus): Promise<void> {
     await expect(this.selected).toHaveCount(1);
     const { first: saved, next: reloaded } = waitForResponses(
       this.app.page,

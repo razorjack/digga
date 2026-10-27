@@ -1,5 +1,6 @@
 import type { TrackMark, VerdictStatus } from "../shared/types.ts";
 import { youtubeIdFromUrl } from "../shared/youtube.ts";
+import { ROUTES } from "./routes.ts";
 
 /** Verdicts the triage keys write. */
 export type TriageStatus = Extract<
@@ -9,12 +10,11 @@ export type TriageStatus = Extract<
 
 export type StampTone = "plain" | "accent" | "muted";
 
+/** A verdict key; its stamp's words and tone are STATUS_COPY's and STATUS_TONE's. */
 export interface VerdictKey {
   status: TriageStatus;
   key: string;
-  copy: string;
   hint: string;
-  tone: StampTone;
   /** "judge" verdicts get the large buttons; "defer" ones sit with N in the smaller group. */
   group: "judge" | "defer";
   /** Only offered once a Discogs Maybe list is chosen in Settings. */
@@ -25,53 +25,51 @@ export const VERDICT_KEYS: VerdictKey[] = [
   {
     status: "rejected",
     key: "R",
-    copy: "skip",
     hint: "not for the box",
-    tone: "plain",
     group: "judge",
   },
   {
     status: "accepted",
     key: "A",
-    copy: "want",
     hint: "onto the wantlist",
-    tone: "accent",
     group: "judge",
   },
   {
     status: "maybe",
     key: "M",
-    copy: "maybe",
     hint: "for your Maybe list",
-    tone: "plain",
     group: "judge",
     needsMaybeList: true,
   },
   {
     status: "candidate",
     key: "C",
-    copy: "grail",
     hint: "the one you've been hunting",
-    tone: "accent",
     group: "judge",
   },
   {
     status: "snoozed",
     key: "L",
-    copy: "snooze",
     hint: "hear it again later",
-    tone: "muted",
     group: "defer",
   },
   {
     status: "no_audio",
     key: "D",
-    copy: "no audio",
     hint: "off the queue, unjudged",
-    tone: "muted",
     group: "defer",
   },
 ];
+
+/** The verdict a key writes, given as `event.key` in lower case; undefined for other keys. */
+export function verdictForKey(key: string): VerdictKey | undefined {
+  return VERDICT_KEYS.find((verdict) => verdict.key.toLowerCase() === key);
+}
+
+/** A verdict the triage keys write, which Twelves can change; the rest is the account's. */
+export function isTriageStatus(status: VerdictStatus): status is TriageStatus {
+  return VERDICT_KEYS.some((verdict) => verdict.status === status);
+}
 
 /** What a record's stamp says: its verdict, or what the Discogs account holds of it. */
 export type RecordStamp = VerdictStatus | "wantlist" | "collection";
@@ -126,10 +124,7 @@ export interface KeyGroup {
 export const GLOBAL_KEYS: KeyGroup = {
   title: "Pages",
   keys: [
-    { keys: ["T"], label: "triage" },
-    { keys: ["W"], label: "twelves" },
-    { keys: ["H"], label: "shop my wants" },
-    { keys: [","], label: "settings" },
+    ...ROUTES.map((destination) => ({ keys: [destination.key], label: destination.help })),
     { keys: ["?"], label: "show or hide these keys" },
   ],
 };
@@ -143,8 +138,8 @@ export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean):
           keys: [verdict.key],
           label:
             verdict.needsMaybeList && !hasMaybeList
-              ? `${verdict.copy}: pick your Discogs Maybe list in Settings first`
-              : `${verdict.copy}: ${verdict.hint}`,
+              ? `${STATUS_COPY[verdict.status]}: pick your Discogs Maybe list in Settings first`
+              : `${STATUS_COPY[verdict.status]}: ${verdict.hint}`,
         })),
         { keys: ["N"], label: "next: decide later, it stays in the queue" },
         { keys: ["E"], label: "write a note; Enter or leaving the field saves, Esc cancels" },

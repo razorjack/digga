@@ -17,6 +17,7 @@
     shortcutKey,
     STATUS_COPY,
     STATUS_TONE,
+    verdictForKey,
   } from "../keymap.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
@@ -29,7 +30,6 @@
     SHELVES,
     SORTS,
     EMPTY,
-    JUDGE_KEYS,
     columnSort,
     notOnList,
     notOnWantlist,
@@ -137,11 +137,14 @@
     "Shift+Enter": () => hearAgain("to the end"),
   };
 
+  /** Moving keys repeat while held; every other key acts once per press. */
+  const REPEATING_KEYS = new Set(["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+
   function onkeydown(event: KeyboardEvent): void {
     if (ui.helpOpen || event.defaultPrevented || isControlKey(event) || hasCommandModifier(event)) return;
     const key = shortcutKey(event);
     if (key === null) return;
-    if (event.repeat && !["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
+    if (event.repeat && !REPEATING_KEYS.has(key)) {
       event.preventDefault();
       return;
     }
@@ -178,9 +181,9 @@
       startEditing(selected);
       return true;
     }
-    const verdict = JUDGE_KEYS[key];
+    const verdict = verdictForKey(key);
     if (!verdict) return false;
-    shelfState.rejudge(selected, verdict);
+    shelfState.rejudge(selected, verdict.status);
     return true;
   }
 
@@ -195,7 +198,7 @@
       editingKey = trackKey(track);
       return true;
     }
-    if (!JUDGE_KEYS[key]) return false;
+    if (!verdictForKey(key)) return false;
     shelfState.showFlash("Track marks change in Triage, on the playing track.");
     return true;
   }

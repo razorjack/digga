@@ -1,7 +1,7 @@
 import type { MarkedTrack, QueueItem, TwelvesItem } from "../../shared/api.ts";
-import type { TrackMark, VerdictStatus } from "../../shared/types.ts";
+import type { TrackMark } from "../../shared/types.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
-import type { RecordStamp } from "../keymap.ts";
+import type { RecordStamp, TriageStatus } from "../keymap.ts";
 export type ShelfId =
   | "all"
   | "accepted"
@@ -140,28 +140,6 @@ export function turnedPageStart(
 
 export const trackKey = (track: MarkedTrack) => `${track.mark.releaseId}\n${track.mark.heardKey}`;
 
-/** The verdicts a re-judgement in Twelves can write. */
-export type JudgedStatus = "accepted" | "maybe" | "candidate" | "rejected" | "snoozed" | "no_audio";
-
-/** Only records decided in Digga can be re-judged here; the rest is the Discogs account's. */
-export const JUDGE_KEYS: Record<string, JudgedStatus> = {
-  a: "accepted",
-  m: "maybe",
-  c: "candidate",
-  r: "rejected",
-  l: "snoozed",
-  d: "no_audio",
-};
-
-export const TRIAGE_STATUSES = new Set<VerdictStatus>([
-  "accepted",
-  "maybe",
-  "candidate",
-  "rejected",
-  "snoozed",
-  "no_audio",
-]);
-
 /** A maybe decided in Digga that has not shown up on the Discogs list yet. */
 export const notOnList = (i: TwelvesItem) => i.verdict?.status === "maybe" && !i.membership.onList;
 
@@ -201,7 +179,7 @@ export function recordStamp(item: TwelvesItem): RecordStamp {
 }
 
 /** The shelf a re-judgement puts the record on; a skip takes it off the shelves. */
-const JUDGED_SHELF: Record<JudgedStatus, ShelfId | null> = {
+const JUDGED_SHELF: Record<TriageStatus, ShelfId | null> = {
   accepted: "accepted",
   maybe: "maybe",
   candidate: "candidate",
@@ -211,14 +189,14 @@ const JUDGED_SHELF: Record<JudgedStatus, ShelfId | null> = {
 };
 
 /** The flash's sentence for a re-judged record: where it went, by the shelf's own name. */
-export function rejudgedSentence(name: string, status: JudgedStatus): string {
+export function rejudgedSentence(name: string, status: TriageStatus): string {
   const shelf = JUDGED_SHELF[status];
   if (shelf === null) return `${name} skipped, off the shelves.`;
   return `${name} moved to ${shelfLabel(shelf)}.`;
 }
 
 /** The flash for a re-judgement that would change nothing, so nothing is written. */
-export function unchangedSentence(item: TwelvesItem, status: JudgedStatus): string {
+export function unchangedSentence(item: TwelvesItem, status: TriageStatus): string {
   if (isWantlistVerdict(status) && item.membership.onWantlist)
     return "Already on your Discogs wantlist.";
   const shelf = JUDGED_SHELF[status];

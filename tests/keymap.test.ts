@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vite-plus/test";
-import { isSelectAll, shortcutKey, trackMarkForKey } from "../src/client/keymap.ts";
+import {
+  GLOBAL_KEYS,
+  isSelectAll,
+  isTriageStatus,
+  shortcutKey,
+  trackMarkForKey,
+  verdictForKey,
+} from "../src/client/keymap.ts";
+import { ROUTES } from "../src/client/routes.ts";
+
+describe("verdict keys", () => {
+  it("finds the verdict a lower-case key writes, snooze included", () => {
+    expect(verdictForKey("l")?.status).toBe("snoozed");
+    expect(verdictForKey("a")?.status).toBe("accepted");
+    expect(verdictForKey("n")).toBeUndefined();
+  });
+
+  it("counts only the statuses a verdict key writes as triage verdicts", () => {
+    expect(isTriageStatus("no_audio")).toBe(true);
+    expect(isTriageStatus("seen")).toBe(false);
+  });
+});
+
+it("lists every page's key in the Keys dialog, then ?", () => {
+  const keys = GLOBAL_KEYS.keys.map((help) => help.keys[0]);
+  expect(keys).toEqual([...ROUTES.map((destination) => destination.key), "?"]);
+});
 
 describe("trackMarkForKey", () => {
   it("reads the key Triage sees with Shift held, in lower case", () => {

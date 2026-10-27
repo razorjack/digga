@@ -2,6 +2,7 @@ import { expectedVerdict, type MarkedTrack, type TwelvesItem } from "../../share
 import type { Verdict, VerdictStatus } from "../../shared/types.ts";
 import { api as appApi, type Api, isConflict } from "../api.ts";
 import { Generation, SerialQueue } from "../async.ts";
+import { isTriageStatus, type TriageStatus } from "../keymap.ts";
 import { waitForJob } from "../jobs.ts";
 import { formatCount, formatCounted } from "../../shared/display.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
@@ -11,12 +12,10 @@ import {
   type ShelfId,
   type SortId,
   SORTS,
-  TRIAGE_STATUSES,
   missingFromWantlist,
   notOnList,
   notOnWantlist,
   releaseIdOf,
-  type JudgedStatus,
   nameOf,
   rejudgedSentence,
   countShelves,
@@ -221,7 +220,7 @@ export class TwelvesShelf {
   }
 
   /** Re-judges a record decided in Digga, keeping the Discogs wantlist in step. */
-  async #writeVerdict(item: TwelvesItem, previous: Verdict, status: JudgedStatus): Promise<void> {
+  async #writeVerdict(item: TwelvesItem, previous: Verdict, status: TriageStatus): Promise<void> {
     // If the record leaves this shelf, the selection moves to its neighbour, not to the top.
     const index = this.visible.findIndex((visible) => visible.key === item.key);
     const neighbour = (this.visible[index + 1] ?? this.visible[index - 1])?.key ?? null;
@@ -366,10 +365,10 @@ export class TwelvesShelf {
       );
   }
 
-  rejudge(selectedItem: TwelvesItem, status: JudgedStatus): void {
+  rejudge(selectedItem: TwelvesItem, status: TriageStatus): void {
     this.#queueRecordChange(selectedItem.key, async (item) => {
       const { verdict } = item;
-      if (verdict === null || !TRIAGE_STATUSES.has(verdict.status)) {
+      if (verdict === null || !isTriageStatus(verdict.status)) {
         this.showFlash("Wantlist and owned records come from Discogs; change them there.");
         return;
       }
