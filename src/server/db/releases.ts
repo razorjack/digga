@@ -163,7 +163,8 @@ export function rowToVideo(row: VideoRow): VideoRecord {
   };
 }
 
-const UPSERT_RELEASE = `
+/** The release's row; a release brought into the universe by a load is also written by it. */
+const INSERT_RELEASE = `
 INSERT INTO releases (
   id, master_id, is_main_release, title, artists_json, artist_display, labels_json, label_name, catno,
   year, released_raw, country, formats_json, is_vinyl, genres_json, styles_json, in_universe, triage_key, updated_at,
@@ -172,7 +173,9 @@ INSERT INTO releases (
   @id, @master_id, @is_main_release, @title, @artists_json, @artist_display, @labels_json, @label_name, @catno,
   @year, @released_raw, @country, @formats_json, @is_vinyl, @genres_json, @styles_json, @in_universe, @triage_key, @updated_at,
   @added_by_load, @added_by_load
-)
+)`;
+
+const UPSERT_RELEASE = `${INSERT_RELEASE}
 ON CONFLICT(id) DO UPDATE SET
   master_id = excluded.master_id,
   is_main_release = excluded.is_main_release,
@@ -196,8 +199,9 @@ ON CONFLICT(id) DO UPDATE SET
   added_by_load = CASE WHEN releases.in_universe = 1 THEN releases.added_by_load ELSE excluded.added_by_load END,
   written_by_load = excluded.written_by_load`;
 
-const INSERT_STUB =
-  UPSERT_RELEASE.slice(0, UPSERT_RELEASE.indexOf("ON CONFLICT")) + "ON CONFLICT(id) DO NOTHING";
+/** A stub never replaces a release the library has. */
+const INSERT_STUB = `${INSERT_RELEASE}
+ON CONFLICT(id) DO NOTHING`;
 
 const INSERT_TRACK = `
 INSERT INTO tracks (release_id, seq, position, title, artists_json, artist_display, duration_seconds, heard_key)
