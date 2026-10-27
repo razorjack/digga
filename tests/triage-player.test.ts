@@ -115,7 +115,7 @@ describe("player deck ownership", () => {
     players.push(player);
     player.show(detail(1), null, "found");
     await player.mount([{}, {}, {}] as Parameters<TriagePlayer["mount"]>[0]);
-    const active = fake.decks[player.active]!;
+    const active = fake.decks[player.visibleDeckIndex]!;
 
     active.emitState(PlayerState.PLAYING);
     await vi.advanceTimersByTimeAsync(1000);
@@ -136,7 +136,7 @@ describe("player deck ownership", () => {
 
   it("jumps within a paused video without playing it", async () => {
     const player = await setup();
-    const active = fake.decks[player.active]!;
+    const active = fake.decks[player.visibleDeckIndex]!;
     active.emitState(PlayerState.PLAYING);
     active.emitState(PlayerState.PAUSED);
     active.play.mockClear();
@@ -151,7 +151,7 @@ describe("player deck ownership", () => {
   it("shows a jump's position until the player reports it, then the reported time", async () => {
     vi.useFakeTimers();
     const player = await setup();
-    const active = fake.decks[player.active]!;
+    const active = fake.decks[player.visibleDeckIndex]!;
     active.emitState(PlayerState.PLAYING);
     active.currentTime = () => 150;
     await vi.advanceTimersByTimeAsync(250);
@@ -169,7 +169,7 @@ describe("player deck ownership", () => {
   it("steps arrows pressed in a row from the last target, and lets go of one never reported", async () => {
     vi.useFakeTimers();
     const player = await setup();
-    const active = fake.decks[player.active]!;
+    const active = fake.decks[player.visibleDeckIndex]!;
     active.emitState(PlayerState.PLAYING);
     active.currentTime = () => 150;
 
@@ -185,7 +185,7 @@ describe("player deck ownership", () => {
     const [first, second] = fake.decks;
     expect(second!.load).toHaveBeenCalledWith(...deckLoad("video-2", "preload"));
     player.show(detail(2), detail(3), "found");
-    expect(player.active).toBe(1);
+    expect(player.visibleDeckIndex).toBe(1);
     expect(player.entry?.video.videoId).toBe("video-2");
     expect(second!.load).toHaveBeenCalledTimes(1);
     expect(second!.play).toHaveBeenCalledTimes(1);
@@ -297,7 +297,7 @@ describe("a start point moved in Settings", () => {
 
   it("keeps a video that played or was moved where it is", async () => {
     const { player, start } = await setupMovable();
-    const active = fake.decks[player.active]!;
+    const active = fake.decks[player.visibleDeckIndex]!;
     player.seekBy(10);
     active.load.mockClear();
     start.fraction = 0.25;
@@ -318,7 +318,7 @@ describe("the track deck", () => {
     expect(third!.load).toHaveBeenLastCalledWith(...deckLoad("b", "preload"));
 
     player.nextTrack();
-    expect(player.active).toBe(2);
+    expect(player.visibleDeckIndex).toBe(2);
     expect(player.entry?.video.videoId).toBe("b");
     expect(third!.load).toHaveBeenCalledTimes(1);
     expect(third!.play).toHaveBeenCalledTimes(1);
@@ -335,7 +335,7 @@ describe("the track deck", () => {
     expect(fake.decks[2]!.load).toHaveBeenLastCalledWith(...deckLoad("c", "preload"));
     player.nextTrack();
     expect(player.entry?.video.videoId).toBe("c");
-    expect(player.active).toBe(2);
+    expect(player.visibleDeckIndex).toBe(2);
   });
 
   it("keeps the three decks apart when a verdict follows J", async () => {
@@ -346,7 +346,7 @@ describe("the track deck", () => {
     expect(player.entry?.video.videoId).toBe("x");
     const holding = (videoId: string) => fake.decks.findIndex((deck) => deck.videoId === videoId);
     // Playing, next track and next release each sit on a deck of their own.
-    const roles = [player.active, holding("y"), holding("video-7")];
+    const roles = [player.visibleDeckIndex, holding("y"), holding("video-7")];
     expect(roles).toEqual([holding("x"), expect.any(Number), expect.any(Number)]);
     expect(new Set(roles).size).toBe(3);
     expect(roles).not.toContain(-1);
@@ -356,7 +356,7 @@ describe("the track deck", () => {
 describe("refreshing the playing release", () => {
   it("parks removed audio when the refreshed playlist is empty", async () => {
     const player = await setup();
-    const deck = fake.decks[player.active]!;
+    const deck = fake.decks[player.visibleDeckIndex]!;
     deck.emitState(PlayerState.PLAYING);
     player.show(withVideos(1, []), null, "found");
     expect(player.entry).toBeNull();
@@ -370,7 +370,7 @@ describe("refreshing the playing release", () => {
     "replaces a removed video without losing playback intent (%s)",
     async (state) => {
       const player = await setup();
-      const deck = fake.decks[player.active]!;
+      const deck = fake.decks[player.visibleDeckIndex]!;
       deck.emitState(state);
       player.show(withVideos(1, ["replacement"]), null, "found");
       expect(player.entry?.video.videoId).toBe("replacement");

@@ -25,8 +25,8 @@
         .map((v) => v.matchedPosition!),
     ),
   );
-  const mine = $derived(player.release?.release.id === detail.release.id);
-  const currentIndex = $derived(mine ? player.current : null);
+  const mine = $derived(player.detail?.release.id === detail.release.id);
+  const currentIndex = $derived(mine ? player.entryIndex : null);
   /** The current entry plays, or waits: cued before Space, loading or paused. */
   const currentState = $derived(player.status === "playing" ? "playing" : "cued");
   const releaseArtist = $derived(detail.release.artistDisplay);

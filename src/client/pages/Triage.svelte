@@ -273,8 +273,8 @@
 
   function markPlaying(mark: TrackMark): void {
     const entry = player.entry;
-    const release = player.release;
-    if (!entry || !release) {
+    const detail = player.detail;
+    if (!entry || !detail) {
       session.showFlash("Track marks go on the playing track; nothing is playing.");
       return;
     }
@@ -283,7 +283,7 @@
       return;
     }
     const moment = { videoId: entry.video.videoId, atSeconds: Math.round(player.time * 10) / 10 };
-    session.markTrack(release.release.id, entry.track, mark, moment);
+    session.markTrack(detail.release.id, entry.track, mark, moment);
   }
 
   /** Returns false when there is nothing to retry, so Enter keeps its usual meaning. */

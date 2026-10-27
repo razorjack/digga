@@ -34,7 +34,7 @@
     return () => player.destroy();
   });
 
-  const mine = $derived(detail !== null && player.release?.release.id === detail.release.id);
+  const mine = $derived(detail !== null && player.detail?.release.id === detail.release.id);
   const entry = $derived(mine ? player.entry : null);
   const videoCount = $derived(detail?.videos.length ?? item?.videoCount ?? 0);
   const failedAll = $derived(
@@ -86,9 +86,9 @@
 <section class="player" aria-label="Player">
   <div class="frame">
     <!-- Inert: Tab or a click would move focus into the embed, and its keys never reach Digga. -->
-    <div class="deck" class:shown={player.active === 0} inert bind:this={hostA}></div>
-    <div class="deck" class:shown={player.active === 1} inert bind:this={hostB}></div>
-    <div class="deck" class:shown={player.active === 2} inert bind:this={hostC}></div>
+    <div class="deck" class:shown={player.visibleDeckIndex === 0} inert bind:this={hostA}></div>
+    <div class="deck" class:shown={player.visibleDeckIndex === 1} inert bind:this={hostB}></div>
+    <div class="deck" class:shown={player.visibleDeckIndex === 2} inert bind:this={hostC}></div>
     {#if overlay}
       <div class="overlay" class:solid={overlay.kind !== "gesture"}>
         {#if overlay.kind === "gesture"}
