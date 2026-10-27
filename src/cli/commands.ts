@@ -2,6 +2,7 @@ import fs from "node:fs";
 import {
   downloadDump,
   dumpLoad,
+  dumpLoadOptionsFor,
   importCollection,
   importList,
   importSeller,
@@ -88,7 +89,7 @@ export async function cmdDumpUpdate(runtime: Runtime): Promise<void> {
         report(progress);
       });
       showDownload(download);
-      const options = parseDumpOptions([download.path], runtime.config);
+      const options = dumpLoadOptionsFor(runtime.config, download.path);
       return dumpLoad({ db, logger: runtime.logger }, options, (progress) =>
         onProgress({ step: "load", ...progress }),
       );

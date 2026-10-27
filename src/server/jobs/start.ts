@@ -7,7 +7,7 @@ import type { DumpLoadProgress, Job, JobType } from "../../shared/types.ts";
 import type { AppContext } from "../context.ts";
 import { JOB_RETRIES } from "../discogs/client.ts";
 import { dumpsDirOptions, resolveDumpFile } from "../paths.ts";
-import type { DumpLoadJobResult } from "./dump-load.ts";
+import { type DumpLoadJobResult, dumpLoadOptionsFor } from "./dump-load.ts";
 import {
   downloadDump,
   dumpLoad,
@@ -102,14 +102,11 @@ function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoad
   return {
     dbFile: context.paths.dbFile,
     options: {
-      file,
-      styles: config.universe.styles,
-      loadYears: config.universe.loadYears,
+      ...dumpLoadOptionsFor(config, file),
       limit: input.limit,
       dryRun: input.dryRun,
       labelIds,
       artistIds,
-      coverage: config.universe.coverage,
       followJobId,
     },
   };

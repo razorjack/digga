@@ -7,6 +7,7 @@ import {
 import { StyleCensusTally } from "../../../tools/dump/census.ts";
 import type { GrowingFile } from "../../../tools/dump/growing.ts";
 import type { DumpLoadSummary } from "../../shared/api.ts";
+import type { Config } from "../../shared/config.ts";
 import type { DumpLoadProgress } from "../../shared/types.ts";
 import { type Db, nowIso, setMeta } from "../db/db.ts";
 import { finishDumpLoadRecord, startDumpLoadRecord } from "../db/dump-loads.ts";
@@ -26,6 +27,16 @@ export interface DumpLoadJobOptions extends DumpLoadOptions {
   coverage: boolean;
   /** The download job still writing the dump; the load reads it as it arrives. */
   followJobId?: string;
+}
+
+/** A load of `file` that keeps what the config's universe names. */
+export function dumpLoadOptionsFor(config: Config, file: string): DumpLoadJobOptions {
+  return {
+    file,
+    styles: config.universe.styles,
+    loadYears: config.universe.loadYears,
+    coverage: config.universe.coverage,
+  };
 }
 
 export interface DumpLoadJobResult extends DumpLoadResult {

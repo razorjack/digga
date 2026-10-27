@@ -3,7 +3,7 @@
  * The CLI and the HTTP routes wrap them; the Electron menu opens the Settings tab that starts them.
  */
 export { downloadDump } from "./dump-download.ts";
-export { dumpLoad } from "./dump-load.ts";
+export { dumpLoad, dumpLoadOptionsFor } from "./dump-load.ts";
 export { importCollection } from "../importers/collection.ts";
 export { importWantlist } from "../importers/wantlist.ts";
 export { importList } from "../importers/list.ts";

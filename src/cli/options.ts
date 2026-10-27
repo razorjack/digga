@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { readIdList } from "../../tools/dump/load.ts";
-import type { DumpLoadJobOptions } from "../server/jobs/dump-load.ts";
+import { type DumpLoadJobOptions, dumpLoadOptionsFor } from "../server/jobs/dump-load.ts";
 import type { Config } from "../shared/config.ts";
 import type { SeedImportOptions } from "../server/importers/seeds.ts";
 import type { ListImportOptions } from "../server/importers/list.ts";
@@ -32,14 +32,11 @@ export function parseDumpOptions(args: string[], config: Config): DumpLoadJobOpt
   const file = positionals[0];
   if (!file) throw new Error("dump load needs a file path or - for stdin");
   return {
-    file,
-    styles: config.universe.styles,
-    loadYears: config.universe.loadYears,
+    ...dumpLoadOptionsFor(config, file),
     limit: integerOption(values.limit, "limit", { min: 1 }),
     dryRun: values["dry-run"],
     labelIds: values.labels ? readIdList(values.labels) : undefined,
     artistIds: values.artists ? readIdList(values.artists) : undefined,
-    coverage: config.universe.coverage,
   };
 }
 
