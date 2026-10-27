@@ -11,15 +11,19 @@ import type { PlaybackPosition, ReplayItem } from "../../shared/replay.ts";
 import type { QueueScope } from "../../shared/scope.ts";
 import { tuneSnapshot } from "../../shared/track-identity.ts";
 import type { ReleaseSnapshot, TrackMark, TrackVerdict, Verdict } from "../../shared/types.ts";
-import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { hasVideoOfLink } from "../../shared/videos.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
-import { type Api, ApiRequestError, api as appApi, isConflict } from "../api.ts";
-import { Generation, SerialQueue } from "../async.ts";
+import { type Api, api as appApi, isConflict } from "../api.ts";
+import { type CurrentCheck, Generation, SerialQueue } from "../async.ts";
 import type { TriageStatus } from "../keymap.ts";
 import type { VideosChange } from "../player/triage-player.svelte.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 import { TimedMessage } from "../timed-message.svelte.ts";
+import { DetailCache } from "./detail-cache.svelte.ts";
+import { countVerdict } from "./optimistic-stats.ts";
+import { type QueueRead, QueueReads } from "./queue-reads.ts";
+import { WantlistSync } from "./wantlist-sync.ts";
+import { type VersionedWrite, WriteVersions } from "./write-versions.ts";
 
 type VerdictEntry = {
   kind: "verdict";
@@ -72,22 +76,10 @@ export interface Round {
   total: number;
 }
 
-/**
- * An answer from the queue, and the records it may be wrong about: those with a verdict or undo
- * unanswered when it was asked for, or written since.
- */
-interface QueueRead {
-  items: QueueItem[];
-  /** The server has nothing beyond these. */
-  complete: boolean;
-  unsettled: Set<string>;
-}
-
 /** Fetch more of the queue when fewer releases than this are buffered. */
 const REFILL_BELOW = 8;
 /** Release details fetched ahead of the cursor (the next one also feeds the preloading deck). */
 const PREFETCH = 3;
-const MAX_QUEUE_LIMIT = 5000;
 const ROUND_FINISHED: Record<Round["kind"], string> = {
   snoozed: "That was every snoozed record in the round; back to the queue.",
   replay: "Replay finished; back to the queue.",
@@ -104,10 +96,8 @@ export class TriageSession {
   upcoming = $state.raw<QueueItem[]>([]);
   passed = $state.raw<QueueItem[]>([]);
   history = $state.raw<HistoryEntry[]>([]);
-  details = $state.raw<Map<number, ReleaseDetail>>(new Map());
   /** Why a release's videos last changed, which decides whether the player plays what is new. */
   videosChange = $state<VideosChange>("found");
-  detailErrors = $state.raw<Map<number, string>>(new Map());
   status = $state<"loading" | "ready" | "error">("loading");
   error = $state<string | null>(null);
   /** The server has nothing beyond what is buffered. */
@@ -133,28 +123,18 @@ export class TriageSession {
   finished = $derived(this.status === "ready" && this.upcoming.length === 0 && this.exhausted);
 
   #api: Api;
-  #pushRetryDelaysMs: number[];
   #setLabelHidden: SessionOptions["setLabelHidden"];
   #batch = 200;
-  /** The queue order's seed, kept so a resumed session reads the queue in the same order. */
-  #seed: number | null = null;
   /** Market data fetched this session, by release id, for records that moved on before it came. */
   #marketData = new Map<number, ReleaseSnapshot>();
-  readonly #loading = new Map<number, symbol>();
-  /** Last persisted note and the version currently shown for each record. */
-  #noteWrites = new Map<string, { saved: string | null; version: number }>();
-  #trackWrites = new Map<string, { saved: TrackMark | null; version: number }>();
-  /** The queue read in flight, a refill or a read after the page is shown again. */
-  #reading: Promise<void> | null = null;
-  /** Verdicts and undos the server has not answered yet, counted by triage key. */
-  readonly #unanswered = new Map<string, number>();
-  /** For each queue read in flight, the keys written since it was sent. */
-  #openReads = new Set<Set<string>>();
+  #details: DetailCache;
+  /** Note writes by triage key. */
+  #noteWrites = new WriteVersions<string | null>();
+  /** Track mark writes by release id and tune. */
+  #trackWrites = new WriteVersions<TrackMark | null>();
+  #reads: QueueReads;
   /** Each start() begins a new queue, whose reads drop older answers; destroy() ends them all. */
   #queueStarts = new Generation();
-  /** Release ids by triage key that this session put on the Discogs wantlist. */
-  #onWantlist = new Map<string, number[]>();
-  #wantlistWrites = new SerialQueue();
   /** The queue as it was when a round started. */
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
@@ -162,16 +142,25 @@ export class TriageSession {
   #readAfterRound = false;
   /** Verdicts of the records taken into rounds, by triage key. */
   #roundVerdicts = new Map<string, Verdict | null>();
-  /** The original wanted pressings, so undo restores the same releases. */
-  #roundWants = new Map<string, number[]>();
   /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
   #writes = new SerialQueue();
   #slipSeq = 0;
-  #retryTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
+  #wantlist: WantlistSync;
 
   constructor(api: Api = appApi, opts: SessionOptions = {}) {
     this.#api = api;
-    this.#pushRetryDelaysMs = opts.pushRetryDelaysMs ?? PUSH_RETRY_DELAYS_MS;
+    this.#reads = new QueueReads(api);
+    this.#details = new DetailCache({
+      api,
+      writesSettled: () => this.#writes.idle(),
+      ended: () => this.#ended,
+    });
+    this.#wantlist = new WantlistSync({
+      api,
+      retryDelaysMs: opts.pushRetryDelaysMs ?? PUSH_RETRY_DELAYS_MS,
+      latestVerdict: (key) => this.#latestVerdict(key),
+      flash: (message) => this.#flash.show(message),
+    });
     this.#setLabelHidden = opts.setLabelHidden;
   }
 
@@ -179,20 +168,15 @@ export class TriageSession {
     stats.setScope(null);
     this.#queueStarts.end();
     this.#flash.destroy();
-    for (const [timer, resolve] of this.#retryTimers) {
-      clearTimeout(timer);
-      resolve();
-    }
-    this.#retryTimers.clear();
+    this.#wantlist.destroy();
   }
 
   async start(batch: number, options: { seed?: number | null } = {}): Promise<void> {
-    this.#seed = options.seed ?? null;
+    this.#reads.restart(options.seed ?? null);
     // A restart reads a new queue whose filters may exclude earlier passes.
     this.passed = [];
     this.#batch = batch;
     const isCurrent = this.#queueStarts.next();
-    this.#reading = null;
     this.status = "loading";
     this.error = null;
     this.upcoming = [];
@@ -219,7 +203,7 @@ export class TriageSession {
   /** Where the session is, by release id; the playback position only for the record on screen. */
   checkpoint(playback: PlaybackPosition | null): SessionState {
     return {
-      seed: this.#seed,
+      seed: this.#reads.seed,
       currentId: this.current?.id ?? null,
       passedIds: idsOf(this.passed),
       scope: this.scope,
@@ -245,7 +229,7 @@ export class TriageSession {
     this.history = [];
     this.passed = [];
     this.#roundVerdicts.clear();
-    this.#roundWants.clear();
+    this.#wantlist.forgetRounds();
     this.scope = state.scope;
     stats.setScope(this.scope);
 
@@ -294,9 +278,9 @@ export class TriageSession {
     }
     if (this.status !== "ready") return;
     const isCurrent = this.#queueStarts.current();
-    const inFlight = this.#reading;
+    const inFlight = this.#reads.inFlight;
     try {
-      await this.#claimRead(async () => {
+      await this.#reads.run(async () => {
         if (inFlight) await inFlight.catch(() => {});
         await this.#rebuildAfterCurrent();
       });
@@ -361,9 +345,9 @@ export class TriageSession {
     };
     this.#savingSlip = id;
     stats.session += 1;
-    this.#bumpStats(status, previous, 1);
+    this.#countVerdict(entry, 1);
     this.#afterMove();
-    const answered = this.#startWrite(item.triageKey);
+    const answered = this.#reads.startWrite(item.triageKey);
     void this.#writes.run(() => this.#saveVerdict(entry, id).finally(answered));
   }
 
@@ -386,7 +370,7 @@ export class TriageSession {
       stats.refreshSoon();
       // Discogs writes have their own chain so they cannot delay verdicts.
       if (isWantlistVerdict(status)) void this.#pushWant(entry, slipId);
-      else if (replacedWant(entry)) void this.#takeOffWantlist(item);
+      else if (replacedWant(entry)) void this.#wantlist.takeOff(item);
     }
     // Last, so a settled slip means its push has started.
     this.#settleSlip(slipId);
@@ -416,6 +400,16 @@ export class TriageSession {
     ];
   }
 
+  /** The details of the releases around the cursor and in the recent history, by release id. */
+  get details(): ReadonlyMap<number, ReleaseDetail> {
+    return this.#details.details;
+  }
+
+  /** Why each failed detail read failed, by release id; Enter reads it again. */
+  get detailErrors(): ReadonlyMap<number, string> {
+    return this.#details.errors;
+  }
+
   /** A short message about what just failed or happened, which clears itself. */
   get flash(): string | null {
     return this.#flash.text;
@@ -429,30 +423,27 @@ export class TriageSession {
   /** The release's note: written in this session, else the saved one. */
   noteFor(item: QueueItem): string | null {
     if (this.notes.has(item.triageKey)) return this.notes.get(item.triageKey) ?? null;
-    return this.details.get(item.id)?.note ?? null;
+    return this.#details.get(item.id)?.note ?? null;
   }
 
   /** Saves a note without making or changing a judgement; an empty note removes it. */
   setNote(item: QueueItem, text: string): void {
     const key = item.triageKey;
-    const write = this.#noteWrites.get(key) ?? { saved: this.noteFor(item), version: 0 };
+    const write = this.#noteWrites.begin(key, this.noteFor(item));
     const note = normalizeNote(text);
-    const version = ++write.version;
-    this.#noteWrites.set(key, write);
     this.notes = new Map(this.notes).set(key, note);
     this.noteStatus = "Saving note…";
 
-    const isLatest = () =>
-      !this.#ended && this.#noteWrites.get(key) === write && write.version === version;
+    const isLatest = () => !this.#ended && write.isLatest();
     void this.#writes.run(async () => {
       try {
         await this.#api.putReleaseNote(item.id, note);
-        write.saved = note;
+        write.markSaved(note);
         if (!isLatest()) return;
         this.noteStatus = "Note saved.";
       } catch (error) {
         if (!isLatest()) return;
-        this.notes = new Map(this.notes).set(key, write.saved);
+        this.notes = new Map(this.notes).set(key, write.saved());
         this.noteStatus = `Note not saved: ${errorMessage(error)}`;
       }
     });
@@ -508,18 +499,12 @@ export class TriageSession {
 
   /** Twelves may have edited these records while Triage kept its cached details. */
   #refreshRoundDetails(records: (ReplayItem & { release: QueueItem })[]): void {
-    const details = new Map(this.details);
-    const errors = new Map(this.detailErrors);
+    this.#details.forget(records.map(({ release }) => release.id));
     const notes = new Map(this.notes);
     for (const { release } of records) {
-      details.delete(release.id);
-      errors.delete(release.id);
       notes.delete(release.triageKey);
-      this.#loading.delete(release.id);
-      this.#noteWrites.delete(release.triageKey);
+      this.#noteWrites.forget(release.triageKey);
     }
-    this.details = details;
-    this.detailErrors = errors;
     this.notes = notes;
     this.noteStatus = null;
   }
@@ -528,11 +513,8 @@ export class TriageSession {
   #rememberRoundRecord(record: ReplayItem & { release: QueueItem }): void {
     const key = record.release.triageKey;
     this.#roundVerdicts.set(key, record.verdict);
-    if (record.wantlistReleaseIds === undefined) return;
-    this.#roundWants.set(key, [...record.wantlistReleaseIds]);
-    if (record.wantlistReleaseIds.length > 0)
-      this.#onWantlist.set(key, [...record.wantlistReleaseIds]);
-    else this.#onWantlist.delete(key);
+    if (record.wantlistReleaseIds !== undefined)
+      this.#wantlist.rememberRoundRecord(key, record.wantlistReleaseIds);
   }
 
   /** Esc during a round, or its last record: back to the queue where it was. */
@@ -641,8 +623,8 @@ export class TriageSession {
     if (entry.kind !== "verdict") return;
     this.#savingSlip = slipId;
     stats.session -= 1;
-    this.#bumpStats(entry.status, entry.previous, -1);
-    const answered = this.#startWrite(item.triageKey);
+    this.#countVerdict(entry, -1);
+    const answered = this.#reads.startWrite(item.triageKey);
     void this.#writes.run(() => this.#saveUndo(entry, slipId).finally(answered));
   }
 
@@ -678,7 +660,7 @@ export class TriageSession {
     if (!this.#ended) {
       // Syncs the wantlist with the restored verdict, whichever way the undo moved it.
       if (isWantlistVerdict(entry.status) || replacedWant(entry))
-        void this.#takeOffWantlist(entry.item);
+        void this.#wantlist.takeOff(entry.item);
       stats.refreshSoon();
     }
     this.#settleSlip(slipId);
@@ -710,9 +692,10 @@ export class TriageSession {
     mark: TrackMark,
     moment: { videoId: string; atSeconds: number },
   ): void {
-    const detail = this.details.get(releaseId);
-    const track = detail?.tracks.find((candidate) => candidate.heardKey === playing.heardKey);
-    if (!detail || !track) return;
+    const track = this.#details
+      .get(releaseId)
+      ?.tracks.find((candidate) => candidate.heardKey === playing.heardKey);
+    if (!track) return;
 
     const next = track.mark === mark ? null : mark;
     const input: TrackVerdictInput = {
@@ -723,53 +706,47 @@ export class TriageSession {
       ...moment,
     };
 
-    const key = `${releaseId}\n${track.heardKey}`;
-    const state = this.#trackWrites.get(key) ?? { saved: track.mark, version: 0 };
-    const version = ++state.version;
-    this.#trackWrites.set(key, state);
+    const write = this.#trackWrites.begin(`${releaseId}\n${track.heardKey}`, track.mark);
     this.#setTrackMark(releaseId, track.heardKey, next);
 
-    void this.#writes.run(() => this.#saveTrackMark(input, { key, version }));
+    void this.#writes.run(() => this.#saveTrackMark(input, write));
   }
 
   /** Shows the mark on every track of the release with the tune. */
   #setTrackMark(releaseId: number, heardKey: string, mark: TrackMark | null): void {
-    const detail = this.details.get(releaseId);
-    if (!detail) return;
-    const tracks = detail.tracks.map((track) =>
-      track.heardKey === heardKey ? { ...track, mark } : track,
-    );
-    this.details = new Map(this.details).set(releaseId, { ...detail, tracks });
+    this.#details.update(releaseId, (detail) => ({
+      ...detail,
+      tracks: detail.tracks.map((track) =>
+        track.heardKey === heardKey ? { ...track, mark } : track,
+      ),
+    }));
   }
 
   async #saveTrackMark(
     input: TrackVerdictInput,
-    write: { key: string; version: number },
+    write: VersionedWrite<TrackMark | null>,
   ): Promise<void> {
     const { releaseId, tune } = input;
     try {
       const saved = await this.#api.postTrackVerdict(input);
       if (this.#ended) return;
-      const state = this.#trackWrites.get(write.key);
-      if (state) state.saved = input.mark;
+      write.markSaved(input.mark);
       this.#replaceTrackVerdict(releaseId, tune.heardKey, saved);
     } catch (error) {
       if (this.#ended) return;
-      const state = this.#trackWrites.get(write.key);
       // Later queued marks own their optimistic value until their own write settles.
-      if (state?.version === write.version)
-        this.#setTrackMark(releaseId, tune.heardKey, state.saved);
+      if (write.isLatest()) this.#setTrackMark(releaseId, tune.heardKey, write.saved());
       this.#flash.show(`The track mark was not saved: ${errorMessage(error)}`);
     }
   }
 
   /** Keeps the detail's saved marks in step with the server. */
   #replaceTrackVerdict(releaseId: number, heardKey: string, saved: TrackVerdict | null): void {
-    const detail = this.details.get(releaseId);
-    if (!detail) return;
-    const trackVerdicts = detail.trackVerdicts.filter((mark) => mark.heardKey !== heardKey);
-    if (saved) trackVerdicts.push(saved);
-    this.details = new Map(this.details).set(releaseId, { ...detail, trackVerdicts });
+    this.#details.update(releaseId, (detail) => {
+      const trackVerdicts = detail.trackVerdicts.filter((mark) => mark.heardKey !== heardKey);
+      if (saved) trackVerdicts.push(saved);
+      return { ...detail, trackVerdicts };
+    });
   }
 
   /** Attaches a YouTube link to the record on screen; the player picks the video up. */
@@ -784,7 +761,7 @@ export class TriageSession {
       const detail = await this.#api.attachVideo(item.id, url);
       if (this.#ended) return;
       this.videosChange = "attached";
-      this.details = new Map(this.details).set(item.id, detail);
+      this.#details.set(item.id, detail);
       this.#flash.show("Attached to this release; it plays here from now on.");
     } catch (error) {
       if (!this.#ended) this.#flash.show(`The link was not attached: ${errorMessage(error)}`);
@@ -813,11 +790,16 @@ export class TriageSession {
     this.pricing = pricing;
   }
 
+  /** Reads a release's detail again; a record in a round also takes its verdict from it. */
   retryDetail(id: number): void {
-    const errors = new Map(this.detailErrors);
-    errors.delete(id);
-    this.detailErrors = errors;
-    void this.#loadDetail(id, { refreshVerdict: true });
+    void this.#details.retry(id).then((detail) => {
+      if (detail) this.#refreshRoundVerdict(detail);
+    });
+  }
+
+  #refreshRoundVerdict(detail: ReleaseDetail): void {
+    const key = detail.release.triageKey;
+    if (this.#roundVerdicts.has(key)) this.#roundVerdicts.set(key, detail.verdict);
   }
 
   showFlash(message: string): void {
@@ -830,7 +812,7 @@ export class TriageSession {
    */
   async #pushWant(entry: HistoryEntry, slipId: number): Promise<void> {
     if (!this.history.includes(entry)) return;
-    const push = await this.#pushWithRetries(entry.item, (retryInMs) =>
+    const push = await this.#wantlist.push(entry.item, (retryInMs) =>
       this.#showPush(slipId, "retrying", retryInMs),
     );
     if (this.#ended) return;
@@ -842,145 +824,16 @@ export class TriageSession {
     if (slip?.kind === "verdict" && slip.id === slipId) this.slip = { ...slip, push, retryInMs };
   }
 
-  /**
-   * Tries the push again after each of the retry delays while it fails on the way or in
-   * Discogs. Each try decides from the history when it runs, so a want undone meanwhile is not
-   * pushed. Returns null when the record is no longer a want or the session has ended.
-   */
-  async #pushWithRetries(
-    item: QueueItem,
-    onRetry: (retryInMs: number) => void,
-  ): Promise<"done" | "failed" | null> {
-    for (let tries = 0; ; tries += 1) {
-      try {
-        await this.#syncWantlist(item);
-        return this.#onWantlist.has(item.triageKey) ? "done" : null;
-      } catch (error) {
-        if (this.#ended) return null;
-        const delayMs = this.#pushRetryDelaysMs[tries];
-        if (delayMs === undefined || !mayPassLater(error)) {
-          this.#flash.show(
-            `${item.artistDisplay} – ${item.title} is not on the Discogs wantlist: ${errorMessage(error)}. A in Twelves tries again.`,
-          );
-          return "failed";
-        }
-        onRetry(delayMs);
-        await this.#waitBeforeRetry(delayMs);
-        if (this.#ended) return null;
-      }
-    }
-  }
-
-  /** Resolves after the delay, or at once when the session is destroyed. */
-  #waitBeforeRetry(delayMs: number): Promise<void> {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        this.#retryTimers.delete(timer);
-        resolve();
-      }, delayMs);
-      this.#retryTimers.set(timer, resolve);
-    });
-  }
-
-  async #takeOffWantlist(item: QueueItem): Promise<void> {
-    try {
-      if ((await this.#syncWantlist(item)) !== "removed") return;
-      if (this.#ended) return;
-      this.#flash.show("Taken off your Discogs wantlist again.");
-    } catch (error) {
-      if (this.#ended) return;
-      this.#flash.show(`Still on your Discogs wantlist: ${errorMessage(error)}`);
-    }
-  }
-
-  /** The newest verdict in the history for the key is a want or a grail. */
-  #wanted(key: string): boolean {
+  /** The newest verdict the history holds for the record; undefined when it holds none. */
+  #latestVerdict(key: string): TriageStatus | undefined {
     for (const entry of this.history.toReversed()) {
-      if (entry.kind === "verdict" && entry.item.triageKey === key)
-        return isWantlistVerdict(entry.status);
+      if (entry.kind === "verdict" && entry.item.triageKey === key) return entry.status;
     }
-    return (this.#roundWants.get(key)?.length ?? 0) > 0;
+    return undefined;
   }
 
-  /**
-   * Brings the Discogs wantlist in line with the history for one record. The calls run one at a
-   * time and decide when they run, not when they were asked for, so any mix of A, Z and slow
-   * requests ends with the release on the wantlist exactly when its latest verdict is a want or
-   * a grail.
-   */
-  #syncWantlist(item: QueueItem): Promise<"added" | "removed" | null> {
-    return this.#wantlistWrites.run(async (): Promise<"added" | "removed" | null> => {
-      if (this.#ended) return null;
-      if (this.#wanted(item.triageKey)) return this.#addWantedPressings(item);
-      return this.#removeWantedPressings(item.triageKey);
-    });
-  }
-
-  async #addWantedPressings(item: QueueItem): Promise<"added" | null> {
-    const key = item.triageKey;
-    const held = this.#onWantlist.get(key) ?? [];
-    const original = this.#roundWants.get(key) ?? [];
-    const wanted = original.length > 0 ? original : [item.id];
-    const missing = wanted.filter((id) => !held.includes(id));
-    if (missing.length === 0) return null;
-    // Twelves may have changed the verdict while the push waited for earlier ones.
-    const saved = await this.#api.getRelease(item.id);
-    if (saved.verdict === null || !isWantlistVerdict(saved.verdict.status)) return null;
-    for (const releaseId of missing) {
-      if (this.#ended || !this.#wanted(key)) return null;
-      await this.#api.pushToWantlist(releaseId);
-      if (this.#ended) return null;
-      held.push(releaseId);
-      this.#onWantlist.set(key, held);
-    }
-    return "added";
-  }
-
-  async #removeWantedPressings(key: string): Promise<"removed" | null> {
-    const held = this.#onWantlist.get(key) ?? [];
-    if (held.length === 0) return null;
-    for (const releaseId of held) {
-      if (this.#ended || this.#wanted(key)) return null;
-      await this.#api.removeFromWantlist(releaseId);
-      if (this.#ended) return null;
-      const remaining = (this.#onWantlist.get(key) ?? []).filter((id) => id !== releaseId);
-      if (remaining.length > 0) this.#onWantlist.set(key, remaining);
-      else this.#onWantlist.delete(key);
-    }
-    return "removed";
-  }
-
-  /**
-   * A verdict or undo on its way: until the server answers it, a queue read may not reflect it.
-   * Returns what to call once it has answered.
-   */
-  #startWrite(key: string): () => void {
-    this.#unanswered.set(key, (this.#unanswered.get(key) ?? 0) + 1);
-    for (const written of this.#openReads) written.add(key);
-    return () => {
-      const left = (this.#unanswered.get(key) ?? 1) - 1;
-      if (left > 0) this.#unanswered.set(key, left);
-      else this.#unanswered.delete(key);
-    };
-  }
-
-  #bumpStats(status: TriageStatus, previous: Verdict | null, delta: number): void {
-    const current = stats.value;
-    if (!current) return;
-    const verdicts = { ...current.verdicts, [status]: current.verdicts[status] + delta };
-    if (previous) verdicts[previous.status] -= delta;
-    // A record dug before only changes status; one the queue held also leaves the remaining count.
-    const dugDelta = previous && isTriageSource(previous.source) ? 0 : delta;
-    const wasQueued = previous === null || previous.status === "seen";
-    const remainingDelta = wasQueued ? delta : 0;
-    const { scopeRemaining } = current;
-    stats.value = {
-      ...current,
-      dug: Math.max(0, current.dug + dugDelta),
-      remaining: Math.max(0, current.remaining - remainingDelta),
-      scopeRemaining: scopeRemaining === null ? null : Math.max(0, scopeRemaining - remainingDelta),
-      verdicts,
-    };
+  #countVerdict(entry: VerdictEntry, delta: 1 | -1): void {
+    if (stats.value) stats.value = countVerdict(stats.value, entry, delta);
   }
 
   #afterMove(): void {
@@ -1008,22 +861,13 @@ export class TriageSession {
   }
 
   #refill(): Promise<void> {
-    return this.#reading ?? this.#claimRead(() => this.#appendFresh());
-  }
-
-  /** Queue reads run one at a time; a refill asked for meanwhile waits for the read in flight. */
-  #claimRead(read: () => Promise<void>): Promise<void> {
-    const tracked: Promise<void> = read().finally(() => {
-      if (this.#reading === tracked) this.#reading = null;
-    });
-    this.#reading = tracked;
-    return tracked;
+    return this.#reads.inFlight ?? this.#reads.run(() => this.#appendFresh());
   }
 
   /** Appends a batch of the queue's records that are not buffered, passed or being written. */
   async #appendFresh(): Promise<void> {
     const isCurrent = this.#queueStarts.current();
-    const read = await this.#readQueue(this.#batch, [...this.upcoming, ...this.passed]);
+    const read = await this.#readQueue(this.#batch, [...this.upcoming, ...this.passed], isCurrent);
     // A round took over meanwhile; the queue refills again when it ends.
     if (!isCurrent() || this.round) return;
     this.#forgetVerdictsGone(read);
@@ -1039,10 +883,11 @@ export class TriageSession {
   async #rebuildAfterCurrent(): Promise<void> {
     const isCurrent = this.#queueStarts.current();
     const current = this.upcoming.slice(0, 1);
-    const read = await this.#readQueue(this.#batch + this.upcoming.length, [
-      ...current,
-      ...this.passed,
-    ]);
+    const read = await this.#readQueue(
+      this.#batch + this.upcoming.length,
+      [...current, ...this.passed],
+      isCurrent,
+    );
     if (!isCurrent() || this.round) return;
     this.#forgetVerdictsGone(read);
     const upcoming = this.#inQueueOrder(read);
@@ -1068,27 +913,8 @@ export class TriageSession {
     return [...head, ...queued];
   }
 
-  /**
-   * Asks for up to `wanted` records in the queue's order, beyond those held and those with a write
-   * unanswered, which the server leaves out; a shorter answer means it has no more.
-   */
-  async #readQueue(wanted: number, held: QueueItem[]): Promise<QueueRead> {
-    const isCurrent = this.#queueStarts.current();
-    const unsettled = new Set(this.#unanswered.keys());
-    const limit = Math.min(MAX_QUEUE_LIMIT, wanted);
-    this.#openReads.add(unsettled);
-    try {
-      const response = await this.#api.getQueue({
-        limit,
-        exclude: [...unsettled, ...keysOf(held)],
-        scope: this.scope ?? undefined,
-        seed: this.#seed ?? undefined,
-      });
-      if (isCurrent()) this.#seed = response.seed;
-      return { items: response.items, complete: response.items.length < limit, unsettled };
-    } finally {
-      this.#openReads.delete(unsettled);
-    }
+  #readQueue(wanted: number, held: QueueItem[], isCurrent: CurrentCheck): Promise<QueueRead> {
+    return this.#reads.read({ wanted, held: keysOf(held), scope: this.scope, isCurrent });
   }
 
   /**
@@ -1103,15 +929,8 @@ export class TriageSession {
     );
     if (gone.length === 0) return;
     this.history = this.history.filter((entry) => !gone.includes(entry));
-    const details = new Map(this.details);
-    const detailErrors = new Map(this.detailErrors);
-    for (const { item } of gone) {
-      details.delete(item.id);
-      detailErrors.delete(item.id);
-      this.#roundVerdicts.delete(item.triageKey);
-    }
-    this.details = details;
-    this.detailErrors = detailErrors;
+    this.#details.forget(gone.map(({ item }) => item.id));
+    for (const { item } of gone) this.#roundVerdicts.delete(item.triageKey);
   }
 
   /**
@@ -1126,49 +945,26 @@ export class TriageSession {
     this.upcoming = this.upcoming.map(refresh);
     this.passed = this.passed.map(refresh);
 
-    const loaded = this.details.get(id);
-    if (!loaded) return;
-    const detail = { ...loaded, release: enriched.release, videos: enriched.videos };
+    if (!this.#details.get(id)) return;
     this.videosChange = "found";
-    this.details = new Map(this.details).set(id, detail);
+    this.#details.update(id, (loaded) => ({
+      ...loaded,
+      release: enriched.release,
+      videos: enriched.videos,
+    }));
   }
 
   #prefetch(): void {
-    for (const item of this.upcoming.slice(0, PREFETCH)) {
-      if (this.details.has(item.id) || this.#loading.has(item.id) || this.detailErrors.has(item.id))
-        continue;
-      void this.#loadDetail(item.id, { refreshVerdict: false });
-    }
-  }
-
-  async #loadDetail(id: number, options: { refreshVerdict: boolean }): Promise<void> {
-    const request = Symbol();
-    this.#loading.set(id, request);
-    const current = () => !this.#ended && this.#loading.get(id) === request;
-    try {
-      await this.#writes.idle();
-      if (!current()) return;
-      const detail = await this.#api.getRelease(id);
-      if (!current()) return;
-      this.details = new Map(this.details).set(id, detail);
-      if (options.refreshVerdict && this.#roundVerdicts.has(detail.release.triageKey))
-        this.#roundVerdicts.set(detail.release.triageKey, detail.verdict);
-    } catch (error) {
-      if (!current()) return;
-      this.detailErrors = new Map(this.detailErrors).set(id, errorMessage(error));
-    } finally {
-      if (this.#loading.get(id) === request) this.#loading.delete(id);
-    }
+    this.#details.prefetch(idsOf(this.upcoming.slice(0, PREFETCH)));
   }
 
   /** Keeps details for the releases ahead and the recent history (undo returns to them). */
   #prune(): void {
-    if (this.details.size < 60) return;
     const keep = new Set([
-      ...this.upcoming.slice(0, PREFETCH).map((i) => i.id),
-      ...this.history.slice(-20).map((h) => h.item.id),
+      ...idsOf(this.upcoming.slice(0, PREFETCH)),
+      ...this.history.slice(-20).map((entry) => entry.item.id),
     ]);
-    this.details = new Map([...this.details].filter(([id]) => keep.has(id)));
+    this.#details.prune(keep);
   }
 }
 
@@ -1217,9 +1013,4 @@ async function undoVerdict(client: Api, entry: VerdictEntry): Promise<void> {
   const expected = expectedVerdict(saved);
   if (previous) await client.postVerdict({ ...previous, expected });
   else await client.deleteVerdict(saved.key, expected);
-}
-
-/** A push that failed on the way or in Discogs may pass later; one the server refused (4xx) will not. */
-function mayPassLater(error: unknown): boolean {
-  return !(error instanceof ApiRequestError) || error.status >= 500;
 }

@@ -43,6 +43,8 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
   const verdicts = new Map<string, Verdict>();
   const queries: Partial<QueueReadInput>[] = [];
   const state = { pushDelayMs: 0, enrichDelayMs: 0 };
+  /** What the server returns for a release beyond the defaults, by release id. */
+  const releaseDetails = new Map<number, Partial<ReleaseDetail>>();
   const detail = (id: number): ReleaseDetail => ({
     release: { id, triageKey: `r:${id}` } as ReleaseRecord,
     tracks: [],
@@ -53,6 +55,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
     trackVerdicts: [],
     siblings: [],
     listings: [],
+    ...releaseDetails.get(id),
   });
   const http = {
     getQueue: async (query: Partial<QueueReadInput> = {}) => {
@@ -159,7 +162,7 @@ function fakeServer(queue: number[], label: HiddenLabel | null = null) {
     },
   } as unknown as Api;
   const app: Api = http;
-  return { app, http, calls, notes, releaseNotes, verdicts, queries, state };
+  return { app, http, calls, notes, releaseNotes, releaseDetails, verdicts, queries, state };
 }
 
 async function started(queue: number[]) {
@@ -352,8 +355,8 @@ describe("triage session", () => {
       status: "seen",
       source: "seed:history",
     });
-    const detail = session.details.get(1)!;
-    session.details = new Map(session.details).set(1, { ...detail, verdict: previous });
+    session.retryDetail(1);
+    await until(() => session.currentDetail?.verdict?.status === previous.status);
     session.judge("rejected");
     await until(() => server.verdicts.get("r:1")?.status === "rejected");
     session.undo();
@@ -773,32 +776,29 @@ describe("reading the queue again", () => {
   });
 });
 
-async function withTracks() {
-  const server = await started([1]);
-  await until(() => server.session.details.has(1));
-  const detail = server.session.details.get(1)!;
-  server.session.details = new Map([
-    [
-      1,
-      {
-        ...detail,
-        tracks: ["A1", "B1"].map((position, seq) => ({
-          releaseId: 1,
-          seq,
-          position,
-          title: position,
-          artists: [],
-          artistDisplay: "Artist",
-          durationSeconds: 300,
-          heardKey: position,
-          heard: false,
-          hasVideo: true,
-          mark: null,
-        })),
-      },
-    ],
-  ]);
-  return server;
+/** A session on one record with two tracks, A1 and B1, and whatever else the detail holds. */
+async function withTracks(detail: Partial<ReleaseDetail> = {}) {
+  const server = fakeServer([1]);
+  server.releaseDetails.set(1, {
+    tracks: ["A1", "B1"].map((position, seq) => ({
+      releaseId: 1,
+      seq,
+      position,
+      title: position,
+      artists: [],
+      artistDisplay: "Artist",
+      durationSeconds: 300,
+      heardKey: position,
+      heard: false,
+      hasVideo: true,
+      mark: null,
+    })),
+    ...detail,
+  });
+  const session = new TriageSession(server.app, { pushRetryDelaysMs: [5, 5, 5] });
+  await session.start(50);
+  await until(() => session.details.has(1));
+  return { ...server, session };
 }
 
 const MOMENT = { videoId: "aaaaaaaaaa1", atSeconds: 61.5 };
@@ -889,22 +889,20 @@ describe("pricing with P", () => {
 
   it("shows the fresh videos of the record on screen and keeps its track marks", async () => {
     const { session } = await withTracks();
-    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
     // A pasted link plays at once; the player adds what P found without moving to it.
     await session.attachVideo("https://youtu.be/relicstatic");
     expect(session.videosChange).toBe("attached");
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
     await session.price();
     expect(session.currentDetail?.videos.map((video) => video.videoId)).toEqual(["fresh-1"]);
-    expect(session.currentDetail?.tracks[0]?.mark).not.toBeNull();
+    expect(session.currentDetail?.tracks[0]?.mark).toBe("keep");
     expect(session.videosChange).toBe("found");
     session.destroy();
   });
 
   it("says a link already on the release is attached, and sends nothing", async () => {
-    const { session, calls } = await withTracks();
-    const detail = session.details.get(1)!;
     const video = { videoId: "relicstatic" } as VideoRecord;
-    session.details = new Map([[1, { ...detail, videos: [video] }]]);
+    const { session, calls } = await withTracks({ videos: [video] });
 
     await session.attachVideo("https://www.youtube.com/watch?v=relicstatic");
 
