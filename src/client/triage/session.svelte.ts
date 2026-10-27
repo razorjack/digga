@@ -15,6 +15,7 @@ import { isTriageSource } from "../../shared/verdict-rank.ts";
 import { hasVideoOfLink } from "../../shared/videos.ts";
 import { isWantlistVerdict, PUSH_RETRY_DELAYS_MS } from "../../shared/wantlist.ts";
 import { type Api, ApiRequestError, api as appApi, isConflict } from "../api.ts";
+import { Generation, SerialQueue } from "../async.ts";
 import type { TriageStatus } from "../keymap.ts";
 import type { VideosChange } from "../player/triage-player.svelte.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
@@ -149,13 +150,11 @@ export class TriageSession {
   readonly #unanswered = new Map<string, number>();
   /** For each queue read in flight, the keys written since it was sent. */
   #openReads = new Set<Set<string>>();
-  /** Bumped by start(); a refill from an older generation drops its result. */
-  #generation = 0;
-  /** Set by destroy(); answers that arrive later change nothing. */
-  #destroyed = false;
+  /** Each start() begins a new queue, whose reads drop older answers; destroy() ends them all. */
+  #queueStarts = new Generation();
   /** Release ids by triage key that this session put on the Discogs wantlist. */
   #onWantlist = new Map<string, number[]>();
-  #wantlistWrites: Promise<unknown> = Promise.resolve();
+  #wantlistWrites = new SerialQueue();
   /** The queue as it was when a round started. */
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
@@ -165,7 +164,8 @@ export class TriageSession {
   #roundVerdicts = new Map<string, Verdict | null>();
   /** The original wanted pressings, so undo restores the same releases. */
   #roundWants = new Map<string, number[]>();
-  #writes: Promise<unknown> = Promise.resolve();
+  /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
+  #writes = new SerialQueue();
   #slipSeq = 0;
   #retryTimers = new Map<ReturnType<typeof setTimeout>, () => void>();
 
@@ -177,8 +177,7 @@ export class TriageSession {
 
   destroy(): void {
     stats.setScope(null);
-    this.#generation += 1;
-    this.#destroyed = true;
+    this.#queueStarts.end();
     this.#flash.destroy();
     for (const [timer, resolve] of this.#retryTimers) {
       clearTimeout(timer);
@@ -192,7 +191,7 @@ export class TriageSession {
     // A restart reads a new queue whose filters may exclude earlier passes.
     this.passed = [];
     this.#batch = batch;
-    const generation = ++this.#generation;
+    const isCurrent = this.#queueStarts.next();
     this.#reading = null;
     this.status = "loading";
     this.error = null;
@@ -203,13 +202,18 @@ export class TriageSession {
     this.#readAfterRound = false;
     try {
       await this.#refill();
-      if (generation !== this.#generation) return;
+      if (!isCurrent()) return;
       this.status = "ready";
     } catch (error) {
-      if (generation !== this.#generation) return;
+      if (!isCurrent()) return;
       this.status = "error";
       this.error = errorMessage(error);
     }
+  }
+
+  /** destroy() has run; answers that arrive later change nothing. */
+  get #ended(): boolean {
+    return this.#queueStarts.ended;
   }
 
   /** Where the session is, by release id; the playback position only for the record on screen. */
@@ -237,7 +241,7 @@ export class TriageSession {
    */
   async restoreSession(resolved: SessionResolution): Promise<void> {
     const { state, config } = resolved.session;
-    await this.#writes;
+    await this.#writes.idle();
     this.history = [];
     this.passed = [];
     this.#roundVerdicts.clear();
@@ -269,12 +273,11 @@ export class TriageSession {
    */
   async lookAgain(): Promise<void> {
     if (!this.finished || this.round) return;
-    const generation = this.#generation;
+    const isCurrent = this.#queueStarts.current();
     try {
       await this.#refill();
     } catch (error) {
-      if (generation === this.#generation)
-        this.#flash.show(`Could not look for new records: ${errorMessage(error)}`);
+      if (isCurrent()) this.#flash.show(`Could not look for new records: ${errorMessage(error)}`);
     }
   }
 
@@ -290,7 +293,7 @@ export class TriageSession {
       return;
     }
     if (this.status !== "ready") return;
-    const generation = this.#generation;
+    const isCurrent = this.#queueStarts.current();
     const inFlight = this.#reading;
     try {
       await this.#claimRead(async () => {
@@ -298,25 +301,18 @@ export class TriageSession {
         await this.#rebuildAfterCurrent();
       });
     } catch (error) {
-      if (generation === this.#generation)
-        this.#flash.show(`Could not read the queue again: ${errorMessage(error)}`);
+      if (isCurrent()) this.#flash.show(`Could not read the queue again: ${errorMessage(error)}`);
     }
   }
 
   async #refreshRound(): Promise<void> {
     const round = this.round;
-    const generation = this.#generation;
+    const isCurrent = this.#queueStarts.current();
     const history = this.history;
     try {
-      await this.#writes;
+      await this.#writes.idle();
       const response = await this.#api.getTwelves();
-      if (
-        this.#destroyed ||
-        generation !== this.#generation ||
-        round !== this.round ||
-        history !== this.history
-      )
-        return;
+      if (!isCurrent() || round !== this.round || history !== this.history) return;
       const saved = new Map(response.items.map((item) => [item.key, item]));
       const records = this.upcoming.map((release) => {
         const item = saved.get(release.triageKey);
@@ -330,8 +326,7 @@ export class TriageSession {
       this.#refreshRoundDetails(records);
       this.#prefetch();
     } catch (error) {
-      if (!this.#destroyed && generation === this.#generation)
-        this.#flash.show(`Could not refresh the replay: ${errorMessage(error)}`);
+      if (isCurrent()) this.#flash.show(`Could not refresh the replay: ${errorMessage(error)}`);
     }
   }
 
@@ -369,7 +364,7 @@ export class TriageSession {
     this.#bumpStats(status, previous, 1);
     this.#afterMove();
     const answered = this.#startWrite(item.triageKey);
-    void this.#write(() => this.#saveVerdict(entry, id).finally(answered));
+    void this.#writes.run(() => this.#saveVerdict(entry, id).finally(answered));
   }
 
   async #saveVerdict(entry: VerdictEntry, slipId: number): Promise<void> {
@@ -383,11 +378,11 @@ export class TriageSession {
       });
     } catch (error) {
       this.#settleSlip(slipId);
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       this.#recoverVerdict(entry, error);
       return;
     }
-    if (!this.#destroyed) {
+    if (!this.#ended) {
       stats.refreshSoon();
       // Discogs writes have their own chain so they cannot delay verdicts.
       if (isWantlistVerdict(status)) void this.#pushWant(entry, slipId);
@@ -448,8 +443,8 @@ export class TriageSession {
     this.noteStatus = "Saving note…";
 
     const isLatest = () =>
-      !this.#destroyed && this.#noteWrites.get(key) === write && write.version === version;
-    void this.#write(async () => {
+      !this.#ended && this.#noteWrites.get(key) === write && write.version === version;
+    void this.#writes.run(async () => {
       try {
         await this.#api.putReleaseNote(item.id, note);
         write.saved = note;
@@ -648,7 +643,7 @@ export class TriageSession {
     stats.session -= 1;
     this.#bumpStats(entry.status, entry.previous, -1);
     const answered = this.#startWrite(item.triageKey);
-    void this.#write(() => this.#saveUndo(entry, slipId).finally(answered));
+    void this.#writes.run(() => this.#saveUndo(entry, slipId).finally(answered));
   }
 
   /**
@@ -676,11 +671,11 @@ export class TriageSession {
       await undoVerdict(this.#api, entry);
     } catch (error) {
       this.#settleSlip(slipId);
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       this.#recoverUndo(entry, error);
       return;
     }
-    if (!this.#destroyed) {
+    if (!this.#ended) {
       // Syncs the wantlist with the restored verdict, whichever way the undo moved it.
       if (isWantlistVerdict(entry.status) || replacedWant(entry))
         void this.#takeOffWantlist(entry.item);
@@ -734,7 +729,7 @@ export class TriageSession {
     this.#trackWrites.set(key, state);
     this.#setTrackMark(releaseId, track.heardKey, next);
 
-    void this.#write(() => this.#saveTrackMark(input, { key, version }));
+    void this.#writes.run(() => this.#saveTrackMark(input, { key, version }));
   }
 
   /** Shows the mark on every track of the release with the tune. */
@@ -754,12 +749,12 @@ export class TriageSession {
     const { releaseId, tune } = input;
     try {
       const saved = await this.#api.postTrackVerdict(input);
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       const state = this.#trackWrites.get(write.key);
       if (state) state.saved = input.mark;
       this.#replaceTrackVerdict(releaseId, tune.heardKey, saved);
     } catch (error) {
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       const state = this.#trackWrites.get(write.key);
       // Later queued marks own their optimistic value until their own write settles.
       if (state?.version === write.version)
@@ -787,12 +782,12 @@ export class TriageSession {
     }
     try {
       const detail = await this.#api.attachVideo(item.id, url);
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       this.videosChange = "attached";
       this.details = new Map(this.details).set(item.id, detail);
       this.#flash.show("Attached to this release; it plays here from now on.");
     } catch (error) {
-      if (!this.#destroyed) this.#flash.show(`The link was not attached: ${errorMessage(error)}`);
+      if (!this.#ended) this.#flash.show(`The link was not attached: ${errorMessage(error)}`);
     }
   }
 
@@ -803,11 +798,11 @@ export class TriageSession {
     this.#setPricing(item.id, true);
     try {
       const detail = await this.#api.enrichRelease(item.id);
-      if (!this.#destroyed) this.#applyEnrichment(detail);
+      if (!this.#ended) this.#applyEnrichment(detail);
     } catch (error) {
-      if (!this.#destroyed) this.#flash.show(`The price did not load: ${errorMessage(error)}`);
+      if (!this.#ended) this.#flash.show(`The price did not load: ${errorMessage(error)}`);
     } finally {
-      if (!this.#destroyed) this.#setPricing(item.id, false);
+      if (!this.#ended) this.#setPricing(item.id, false);
     }
   }
 
@@ -838,7 +833,7 @@ export class TriageSession {
     const push = await this.#pushWithRetries(entry.item, (retryInMs) =>
       this.#showPush(slipId, "retrying", retryInMs),
     );
-    if (this.#destroyed) return;
+    if (this.#ended) return;
     this.#showPush(slipId, push);
   }
 
@@ -861,7 +856,7 @@ export class TriageSession {
         await this.#syncWantlist(item);
         return this.#onWantlist.has(item.triageKey) ? "done" : null;
       } catch (error) {
-        if (this.#destroyed) return null;
+        if (this.#ended) return null;
         const delayMs = this.#pushRetryDelaysMs[tries];
         if (delayMs === undefined || !mayPassLater(error)) {
           this.#flash.show(
@@ -871,7 +866,7 @@ export class TriageSession {
         }
         onRetry(delayMs);
         await this.#waitBeforeRetry(delayMs);
-        if (this.#destroyed) return null;
+        if (this.#ended) return null;
       }
     }
   }
@@ -890,10 +885,10 @@ export class TriageSession {
   async #takeOffWantlist(item: QueueItem): Promise<void> {
     try {
       if ((await this.#syncWantlist(item)) !== "removed") return;
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       this.#flash.show("Taken off your Discogs wantlist again.");
     } catch (error) {
-      if (this.#destroyed) return;
+      if (this.#ended) return;
       this.#flash.show(`Still on your Discogs wantlist: ${errorMessage(error)}`);
     }
   }
@@ -914,13 +909,11 @@ export class TriageSession {
    * a grail.
    */
   #syncWantlist(item: QueueItem): Promise<"added" | "removed" | null> {
-    const run = this.#wantlistWrites.then(async (): Promise<"added" | "removed" | null> => {
-      if (this.#destroyed) return null;
+    return this.#wantlistWrites.run(async (): Promise<"added" | "removed" | null> => {
+      if (this.#ended) return null;
       if (this.#wanted(item.triageKey)) return this.#addWantedPressings(item);
       return this.#removeWantedPressings(item.triageKey);
     });
-    this.#wantlistWrites = run.catch(() => {});
-    return run;
   }
 
   async #addWantedPressings(item: QueueItem): Promise<"added" | null> {
@@ -934,9 +927,9 @@ export class TriageSession {
     const saved = await this.#api.getRelease(item.id);
     if (saved.verdict === null || !isWantlistVerdict(saved.verdict.status)) return null;
     for (const releaseId of missing) {
-      if (this.#destroyed || !this.#wanted(key)) return null;
+      if (this.#ended || !this.#wanted(key)) return null;
       await this.#api.pushToWantlist(releaseId);
-      if (this.#destroyed) return null;
+      if (this.#ended) return null;
       held.push(releaseId);
       this.#onWantlist.set(key, held);
     }
@@ -947,21 +940,14 @@ export class TriageSession {
     const held = this.#onWantlist.get(key) ?? [];
     if (held.length === 0) return null;
     for (const releaseId of held) {
-      if (this.#destroyed || this.#wanted(key)) return null;
+      if (this.#ended || this.#wanted(key)) return null;
       await this.#api.removeFromWantlist(releaseId);
-      if (this.#destroyed) return null;
+      if (this.#ended) return null;
       const remaining = (this.#onWantlist.get(key) ?? []).filter((id) => id !== releaseId);
       if (remaining.length > 0) this.#onWantlist.set(key, remaining);
       else this.#onWantlist.delete(key);
     }
     return "removed";
-  }
-
-  /** Writes run one at a time, in order, so an undo never overtakes its verdict. */
-  #write(fn: () => Promise<void>): Promise<void> {
-    const run = this.#writes.then(fn);
-    this.#writes = run.catch(() => {});
-    return run;
   }
 
   /**
@@ -1006,9 +992,9 @@ export class TriageSession {
     }
     this.#prefetch();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
-      const generation = this.#generation;
+      const isCurrent = this.#queueStarts.current();
       this.#refill().catch((error: unknown) => {
-        if (generation !== this.#generation) return;
+        if (!isCurrent()) return;
         const message = `Could not fetch more of the queue: ${errorMessage(error)}`;
         this.#flash.show(message);
         // With nothing buffered, the page needs the error state so Enter can retry.
@@ -1036,10 +1022,10 @@ export class TriageSession {
 
   /** Appends a batch of the queue's records that are not buffered, passed or being written. */
   async #appendFresh(): Promise<void> {
-    const generation = this.#generation;
+    const isCurrent = this.#queueStarts.current();
     const read = await this.#readQueue(this.#batch, [...this.upcoming, ...this.passed]);
     // A round took over meanwhile; the queue refills again when it ends.
-    if (generation !== this.#generation || this.round) return;
+    if (!isCurrent() || this.round) return;
     this.#forgetVerdictsGone(read);
     // A pass or an undo while the read was out can have buffered one of its records already.
     const known = new Set([...read.unsettled, ...keysOf(this.upcoming), ...keysOf(this.passed)]);
@@ -1051,13 +1037,13 @@ export class TriageSession {
 
   /** Rebuilds the records after the one on screen in the queue's current order. */
   async #rebuildAfterCurrent(): Promise<void> {
-    const generation = this.#generation;
+    const isCurrent = this.#queueStarts.current();
     const current = this.upcoming.slice(0, 1);
     const read = await this.#readQueue(this.#batch + this.upcoming.length, [
       ...current,
       ...this.passed,
     ]);
-    if (generation !== this.#generation || this.round) return;
+    if (!isCurrent() || this.round) return;
     this.#forgetVerdictsGone(read);
     const upcoming = this.#inQueueOrder(read);
     this.exhausted = read.complete;
@@ -1087,7 +1073,7 @@ export class TriageSession {
    * unanswered, which the server leaves out; a shorter answer means it has no more.
    */
   async #readQueue(wanted: number, held: QueueItem[]): Promise<QueueRead> {
-    const generation = this.#generation;
+    const isCurrent = this.#queueStarts.current();
     const unsettled = new Set(this.#unanswered.keys());
     const limit = Math.min(MAX_QUEUE_LIMIT, wanted);
     this.#openReads.add(unsettled);
@@ -1098,7 +1084,7 @@ export class TriageSession {
         scope: this.scope ?? undefined,
         seed: this.#seed ?? undefined,
       });
-      if (generation === this.#generation) this.#seed = response.seed;
+      if (isCurrent()) this.#seed = response.seed;
       return { items: response.items, complete: response.items.length < limit, unsettled };
     } finally {
       this.#openReads.delete(unsettled);
@@ -1158,9 +1144,9 @@ export class TriageSession {
   async #loadDetail(id: number, options: { refreshVerdict: boolean }): Promise<void> {
     const request = Symbol();
     this.#loading.set(id, request);
-    const current = () => !this.#destroyed && this.#loading.get(id) === request;
+    const current = () => !this.#ended && this.#loading.get(id) === request;
     try {
-      await this.#writes;
+      await this.#writes.idle();
       if (!current()) return;
       const detail = await this.#api.getRelease(id);
       if (!current()) return;

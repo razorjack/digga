@@ -5,6 +5,7 @@ import type {
   SessionResolution,
 } from "../../shared/digging-session.ts";
 import type { Api } from "../api.ts";
+import { type CurrentCheck, Generation } from "../async.ts";
 import type { TriagePlayer } from "../player/triage-player.svelte.ts";
 import { errorMessage } from "../stores.svelte.ts";
 import type { TriageSession } from "./session.svelte.ts";
@@ -40,8 +41,8 @@ export class SessionCheckpoint {
   #settings: SettingsAccess;
   /** The session being saved; null until the listener resumes one or starts fresh. */
   #identity: SessionIdentity | null = null;
-  /** Bumped by open(), startFresh() and destroy(); an answer meant for an older one is dropped. */
-  #generation = 0;
+  /** Started again by open() and startFresh(); an answer meant for an older one is dropped. */
+  #sessions = new Generation();
   /** open() has run: the page's first queue start offers the saved session, later ones do not. */
   #opened = false;
   #saving = false;
@@ -81,7 +82,7 @@ export class SessionCheckpoint {
   async open(): Promise<void> {
     const restarted = this.#opened;
     this.#opened = true;
-    const generation = this.#reset();
+    const isCurrent = this.#reset();
     if (restarted) {
       this.startFresh();
       return;
@@ -89,17 +90,16 @@ export class SessionCheckpoint {
 
     try {
       const saved = await this.#api.getLatestSession();
-      if (generation !== this.#generation) return;
+      if (!isCurrent()) return;
       this.pending = saved;
       if (!saved) this.startFresh();
     } catch (error) {
-      if (generation === this.#generation)
-        this.#showMessage(`Could not read the last session: ${errorMessage(error)}`);
+      if (isCurrent()) this.#showMessage(`Could not read the last session: ${errorMessage(error)}`);
     }
   }
 
   startFresh(): void {
-    this.#generation += 1;
+    this.#sessions.invalidate();
     this.#continueSession({ id: crypto.randomUUID(), startedAt: new Date().toISOString() });
     this.#showMessage("");
   }
@@ -111,15 +111,15 @@ export class SessionCheckpoint {
     const serialized = JSON.stringify({ state, config: this.#settings.value });
     if (serialized === this.#lastState) return;
 
-    const generation = this.#generation;
+    const isCurrent = this.#sessions.current();
     this.#saving = true;
     try {
       await this.#api.putSession({ ...identity, state });
-      if (generation !== this.#generation) return;
+      if (!isCurrent()) return;
       this.#lastState = serialized;
       if (this.#showingSaveError) this.#showMessage("");
     } catch (error) {
-      if (generation !== this.#generation) return;
+      if (!isCurrent()) return;
       this.#showMessage(`Session position not saved: ${errorMessage(error)}`);
       this.#showingSaveError = true;
     } finally {
@@ -132,8 +132,7 @@ export class SessionCheckpoint {
     const saved = this.pending;
     const config = this.#settings.value;
     if (!saved || !config || this.restoring) return;
-    const generation = this.#generation;
-    const isCurrent = () => generation === this.#generation;
+    const isCurrent = this.#sessions.current();
     this.restoring = true;
     this.#player.pauseForResume();
 
@@ -148,15 +147,14 @@ export class SessionCheckpoint {
       this.#continueSession(saved);
       this.#showMessage(resumedMessage(resolved.unavailable));
     } catch (error) {
-      if (generation === this.#generation)
-        this.#showMessage(`Could not resume the session: ${errorMessage(error)}`);
+      if (isCurrent()) this.#showMessage(`Could not resume the session: ${errorMessage(error)}`);
     } finally {
-      if (generation === this.#generation) this.restoring = false;
+      if (isCurrent()) this.restoring = false;
     }
   }
 
   destroy(): void {
-    this.#generation += 1;
+    this.#sessions.end();
     this.#identity = null;
   }
 
@@ -165,15 +163,15 @@ export class SessionCheckpoint {
     this.#showingSaveError = false;
   }
 
-  /** Forgets the session and any offer; returns the new generation. */
-  #reset(): number {
+  /** Forgets the session and any offer; returns the check for the new generation. */
+  #reset(): CurrentCheck {
     this.#identity = null;
     this.pending = null;
     this.restoring = false;
     this.#showMessage("");
     this.#player.sessionId = null;
     this.#player.restorePlayback(null);
-    return ++this.#generation;
+    return this.#sessions.next();
   }
 
   /** Saves and listens from now on belong to this session. */
