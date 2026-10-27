@@ -115,8 +115,8 @@ describe("Twelves changes", () => {
     const item = shelf.items[0]!;
     shelf.rejudge(item, "accepted");
     shelf.rejudge(item, "rejected");
-    shelf.enqueueTask(() => shelf.undo());
-    await shelf.changes;
+    void shelf.undo();
+    await shelf.settled();
     expect(calls).toEqual(["accepted", "push", "rejected", "remove", "accepted", "push"]);
     expect(shelf.items[0]).toMatchObject({
       verdict: { status: "accepted" },
@@ -127,14 +127,14 @@ describe("Twelves changes", () => {
   it("keeps a grail on the wantlist like a want, and takes it off for anything else", async () => {
     const { shelf, calls } = await setup();
     shelf.rejudge(shelf.items[0]!, "candidate");
-    await shelf.changes;
+    await shelf.settled();
     shelf.rejudge(shelf.items[0]!, "accepted");
-    await shelf.changes;
+    await shelf.settled();
     shelf.rejudge(shelf.items[0]!, "candidate");
-    await shelf.changes;
+    await shelf.settled();
     expect(calls).toEqual(["candidate", "push", "accepted", "candidate"]);
     shelf.rejudge(shelf.items[0]!, "snoozed");
-    await shelf.changes;
+    await shelf.settled();
     expect(calls.slice(4)).toEqual(["snoozed", "remove"]);
     expect(shelf.items[0]).toMatchObject({
       verdict: { status: "snoozed" },
@@ -152,14 +152,14 @@ describe("Twelves changes", () => {
     shelf.shelf = "accepted";
     expect(shelf.wantsPending).toHaveLength(0);
     shelf.rejudge(shelf.items[0]!, "candidate");
-    await shelf.changes;
+    await shelf.settled();
     expect(calls).toEqual(["push"]);
   });
 
   it("preserves undo history when saving an undo fails", async () => {
     const { shelf, http } = await setup();
     shelf.rejudge(shelf.items[0]!, "accepted");
-    await shelf.changes;
+    await shelf.settled();
     http.postVerdict.mockRejectedValueOnce(new Error("disk full"));
     await shelf.undo();
     expect(shelf.undoStack).toHaveLength(1);
@@ -173,7 +173,7 @@ describe("Twelves changes", () => {
   it("expects the verdict it read, and drops an undo once another tab decided the record again", async () => {
     const { shelf, http } = await setup();
     shelf.rejudge(shelf.items[0]!, "accepted");
-    await shelf.changes;
+    await shelf.settled();
     expect(http.postVerdict).toHaveBeenLastCalledWith(
       expect.objectContaining({ status: "accepted", expected: { status: "maybe", decidedAt } }),
     );
@@ -193,7 +193,7 @@ describe("Twelves changes", () => {
     const { shelf, http } = await setup();
     http.getTwelves.mockRejectedValueOnce(new Error("reload failed"));
     shelf.rejudge(shelf.items[0]!, "snoozed");
-    await shelf.changes;
+    await shelf.settled();
     expect(shelf.items[0]?.verdict?.status).toBe("snoozed");
     expect(shelf.error).toBe("reload failed");
   });
@@ -226,10 +226,10 @@ describe("the flash after re-judging", () => {
   it("writes nothing for a want already on the wantlist, and says so", async () => {
     const { shelf, calls } = await setup();
     shelf.rejudge(shelf.items[0]!, "accepted");
-    await shelf.changes;
+    await shelf.settled();
     calls.length = 0;
     shelf.rejudge(shelf.items[0]!, "accepted");
-    await shelf.changes;
+    await shelf.settled();
     expect(calls).toEqual([]);
     expect(shelf.flash).toBe("Already on your Discogs wantlist.");
   });
@@ -237,7 +237,7 @@ describe("the flash after re-judging", () => {
   it("follows the re-judgement with the wantlist change and the undo", async () => {
     const { shelf } = await setup();
     shelf.rejudge(shelf.items[0]!, "accepted");
-    await shelf.changes;
+    await shelf.settled();
     expect(shelf.flash).toBe(
       `${rejudgedSentence("Artist 1 – Title 1", "accepted")} Added to your Discogs wantlist. Z undoes it.`,
     );
@@ -425,15 +425,15 @@ describe("columnSort", () => {
 it("retries failed removals with the same verdict key and keeps undo intact", async () => {
   const { shelf, http } = await setup();
   shelf.rejudge(shelf.items[0]!, "accepted");
-  await shelf.changes;
+  await shelf.settled();
   http.removeFromWantlist.mockRejectedValueOnce(new Error("offline"));
   shelf.rejudge(shelf.items[0]!, "rejected");
-  await shelf.changes;
+  await shelf.settled();
   expect(shelf.flash).toContain("the same key tries again");
   expect(shelf.items[0]?.membership.onWantlist).toBe(true);
   const historyLength = shelf.undoStack.length;
   shelf.rejudge(shelf.items[0]!, "rejected");
-  await shelf.changes;
+  await shelf.settled();
   expect(http.removeFromWantlist).toHaveBeenCalledTimes(2);
   expect(shelf.items[0]?.membership.onWantlist).toBe(false);
   expect(shelf.undoStack).toHaveLength(historyLength);

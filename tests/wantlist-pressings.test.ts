@@ -49,7 +49,7 @@ describe("wanted pressings", () => {
     const { db, shelf, calls } = await setup([1002]);
     try {
       shelf.rejudge(shelf.items[0]!, "rejected");
-      await shelf.changes;
+      await shelf.settled();
       expect(recordMembershipOf(db, "m:501").wantlistReleaseIds).toEqual([]);
       expect(shelf.flash).toContain("Taken off your Discogs wantlist.");
       await shelf.undo();
@@ -65,7 +65,7 @@ describe("wanted pressings", () => {
     const { db, shelf, calls } = await setup([1001, 1002], 1002);
     try {
       shelf.rejudge(shelf.items[0]!, "rejected");
-      await shelf.changes;
+      await shelf.settled();
       expect(shelf.flash).toContain("Still on your Discogs wantlist");
       expect(recordMembershipOf(db, "m:501").wantlistReleaseIds).toEqual([1002]);
       await shelf.undo();

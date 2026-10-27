@@ -131,7 +131,7 @@
     ArrowRight: () => shelfState.turnPage(1),
     s: () => shelfState.cycleSort(),
     "/": () => filterInput?.focus(),
-    z: () => shelfState.enqueueTask(() => shelfState.undo()),
+    z: () => void shelfState.undo(),
     i: () => void shelfState.checkList(),
     Enter: () => hearAgain("selected"),
     "Shift+Enter": () => hearAgain("to the end"),
@@ -326,7 +326,7 @@
         {/if}
       </p>
       {#if shelfState.wantsPending.length > 1}
-        <button type="button" class="check" disabled={shelfState.pushing} onclick={() => shelfState.enqueueTask(() => shelfState.addToWantlist(shelfState.wantsPending))}>
+        <button type="button" class="check" disabled={shelfState.pushing} onclick={() => shelfState.addPendingToWantlist()}>
           {shelfState.pushing ? "Adding…" : `add all ${formatCount(shelfState.wantsPending.length)}`}
         </button>
       {/if}
@@ -365,9 +365,9 @@
       selectedKey={shelfState.selectedTrackKey}
       {editingKey}
       onselect={(key) => (shelfState.selectedTrackKey = key)}
-      onsave={(track, notes) => {
+      onsave={(track, note) => {
         editingKey = null;
-        shelfState.saveTrackNote(track, notes);
+        shelfState.saveTrackNote(track, note);
       }}
       oncancel={() => (editingKey = null)}
     />

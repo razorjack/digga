@@ -25,7 +25,7 @@
     /** The track whose note is being edited. */
     editingKey: string | null;
     onselect: (key: string) => void;
-    onsave: (track: MarkedTrack, notes: string | null) => void;
+    onsave: (track: MarkedTrack, note: string | null) => void;
     oncancel: () => void;
   } = $props();
 
