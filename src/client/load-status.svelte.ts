@@ -1,6 +1,6 @@
 import { formatCounted } from "../shared/display.ts";
 import type { Stats } from "../shared/api.ts";
-import type { Job } from "../shared/types.ts";
+import { isActiveJob, type Job } from "../shared/types.ts";
 import { api, type Api } from "./api.ts";
 import { stats } from "./stores.svelte.ts";
 
@@ -75,10 +75,7 @@ export class LoadStatusStore {
 }
 
 function runningDumpJob(jobs: Job[]): DumpJob | null {
-  const running = jobs.filter(
-    (job): job is DumpJob =>
-      DUMP_JOBS.has(job.type) && (job.status === "running" || job.status === "queued"),
-  );
+  const running = jobs.filter((job): job is DumpJob => DUMP_JOBS.has(job.type) && isActiveJob(job));
   return running.find((job) => job.type !== "dump_download") ?? running[0] ?? null;
 }
 

@@ -14,8 +14,14 @@ import { createJobRunner, type JobContext } from "../src/server/jobs/runner.ts";
 import { createLogger } from "../src/server/logger.ts";
 import { runWorker } from "../src/server/jobs/worker.ts";
 import { elapsed, jobProgress } from "../src/shared/job-display.ts";
-import { QUIT_JOB_ERROR } from "../src/shared/types.ts";
+import { isActiveJob, JOB_STATUSES, QUIT_JOB_ERROR } from "../src/shared/types.ts";
 import { silentLogger } from "./helpers.ts";
+
+it("counts only queued and running jobs as active", () => {
+  const active = JOB_STATUSES.filter((status) => isActiveJob({ status }));
+  expect(active).toEqual(["queued", "running"]);
+  expect(isActiveJob(null)).toBe(false);
+});
 
 describe("job contracts", () => {
   it("retains job result types and decodes persisted progress", async () => {

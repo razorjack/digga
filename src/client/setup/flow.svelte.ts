@@ -5,7 +5,7 @@ import type {
 } from "../../shared/api.ts";
 import type { Config } from "../../shared/config.ts";
 import type { StyleCensus } from "../../shared/style-census.ts";
-import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../shared/types.ts";
+import { DOWNLOAD_RETRIED_ERROR, isActiveJob, type Job } from "../../shared/types.ts";
 import { api } from "../api.ts";
 import { loadStatus } from "../load-status.svelte.ts";
 import { errorMessage, settings, stats } from "../stores.svelte.ts";
@@ -32,8 +32,6 @@ export interface Picks {
 const POLL_MS = 1000;
 /** "Records to dig" costs a count over the library, so it is asked less often. */
 const STATS_EVERY_MS = 3000;
-
-const isRunning = (job: Job | null) => job?.status === "running" || job?.status === "queued";
 
 /**
  * The first run, step by step (docs/FIRST_RUN.md). It owns the jobs the setup starts and polls
@@ -64,8 +62,8 @@ export class SetupFlow {
   /** The dump the user chose in step 1 of the desktop app, which the setup loads instead of a download. */
   pickedDump = $state<string | null>(null);
 
-  importsRunning = $derived(this.imports.some(isRunning));
-  loadRunning = $derived(isRunning(this.load));
+  importsRunning = $derived(this.imports.some(isActiveJob));
+  loadRunning = $derived(isActiveJob(this.load));
   /** This visit has seen the load run or fail, so it shows how the load ends. */
   #followed = $state(false);
   followsLoad = $derived(this.#followed || this.loadRunning);
@@ -139,7 +137,7 @@ export class SetupFlow {
   /** Step 1: the download starts, and runs behind the next two steps. */
   async fetchCatalogue(): Promise<void> {
     await this.#act(async () => {
-      const fetching = this.setup?.catalogue.newest?.downloaded || isRunning(this.download);
+      const fetching = this.setup?.catalogue.newest?.downloaded || isActiveJob(this.download);
       if (!fetching) {
         if (await this.#chosenDumpsDirGone()) return;
         this.download = await api.startDumpDownload();
@@ -262,7 +260,7 @@ export class SetupFlow {
    */
   async changePicks(): Promise<void> {
     await this.#act(async () => {
-      if (this.load && isRunning(this.load)) {
+      if (this.load && isActiveJob(this.load)) {
         await api.cancelJob(this.load.id);
         await this.#waitUntilStopped(this.load.id);
       }
@@ -290,7 +288,7 @@ export class SetupFlow {
     this.load = newest("dump_load");
     // A load that ended before this visit belongs to it only when the library still needs one.
     this.#followed = this.load !== null && this.load.status !== "done";
-    this.imports = jobs.filter((job) => job.type.startsWith("import_") && isRunning(job));
+    this.imports = jobs.filter((job) => job.type.startsWith("import_") && isActiveJob(job));
   }
 
   /**
@@ -316,7 +314,9 @@ export class SetupFlow {
   #catalogueChosen(): boolean {
     if (this.pickedDump !== null) return this.setup?.catalogue.dumpFileMissing !== true;
     return (
-      isRunning(this.download) || this.download?.status === "done" || this.downloadStopped !== null
+      isActiveJob(this.download) ||
+      this.download?.status === "done" ||
+      this.downloadStopped !== null
     );
   }
 
@@ -332,7 +332,7 @@ export class SetupFlow {
 
   /** A load needs a download unless the user chose a file, or the folder has the dump or will. */
   #needsDownload(): boolean {
-    if (this.pickedDump !== null || isRunning(this.download)) return false;
+    if (this.pickedDump !== null || isActiveJob(this.download)) return false;
     return !this.setup?.catalogue.newest?.downloaded;
   }
 
@@ -349,7 +349,7 @@ export class SetupFlow {
    */
   async #loadAgainAfterRetry(): Promise<void> {
     if (!this.load || !awaitsRetriedDownload(this.load)) return;
-    if (!isRunning(this.download) && this.download?.status !== "done") return;
+    if (!isActiveJob(this.download) && this.download?.status !== "done") return;
     await this.#startLoad();
   }
 
@@ -397,7 +397,7 @@ export class SetupFlow {
   #poll(): void {
     if (this.#timer) clearTimeout(this.#timer);
     if (this.#closed) return;
-    const watched = [this.download, this.load, ...this.imports].filter(isRunning);
+    const watched = [this.download, this.load, ...this.imports].filter(isActiveJob);
     if (watched.length === 0 && !this.waitingForImports) return;
     this.#timer = setTimeout(() => void this.#refresh(), POLL_MS);
   }
@@ -416,7 +416,7 @@ export class SetupFlow {
 
   async #refreshJobs(): Promise<void> {
     const asked = { download: this.download, load: this.load, imports: this.imports };
-    const fetch = async (job: Job | null) => (job && isRunning(job) ? api.getJob(job.id) : job);
+    const fetch = async (job: Job | null) => (job && isActiveJob(job) ? api.getJob(job.id) : job);
     const [download, load, ...imports] = await Promise.all(
       [asked.download, asked.load, ...asked.imports].map(fetch),
     );
@@ -445,7 +445,7 @@ export class SetupFlow {
 
   async #waitUntilStopped(id: string): Promise<void> {
     for (let tries = 0; tries < 60; tries += 1) {
-      if (!isRunning(await api.getJob(id))) return;
+      if (!isActiveJob(await api.getJob(id))) return;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
   }

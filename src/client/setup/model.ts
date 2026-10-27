@@ -1,7 +1,12 @@
 import type { SeedTally } from "../../shared/api.ts";
 import { formatBytes, formatEta } from "../../shared/display.ts";
 import type { CensusStyle, StyleCensus } from "../../shared/style-census.ts";
-import { INTERRUPTED_JOB_ERROR, type Job, QUIT_JOB_ERROR } from "../../shared/types.ts";
+import {
+  INTERRUPTED_JOB_ERROR,
+  isActiveJob,
+  type Job,
+  QUIT_JOB_ERROR,
+} from "../../shared/types.ts";
 
 /** Years the load keeps on each side of the dug ones, so they can be widened without a load. */
 export const LOAD_MARGIN_YEARS = 3;
@@ -280,7 +285,7 @@ export function stoppedLoadMessage(load: Job | null): string {
 /** While the download runs again because the first did not match Discogs' checksum. */
 export function checksumRetryNote(download: Job | null): string | null {
   if (download?.type !== "dump_download") return null;
-  if (download.status !== "running" && download.status !== "queued") return null;
+  if (!isActiveJob(download)) return null;
   if ((download.progress?.checksumMismatches ?? 0) === 0) return null;
   return "The download does not match Discogs' checksum, so Digga downloads it once more.";
 }

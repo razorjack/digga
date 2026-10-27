@@ -3,6 +3,7 @@ import {
   DOWNLOAD_RETRIED_ERROR,
   type DumpDownloadProgress,
   type DumpLoadProgress,
+  isActiveJob,
   type Job,
 } from "../src/shared/types.ts";
 
@@ -19,10 +20,6 @@ export function isDumpJob(job: Job): job is DumpJob {
   return job.type === "dump_download" || job.type === "dump_load" || job.type === "dump_update";
 }
 
-function isRunning(job: Job): boolean {
-  return job.status === "running" || job.status === "queued";
-}
-
 /** The downloads and loads running now, kept up to date from the server's job reports. */
 export interface RunningDumpJobs {
   /** Takes in a reported job; other jobs are ignored. */
@@ -36,7 +33,7 @@ export function runningDumpJobs(): RunningDumpJobs {
   return {
     update(job) {
       if (!isDumpJob(job)) return;
-      if (isRunning(job)) running.set(job.id, job);
+      if (isActiveJob(job)) running.set(job.id, job);
       else running.delete(job.id);
     },
     list: () => [...running.values()],

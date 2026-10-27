@@ -1,9 +1,9 @@
-import type { Job } from "../shared/types.ts";
+import { isActiveJob, type Job } from "../shared/types.ts";
 import type { Api } from "./api.ts";
 
 export async function waitForJob(client: Api, job: Job, signal: AbortSignal): Promise<Job> {
   let current = job;
-  while (current.status === "running" || current.status === "queued") {
+  while (isActiveJob(current)) {
     await waitForPoll(signal);
     current = await client.getJob(current.id);
     signal.throwIfAborted();

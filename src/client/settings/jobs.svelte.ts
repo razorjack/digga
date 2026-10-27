@@ -1,4 +1,4 @@
-import type { Job } from "../../shared/types.ts";
+import { isActiveJob, type Job } from "../../shared/types.ts";
 import { api, type Api } from "../api.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
@@ -7,7 +7,7 @@ export const SAVE_BEFORE_JOB = "Save or discard your settings changes before sta
 export class SettingsJobs {
   items = $state.raw<Job[]>([]);
   error = $state<string | null>(null);
-  running = $derived(this.items.some((job) => job.status === "running" || job.status === "queued"));
+  running = $derived(this.items.some(isActiveJob));
   #api: Api;
   #refreshStats: () => Promise<void>;
   #timer: ReturnType<typeof setTimeout> | null = null;
@@ -60,12 +60,8 @@ export class SettingsJobs {
 /** A job has ended since the earlier read: it was running then, or started and ended in between. */
 function someJobEnded(before: Job[], after: Job[]): boolean {
   return after.some((job) => {
-    if (!ended(job)) return false;
+    if (isActiveJob(job)) return false;
     const earlier = before.find((candidate) => candidate.id === job.id);
-    return earlier === undefined || !ended(earlier);
+    return earlier === undefined || isActiveJob(earlier);
   });
-}
-
-function ended(job: Job): boolean {
-  return job.status !== "running" && job.status !== "queued";
 }
