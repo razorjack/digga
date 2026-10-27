@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { TwelvesItem } from "../../shared/api.ts";
+  import type { MarkedTrack, TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
   import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
   import { normalizeNote } from "../../shared/notes.ts";
@@ -120,6 +120,18 @@
     editingKey = null;
     const note = normalizeNote(noteDraft);
     if (note !== item.note) shelfState.saveNote(item, note);
+  }
+
+  /** Enter saves the note and Esc cancels it; no key in the field reaches the page's shortcuts. */
+  function onNoteKey(event: KeyboardEvent, item: TwelvesItem): void {
+    event.stopPropagation();
+    if (event.key === "Enter") saveNote(item);
+    if (event.key === "Escape") editingKey = null;
+  }
+
+  function saveTrackNote(track: MarkedTrack, note: string | null): void {
+    editingKey = null;
+    shelfState.saveTrackNote(track, note);
   }
 
   const ACTIONS: Record<string, () => void> = {
@@ -368,10 +380,7 @@
       selectedKey={shelfState.selectedTrackKey}
       {editingKey}
       onselect={(key) => (shelfState.selectedTrackKey = key)}
-      onsave={(track, note) => {
-        editingKey = null;
-        shelfState.saveTrackNote(track, note);
-      }}
+      onsave={saveTrackNote}
       oncancel={() => (editingKey = null)}
     />
   {:else if shelfState.visible.length === 0}
@@ -424,11 +433,7 @@
                   {@attach focusOnMount}
                   maxlength="4000"
                   aria-label="Note"
-                  onkeydown={(event) => {
-                    if (event.key === "Enter") saveNote(item);
-                    if (event.key === "Escape") editingKey = null;
-                    event.stopPropagation();
-                  }}
+                  onkeydown={(event) => onNoteKey(event, item)}
                   onblur={() => (editingKey = null)}
                 />
               {:else if item.note}
