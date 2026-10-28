@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { readIdList } from "../../../tools/dump/load.ts";
+import { readIdList } from "../dump/load.ts";
 import type { DumpLoadJobInput, ImportJobInput, ImportKind } from "../../shared/api.ts";
 import { JOB_LABEL } from "../../shared/job-display.ts";
 import type { DumpLoadProgress, Job, JobType } from "../../shared/types.ts";

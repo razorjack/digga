@@ -1054,9 +1054,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      calls electron-builder's `build()` with its configuration in the script, so the packaging
      has one file and no configuration file beside `package.json`. The app id is
      `io.github.razorjack.digga`, after the repository. The archive holds what the main process
-     and the workers import: `dist/`, `electron/`, `src/` without the client's sources,
-     `tools/dump/` and the production dependencies, with better-sqlite3 reduced to its
-     `darwin-arm64.node` prebuild, which electron-builder unpacks. `npmRebuild` is off, so the
+     and the workers import: `dist/`, `electron/`, `src/` without the client's sources (the
+     dump loader in `src/server/dump/` included) and the production dependencies, with
+     better-sqlite3 reduced to its `darwin-arm64.node` prebuild, which electron-builder unpacks. `npmRebuild` is off, so the
      repository's `node_modules` keeps the binary the CLI, vitest and the web suite load
      (decision 153). Only the English locale ships. The build is arm64 only: an x64 build would
      be one more target and the darwin-x64 prebuild, but Rosetta is not installed on the Mac that

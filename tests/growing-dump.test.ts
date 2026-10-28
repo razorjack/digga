@@ -10,8 +10,8 @@ import { createServer } from "../src/server/server.ts";
 import type { ApiError } from "../src/shared/api.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import type { Job } from "../src/shared/types.ts";
-import type { GrowingState } from "../tools/dump/growing.ts";
-import { loadDump } from "../tools/dump/load.ts";
+import type { GrowingState } from "../src/server/dump/growing.ts";
+import { loadDump } from "../src/server/dump/load.ts";
 import { gzipInParts } from "./e2e/fixtures/dump.ts";
 import { FIXTURE_GZ, FIXTURE_XML, silentLogger, testSecrets } from "./helpers.ts";
 

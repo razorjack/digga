@@ -231,7 +231,7 @@ variant, for the system it runs on, and then the release build's health check,
 
 - **Contents.** `app.asar` holds `package.json` (whose `main` is still `electron/main.ts`),
   `dist/`, `electron/`, `src/` without `src/client/` (the migrations and the shipped style census
-  included), `tools/dump/`, `build/icons/512x512.png` (the Linux window's icon) and the production
+  included, the dump loader in `src/server/dump/` with them), `build/icons/512x512.png` (the Linux window's icon) and the production
   dependencies. better-sqlite3 goes without its sources and with only the system's prebuild
   (`prebuilds/darwin-arm64.node`, `prebuilds/linux-x64.node`), and electron-builder unpacks the
   package into `app.asar.unpacked`, since a native module cannot load from an archive. `data/` and

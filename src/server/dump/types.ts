@@ -1,4 +1,4 @@
-import type { ArtistRef, FormatRef, LabelRef } from "../../src/shared/types.ts";
+import type { ArtistRef, FormatRef, LabelRef } from "../../shared/types.ts";
 
 /** One <release> element from the Discogs releases dump, as parsed by parse.ts. */
 export interface DumpRelease {

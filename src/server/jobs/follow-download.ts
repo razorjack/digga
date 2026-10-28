@@ -1,4 +1,4 @@
-import type { GrowingFile, GrowingState } from "../../../tools/dump/growing.ts";
+import type { GrowingFile, GrowingState } from "../dump/growing.ts";
 import type { Db } from "../db/db.ts";
 import { getJob } from "../db/jobs.ts";
 import { DOWNLOAD_RETRIED_ERROR, type Job } from "../../shared/types.ts";

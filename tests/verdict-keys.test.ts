@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { loadDump } from "../tools/dump/load.ts";
+import { loadDump } from "../src/server/dump/load.ts";
 import type { Db } from "../src/server/db/db.ts";
 import { restoreBackedUpData } from "../src/server/db/user-data.ts";
 import { moveVerdictsToReleaseKeys } from "../src/server/db/verdict-keys.ts";

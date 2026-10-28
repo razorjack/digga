@@ -134,6 +134,8 @@ src/server/            server.ts (createServer), http.ts (listener), app.ts (rou
                        jobs/ (start, dump-download, dump-load, runner, worker, dump-load-worker, index),
                        queue/ (query, scopes, detail, twelves, coverage, reader + reader-worker: the
                        queue and stats off the server's thread)
+                       dump/ (the streaming loader: parse, convert, load, growing, coverage; census),
+                       worker-compatible
 src/cli/               digga.ts (dispatch), args.ts + options.ts (parsing), commands.ts, runtime.ts, report.ts, help.ts,
                        environment.ts (what the environment and a .env set, for the CLI and Electron)
 electron/              the Electron main process: main.ts (server, quit), window.ts (window, links, downloads,
@@ -147,7 +149,6 @@ src/client/            Svelte 5 app: api.ts (the transport seam), router.svelte.
                        drawings Art shows), setup/ (the first run), player/ (YouTube decks, status copy),
                        triage/ (session + components), twelves/ (shelf + pure model),
                        settings/ (one component per tab, preview, jobs, Discogs state), pages/
-tools/dump/            streaming loader (parse.ts, convert.ts, load.ts, growing.ts), worker-compatible; census.ts
 tools/dev/             fake-services.ts: the fake Discogs API, oEmbed and data.discogs.com, which the E2E harness
                        imports and `node tools/dev/fake-services.ts <dump>` serves to rehearse the setup
 tests/ fixtures/       vitest unit tests + fixtures/releases-sample.xml(.gz)

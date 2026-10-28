@@ -1,13 +1,13 @@
-import { isVinyl } from "../../src/shared/formats.ts";
-import { prepareVideos } from "../../src/shared/videos.ts";
+import { isVinyl } from "../../shared/formats.ts";
+import { prepareVideos } from "../../shared/videos.ts";
 import {
   artistDisplay,
   durationToSeconds,
   heardKeyFor,
   yearFromReleased,
-} from "../../src/shared/normalize.ts";
-import { triageKeyFor } from "../../src/shared/triage-key.ts";
-import type { ReleaseWrite, TrackWrite } from "../../src/server/db/releases.ts";
+} from "../../shared/normalize.ts";
+import { triageKeyFor } from "../../shared/triage-key.ts";
+import type { ReleaseWrite, TrackWrite } from "../db/releases.ts";
 import type { DumpRelease } from "./types.ts";
 
 /** Pure conversion of a parsed dump release into the row set the database layer writes. */

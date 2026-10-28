@@ -7,7 +7,7 @@ import { type Db, openDb } from "../src/server/db/db.ts";
 import { upsertVerdict } from "../src/server/db/verdicts.ts";
 import { type QueueReader, workerQueueReader } from "../src/server/queue/reader.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
-import { loadDump } from "../tools/dump/load.ts";
+import { loadDump } from "../src/server/dump/load.ts";
 import { FIXTURE_GZ, filters } from "./helpers.ts";
 
 describe("the queue reader's worker", () => {

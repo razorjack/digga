@@ -1,8 +1,8 @@
 import type { Readable } from "node:stream";
-import type { Logger } from "../../src/server/logger.ts";
-import { isVinyl } from "../../src/shared/formats.ts";
-import { yearFromReleased } from "../../src/shared/normalize.ts";
-import type { CensusStyle, StyleCensus } from "../../src/shared/style-census.ts";
+import type { Logger } from "../logger.ts";
+import { isVinyl } from "../../shared/formats.ts";
+import { yearFromReleased } from "../../shared/normalize.ts";
+import type { CensusStyle, StyleCensus } from "../../shared/style-census.ts";
 import { dumpDateFromFilename, openDumpInput } from "./load.ts";
 import { iterateReleases } from "./parse.ts";
 import type { DumpRelease } from "./types.ts";

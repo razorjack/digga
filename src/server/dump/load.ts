@@ -4,13 +4,13 @@ import type { Readable } from "node:stream";
 import { pipeline } from "node:stream";
 import { clearTimeout, setTimeout } from "node:timers";
 import zlib from "node:zlib";
-import type { Db } from "../../src/server/db/db.ts";
-import { DumpReleaseWriter } from "../../src/server/db/dump-releases.ts";
-import { markScopeNamesStale, rebuildScopeNames } from "../../src/server/db/scope-names.ts";
-import { remapTuneKeys } from "../../src/server/db/tune-keys.ts";
-import type { Logger } from "../../src/server/logger.ts";
-import { artistDisplay, yearFromReleased } from "../../src/shared/normalize.ts";
-import { type DumpLoadProgress, type KeptRelease, UNDATED_YEAR } from "../../src/shared/types.ts";
+import type { Db } from "../db/db.ts";
+import { DumpReleaseWriter } from "../db/dump-releases.ts";
+import { markScopeNamesStale, rebuildScopeNames } from "../db/scope-names.ts";
+import { remapTuneKeys } from "../db/tune-keys.ts";
+import type { Logger } from "../logger.ts";
+import { artistDisplay, yearFromReleased } from "../../shared/normalize.ts";
+import { type DumpLoadProgress, type KeptRelease, UNDATED_YEAR } from "../../shared/types.ts";
 import type { StyleCensusTally } from "./census.ts";
 import { type GrowingFile, openGrowingInput } from "./growing.ts";
 import { dumpReleaseToWrite } from "./convert.ts";
@@ -25,7 +25,7 @@ export interface UniverseCriteria {
   loadYears: [number, number] | null;
   /**
    * The coverage pass: releases in other styles on these labels or by these artists are kept too,
-   * when enough of the label's or artist's releases carry a style (tools/dump/coverage.ts).
+   * when enough of the label's or artist's releases carry a style (dump/coverage.ts).
    */
   labelIds?: number[];
   artistIds?: number[];

@@ -4,8 +4,8 @@ import { getRelease } from "../src/server/db/releases.ts";
 import { upsertVerdict } from "../src/server/db/verdicts.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
 import { coverageIds } from "../src/server/queue/coverage.ts";
-import { CoverageTracker, MAX_OTHER_RELEASES } from "../tools/dump/coverage.ts";
-import type { DumpRelease } from "../tools/dump/types.ts";
+import { CoverageTracker, MAX_OTHER_RELEASES } from "../src/server/dump/coverage.ts";
+import type { DumpRelease } from "../src/server/dump/types.ts";
 import { FIXTURE_GZ, fixtureDb, silentLogger } from "./helpers.ts";
 
 function release(id: number, credits: { labels?: number[]; artists?: number[] } = {}): DumpRelease {

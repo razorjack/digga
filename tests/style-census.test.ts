@@ -4,7 +4,7 @@ import { getStoredStyleCensus } from "../src/server/db/style-census.ts";
 import { dumpLoad } from "../src/server/jobs/dump-load.ts";
 import { formatStyleCensus, StyleCensusSchema } from "../src/shared/style-census.ts";
 import type { DumpLoadProgress } from "../src/shared/types.ts";
-import { countStyleCensus } from "../tools/dump/census.ts";
+import { countStyleCensus } from "../src/server/dump/census.ts";
 import { FIXTURE_GZ, silentLogger } from "./helpers.ts";
 
 const load = (db: ReturnType<typeof openDb>, limit?: number) => {

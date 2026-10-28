@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { readIdList } from "../../tools/dump/load.ts";
+import { readIdList } from "../server/dump/load.ts";
 import { type DumpLoadJobOptions, dumpLoadOptionsFor } from "../server/jobs/dump-load.ts";
 import type { Config } from "../shared/config.ts";
 import type { SeedImportOptions } from "../server/importers/seeds.ts";

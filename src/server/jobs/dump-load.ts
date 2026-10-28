@@ -3,9 +3,9 @@ import {
   type DumpLoadResult,
   dumpDateFromFilename,
   loadDump,
-} from "../../../tools/dump/load.ts";
-import { StyleCensusTally } from "../../../tools/dump/census.ts";
-import type { GrowingFile } from "../../../tools/dump/growing.ts";
+} from "../dump/load.ts";
+import { StyleCensusTally } from "../dump/census.ts";
+import type { GrowingFile } from "../dump/growing.ts";
 import type { DumpLoadSummary } from "../../shared/api.ts";
 import type { Config } from "../../shared/config.ts";
 import type { DumpLoadProgress } from "../../shared/types.ts";

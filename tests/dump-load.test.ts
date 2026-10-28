@@ -6,10 +6,10 @@ import { type Db, openDb } from "../src/server/db/db.ts";
 import { getRelease, getTracks, getVideos } from "../src/server/db/releases.ts";
 import { applyEnrichment } from "../src/server/enrich.ts";
 import { fixtureDb } from "./helpers.ts";
-import { dumpReleaseToWrite } from "../tools/dump/convert.ts";
-import { loadDump, matchesUniverse, dumpDateFromFilename } from "../tools/dump/load.ts";
-import { iterateReleases } from "../tools/dump/parse.ts";
-import type { DumpRelease } from "../tools/dump/types.ts";
+import { dumpReleaseToWrite } from "../src/server/dump/convert.ts";
+import { loadDump, matchesUniverse, dumpDateFromFilename } from "../src/server/dump/load.ts";
+import { iterateReleases } from "../src/server/dump/parse.ts";
+import type { DumpRelease } from "../src/server/dump/types.ts";
 import type { DumpLoadProgress } from "../src/shared/types.ts";
 
 const FIXTURE_GZ = fileURLToPath(new URL("../fixtures/releases-sample.xml.gz", import.meta.url));
@@ -17,7 +17,7 @@ const FIXTURE_XML = fileURLToPath(new URL("../fixtures/releases-sample.xml", imp
 
 async function parseAll(file: string): Promise<DumpRelease[]> {
   const out: DumpRelease[] = [];
-  const { openDumpInput } = await import("../tools/dump/load.ts");
+  const { openDumpInput } = await import("../src/server/dump/load.ts");
   for await (const rel of iterateReleases(openDumpInput(file, process.stdin).stream)) out.push(rel);
   return out;
 }

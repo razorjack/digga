@@ -1,4 +1,4 @@
-import type { CoverageIds } from "../../../tools/dump/coverage.ts";
+import type { CoverageIds } from "../dump/coverage.ts";
 import type { Db } from "../db/db.ts";
 
 /**

@@ -15,7 +15,7 @@ zlib.createGunzip -> saxes`. It never decompresses to disk and never enumerates 
 `/database/search`. `dump load -` accepts already-decompressed XML on stdin
 (`gzip -dc file | digga dump load -`).
 
-The element shape below, encoded in `fixtures/releases-sample.xml` and `tools/dump/parse.ts`, is
+The element shape below, encoded in `fixtures/releases-sample.xml` and `src/server/dump/parse.ts`, is
 verified against the 2026-09-01 dump. Its first records match it, and a full load of it scanned
 19,417,067 releases and kept 71,699 with their tracklists, videos, labels and master ids. That
 dump has no `status` attribute and no `<images>`, and it leaves out empty elements such as
@@ -51,7 +51,7 @@ Load-time filter: any style in `universe.styles`, and, when `universe.loadYears`
 year inside the window or unknown. Format, country and the tight year range are query-time filters.
 With `universe.coverage`, releases in other styles are kept too when a label or release artist of
 theirs is one of a record the user wants or owns and at least a third of that label's or
-artist's releases in the load window carry a style (`tools/dump/coverage.ts`). `--labels ids.txt`
+artist's releases in the load window carry a style (`src/server/dump/coverage.ts`). `--labels ids.txt`
 / `--artists ids.txt` add ids to that pass. Releases credit compilations to "Various" (194) and
 self-releases to labels named "Not On Label ...", which never count.
 

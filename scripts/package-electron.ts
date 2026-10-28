@@ -79,7 +79,6 @@ function appConfig(variant: Variant): Configuration {
       "electron/**",
       "src/**",
       "!src/client/**",
-      "tools/dump/**",
       // The window's icon on Linux, where an AppImage the desktop has not integrated has no entry.
       "build/icons/512x512.png",
       // better-sqlite3's sources and the binaries of other systems; this system's prebuild stays.

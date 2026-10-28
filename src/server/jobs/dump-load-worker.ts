@@ -1,5 +1,5 @@
 import { parentPort, workerData } from "node:worker_threads";
-import type { DumpLoadResult } from "../../../tools/dump/load.ts";
+import type { DumpLoadResult } from "../dump/load.ts";
 import type { DumpLoadProgress } from "../../shared/types.ts";
 import { openDb } from "../db/db.ts";
 import { dumpLoad, type DumpLoadJobOptions } from "./dump-load.ts";

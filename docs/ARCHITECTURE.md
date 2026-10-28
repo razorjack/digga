@@ -71,12 +71,12 @@ database and 5 min for requests that wait on a Discogs call. The exported `api` 
 ## The universe and the queue
 
 The set of releases to dig comes from the monthly Discogs releases dump, never from the search
-API. `tools/dump/parse.ts` streams `fs -> gunzip -> saxes` and yields one lightweight object per
-`<release>`; `tools/dump/load.ts` keeps releases matching `universe.styles` (plus the wide
+API. `src/server/dump/parse.ts` streams `fs -> gunzip -> saxes` and yields one lightweight object per
+`<release>`; `src/server/dump/load.ts` keeps releases matching `universe.styles` (plus the wide
 `universe.loadYears` window, unknown years always pass) and upserts them in batches of 500 through
 `src/server/db/releases.ts`. Memory stays flat regardless of dump size, except for the coverage
 pass (`universe.coverage`, decision 90): releases in other styles on the labels and by the artists
-of wanted or owned records (`queue/coverage.ts`) wait in `tools/dump/coverage.ts` until the end
+of wanted or owned records (`queue/coverage.ts`) wait in `src/server/dump/coverage.ts` until the end
 of the dump shows whether their label mostly releases the styles, at most 500 per label or artist.
 
 Loads are additive: changing Universe styles or load years changes future imports, but does not
@@ -159,14 +159,14 @@ and runs on the server thread; `GET /api/dumps` lists what the folder holds for 
 `DELETE /api/dumps/:name` deletes a dump the listing names, never while a dump job runs.
 A load can start while its dump downloads: `POST /api/jobs/dump-load` naming the dump the
 running download writes starts beside it, and the loader reads `<file>.part` as it grows
-(`tools/dump/growing.ts`), waiting at the end of what has arrived. It asks the jobs table whether
+(`src/server/dump/growing.ts`), waiting at the end of what has arrived. It asks the jobs table whether
 the download is still running, finished or failed (`jobs/follow-download.ts`), which the worker's
 own connection can read too. A finished download has renamed the part, and the open handle reads
 the same file to its end; a failed one ends the load with its reason. The dump update still
 downloads first and loads after.
 The loader reports progress every 100,000 releases, logged, and every second in between, with
 the releases it kept per year and the last one it kept, for the setup's progress screen. A load
-that reaches the end of the dump also counts the style census (`tools/dump/census.ts`,
+that reaches the end of the dump also counts the style census (`src/server/dump/census.ts`,
 `docs/STYLE_CENSUS.md`) into the `style_census` table.
 
 ## The first run

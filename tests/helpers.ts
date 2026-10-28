@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { loadDump } from "../tools/dump/load.ts";
+import { loadDump } from "../src/server/dump/load.ts";
 import { type Db, openDb } from "../src/server/db/db.ts";
 import { createLogger, silentSink } from "../src/server/logger.ts";
 import type { Secrets } from "../src/server/secrets.ts";

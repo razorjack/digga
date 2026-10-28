@@ -1,6 +1,6 @@
 import type { Readable } from "node:stream";
 import { SaxesParser, type SaxesTagPlain } from "saxes";
-import type { ArtistRef } from "../../src/shared/types.ts";
+import type { ArtistRef } from "../../shared/types.ts";
 import type { DumpRelease, DumpTrack, DumpVideo } from "./types.ts";
 
 function int(value: string | undefined): number | null {

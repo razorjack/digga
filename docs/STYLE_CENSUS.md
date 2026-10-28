@@ -8,7 +8,7 @@ tagged together, to draw the year histogram and to estimate how big a library th
 ## Where it comes from
 
 - **Every complete dump load counts it.** The loader parses all 19 million releases anyway, so
-  `StyleCensusTally` (`tools/dump/census.ts`) counts each release as it streams by. A load that
+  `StyleCensusTally` (`src/server/dump/census.ts`) counts each release as it streams by. A load that
   reaches the end of the dump replaces the one row of the `style_census` table; a dry run or a
   load stopped by `--limit` leaves it alone.
 - **Before the first load, the shipped census stands in:** `src/server/style-census.json`, written
