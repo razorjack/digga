@@ -169,7 +169,10 @@ export class SetupFlow {
     });
   }
 
-  /** Step 1 in the desktop app, short of space: another folder for the catalogue, for good. */
+  /**
+   * Step 1 in the desktop app, when the disk is short of space: asks for another dumps folder,
+   * which the library keeps for every later download, and reads the setup's space check again.
+   */
   async chooseDumpsFolder(): Promise<void> {
     await this.#runUserAction(async () => {
       const { folder } = await api.chooseDumpsFolder();

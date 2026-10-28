@@ -39,7 +39,10 @@
   const batchProblem = $derived(problemAt(issues, "queue.limit"));
   const seekProblem = $derived(problemAt(issues, "player.seekStepSeconds"));
   const startAtPercent = $derived(Math.round(draft.player.startAtFraction * 100));
-  /** Only a library from before decision 171 has records seen in the browser history to skip. */
+  /**
+   * Only a library from before Digga stopped reading browser history (decision 171) has records
+   * seen there to skip.
+   */
   const hasSeenRecords = $derived((stats.value?.verdicts.seen ?? 0) > 0);
 
   $effect(() => {
