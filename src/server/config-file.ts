@@ -29,7 +29,7 @@ function parseFile(file: string): Config {
   const result = ConfigSchema.safeParse(readJson(file));
   if (!result.success) {
     const problems = result.error.issues
-      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+      .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
       .join("; ");
     throw new InvalidConfigError(file, problems);
   }

@@ -231,7 +231,10 @@ function restoreVerdicts(
   for (const backedUp of data.verdicts) restoreVerdictNote(db, backedUp, backupTime);
 
   const outcome = { restored: 0, keptNewer: 0, moved: 0 };
-  for (const arrivals of Map.groupBy(arrivingVerdicts(db, data.verdicts), (a) => a.write.key)) {
+  for (const arrivals of Map.groupBy(
+    arrivingVerdicts(db, data.verdicts),
+    (arrival) => arrival.write.key,
+  )) {
     const { write, backedUp } = strongestArrival(arrivals[1]);
     if (keepsLibraryVerdict(db, write)) {
       outcome.keptNewer += 1;

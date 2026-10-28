@@ -22,10 +22,10 @@
   );
   const otherLabels = $derived(
     detail
-      ? [...new Set(detail.release.labels.map((l) => l.name))].filter((n) => n !== item.labelName)
+      ? [...new Set(detail.release.labels.map((label) => label.name))].filter((name) => name !== item.labelName)
       : [],
   );
-  const genres = $derived(detail ? detail.release.genres.filter((g) => g !== "Electronic") : []);
+  const genres = $derived(detail ? detail.release.genres.filter((genre) => genre !== "Electronic") : []);
   const enrichedAt = $derived(item.enrichedAt);
   // The button never keeps focus, so Space always reaches the player.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
@@ -118,7 +118,7 @@
         {formatCounted(siblings.length, "other version")} on this master:
         {siblings
           .slice(0, 3)
-          .map((s) => [s.year, s.country, s.formatSummary.split(" (")[0]].filter(Boolean).join(" "))
+          .map((sibling) => [sibling.year, sibling.country, sibling.formatSummary.split(" (")[0]].filter(Boolean).join(" "))
           .join("; ")}{siblings.length > 3 ? "; …" : ""}
       </p>
     {/if}

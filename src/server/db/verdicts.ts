@@ -131,7 +131,7 @@ export function deleteVerdict(db: Db, key: string): Verdict | null {
 }
 
 export function countVerdictsByStatus(db: Db): Record<VerdictStatus, number> {
-  const counts = Object.fromEntries(VERDICT_STATUSES.map((s) => [s, 0])) as Record<
+  const counts = Object.fromEntries(VERDICT_STATUSES.map((status) => [status, 0])) as Record<
     VerdictStatus,
     number
   >;

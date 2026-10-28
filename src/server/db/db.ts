@@ -55,7 +55,7 @@ export function listMigrations(
 ): { version: number; name: string; file: string }[] {
   return fs
     .readdirSync(dir)
-    .filter((f) => /^\d{4}_.+\.sql$/.test(f))
+    .filter((file) => /^\d{4}_.+\.sql$/.test(file))
     .sort()
     .map((name) => ({
       version: Number.parseInt(name.slice(0, 4), 10),

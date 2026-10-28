@@ -40,7 +40,11 @@ export function apiArtists(list: DiscogsArtist[] | undefined): ArtistRef[] {
 }
 
 export function apiLabels(list: DiscogsLabel[] | undefined): LabelRef[] {
-  return (list ?? []).map((l) => ({ id: l.id ?? null, name: l.name, catno: l.catno ?? "" }));
+  return (list ?? []).map((label) => ({
+    id: label.id ?? null,
+    name: label.name,
+    catno: label.catno ?? "",
+  }));
 }
 
 export function apiFormats(list: DiscogsFormat[] | undefined): FormatRef[] {

@@ -11,7 +11,7 @@ interface HashLocation {
 function parse(hash: string): HashLocation {
   const [name = "", anchor] = hash.replace(/^#\/?/, "").split(/[?]/)[0]!.split("/");
   if (name === "setup") return { route: "setup", anchor: anchor || null };
-  return ROUTES.some((r) => r.route === name)
+  return ROUTES.some((destination) => destination.route === name)
     ? { route: name as Route, anchor: anchor || null }
     : { route: "triage", anchor: null };
 }

@@ -96,10 +96,10 @@ export function readIdList(file: string): number[] {
   return fs
     .readFileSync(file, "utf8")
     .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l !== "" && !l.startsWith("#"))
-    .map((l) => Number.parseInt(l, 10))
-    .filter((n) => !Number.isNaN(n));
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && !line.startsWith("#"))
+    .map((line) => Number.parseInt(line, 10))
+    .filter((id) => !Number.isNaN(id));
 }
 
 export interface DumpInput {

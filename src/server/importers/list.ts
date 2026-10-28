@@ -83,10 +83,10 @@ export async function resolveListEntries(
     try {
       const resolved = await resolveListItem(reading, item, options.currency);
       entries.push({ ...base, ...resolved });
-    } catch (err) {
+    } catch (error) {
       options.signal?.throwIfAborted();
       deps.logger.warn(
-        `list item ${item.type} ${item.id} could not be looked up: ${err instanceof Error ? err.message : String(err)}`,
+        `list item ${item.type} ${item.id} could not be looked up: ${error instanceof Error ? error.message : String(error)}`,
       );
       const key = item.type === "master" ? masterKey(item.id) : releaseKey(item.id);
       entries.push({

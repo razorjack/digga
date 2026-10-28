@@ -21,8 +21,8 @@
   const blockedPositions = $derived(
     new Set(
       detail.videos
-        .filter((v) => !v.embeddable && v.matchedPosition !== null)
-        .map((v) => v.matchedPosition!),
+        .filter((video) => !video.embeddable && video.matchedPosition !== null)
+        .map((video) => video.matchedPosition!),
     ),
   );
   const mine = $derived(player.detail?.release.id === detail.release.id);
@@ -80,7 +80,7 @@
           tabindex="-1"
           disabled={index === null || state === "failed"}
           aria-current={isCurrent(state) ? "true" : undefined}
-          onmousedown={(e) => e.preventDefault()}
+          onmousedown={(event) => event.preventDefault()}
           onclick={() => index !== null && onplay(index)}
         >
           <span class="pos">{track.position}</span>
