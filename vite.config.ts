@@ -28,6 +28,7 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
       complexity: ["error", { max: 15 }],
       "max-depth": ["error", { max: 3 }],
+      "max-lines": ["error", { max: 400, skipBlankLines: true, skipComments: true }],
       "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],
       "max-nested-callbacks": ["error", { max: 3 }],
       "max-params": ["error", { max: 4 }],
@@ -39,6 +40,21 @@ export default defineConfig({
       {
         files: ["**/*.test.ts", "**/*.e2e.ts"],
         rules: { complexity: "off", "max-lines-per-function": "off" },
+      },
+      { files: ["tests/**"], rules: { "max-lines": "off" } },
+      {
+        // Declarative: the API's schemas and types, the release SQL, one fake per service.
+        files: ["src/shared/api.ts", "src/server/db/releases.ts", "tools/dev/fake-services.ts"],
+        rules: { "max-lines": "off" },
+      },
+      {
+        // Each still runs several workflows; split one further when a change touches them.
+        files: [
+          "src/client/triage/session.svelte.ts",
+          "src/client/player/triage-player.svelte.ts",
+          "src/client/twelves/shelf.svelte.ts",
+        ],
+        rules: { "max-lines": "off" },
       },
     ],
     options: { typeAware: true, typeCheck: true },

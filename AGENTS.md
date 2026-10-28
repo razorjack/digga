@@ -250,7 +250,10 @@ to TypeScript, Svelte scripts and templates, and tests when writing or changing 
   and explain the constraint. A factory containing several workflows does not qualify merely
   because they share a closure. `vite.config.ts` enforces these limits, at most four parameters
   and three nested callbacks, no nested ternaries, and no `else` after a returning branch.
-  Tests are exempt from function length and complexity limits; the other rules still apply.
+  It also caps a module at 400 nonblank, noncomment lines; the files over it are listed there
+  with the reason, and a new one needs a reason of its own.
+  Tests are exempt from file length, function length and complexity limits; the other rules
+  still apply.
   Svelte templates also require review because lint checks their scripts, not all markup expressions.
 
 ### State and Svelte
