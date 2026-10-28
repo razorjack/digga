@@ -138,7 +138,7 @@ export class SetupFlow {
 
   /** Step 1: the download starts, and runs behind the next two steps. */
   async fetchCatalogue(): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       const fetching = this.setup?.catalogue.newest?.downloaded || isActiveJob(this.download);
       if (!fetching) {
         if (await this.#chosenDumpsDirGone()) return;
@@ -152,14 +152,14 @@ export class SetupFlow {
 
   /** Step 1: reads the listing, the free space and the chosen folder or file again, and stays. */
   async checkCatalogueAgain(): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       this.setup = await api.getSetup();
     });
   }
 
   /** Step 1 in the desktop app: a dump the user has, chosen in the file dialog, instead of a download. */
   async useDumpFile(): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       const { file } = await api.chooseDumpFile();
       if (file === null) return;
       await this.#saveSettings({ dumpFile: file });
@@ -171,7 +171,7 @@ export class SetupFlow {
 
   /** Step 1 in the desktop app, short of space: another folder for the catalogue, for good. */
   async chooseDumpsFolder(): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       const { folder } = await api.chooseDumpsFolder();
       if (folder !== null) this.setup = await api.getSetup();
     });
@@ -179,7 +179,7 @@ export class SetupFlow {
 
   /** After the download stopped, on steps 2 and 3: it starts again from the first byte. */
   async restartDownload(): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       await this.#downloadAgainIfStopped();
       this.#poll();
     });
@@ -188,7 +188,7 @@ export class SetupFlow {
   /** Step 2: keeps the token when Discogs accepts it, and reads the account's sizes. */
   async connect(token: string): Promise<boolean> {
     let connected = false;
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       this.account = await api.setDiscogsToken(token);
       connected = true;
       await Promise.all([this.#loadProfile(), settings.load()]);
@@ -202,7 +202,7 @@ export class SetupFlow {
    */
   async useUsername(username: string): Promise<boolean> {
     let found = false;
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       const profile = await api.getDiscogsProfile(username);
       await this.#saveSettings({ username });
       this.profile = profile;
@@ -213,7 +213,7 @@ export class SetupFlow {
 
   /** Step 2: starts the chosen imports and moves on while they run. */
   async continueFromDiscogs(choice: { seeds: boolean; currency: string }) {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       if (this.profile) await this.#saveSettings({ currency: choice.currency });
       const started: Job[] = [];
       if (choice.seeds && this.profile) {
@@ -228,7 +228,7 @@ export class SetupFlow {
 
   /** Step 3: saves the picks, digs for real, and starts the load once the imports are in. */
   async fillCrate(picks: Picks): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       await this.#saveSettings({ picks });
       this.picks = picks;
       await this.#downloadAgainIfStopped();
@@ -242,12 +242,12 @@ export class SetupFlow {
   /** The load starts now; the coverage pass then misses the labels of the imports still running. */
   async startWithoutImports(): Promise<void> {
     this.waitingForImports = false;
-    await this.#act(() => this.#startLoad());
+    await this.#runUserAction(() => this.#startLoad());
   }
 
   /** After an interruption: the download again unless the dump is whole, then the load. */
-  async pickUp(): Promise<void> {
-    await this.#act(async () => {
+  async resumeAfterInterruption(): Promise<void> {
+    await this.#runUserAction(async () => {
       this.setup = await api.getSetup();
       if (this.#needsDownload()) this.download = await api.startDumpDownload();
       await this.#startLoad();
@@ -261,7 +261,7 @@ export class SetupFlow {
    * record of a finished load.
    */
   async changePicks(): Promise<void> {
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       if (this.load && isActiveJob(this.load)) {
         await api.cancelJob(this.load.id);
         await this.#waitUntilStopped(this.load.id);
@@ -277,7 +277,7 @@ export class SetupFlow {
   async deleteDump(): Promise<void> {
     const file = this.dumpFile;
     if (!file || this.pickedDump !== null) return;
-    await this.#act(async () => {
+    await this.#runUserAction(async () => {
       await api.deleteDump(file);
       this.dumpDeleted = true;
     });
@@ -452,7 +452,8 @@ export class SetupFlow {
     }
   }
 
-  async #act(action: () => Promise<void>): Promise<void> {
+  /** Runs what the user asked for with the flow busy, and shows its failure as the error. */
+  async #runUserAction(action: () => Promise<void>): Promise<void> {
     this.busy = true;
     this.error = null;
     try {

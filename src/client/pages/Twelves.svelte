@@ -38,16 +38,16 @@
     trackKey,
     type ReplayRange,
   } from "../twelves/model.ts";
-  const shelfState = new TwelvesShelf();
+  const twelves = new TwelvesShelf();
   /** Wants and grails go to the Discogs wantlist; their shelves say whether all of them got there. */
   const showWantlistHandoff = $derived(
-    shelfState.shelf === "accepted" ||
-      shelfState.shelf === "candidate" ||
-      (shelfState.shelf === "all" && shelfState.wantsPending.length > 0),
+    twelves.shelf === "accepted" ||
+      twelves.shelf === "candidate" ||
+      (twelves.shelf === "all" && twelves.wantsPending.length > 0),
   );
   onMount(() => {
-    void shelfState.load();
-    return () => shelfState.destroy();
+    void twelves.load();
+    return () => twelves.destroy();
   });
   let editingKey = $state<string | null>(null);
 
@@ -58,23 +58,23 @@
   let table = $state<HTMLTableElement | null>(null);
 
   const hasMaybeList = $derived((settings.value?.discogs.maybeListId ?? null) !== null);
-  const shelfLabel = $derived(SHELVES.find((option) => option.id === shelfState.shelf)!.label);
+  const shelfLabel = $derived(SHELVES.find((option) => option.id === twelves.shelf)!.label);
 
   $effect(() => {
-    if (shelfState.selectedIndex === -1 && shelfState.visible.length > 0)
-      shelfState.selectedKey = shelfState.visible[0]!.key;
+    if (twelves.selectedIndex === -1 && twelves.visible.length > 0)
+      twelves.selectedKey = twelves.visible[0]!.key;
   });
 
   $effect(() => {
-    const first = shelfState.visibleTracks[0];
-    if (shelfState.selectedTrackIndex === -1 && first) shelfState.selectedTrackKey = trackKey(first);
+    const first = twelves.visibleTracks[0];
+    if (twelves.selectedTrackIndex === -1 && first) twelves.selectedTrackKey = trackKey(first);
   });
 
-  const onTracks = $derived(shelfState.shelf === "tracks");
-  const page = $derived(onTracks ? shelfState.trackPage : shelfState.page);
+  const onTracks = $derived(twelves.shelf === "tracks");
+  const page = $derived(onTracks ? twelves.trackPage : twelves.page);
 
   $effect(() => {
-    void shelfState.selectedKey;
+    void twelves.selectedKey;
     table?.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
   });
 
@@ -83,26 +83,26 @@
    * selected one to the end of the shelf. On the snoozed shelf both start a round from the selection.
    */
   function hearAgain(range: ReplayRange): void {
-    const request = shelfState.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay(range);
+    const request = twelves.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay(range);
     if (!request) return;
     ui.replay(request);
     navigate("triage");
   }
 
   function selectedTrackReplay(): ReplayRequest | null {
-    const track = shelfState.selectedTrack;
+    const track = twelves.selectedTrack;
     if (!track?.release) {
-      shelfState.showFlash("This track's release is not in the loaded dump.");
+      twelves.showFlash("This track's release is not in the loaded dump.");
       return null;
     }
     return replayTrack(track);
   }
 
   function selectedRecordsReplay(range: ReplayRange): ReplayRequest | null {
-    const { visible, selectedIndex: index, shelf } = shelfState;
+    const { visible, selectedIndex: index, shelf } = twelves;
     const items = replayedItems(visible, { index, shelf, range });
     if (items.length === 0) {
-      shelfState.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+      twelves.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
       return null;
     }
     return { items: items.map(replayItemOf) };
@@ -119,7 +119,7 @@
   function saveNote(item: TwelvesItem): void {
     editingKey = null;
     const note = normalizeNote(noteDraft);
-    if (note !== item.note) shelfState.saveNote(item, note);
+    if (note !== item.note) twelves.saveNote(item, note);
   }
 
   /** Enter saves the note and Esc cancels it; no key in the field reaches the page's shortcuts. */
@@ -131,20 +131,20 @@
 
   function saveTrackNote(track: MarkedTrack, note: string | null): void {
     editingKey = null;
-    shelfState.saveTrackNote(track, note);
+    twelves.saveTrackNote(track, note);
   }
 
   const ACTIONS: Record<string, () => void> = {
-    j: () => shelfState.move(1),
-    ArrowDown: () => shelfState.move(1),
-    k: () => shelfState.move(-1),
-    ArrowUp: () => shelfState.move(-1),
-    ArrowLeft: () => shelfState.turnPage(-1),
-    ArrowRight: () => shelfState.turnPage(1),
-    s: () => shelfState.cycleSort(),
+    j: () => twelves.move(1),
+    ArrowDown: () => twelves.move(1),
+    k: () => twelves.move(-1),
+    ArrowUp: () => twelves.move(-1),
+    ArrowLeft: () => twelves.turnPage(-1),
+    ArrowRight: () => twelves.turnPage(1),
+    s: () => twelves.cycleSort(),
     "/": () => filterInput?.focus(),
-    z: () => void shelfState.undo(),
-    i: () => void shelfState.checkList(),
+    z: () => void twelves.undo(),
+    i: () => void twelves.checkList(),
     Enter: () => hearAgain("selected"),
     "Shift+Enter": () => hearAgain("to the end"),
   };
@@ -166,7 +166,7 @@
   function runShortcut(key: string): boolean {
     const shelfIndex = /^[1-9]$/.test(key) ? Number(key) - 1 : -1;
     if (shelfIndex >= 0) {
-      shelfState.shelf = SHELVES[shelfIndex]!.id;
+      twelves.shelf = SHELVES[shelfIndex]!.id;
       return true;
     }
     const action = ACTIONS[key];
@@ -179,7 +179,7 @@
 
   function selectedShortcut(key: string): boolean {
     if (onTracks) return trackShortcut(key);
-    const selected = shelfState.selected;
+    const selected = twelves.selected;
     if (!selected) return false;
     if (key === "o" && selected.release) {
       openExternal(discogsReleaseUrl(selected.release.id));
@@ -195,12 +195,12 @@
     }
     const verdict = verdictForKey(key);
     if (!verdict) return false;
-    shelfState.rejudge(selected, verdict.status);
+    twelves.rejudge(selected, verdict.status);
     return true;
   }
 
   function trackShortcut(key: string): boolean {
-    const track = shelfState.selectedTrack;
+    const track = twelves.selectedTrack;
     if (!track) return false;
     if (key === "o" && track.release) {
       openExternal(discogsReleaseUrl(track.release.id));
@@ -211,24 +211,24 @@
       return true;
     }
     if (!verdictForKey(key)) return false;
-    shelfState.showFlash("Track marks change in Triage, on the playing track.");
+    twelves.showFlash("Track marks change in Triage, on the playing track.");
     return true;
   }
 
   /** A copied YouTube link goes on the selected record's release. */
   function onpaste(event: ClipboardEvent): void {
-    const selected = shelfState.selected;
+    const selected = twelves.selected;
     if (ui.helpOpen || onTracks || !selected) return;
     const link = pastedLink(event);
     if (link === null) return;
     event.preventDefault();
-    if (link.isVideo) shelfState.attachVideo(selected, link.url);
-    else shelfState.showFlash(NOT_A_VIDEO_LINK);
+    if (link.isVideo) twelves.attachVideo(selected, link.url);
+    else twelves.showFlash(NOT_A_VIDEO_LINK);
   }
 
   function onFilterKey(event: KeyboardEvent): void {
     if (event.key === "Escape" || event.key === "Enter") {
-      if (event.key === "Escape") shelfState.query = "";
+      if (event.key === "Escape") twelves.query = "";
       (event.currentTarget as HTMLInputElement).blur();
       event.preventDefault();
     }
@@ -238,12 +238,12 @@
 <svelte:window {onkeydown} {onpaste} />
 
 {#snippet emptyShelf()}
-  {#if shelfState.query}
-    <p class="empty">Nothing matches “{shelfState.query}”.</p>
+  {#if twelves.query}
+    <p class="empty">Nothing matches “{twelves.query}”.</p>
   {:else}
     <div class="empty">
       <Art name="crate" size={160} />
-      <p>{EMPTY[shelfState.shelf]}</p>
+      <p>{EMPTY[twelves.shelf]}</p>
     </div>
   {/if}
 {/snippet}
@@ -262,11 +262,11 @@
             name="shelf"
             value={option.id}
             aria-keyshortcuts={String(index + 1)}
-            bind:group={shelfState.shelf}
+            bind:group={twelves.shelf}
           />
           <Key label={String(index + 1)} size="sm" aria-hidden="true" />
           <span class="shelf-label">{option.label}</span>
-          <span class="count">{formatCount(shelfState.counts[option.id])}</span>
+          <span class="count">{formatCount(twelves.counts[option.id])}</span>
         </label>
       {/each}
     </fieldset>
@@ -279,7 +279,7 @@
       <input
         type="search"
         bind:this={filterInput}
-        bind:value={shelfState.query}
+        bind:value={twelves.query}
         onkeydown={onFilterKey}
         placeholder="artist, title, label, cat no"
         aria-label="Filter"
@@ -291,7 +291,7 @@
       <div class="segments">
         {#each SORTS as option (option.id)}
           <label>
-            <input type="radio" class="visually-hidden" name="sort" value={option.id} bind:group={shelfState.sort} />
+            <input type="radio" class="visually-hidden" name="sort" value={option.id} bind:group={twelves.sort} />
             {option.label}
           </label>
         {/each}
@@ -300,15 +300,15 @@
   </search>
 
   <div class="shelf">
-  {#if shelfState.shelf === "maybe" || (shelfState.shelf === "all" && shelfState.pending > 0)}
+  {#if twelves.shelf === "maybe" || (twelves.shelf === "all" && twelves.pending > 0)}
     <div class="handoff">
       {#if !hasMaybeList}
         <p>Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step with it.</p>
       {:else}
         <p>
-          {#if shelfState.pending > 0}
-            <b>{formatCount(shelfState.pending)}</b>
-            {shelfState.pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet. The Discogs
+          {#if twelves.pending > 0}
+            <b>{formatCount(twelves.pending)}</b>
+            {twelves.pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet. The Discogs
             API cannot add to lists: <Key label="O" /> opens the release, where "Add to list" is one
             click.
           {:else}
@@ -318,12 +318,12 @@
         <button
           type="button"
           class="check"
-          disabled={shelfState.checking}
+          disabled={twelves.checking}
           aria-keyshortcuts="I"
-          onclick={() => void shelfState.checkList()}
+          onclick={() => void twelves.checkList()}
         >
           <Key label="I" aria-hidden="true" />
-          {shelfState.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
+          {twelves.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
         </button>
       {/if}
     </div>
@@ -332,23 +332,23 @@
   {#if showWantlistHandoff}
     <div class="handoff">
       <p>
-        {#if shelfState.wantsPending.length > 0}
-          <b>{formatCount(shelfState.wantsPending.length)}</b>
-          {shelfState.wantsPending.length === 1 ? "record is" : "records are"} not on your Discogs wantlist.
+        {#if twelves.wantsPending.length > 0}
+          <b>{formatCount(twelves.wantsPending.length)}</b>
+          {twelves.wantsPending.length === 1 ? "record is" : "records are"} not on your Discogs wantlist.
           <Key label="A" /> on a want or <Key label="C" /> on a grail adds it.
         {:else}
           Everything here is on your Discogs wantlist.
         {/if}
       </p>
-      {#if shelfState.wantsPending.length > 1}
-        <button type="button" class="check" disabled={shelfState.pushing} onclick={() => shelfState.addPendingToWantlist()}>
-          {shelfState.pushing ? "Adding…" : `add all ${formatCount(shelfState.wantsPending.length)}`}
+      {#if twelves.wantsPending.length > 1}
+        <button type="button" class="check" disabled={twelves.pushing} onclick={() => twelves.addPendingToWantlist()}>
+          {twelves.pushing ? "Adding…" : `add all ${formatCount(twelves.wantsPending.length)}`}
         </button>
       {/if}
     </div>
   {/if}
 
-  {#if shelfState.shelf === "no_audio" && shelfState.counts.no_audio > 0}
+  {#if twelves.shelf === "no_audio" && twelves.counts.no_audio > 0}
     <div class="handoff">
       <p>
         None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy a video's
@@ -358,7 +358,7 @@
     </div>
   {/if}
 
-  {#if shelfState.shelf === "snoozed" && shelfState.counts.snoozed > 0}
+  {#if twelves.shelf === "snoozed" && twelves.counts.snoozed > 0}
     <div class="handoff">
       <p>
         <Key label="Enter" /> hears the snoozed records again in Triage, from the selected one. A verdict
@@ -367,23 +367,23 @@
     </div>
   {/if}
 
-  {#if shelfState.loading}
+  {#if twelves.loading}
     <p class="empty">Loading…</p>
-  {:else if shelfState.error}
-    <p class="empty">Twelves did not load: {shelfState.error}</p>
-  {:else if onTracks && shelfState.visibleTracks.length === 0}
+  {:else if twelves.error}
+    <p class="empty">Twelves did not load: {twelves.error}</p>
+  {:else if onTracks && twelves.visibleTracks.length === 0}
     {@render emptyShelf()}
   {:else if onTracks}
     <TrackTable
-      tracks={shelfState.trackPage.items}
-      sort={shelfState.sort}
-      selectedKey={shelfState.selectedTrackKey}
+      tracks={twelves.trackPage.items}
+      sort={twelves.sort}
+      selectedKey={twelves.selectedTrackKey}
       {editingKey}
-      onselect={(key) => (shelfState.selectedTrackKey = key)}
+      onselect={(key) => (twelves.selectedTrackKey = key)}
       onsave={saveTrackNote}
       oncancel={() => (editingKey = null)}
     />
-  {:else if shelfState.visible.length === 0}
+  {:else if twelves.visible.length === 0}
     {@render emptyShelf()}
   {:else}
     <table class="box" bind:this={table}>
@@ -393,19 +393,19 @@
       <thead>
         <tr>
           <th scope="col" class="catno">Cat no</th>
-          <th scope="col" class="who" aria-sort={columnSort(shelfState.sort, "record")}>Record</th>
-          <th scope="col" class="where" aria-sort={columnSort(shelfState.sort, "label")}>
+          <th scope="col" class="who" aria-sort={columnSort(twelves.sort, "record")}>Record</th>
+          <th scope="col" class="where" aria-sort={columnSort(twelves.sort, "label")}>
             Label<span class="visually-hidden">, year and country</span>
           </th>
-          <th scope="col" class="market" aria-sort={columnSort(shelfState.sort, "market")}>Market</th>
+          <th scope="col" class="market" aria-sort={columnSort(twelves.sort, "market")}>Market</th>
           <th scope="col" class="verdict">Verdict</th>
-          <th scope="col" class="day" aria-sort={columnSort(shelfState.sort, "decided")}>Decided</th>
+          <th scope="col" class="day" aria-sort={columnSort(twelves.sort, "decided")}>Decided</th>
         </tr>
       </thead>
       <tbody>
-        {#each shelfState.page.items as item (item.key)}
+        {#each twelves.page.items as item (item.key)}
           {@const release = item.release}
-          {@const isSelected = item.key === shelfState.selectedKey}
+          {@const isSelected = item.key === twelves.selectedKey}
           {@const stamp = recordStamp(item)}
           <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
@@ -414,7 +414,7 @@
             aria-current={isSelected ? "true" : undefined}
             data-triage-key={item.key}
             data-release-id={release?.id}
-            onclick={() => (shelfState.selectedKey = item.key)}
+            onclick={() => (twelves.selectedKey = item.key)}
           >
             <td class="catno">{release?.catno ?? ""}</td>
             <td class="who">
@@ -492,20 +492,20 @@
         <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
         <span><Key label="I" /> check Maybe list</span>
       {/if}
-      {#if shelfState.shelf === "no_audio"}
+      {#if twelves.shelf === "no_audio"}
         <span><Key label="Y" /> youtube</span>
         <span><Key label="⌘V" /> attach a link</span>
       {/if}
       <span><Key label="Enter" /> hear again</span>
-      {#if !onTracks && shelfState.shelf !== "snoozed"}
+      {#if !onTracks && twelves.shelf !== "snoozed"}
         <span><Key label="Shift" /><Key label="Enter" /> hear to the end</span>
       {/if}
       <span><Key label="Z" /> undo</span>
     </p>
     <div class="status">
-      <Flash message={shelfState.flash} align="end" />
+      <Flash message={twelves.flash} align="end" />
       {#if page.count > 1}
-        <Pager {page} noun={onTracks ? "tracks" : "records"} onturn={(turn) => shelfState.turnPage(turn)} />
+        <Pager {page} noun={onTracks ? "tracks" : "records"} onturn={(turn) => twelves.turnPage(turn)} />
       {/if}
     </div>
   </footer>

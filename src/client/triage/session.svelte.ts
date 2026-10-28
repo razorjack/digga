@@ -138,7 +138,7 @@ export class TriageSession {
   /** The queue as it was when a round started. */
   #queueBeforeRound: { upcoming: QueueItem[]; passed: QueueItem[]; exhausted: boolean } | null =
     null;
-  /** readAgain() came during a round; the queue is read again once the round ends. */
+  /** rereadQueue() came during a round; the queue is read again once the round ends. */
   #readAfterRound = false;
   /** Verdicts of the records taken into rounds, by triage key. */
   #roundVerdicts = new Map<string, Verdict | null>();
@@ -185,7 +185,7 @@ export class TriageSession {
     this.#queueBeforeRound = null;
     this.#readAfterRound = false;
     try {
-      await this.#refill();
+      await this.#readMore();
       if (!isCurrent()) return;
       this.status = "ready";
     } catch (error) {
@@ -238,7 +238,7 @@ export class TriageSession {
 
     this.#placeResumedRecords(resolved);
     if (resolved.round?.length) this.startRound(resolved.round);
-    this.#afterMove();
+    this.#afterQueueChange();
     void stats.refresh();
   }
 
@@ -255,11 +255,11 @@ export class TriageSession {
    * While a load adds records, the end of the queue is only the end of what has arrived: asks the
    * server again, and the next record shows once there is one.
    */
-  async lookAgain(): Promise<void> {
+  async readNewArrivals(): Promise<void> {
     if (!this.finished || this.round) return;
     const isCurrent = this.#queueStarts.current();
     try {
-      await this.#refill();
+      await this.#readMore();
     } catch (error) {
       if (isCurrent()) this.#flash.show(`Could not look for new records: ${errorMessage(error)}`);
     }
@@ -270,7 +270,7 @@ export class TriageSession {
    * hidden label is back. The record on screen stays; the records after it follow the queue's
    * order again. A round keeps its records, and the queue under it is read once it ends.
    */
-  async readAgain(): Promise<void> {
+  async rereadQueue(): Promise<void> {
     if (this.round) {
       this.#readAfterRound = true;
       await this.#refreshRound();
@@ -346,7 +346,7 @@ export class TriageSession {
     this.#savingSlip = id;
     stats.session += 1;
     this.#countVerdict(entry, 1);
-    this.#afterMove();
+    this.#afterQueueChange();
     const answered = this.#reads.startWrite(item.triageKey);
     void this.#writes.run(() => this.#saveVerdict(entry, id).finally(answered));
   }
@@ -453,7 +453,7 @@ export class TriageSession {
   pass(): void {
     const item = this.current;
     if (!item) {
-      this.goRound();
+      this.goRoundPassed();
       return;
     }
     this.upcoming = this.upcoming.slice(1);
@@ -465,7 +465,7 @@ export class TriageSession {
       id: ++this.#slipSeq,
       stays: this.#passDestination(item.triageKey),
     };
-    this.#afterMove();
+    this.#afterQueueChange();
   }
 
   #passDestination(key: string): "queue" | "snoozed" | "saved" {
@@ -494,7 +494,7 @@ export class TriageSession {
     this.round = { kind: allSnoozed ? "snoozed" : "replay", total: records.length };
     this.status = "ready";
     this.slip = null;
-    this.#afterMove();
+    this.#afterQueueChange();
   }
 
   /** Twelves may have edited these records while Triage kept its cached details. */
@@ -524,30 +524,32 @@ export class TriageSession {
     this.#queueBeforeRound = null;
     this.round = null;
     const judged = new Set(
-      this.history.filter((h) => h.kind === "verdict").map((h) => h.item.triageKey),
+      this.history.filter((entry) => entry.kind === "verdict").map((entry) => entry.item.triageKey),
     );
     // Queue releases that undo brought back during the round stay in front.
-    const returned = this.upcoming.filter((i) => !this.#roundVerdicts.has(i.triageKey));
-    const returnedKeys = new Set(returned.map((i) => i.triageKey));
+    const returned = this.upcoming.filter((item) => !this.#roundVerdicts.has(item.triageKey));
+    const returnedKeys = new Set(returned.map((item) => item.triageKey));
     this.upcoming = [
       ...returned,
-      ...saved.upcoming.filter((i) => !judged.has(i.triageKey) && !returnedKeys.has(i.triageKey)),
+      ...saved.upcoming.filter(
+        (item) => !judged.has(item.triageKey) && !returnedKeys.has(item.triageKey),
+      ),
     ];
     this.passed = saved.passed;
     this.exhausted = saved.exhausted;
-    this.#afterMove();
+    this.#afterQueueChange();
     if (!this.#readAfterRound) return;
     this.#readAfterRound = false;
-    void this.readAgain();
+    void this.rereadQueue();
   }
 
   /** At the end of the queue, starts again on the releases passed with N. */
-  goRound(): void {
+  goRoundPassed(): void {
     if (this.upcoming.length > 0 || this.passed.length === 0) return;
     this.upcoming = this.passed;
     this.passed = [];
     this.slip = null;
-    this.#afterMove();
+    this.#afterQueueChange();
   }
 
   /** X: leaves every record on the current record's label out of the queue; Z lets them back. */
@@ -602,7 +604,7 @@ export class TriageSession {
         upcoming: saved.upcoming.filter(kept),
         passed: saved.passed.filter(kept),
       };
-    this.#afterMove();
+    this.#afterQueueChange();
   }
 
   undo(): void {
@@ -631,7 +633,7 @@ export class TriageSession {
       undone: entry.kind === "verdict" ? entry.status : "pass",
       id: slipId,
     };
-    this.#afterMove();
+    this.#afterQueueChange();
     if (entry.kind !== "verdict") return;
     this.#savingSlip = slipId;
     stats.session -= 1;
@@ -656,7 +658,7 @@ export class TriageSession {
     }
     if (this.round) this.upcoming = [...entry.roundRecords, ...this.upcoming];
     this.#returnToQueue(entry.item);
-    this.#afterMove();
+    this.#afterQueueChange();
     this.slip = { kind: "undo", item: entry.item, undone: "label", id: ++this.#slipSeq };
   }
 
@@ -848,7 +850,11 @@ export class TriageSession {
     if (stats.value) stats.value = countVerdict(stats.value, entry, delta);
   }
 
-  #afterMove(): void {
+  /**
+   * After records moved in or out of the buffers: ends a round left empty, reads the details
+   * ahead, and reads more of the queue when few records are left.
+   */
+  #afterQueueChange(): void {
     if (this.round && this.upcoming.length === 0) {
       const { kind } = this.round;
       this.endRound();
@@ -858,7 +864,7 @@ export class TriageSession {
     this.#prefetch();
     if (!this.exhausted && this.upcoming.length < REFILL_BELOW) {
       const isCurrent = this.#queueStarts.current();
-      this.#refill().catch((error: unknown) => {
+      this.#readMore().catch((error: unknown) => {
         if (!isCurrent()) return;
         const message = `Could not fetch more of the queue: ${errorMessage(error)}`;
         this.#flash.show(message);
@@ -872,7 +878,8 @@ export class TriageSession {
     this.#prune();
   }
 
-  #refill(): Promise<void> {
+  /** Reads another batch of the queue, or waits for the read already out. */
+  #readMore(): Promise<void> {
     return this.#reads.inFlight ?? this.#reads.run(() => this.#appendFresh());
   }
 

@@ -263,7 +263,7 @@ describe("a dump file the user chose in the desktop app", () => {
     expect(flow.step).toBe("discogs");
     expect(flow.download).toBeNull();
     await flow.fillCrate(PICKS);
-    await flow.pickUp();
+    await flow.resumeAfterInterruption();
     await flow.deleteDump();
 
     expect(flow.error).toBeNull();

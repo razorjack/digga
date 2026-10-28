@@ -104,7 +104,7 @@
     if (change.kind === "none") return;
     if (change.kind === "labels") {
       for (const label of change.hidden) session.leaveOutLabel(label);
-      if (change.shown.length > 0) void session.readAgain();
+      if (change.shown.length > 0) void session.rereadQueue();
       return;
     }
     startQueue(config);
@@ -121,10 +121,10 @@
   // when the load ends, which brings the coverage releases last.
   $effect(() => {
     if (!loadStatus.loading || !session.finished) return;
-    const timer = setInterval(() => void session.lookAgain(), 10_000);
+    const timer = setInterval(() => void session.readNewArrivals(), 10_000);
     return () => {
       clearInterval(timer);
-      void session.lookAgain();
+      void session.readNewArrivals();
     };
   });
 
@@ -258,7 +258,7 @@
     }
     if (!wasHidden) return;
     wasHidden = false;
-    untrack(() => void session.readAgain());
+    untrack(() => void session.rereadQueue());
   });
 
   function judge(status: TriageStatus): void {
@@ -450,7 +450,7 @@
           {loadingSnoozed}
           skipsWithoutVideos={settings.value?.filters.skipWithoutVideos ?? false}
           onretrysettings={() => void settings.retry()}
-          ongoround={() => session.goRound()}
+          ongoround={() => session.goRoundPassed()}
           onleavescope={() => void session.setScope(null)}
           onhearsnoozed={() => void hearSnoozed()}
         />

@@ -189,10 +189,10 @@ describe("triage session", () => {
     session.judge("rejected");
     await until(() => session.finished);
 
-    await session.lookAgain();
+    await session.readNewArrivals();
     expect(session.finished).toBe(true);
     queue.push(2, 3);
-    await session.lookAgain();
+    await session.readNewArrivals();
 
     expect(session.finished).toBe(false);
     expect(session.current?.id).toBe(2);
@@ -339,7 +339,7 @@ describe("triage session", () => {
     await session.start(50, { seed: 123 });
     expect(server.queries[0]?.seed).toBe(123);
     expect(session.checkpoint(null).seed).toBe(123);
-    await session.readAgain();
+    await session.rereadQueue();
     expect(server.queries.at(-1)?.seed).toBe(123);
     session.destroy();
   });
@@ -624,7 +624,7 @@ describe("reading the queue again", () => {
     await sentBack(session, app);
     expect(ids(session)).toEqual([2, 3, 4]);
 
-    await session.readAgain();
+    await session.rereadQueue();
     expect(ids(session)).toEqual([2, 1, 3, 4]);
     expect(session.next?.id).toBe(1);
   });
@@ -634,7 +634,7 @@ describe("reading the queue again", () => {
     await sentBack(session, app);
     expect(session.finished).toBe(true);
 
-    await session.lookAgain();
+    await session.readNewArrivals();
     expect(session.finished).toBe(false);
     expect(session.current?.id).toBe(1);
   });
@@ -642,7 +642,7 @@ describe("reading the queue again", () => {
   it("keeps the list as it is when the queue's order has not changed", async () => {
     const { session, queries } = await started([1, 2, 3]);
     const upcoming = session.upcoming;
-    await session.readAgain();
+    await session.rereadQueue();
     expect(queries).toHaveLength(2);
     expect(session.upcoming).toBe(upcoming);
   });
@@ -652,7 +652,7 @@ describe("reading the queue again", () => {
     const label: QueueScope = { kind: "label", id: 88, name: "Moving Shadow" };
     await session.setScope(label);
     session.pass();
-    await session.readAgain();
+    await session.rereadQueue();
     expect(ids(session)).toEqual([2, 3]);
     expect(session.passed.map((item) => item.id)).toEqual([1]);
     expect(queries.at(-1)?.scope).toEqual(label);
@@ -662,7 +662,7 @@ describe("reading the queue again", () => {
   it("keeps the queue untouched while refreshing a round", async () => {
     const { session, queries } = await started([1, 2]);
     session.startRound([snoozed(9, "2026-01-02T03:04:05.000Z")]);
-    await session.readAgain();
+    await session.rereadQueue();
     expect(queries).toHaveLength(1);
     expect(ids(session)).toEqual([9]);
   });
@@ -676,7 +676,7 @@ describe("reading the queue again", () => {
       return postVerdict(input);
     });
     session.judge("rejected");
-    await session.readAgain();
+    await session.rereadQueue();
     expect(ids(session)).toEqual([2, 3]);
     answer.resolve();
   });
@@ -691,7 +691,7 @@ describe("reading the queue again", () => {
       await answer.promise;
       return response;
     });
-    const reading = session.readAgain();
+    const reading = session.rereadQueue();
     session.judge("rejected");
     await until(() => !session.slipBusy);
     answer.resolve();
@@ -713,7 +713,7 @@ describe("reading the queue again", () => {
     // Below eight buffered records, a verdict starts a refill.
     session.judge("rejected");
     session.judge("rejected");
-    const reading = session.readAgain();
+    const reading = session.rereadQueue();
     session.judge("rejected");
     answer.resolve();
     await reading;
@@ -729,7 +729,7 @@ describe("reading the queue again", () => {
       await answer.promise;
       return { ...(await getQueue(query)), items: [] };
     });
-    const reading = session.readAgain();
+    const reading = session.rereadQueue();
     expect(asked).toHaveBeenCalledOnce();
     await session.start(50);
     answer.resolve();
@@ -742,7 +742,7 @@ describe("reading the queue again", () => {
     await until(() => session.details.has(1));
     const details = vi.spyOn(http, "getRelease");
     await sentBack(session, app);
-    await session.readAgain();
+    await session.rereadQueue();
     await until(() => details.mock.calls.flat().includes(1));
 
     session.judge("rejected");
@@ -764,7 +764,7 @@ describe("reading the queue again", () => {
     await sentBack(session, app);
     // Its snooze is gone with the no-audio verdict, so the queue has the record.
     queue.unshift(9);
-    await session.readAgain();
+    await session.rereadQueue();
     expect(ids(session)).toEqual([1, 9, 2]);
 
     session.pass();
@@ -1087,7 +1087,7 @@ describe("hiding a label", () => {
     session.startRound([snoozed(5, "2026-09-01T10:00:00.000Z")]);
     const readsInRound = queries.length;
 
-    await session.readAgain();
+    await session.rereadQueue();
     expect(queries).toHaveLength(readsInRound);
     expect(session.upcoming.map((item) => item.id)).toEqual([5]);
 
@@ -1161,7 +1161,7 @@ it("does not replay earlier passes after restarting with a different queue", asy
   session.pass();
   queue.splice(0);
   await session.start(50);
-  session.goRound();
+  session.goRoundPassed();
   expect(session.current).toBeNull();
   expect(session.passed).toEqual([]);
   session.destroy();
@@ -1193,7 +1193,7 @@ it("undo restores the verdict Twelves saved while a replay was hidden", async ()
   verdicts.set(record.verdict.key, record.verdict);
   session.startRound([record]);
   verdicts.set(record.verdict.key, { ...record.verdict, status: "rejected" });
-  await session.readAgain();
+  await session.rereadQueue();
   const post = vi.spyOn(http, "postVerdict");
   session.judge("no_audio");
   await until(() => !session.slipBusy);

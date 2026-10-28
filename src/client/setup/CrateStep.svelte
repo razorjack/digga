@@ -140,7 +140,7 @@
           from the start.
         </p>
         <div class="actions">
-          <Action primary onclick={() => void flow.pickUp()} disabled={flow.busy}>Start again</Action>
+          <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}>Start again</Action>
           <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
         </div>
       </div>
@@ -152,7 +152,7 @@
           downloads it again if it was not whole.
         </p>
         <div class="actions">
-          <Action primary onclick={() => void flow.pickUp()} disabled={flow.busy}>Pick up</Action>
+          <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}>Pick up</Action>
           <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
         </div>
       </div>
