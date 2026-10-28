@@ -11,14 +11,14 @@ const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * without asking first. Tools such as curl send no Origin and are let through.
  */
 export function localOnly(): MiddlewareHandler {
-  return async (request, next) => {
-    const url = new URL(request.req.url);
+  return async (c, next) => {
+    const url = new URL(c.req.url);
     if (!LOOPBACK_HOSTNAMES.has(url.hostname))
-      return refuse(request, `Digga answers on localhost only, not on ${url.hostname}`);
+      return refuse(c, `Digga answers on localhost only, not on ${url.hostname}`);
 
-    const origin = request.req.header("origin");
-    if (!READ_METHODS.has(request.req.method) && origin !== undefined && !isOwnPage(origin, url))
-      return refuse(request, `Digga takes changes only from its own page, not from ${origin}`);
+    const origin = c.req.header("origin");
+    if (!READ_METHODS.has(c.req.method) && origin !== undefined && !isOwnPage(origin, url))
+      return refuse(c, `Digga takes changes only from its own page, not from ${origin}`);
 
     await next();
   };
@@ -38,6 +38,6 @@ function isOwnPage(origin: string, url: URL): boolean {
   );
 }
 
-function refuse(request: Context, message: string): Response {
-  return request.json({ error: message } satisfies ApiError, 403);
+function refuse(c: Context, message: string): Response {
+  return c.json({ error: message } satisfies ApiError, 403);
 }

@@ -21,14 +21,14 @@ import {
 import { recordKeyOf } from "../db/verdict-keys.ts";
 import { recordNoAudioVideos } from "../queue/no-audio.ts";
 import type { AppContext } from "../context.ts";
-import { badRequest, parseId, parseJson, parseQuery } from "./request.ts";
+import { badRequest, paramId, parseJson, parseQuery } from "./request.ts";
 
 export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
-  api.put("/releases/:id/note", (request) => saveNote(request, context));
-  api.post("/verdicts", (request) => saveVerdict(request, context));
-  api.delete("/verdicts/:key", (request) => removeVerdict(request, context));
-  api.post("/track-verdicts", (request) => saveTrackMark(request, context));
-  api.post("/listen-log", (request) => listen(request, context));
+  api.put("/releases/:id/note", (c) => saveNote(c, context));
+  api.post("/verdicts", (c) => saveVerdict(c, context));
+  api.delete("/verdicts/:key", (c) => removeVerdict(c, context));
+  api.post("/track-verdicts", (c) => saveTrackMark(c, context));
+  api.post("/listen-log", (c) => listen(c, context));
 }
 
 const VERDICT_CHANGED: ApiError = {
@@ -36,55 +36,55 @@ const VERDICT_CHANGED: ApiError = {
     "The record's verdict changed since this page read it, in another tab or by a load; reload to see it",
 };
 
-async function saveVerdict(request: Context, context: AppContext) {
+async function saveVerdict(c: Context, context: AppContext) {
   const { db } = context;
-  const body = await parseJson(request, VerdictInputSchema);
+  const body = await parseJson(c, VerdictInputSchema);
   if (!body.ok) return body.response;
   const { expected, ...input } = body.data;
   // A page that read the queue before a dump load may send the key the release had then.
   const key = recordKeyOf(db, input);
-  if (expected && !isVerdictStill(db, key, expected)) return request.json(VERDICT_CHANGED, 409);
+  if (expected && !isVerdictStill(db, key, expected)) return c.json(VERDICT_CHANGED, 409);
 
   const verdict = upsertVerdict(db, { ...input, key });
   // A later video that was not there now sends the record back to the queue.
   if (verdict.status === "no_audio") recordNoAudioVideos(db, verdict);
-  return request.json(verdict);
+  return c.json(verdict);
 }
 
-function removeVerdict(request: Context, context: AppContext) {
+function removeVerdict(c: Context, context: AppContext) {
   const { db } = context;
-  const expected = parseQuery(request, ExpectedVerdictSchema);
+  const expected = parseQuery(c, ExpectedVerdictSchema);
   if (!expected.ok) return expected.response;
-  const key = request.req.param("key") ?? "";
-  if (!isVerdictStill(db, key, expected.data)) return request.json(VERDICT_CHANGED, 409);
+  const key = c.req.param("key") ?? "";
+  if (!isVerdictStill(db, key, expected.data)) return c.json(VERDICT_CHANGED, 409);
 
   const previous = deleteVerdict(db, key);
   const body: DeleteVerdictResponse = { deleted: previous !== null, previous };
-  return request.json(body);
+  return c.json(body);
 }
 
-async function saveTrackMark(request: Context, context: AppContext) {
+async function saveTrackMark(c: Context, context: AppContext) {
   const { db } = context;
-  const body = await parseJson(request, TrackVerdictInputSchema);
+  const body = await parseJson(c, TrackVerdictInputSchema);
   if (!body.ok) return body.response;
-  return request.json(setTrackVerdict(db, body.data));
+  return c.json(setTrackVerdict(db, body.data));
 }
 
-async function listen(request: Context, context: AppContext) {
+async function listen(c: Context, context: AppContext) {
   const { db } = context;
-  const body = await parseJson(request, ListenLogInputSchema);
+  const body = await parseJson(c, ListenLogInputSchema);
   if (!body.ok) return body.response;
   const listen = logListen(db, { ...body.data, position: body.data.position ?? null });
   const res: ListenLogResponse = { id: listen.id, heardKey: listen.heardKey };
-  return request.json(res);
+  return c.json(res);
 }
 
-async function saveNote(request: Context, context: AppContext) {
-  const id = parseId(request.req.param("id") ?? "");
-  if (id === null) return badRequest(request, "Invalid release id");
-  if (!getRelease(context.db, id)) return request.json({ error: "Release not found" }, 404);
-  const body = await parseJson(request, ReleaseNoteInputSchema);
+async function saveNote(c: Context, context: AppContext) {
+  const id = paramId(c, "id");
+  if (id === null) return badRequest(c, "Invalid release id");
+  if (!getRelease(context.db, id)) return c.json({ error: "Release not found" }, 404);
+  const body = await parseJson(c, ReleaseNoteInputSchema);
   if (!body.ok) return body.response;
   saveReleaseNote(context.db, id, body.data.notes);
-  return request.json(body.data);
+  return c.json(body.data);
 }

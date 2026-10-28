@@ -22,50 +22,49 @@ import type { AppContext } from "../context.ts";
 import {
   badRequest,
   discogsErrorMessage,
-  parseId,
+  paramId,
   parseJson,
   parseQuery,
   wantlistAccount,
 } from "./request.ts";
 
 export function registerDiscogsRoutes(api: Hono, context: AppContext): void {
-  api.get("/discogs/lists", (request) => discogsLists(request, context));
-  api.get("/discogs/account", (request) => account(request, context));
-  api.get("/discogs/profile", (request) => profile(request, context));
-  api.put("/discogs/token", (request) => saveToken(request, context));
-  api.delete("/discogs/data", (request) => forgetData(request, context));
-  api.post("/discogs/wantlist/:id", (request) => pushWantlist(request, context));
-  api.delete("/discogs/wantlist/:id", (request) => removeWantlist(request, context));
-  api.post("/releases/:id/enrich", (request) => enrichOne(request, context));
+  api.get("/discogs/lists", (c) => discogsLists(c, context));
+  api.get("/discogs/account", (c) => account(c, context));
+  api.get("/discogs/profile", (c) => profile(c, context));
+  api.put("/discogs/token", (c) => saveToken(c, context));
+  api.delete("/discogs/data", (c) => forgetData(c, context));
+  api.post("/discogs/wantlist/:id", (c) => pushWantlist(c, context));
+  api.delete("/discogs/wantlist/:id", (c) => removeWantlist(c, context));
+  api.post("/releases/:id/enrich", (c) => enrichOne(c, context));
 }
 
 /** Fetches one release from Discogs for `P` in Triage and returns it as stored. */
-async function enrichOne(request: Context, context: AppContext) {
+async function enrichOne(c: Context, context: AppContext) {
   const { db, logger } = context;
-  const id = parseId(request.req.param("id") ?? "");
-  if (id === null) return badRequest(request, "Invalid release id");
-  if (!getRelease(db, id))
-    return request.json({ error: "Release not found" } satisfies ApiError, 404);
+  const id = paramId(c, "id");
+  if (id === null) return badRequest(c, "Invalid release id");
+  if (!getRelease(db, id)) return c.json({ error: "Release not found" } satisfies ApiError, 404);
   const deps = { db, discogs: context.getDiscogs(), logger };
   const enriched = await enrichRelease(deps, id, context.getConfig().discogs.currency);
   if (!enriched)
-    return request.json({ error: "Discogs did not return the release" } satisfies ApiError, 502);
-  return request.json(buildReleaseDetail(db, id));
+    return c.json({ error: "Discogs did not return the release" } satisfies ApiError, 502);
+  return c.json(buildReleaseDetail(db, id));
 }
 
-async function discogsLists(request: Context, context: AppContext) {
+async function discogsLists(c: Context, context: AppContext) {
   const { username } = context.getConfig().discogs;
-  if (username === "") return badRequest(request, "Set your Discogs username in Settings first");
+  if (username === "") return badRequest(c, "Set your Discogs username in Settings first");
   const lists = await listUserLists(context.getDiscogs(), username);
   const body: DiscogsListsResponse = {
-    lists: lists.map((l) => ({ id: l.id, name: l.name, public: l.public })),
+    lists: lists.map((list) => ({ id: list.id, name: list.name, public: list.public })),
   };
-  return request.json(body);
+  return c.json(body);
 }
 
-async function account(request: Context, context: AppContext) {
+async function account(c: Context, context: AppContext) {
   const identity = context.getDiscogs().hasToken() ? await askIdentity(context) : null;
-  return request.json(accountResponse(context, identity));
+  return c.json(accountResponse(context, identity));
 }
 
 /** Whose token it is, from one request to Discogs; `refused` when Discogs rejected the token. */
@@ -105,32 +104,31 @@ async function findUser(context: AppContext, username: string): Promise<DiscogsU
 }
 
 /** The collection and wantlist sizes and the currency of the account, for the setup. */
-async function profile(request: Context, context: AppContext) {
-  const query = parseQuery(request, DiscogsProfileQuerySchema);
+async function profile(c: Context, context: AppContext) {
+  const query = parseQuery(c, DiscogsProfileQuerySchema);
   if (!query.ok) return query.response;
   const username = query.data.username ?? context.getConfig().discogs.username;
-  if (username === "") return badRequest(request, "Connect your Discogs account first");
+  if (username === "") return badRequest(c, "Connect your Discogs account first");
   const user = await findUser(context, username);
-  if (!user)
-    return request.json({ error: `No Discogs user named ${username}` } satisfies ApiError, 404);
+  if (!user) return c.json({ error: `No Discogs user named ${username}` } satisfies ApiError, 404);
   const body: DiscogsProfileResponse = {
     username: user.username,
     collection: user.num_collection ?? null,
     wantlist: user.num_wantlist ?? null,
     currency: DISCOGS_CURRENCIES.find((currency) => currency === user.curr_abbr) ?? null,
   };
-  return request.json(body);
+  return c.json(body);
 }
 
 /**
  * A token Discogs refuses, or one of another account than the library's Discogs data, is not kept. The first token sets the Discogs
  * username, so nobody has to type it.
  */
-async function saveToken(request: Context, context: AppContext) {
-  const body = await parseJson(request, DiscogsTokenInputSchema);
+async function saveToken(c: Context, context: AppContext) {
+  const body = await parseJson(c, DiscogsTokenInputSchema);
   if (!body.ok) return body.response;
   if (context.secrets.discogsTokenSource() === "environment")
-    return request.json(
+    return c.json(
       {
         error:
           "DISCOGS_TOKEN is set in the environment or in the .env digga started with, which overrides the saved token; remove it there to change the token here",
@@ -142,18 +140,18 @@ async function saveToken(request: Context, context: AppContext) {
   context.secrets.setDiscogsToken(token);
   if (token === null) {
     context.logger.info("Discogs token removed");
-    return request.json(accountResponse(context, null));
+    return c.json(accountResponse(context, null));
   }
 
   const identity = await askIdentity(context);
   const refusal = tokenRefusal(context, identity);
   if (refusal !== null) {
     context.secrets.setDiscogsToken(previous);
-    return request.json({ error: refusal.error } satisfies ApiError, refusal.status);
+    return c.json({ error: refusal.error } satisfies ApiError, refusal.status);
   }
   if ("username" in identity) adoptUsername(context, identity.username);
   context.logger.info("Discogs token saved");
-  return request.json(accountResponse(context, identity));
+  return c.json(accountResponse(context, identity));
 }
 
 function tokenRefusal(
@@ -178,35 +176,35 @@ function adoptUsername(context: AppContext, username: string): void {
  * Forgets the collection, wantlist and Maybe list the library holds, so another Discogs account
  * can be used. Verdicts, notes and marks stay; the next imports read the account again.
  */
-function forgetData(request: Context, context: AppContext) {
+function forgetData(c: Context, context: AppContext) {
   const forgotten = forgetAccountData(context.db);
   context.logger.info(`forgot ${forgotten} Discogs collection, wantlist and list items`);
-  return request.json({ forgotten } satisfies ForgetDiscogsDataResponse);
+  return c.json({ forgotten } satisfies ForgetDiscogsDataResponse);
 }
 
-async function pushWantlist(request: Context, context: AppContext) {
+async function pushWantlist(c: Context, context: AppContext) {
   const { db, logger } = context;
-  const id = parseId(request.req.param("id") ?? "");
-  if (id === null) return badRequest(request, "Invalid release id");
+  const id = paramId(c, "id");
+  if (id === null) return badRequest(c, "Invalid release id");
   const release = getRelease(db, id);
-  if (!release) return request.json({ error: "Release not found" } satisfies ApiError, 404);
-  const account = wantlistAccount(request, context);
+  if (!release) return c.json({ error: "Release not found" } satisfies ApiError, 404);
+  const account = wantlistAccount(c, context);
   if ("response" in account) return account.response;
   const notes = wantlistNoteFor(db, release);
   await context.getDiscogs().addToWantlist(account.username, id, { notes });
   recordWantlistPush(db, release, notes ?? null);
   logger.info(`added release ${id} to the Discogs wantlist`);
-  return request.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
+  return c.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
 }
 
-async function removeWantlist(request: Context, context: AppContext) {
+async function removeWantlist(c: Context, context: AppContext) {
   const { db, logger } = context;
-  const id = parseId(request.req.param("id") ?? "");
-  if (id === null) return badRequest(request, "Invalid release id");
-  const account = wantlistAccount(request, context);
+  const id = paramId(c, "id");
+  if (id === null) return badRequest(c, "Invalid release id");
+  const account = wantlistAccount(c, context);
   if ("response" in account) return account.response;
   await context.getDiscogs().removeFromWantlist(account.username, id);
   forgetWantlistItem(db, id);
   logger.info(`removed release ${id} from the Discogs wantlist`);
-  return request.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
+  return c.json({ releaseId: id, ok: true } satisfies WantlistPushResponse);
 }

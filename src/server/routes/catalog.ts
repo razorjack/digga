@@ -17,38 +17,38 @@ import { searchScopes } from "../queue/scopes.ts";
 import { queryTwelves } from "../queue/twelves.ts";
 import { listMarkedTracks } from "../queue/track-marks.ts";
 import type { AppContext } from "../context.ts";
-import { badRequest, parseId, parseJson, parseQuery } from "./request.ts";
+import { badRequest, paramId, parseJson, parseQuery } from "./request.ts";
 import { attachVideo } from "../attach-video.ts";
 import { getRelease } from "../db/releases.ts";
 import { youtubeIdFromUrl } from "../../shared/youtube.ts";
 import { buildReleaseDetail } from "../queue/detail.ts";
 
 export function registerCatalogRoutes(api: Hono, context: AppContext): void {
-  api.get("/health", (request) => health(request));
-  api.get("/queue", (request) => queueFromQuery(request, context));
-  api.post("/queue", (request) => queueFromBody(request, context));
-  api.get("/scopes", (request) => scopes(request, context));
-  api.get("/releases/:id", (request) => release(request, context));
-  api.post("/releases/:id/videos", (request) => attachVideoRoute(request, context));
-  api.get("/twelves", (request) => twelves(request, context));
-  api.get("/track-marks", (request) => trackMarks(request, context));
-  api.get("/stats", (request) => stats(request, context));
+  api.get("/health", (c) => health(c));
+  api.get("/queue", (c) => queueFromQuery(c, context));
+  api.post("/queue", (c) => queueFromBody(c, context));
+  api.get("/scopes", (c) => scopes(c, context));
+  api.get("/releases/:id", (c) => release(c, context));
+  api.post("/releases/:id/videos", (c) => attachVideoRoute(c, context));
+  api.get("/twelves", (c) => twelves(c, context));
+  api.get("/track-marks", (c) => trackMarks(c, context));
+  api.get("/stats", (c) => stats(c, context));
 }
 
-function health(request: Context) {
-  return request.json({ ok: true, name: "digga" });
+function health(c: Context) {
+  return c.json({ ok: true, name: "digga" });
 }
 
-async function queueFromQuery(request: Context, context: AppContext) {
-  const query = parseQuery(request, QueueQuerySchema);
+async function queueFromQuery(c: Context, context: AppContext) {
+  const query = parseQuery(c, QueueQuerySchema);
   if (!query.ok) return query.response;
-  return request.json(await readQueue(context, query.data));
+  return c.json(await readQueue(context, query.data));
 }
 
-async function queueFromBody(request: Context, context: AppContext) {
-  const body = await parseJson(request, QueueReadInputSchema);
+async function queueFromBody(c: Context, context: AppContext) {
+  const body = await parseJson(c, QueueReadInputSchema);
   if (!body.ok) return body.response;
-  return request.json(await readQueue(context, body.data));
+  return c.json(await readQueue(context, body.data));
 }
 
 async function readQueue(
@@ -72,57 +72,57 @@ async function readQueue(
   return { ...page, strategy, seed, filters };
 }
 
-function scopes(request: Context, context: AppContext) {
-  const query = parseQuery(request, ScopeSearchQuerySchema);
+function scopes(c: Context, context: AppContext) {
+  const query = parseQuery(c, ScopeSearchQuerySchema);
   if (!query.ok) return query.response;
   const body: ScopeSearchResponse = { items: searchScopes(context.db, query.data.q) };
-  return request.json(body);
+  return c.json(body);
 }
 
-function release(request: Context, context: AppContext) {
+function release(c: Context, context: AppContext) {
   const { db } = context;
-  const id = parseId(request.req.param("id") ?? "");
-  if (id === null) return badRequest(request, "Invalid release id");
+  const id = paramId(c, "id");
+  if (id === null) return badRequest(c, "Invalid release id");
   const detail = buildReleaseDetail(db, id);
-  if (!detail) return request.json({ error: "Release not found" } satisfies ApiError, 404);
-  return request.json(detail);
+  if (!detail) return c.json({ error: "Release not found" } satisfies ApiError, 404);
+  return c.json(detail);
 }
 
-async function attachVideoRoute(request: Context, context: AppContext) {
+async function attachVideoRoute(c: Context, context: AppContext) {
   const { db } = context;
-  const id = parseId(request.req.param("id") ?? "");
-  if (id === null) return badRequest(request, "Invalid release id");
-  const body = await parseJson(request, AttachVideoInputSchema);
+  const id = paramId(c, "id");
+  if (id === null) return badRequest(c, "Invalid release id");
+  const body = await parseJson(c, AttachVideoInputSchema);
   if (!body.ok) return body.response;
   const videoId = youtubeIdFromUrl(body.data.url);
-  if (videoId === null) return badRequest(request, "That is not a YouTube video link");
+  if (videoId === null) return badRequest(c, "That is not a YouTube video link");
   const release = getRelease(db, id);
-  if (!release) return request.json({ error: "Release not found" } satisfies ApiError, 404);
+  if (!release) return c.json({ error: "Release not found" } satisfies ApiError, 404);
   await attachVideo({ db, lookupTitle: context.lookupVideoTitle }, release, videoId);
-  return request.json(buildReleaseDetail(db, id));
+  return c.json(buildReleaseDetail(db, id));
 }
 
-function twelves(request: Context, context: AppContext) {
+function twelves(c: Context, context: AppContext) {
   const { db } = context;
-  const query = parseQuery(request, TwelvesQuerySchema);
+  const query = parseQuery(c, TwelvesQuerySchema);
   if (!query.ok) return query.response;
   const config = context.getConfig();
   const filters = query.data.applyFilters ? config.filters : null;
   const body: TwelvesResponse = { items: queryTwelves(db, query.data.status, filters) };
-  return request.json(body);
+  return c.json(body);
 }
 
-function trackMarks(request: Context, context: AppContext) {
+function trackMarks(c: Context, context: AppContext) {
   const body: TrackMarksResponse = { items: listMarkedTracks(context.db) };
-  return request.json(body);
+  return c.json(body);
 }
 
-async function stats(request: Context, context: AppContext) {
-  const query = parseQuery(request, StatsQuerySchema);
+async function stats(c: Context, context: AppContext) {
+  const query = parseQuery(c, StatsQuerySchema);
   if (!query.ok) return query.response;
   const config = context.getConfig();
   const filters = query.data.filters ?? config.filters;
-  return request.json(await context.reader.stats({ ...config, filters }, query.data.scope ?? null));
+  return c.json(await context.reader.stats({ ...config, filters }, query.data.scope ?? null));
 }
 
 function daySeed(): number {

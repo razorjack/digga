@@ -19,53 +19,53 @@ import type { AppContext } from "../context.ts";
 import { badRequest, parseJson } from "./request.ts";
 
 export function registerJobsRoutes(api: Hono, context: AppContext): void {
-  api.post("/jobs/dump-download", (request) => dumpDownloadJob(request, context));
-  api.post("/jobs/dump-load", (request) => dumpJob(request, context));
-  api.post("/jobs/dump-update", (request) => dumpUpdateJob(request, context));
-  api.post("/jobs/import/:kind", (request) => importJob(request, context));
-  api.get("/jobs", (request) => jobs(request, context));
-  api.get("/dumps", (request) => dumps(request, context));
-  api.delete("/dumps/:name", (request) => deleteDump(request, context));
-  api.get("/jobs/:id", (request) => job(request, context));
-  api.post("/jobs/:id/cancel", (request) => cancelJob(request, context));
+  api.post("/jobs/dump-download", (c) => dumpDownloadJob(c, context));
+  api.post("/jobs/dump-load", (c) => dumpJob(c, context));
+  api.post("/jobs/dump-update", (c) => dumpUpdateJob(c, context));
+  api.post("/jobs/import/:kind", (c) => importJob(c, context));
+  api.get("/jobs", (c) => jobs(c, context));
+  api.get("/dumps", (c) => dumps(c, context));
+  api.delete("/dumps/:name", (c) => deleteDump(c, context));
+  api.get("/jobs/:id", (c) => job(c, context));
+  api.post("/jobs/:id/cancel", (c) => cancelJob(c, context));
 }
 
-function dumpDownloadJob(request: Context, context: AppContext) {
-  return request.json(startDumpDownload(context), 202);
+function dumpDownloadJob(c: Context, context: AppContext) {
+  return c.json(startDumpDownload(context), 202);
 }
 
-function dumpUpdateJob(request: Context, context: AppContext) {
-  return request.json(startDumpUpdate(context), 202);
+function dumpUpdateJob(c: Context, context: AppContext) {
+  return c.json(startDumpUpdate(context), 202);
 }
 
-async function dumpJob(request: Context, context: AppContext) {
-  const body = await parseJson(request, DumpLoadJobInputSchema);
+async function dumpJob(c: Context, context: AppContext) {
+  const body = await parseJson(c, DumpLoadJobInputSchema);
   if (!body.ok) return body.response;
   const job = startDumpLoad(context, body.data);
-  return request.json(job, 202);
+  return c.json(job, 202);
 }
 
-async function importJob(request: Context, context: AppContext) {
-  const kind = IMPORT_KINDS.find((kind) => kind === request.req.param("kind"));
+async function importJob(c: Context, context: AppContext) {
+  const kind = IMPORT_KINDS.find((kind) => kind === c.req.param("kind"));
   if (!kind)
-    return badRequest(request, `Unknown import kind; expected one of ${IMPORT_KINDS.join(", ")}`);
-  const body = await parseJson(request, ImportJobInputSchema);
+    return badRequest(c, `Unknown import kind; expected one of ${IMPORT_KINDS.join(", ")}`);
+  const body = await parseJson(c, ImportJobInputSchema);
   if (!body.ok) return body.response;
   const job = startImport(context, kind, body.data);
-  return request.json(job, 202);
+  return c.json(job, 202);
 }
 
-function dumps(request: Context, context: AppContext) {
-  return request.json(dumpsResponse(context));
+function dumps(c: Context, context: AppContext) {
+  return c.json(dumpsResponse(context));
 }
 
-function deleteDump(request: Context, context: AppContext) {
+function deleteDump(c: Context, context: AppContext) {
   refuseWhileDumpJobRuns(context);
-  const name = request.req.param("name") ?? "";
+  const name = c.req.param("name") ?? "";
   if (!deleteDumpFile(context.paths.dumpsDir, name))
-    return request.json({ error: "The dumps folder has no such dump" } satisfies ApiError, 404);
+    return c.json({ error: "The dumps folder has no such dump" } satisfies ApiError, 404);
   context.logger.info(`deleted ${name} from the dumps folder`);
-  return request.json(dumpsResponse(context));
+  return c.json(dumpsResponse(context));
 }
 
 function dumpsResponse(context: AppContext): DumpsResponse {
@@ -73,21 +73,21 @@ function dumpsResponse(context: AppContext): DumpsResponse {
   return { directory, files: listDumpFiles(directory) };
 }
 
-function jobs(request: Context, context: AppContext) {
+function jobs(c: Context, context: AppContext) {
   const body: JobsResponse = { jobs: context.jobs.list() };
-  return request.json(body);
+  return c.json(body);
 }
 
-function job(request: Context, context: AppContext) {
-  const job = context.jobs.get(request.req.param("id") ?? "");
-  if (!job) return request.json({ error: "Job not found" } satisfies ApiError, 404);
-  return request.json(job);
+function job(c: Context, context: AppContext) {
+  const job = context.jobs.get(c.req.param("id") ?? "");
+  if (!job) return c.json({ error: "Job not found" } satisfies ApiError, 404);
+  return c.json(job);
 }
 
-function cancelJob(request: Context, context: AppContext) {
-  const id = request.req.param("id") ?? "";
+function cancelJob(c: Context, context: AppContext) {
+  const id = c.req.param("id") ?? "";
   const cancelled = context.jobs.cancel(id);
   const job = context.jobs.get(id);
-  if (!job) return request.json({ error: "Job not found" } satisfies ApiError, 404);
-  return request.json({ cancelled, job });
+  if (!job) return c.json({ error: "Job not found" } satisfies ApiError, 404);
+  return c.json({ cancelled, job });
 }

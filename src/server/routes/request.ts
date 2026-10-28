@@ -6,12 +6,12 @@ import { claimAccount } from "../db/memberships.ts";
 import { DiscogsApiError, DiscogsUserNotFoundError } from "../discogs/client.ts";
 import type { AppContext } from "../context.ts";
 
-export function badRequest(request: Context, message: string, issues?: unknown): Response {
+export function badRequest(c: Context, message: string, issues?: unknown): Response {
   const body: ApiError = { error: message, issues };
-  return request.json(body, 400);
+  return c.json(body, 400);
 }
 export async function parseJson<T>(
-  request: Context,
+  c: Context,
   schema: z.ZodType<T>,
 ): Promise<
   | {
@@ -24,36 +24,34 @@ export async function parseJson<T>(
     }
 > {
   let raw: unknown = {};
-  const text = await request.req.text();
+  const text = await c.req.text();
   if (text.trim() !== "") {
     // A page on another site can send a text/plain body without asking the browser first.
-    if (!request.req.header("content-type")?.startsWith("application/json"))
+    if (!c.req.header("content-type")?.startsWith("application/json"))
       return {
         ok: false,
-        response: request.json(
-          { error: "Send the body as application/json" } satisfies ApiError,
-          415,
-        ),
+        response: c.json({ error: "Send the body as application/json" } satisfies ApiError, 415),
       };
     try {
       raw = JSON.parse(text);
     } catch {
-      return { ok: false, response: badRequest(request, "Body is not valid JSON") };
+      return { ok: false, response: badRequest(c, "Body is not valid JSON") };
     }
   }
   const result = schema.safeParse(raw);
   if (!result.success)
     return {
       ok: false,
-      response: badRequest(request, "Invalid request body", result.error.issues),
+      response: badRequest(c, "Invalid request body", result.error.issues),
     };
   return { ok: true, data: result.data };
 }
-export function parseId(raw: string): number | null {
-  return parseInteger(raw, { min: 1 });
+/** The id in the route's `name` parameter; null when it is not a positive integer. */
+export function paramId(c: Context, name: string): number | null {
+  return parseInteger(c.req.param(name) ?? "", { min: 1 });
 }
 export function parseQuery<T>(
-  request: Context,
+  c: Context,
   schema: z.ZodType<T>,
 ):
   | {
@@ -64,9 +62,9 @@ export function parseQuery<T>(
       ok: false;
       response: Response;
     } {
-  const result = schema.safeParse(request.req.query());
+  const result = schema.safeParse(c.req.query());
   if (!result.success)
-    return { ok: false, response: badRequest(request, "Invalid query", result.error.issues) };
+    return { ok: false, response: badRequest(c, "Invalid query", result.error.issues) };
   return { ok: true, data: result.data };
 }
 /**
@@ -89,7 +87,7 @@ export function discogsErrorMessage(error: DiscogsApiError): string {
  * response instead when the change cannot go there.
  */
 export function wantlistAccount(
-  request: Context,
+  c: Context,
   context: AppContext,
 ):
   | {
@@ -100,11 +98,10 @@ export function wantlistAccount(
     } {
   const { username } = context.getConfig().discogs;
   if (username === "")
-    return { response: badRequest(request, "Set your Discogs username in Settings first") };
+    return { response: badRequest(c, "Set your Discogs username in Settings first") };
   if (!context.getDiscogs().hasToken())
-    return { response: badRequest(request, "Set your Discogs token in Settings first") };
+    return { response: badRequest(c, "Set your Discogs token in Settings first") };
   const conflict = claimAccount(context.db, username);
-  if (conflict !== null)
-    return { response: request.json({ error: conflict } satisfies ApiError, 409) };
+  if (conflict !== null) return { response: c.json({ error: conflict } satisfies ApiError, 409) };
   return { username };
 }
