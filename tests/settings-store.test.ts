@@ -32,14 +32,15 @@ beforeEach(async () => {
 });
 
 describe("color scheme saves", () => {
-  it("run in order, each from the config the one before returned, without a new version", async () => {
+  it("run in order, each from the config the one before returned, without telling listeners", async () => {
     const first = deferred<Config>();
     const sent: Config[] = [];
     fake.api.putSettings = (config) => {
       sent.push(config);
       return sent.length === 1 ? first.promise : Promise.resolve(config);
     };
-    const version = settings.version;
+    const heard = vi.fn();
+    const stop = settings.onSaved(heard);
 
     const light = settings.saveColorScheme("light");
     const dark = settings.saveColorScheme("dark");
@@ -53,7 +54,8 @@ describe("color scheme saves", () => {
     expect(sent.map((config) => config.appearance.colorScheme)).toEqual(["light", "dark"]);
     expect(sent[1]!.queue.limit).toBe(50);
     expect(settings.value?.appearance.colorScheme).toBe("dark");
-    expect(settings.version).toBe(version);
+    expect(heard).not.toHaveBeenCalled();
+    stop();
   });
 
   it("still saves the next choice after one fails", async () => {
@@ -147,4 +149,20 @@ it("keeps independent settings edits made while another save is pending", async 
   pending.resolve(sent[0]!);
   await Promise.all([first, second]);
   expect(settings.value?.filters).toMatchObject({ yearFrom: 1999, includeDescriptions: ["EP"] });
+});
+
+it("tells each save's listeners the config it replaced and the one saved", async () => {
+  fake.api.putSettings = async (config) => config;
+  const heard: [number | null | undefined, number | null][] = [];
+  const stop = settings.onSaved((before, after) => {
+    heard.push([before?.filters.yearFrom, after.filters.yearFrom]);
+  });
+  const years = structuredClone(DEFAULT_CONFIG);
+  years.filters.yearFrom = 1999;
+
+  await settings.save(years);
+  stop();
+  await settings.save(DEFAULT_CONFIG);
+
+  expect(heard).toEqual([[DEFAULT_CONFIG.filters.yearFrom, 1999]]);
 });

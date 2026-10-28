@@ -47,15 +47,23 @@ class StatsStore {
   }
 }
 
+/** Hears a save: `before` is the config it replaced, null when none had loaded. */
+type SettingsSaveListener = (before: Config | null, after: Config) => void;
+
 class SettingsStore {
   value = $state<Config | null>(null);
   error = $state<string | null>(null);
   /** A read is out, the app's first or a retry. */
   loading = $state(false);
-  /** Increments on every save but a color scheme change, so the triage queue knows to reload. */
-  version = $state(0);
   #writes = new SerialQueue();
+  #saveListeners = new Set<SettingsSaveListener>();
   #read: Promise<void> | null = null;
+
+  /** Calls `listener` after each save but a color scheme change; returns what stops it. */
+  onSaved(listener: SettingsSaveListener): () => void {
+    this.#saveListeners.add(listener);
+    return () => this.#saveListeners.delete(listener);
+  }
 
   async load(): Promise<void> {
     const read = this.#readSettings();
@@ -90,8 +98,9 @@ class SettingsStore {
           ? mergeSettings(before, requested, $state.snapshot(this.value))
           : requested;
       const saved = await api.putSettings(config);
+      const previous = $state.snapshot(this.value);
       this.value = saved;
-      this.version += 1;
+      for (const listener of this.#saveListeners) listener(previous, saved);
       return saved;
     });
   }
@@ -141,8 +150,19 @@ export const settings = new SettingsStore();
 class UiStore {
   /** The ? overlay is open; page shortcuts stay quiet while it is. */
   helpOpen = $state(false);
-  /** Records or a bookmarked track Twelves hands to Triage; Triage takes them and clears this. */
-  replay = $state.raw<ReplayRequest | null>(null);
+  #replay: ((request: ReplayRequest) => void) | null = null;
+
+  /** Triage hears the records or bookmarked track Twelves hands it; returns what stops it. */
+  onReplay(hear: (request: ReplayRequest) => void): () => void {
+    this.#replay = hear;
+    return () => {
+      if (this.#replay === hear) this.#replay = null;
+    };
+  }
+
+  replay(request: ReplayRequest): void {
+    this.#replay?.(request);
+  }
 }
 
 export const ui = new UiStore();

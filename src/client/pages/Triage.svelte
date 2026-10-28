@@ -7,7 +7,7 @@
   import { normalizeNote } from "../../shared/notes.ts";
   import { sellerCopies } from "../../shared/listings.ts";
   import { newRecordsScope, SCOPE_NOUN, scopesOfRelease } from "../../shared/scope.ts";
-  import { replayItemOf } from "../../shared/replay.ts";
+  import { type ReplayRequest, replayItemOf } from "../../shared/replay.ts";
   import type { TrackMark } from "../../shared/types.ts";
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { api } from "../api.ts";
@@ -82,27 +82,23 @@
   /** The queue starts from the settings, so without them there is nothing to dig. */
   const settingsFailed = $derived(settings.value === null && settings.error !== null);
 
-  /** The config the queue last followed, which tells what a save changed. */
-  let followedConfig: Config | null = null;
-
-  // Start the queue once settings are known, and follow each save that changes it: a round or the
-  // session carries on through a save of the player's or the account's settings.
-  // The config is read untracked, so a color scheme change, which keeps the version, does nothing.
+  // The queue starts once the settings have loaded, and follows each save that changes it: a round
+  // or the session carries on through a save of the player's or the account's settings.
   $effect(() => {
-    void settings.version;
     if (!settingsLoaded) return;
     untrack(() => {
-      const config = settings.value;
-      if (!config) return;
-      const before = followedConfig;
-      followedConfig = $state.snapshot(config) as Config;
-      if (before && before.player.startAtFraction !== config.player.startAtFraction)
-        player.moveStartPoint();
-      // A resume saves the session's settings and reloads the queue itself.
-      if (checkpoint.restoring) return;
-      followQueueSettings(before ? queueSettingsChange(before, config) : { kind: "restart" }, config);
+      if (settings.value) startQueue(settings.value);
     });
   });
+  onDestroy(settings.onSaved(followSavedSettings));
+
+  function followSavedSettings(before: Config | null, config: Config): void {
+    if (before && before.player.startAtFraction !== config.player.startAtFraction)
+      player.moveStartPoint();
+    // A resume saves the session's settings and reloads the queue itself.
+    if (checkpoint.restoring) return;
+    followQueueSettings(before ? queueSettingsChange(before, config) : { kind: "restart" }, config);
+  }
 
   function followQueueSettings(change: QueueSettingsChange, config: Config): void {
     if (change.kind === "none") return;
@@ -111,6 +107,10 @@
       if (change.shown.length > 0) void session.readAgain();
       return;
     }
+    startQueue(config);
+  }
+
+  function startQueue(config: Config): void {
     const generation = ++restartGeneration;
     void session.start(config.queue.limit).then(() => {
       if (generation === restartGeneration) void checkpoint.open();
@@ -130,19 +130,16 @@
 
   let wasHidden = false;
 
-  // Records, or a marked track to play from its saved moment, handed over by Twelves.
-  $effect(() => {
-    const request = ui.replay;
-    if (!request) return;
-    untrack(() => {
-      ui.replay = null;
-      // The new round reads fresh details; another refresh would reset its saved playback.
-      wasHidden = false;
-      if (request.playback) player.restorePlayback(request.playback);
-      session.startRound(request.items);
-      player.show(session.currentDetail, session.nextDetail, session.videosChange);
-    });
-  });
+  onDestroy(ui.onReplay(hearReplay));
+
+  /** Starts a round of the records, or the marked track from its saved moment, Twelves sent. */
+  function hearReplay(request: ReplayRequest): void {
+    // The new round reads fresh details; another refresh would reset its saved playback.
+    wasHidden = false;
+    if (request.playback) player.restorePlayback(request.playback);
+    session.startRound(request.items);
+    player.show(session.currentDetail, session.nextDetail, session.videosChange);
+  }
 
   let loadingSnoozed = $state(false);
 

@@ -315,8 +315,8 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
 82. **The color scheme is a setting, saved at once.** `appearance.colorScheme` (`system`, `light`
     or `dark`) lives in `digga.config.json` rather than browser storage: the Electron shell
     serves the app on a free port, so its origin, and localStorage with it, changes on every
-    start. Settings saves it outside the form, like the sandbox switch, but without a new
-    settings version, so it is the one save that leaves the Triage queue alone; quick changes
+    start. Settings saves it outside the form, like the sandbox switch, but without telling the
+    settings' save listeners, so it is the one save that leaves the Triage queue alone; quick changes
     are saved in order. `App.svelte` sets `data-color-scheme` on the root and `styles.css` turns
     it into `color-scheme`, because the build compiles `light-dark()` into variables that only a
     `color-scheme` declaration switches, not an inline style. In the browser the page follows

@@ -63,20 +63,18 @@
     if (discogsUsername) void discogs.loadLists();
   });
 
-  $effect(() => {
-    void settings.version;
-    untrack(() => void jobState.load());
-  });
-
   // A tab opened from further down another one starts at its top.
   $effect(() => {
     void tab;
     untrack(() => sections?.scrollTo({ top: 0 }));
   });
 
+  onDestroy(settings.onSaved(() => void jobState.load()));
+
   onMount(() => {
     void discogs.loadAccount();
     void stats.refresh();
+    void jobState.load();
     return guardLeaving((route, anchor) => {
       if (!dirty) return true;
       leavingFor = { route, anchor };

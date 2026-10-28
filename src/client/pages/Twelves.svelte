@@ -85,7 +85,7 @@
   function hearAgain(range: ReplayRange): void {
     const request = shelfState.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay(range);
     if (!request) return;
-    ui.replay = request;
+    ui.replay(request);
     navigate("triage");
   }
 
