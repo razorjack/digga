@@ -202,6 +202,12 @@ to TypeScript, Svelte scripts and templates, and tests when writing or changing 
   `ids.map(x => String(x))`. Use domain names in callbacks with branching, several statements or
   nested callbacks. Name loop indices `index`, `videoIndex` or `trackIndex`; caught errors are
   `error`, keyboard events are `event`.
+- The domain terms mean one thing each. A **release** is one Discogs release (`ReleaseRecord`). A
+  **record** is what a verdict judges: a master with all its pressings, or a release without a
+  master, named by its **triage key** (`m:{master_id}` or `r:{id}`). A **pressing** is one
+  release of a record. An **item** is a record as a list holds it (`QueueItem` in Triage,
+  `TwelvesItem` in Twelves); a **detail** is a release with its tracks, videos, verdict and notes
+  (`ReleaseDetail`, from `GET /api/releases/:id`). Hono route handlers name their `Context` `c`.
 - Keep established terms such as `db`, `api`, `id`, `url` and SQL aliases. Use a qualifier when
   values compete: `releaseId` and `videoId`, `savedVerdict` and `nextVerdict`. Include units when
   they matter: `elapsedSeconds`, `delayMs`.
