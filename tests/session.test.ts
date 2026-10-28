@@ -1211,7 +1211,7 @@ it("undo restores the verdict Twelves saved while a replay was hidden", async ()
 it("leaves a label out of the queue read that was out when it was hidden", async () => {
   const label: HiddenLabel = { id: 88, name: "Moving Shadow" };
   const server = fakeServer([1, 2], label);
-  const getQueue = server.http.getQueue;
+  const getQueue = server.http.getQueue.bind(server.http);
   const answer = deferred<void>();
   server.http.getQueue = async (query) => {
     await answer.promise;
