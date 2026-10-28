@@ -265,6 +265,16 @@ test.describe("with the clock", () => {
       const startAt = startSeconds(video.seconds, 0.25)!;
       await settings.open();
       await expect(settings.startAt).toHaveAttribute("aria-valuetext", "50% into each track");
+      // The hidden Triage page cues the first record; the slider then moves the open video.
+      await expect
+        .poll(() => app.youtube.loads())
+        .toContainEqual(
+          expect.objectContaining({
+            kind: "cue",
+            videoId: video.id,
+            startSeconds: startSeconds(video.seconds, 0.5),
+          }),
+        );
 
       await settings.startAt.focus();
       for (let step = 0; step < 5; step += 1) await app.page.keyboard.press("ArrowLeft");
