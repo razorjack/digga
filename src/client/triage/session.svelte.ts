@@ -772,10 +772,10 @@ export class TriageSession {
       return;
     }
     try {
-      const detail = await this.#api.attachVideo(item.id, url);
+      const attached = await this.#api.attachVideo(item.id, url);
       if (this.#ended) return;
       this.videosChange = "attached";
-      this.#details.set(item.id, detail);
+      this.#details.set(item.id, withShownMarks(attached, this.#details.get(item.id)));
       this.#flash.show("Attached to this release; it plays here from now on.");
     } catch (error) {
       if (!this.#ended) this.#flash.show(`The link was not attached: ${errorMessage(error)}`);
@@ -985,6 +985,20 @@ export class TriageSession {
     ]);
     this.#details.prune(keep);
   }
+}
+
+/**
+ * The attach's answer with the track marks the session shows. The attach changes no mark, and the
+ * answer misses the marks whose writes are still queued.
+ */
+function withShownMarks(attached: ReleaseDetail, shown: ReleaseDetail | null): ReleaseDetail {
+  if (!shown) return attached;
+  const shownMarks = new Map(shown.tracks.map((track) => [track.heardKey, track.mark]));
+  const tracks = attached.tracks.map((track) => {
+    const mark = shownMarks.get(track.heardKey);
+    return mark === undefined ? track : { ...track, mark };
+  });
+  return { ...attached, tracks, trackVerdicts: shown.trackVerdicts };
 }
 
 function isOnLabel(item: QueueItem, label: HiddenLabel): boolean {

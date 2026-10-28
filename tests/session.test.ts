@@ -900,6 +900,26 @@ describe("pricing with P", () => {
     session.destroy();
   });
 
+  it("keeps a track mark whose write is still queued when the attach answers", async () => {
+    const { session, http, calls } = await withTracks();
+    const markAnswer = Promise.withResolvers<void>();
+    const postTrackVerdict = http.postTrackVerdict.bind(http);
+    vi.spyOn(http, "postTrackVerdict").mockImplementationOnce(async (input) => {
+      await markAnswer.promise;
+      return postTrackVerdict(input);
+    });
+    session.markTrack(1, { position: "A1", heardKey: "A1" }, "keep", MOMENT);
+
+    await session.attachVideo("https://youtu.be/relicstatic");
+    expect(session.currentDetail?.tracks[0]?.mark).toBe("keep");
+
+    markAnswer.resolve();
+    await until(() => calls.includes("mark A1 keep"));
+    await until(() => session.currentDetail?.trackVerdicts.length === 1);
+    expect(session.currentDetail?.tracks[0]?.mark).toBe("keep");
+    session.destroy();
+  });
+
   it("says a link already on the release is attached, and sends nothing", async () => {
     const video = { videoId: "relicstatic" } as VideoRecord;
     const { session, calls } = await withTracks({ videos: [video] });
