@@ -5,7 +5,7 @@ import type { ScopeRef } from "../../shared/scope.ts";
 import type { FormatRef, LabelRef } from "../../shared/types.ts";
 import { rememberForCatalogue } from "../db/catalogue-memo.ts";
 import type { Db } from "../db/db.ts";
-import type { ReleaseRow } from "../db/releases.ts";
+import { type ReleaseRow, snapshotFromRow } from "../db/releases.ts";
 import { coverageIds, ON_COVERAGE } from "./coverage.ts";
 
 /**
@@ -306,14 +306,7 @@ export function rowToQueueItem(row: QueueRow): QueueItem {
     formatSummary: formatSummary(JSON.parse(row.formats_json) as FormatRef[]),
     styles: JSON.parse(row.styles_json) as string[],
     videoCount: row.video_count,
-    communityWant: row.community_want,
-    communityHave: row.community_have,
-    ratingAverage: row.rating_average,
-    ratingCount: row.rating_count,
-    numForSale: row.num_for_sale,
-    lowestPrice: row.lowest_price,
-    currency: row.currency,
-    enrichedAt: row.enriched_at,
+    ...snapshotFromRow(row),
   };
 }
 

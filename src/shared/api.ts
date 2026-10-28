@@ -16,6 +16,7 @@ import {
   type MembershipKind,
   type RecordMembership,
   type ReleaseRecord,
+  type ReleaseSnapshot,
   type TrackMark,
   type TrackRecord,
   type TrackVerdict,
@@ -77,7 +78,8 @@ export const QueueReadInputSchema = z.object({
 });
 export type QueueReadInput = z.infer<typeof QueueReadInputSchema>;
 
-export interface QueueItem {
+/** A record as the queue offers it, with its representative release's market data. */
+export interface QueueItem extends ReleaseSnapshot {
   id: number;
   triageKey: string;
   masterId: number | null;
@@ -92,15 +94,6 @@ export interface QueueItem {
   formatSummary: string;
   styles: string[];
   videoCount: number;
-  communityWant: number | null;
-  communityHave: number | null;
-  /** The community rating out of 5; null when nobody has rated the release. */
-  ratingAverage: number | null;
-  ratingCount: number | null;
-  numForSale: number | null;
-  lowestPrice: number | null;
-  currency: string | null;
-  enrichedAt: string | null;
 }
 
 export interface QueueResponse {

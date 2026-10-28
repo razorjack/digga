@@ -3,6 +3,7 @@ import type {
   FormatRef,
   LabelRef,
   ReleaseRecord,
+  ReleaseSnapshot,
   TrackRecord,
   VideoRecord,
 } from "../../shared/types.ts";
@@ -124,17 +125,21 @@ export function rowToRelease(row: ReleaseRow): ReleaseRecord {
     styles: JSON.parse(row.styles_json) as string[],
     inUniverse: row.in_universe === 1,
     triageKey: row.triage_key,
-    snapshot: {
-      lowestPrice: row.lowest_price,
-      numForSale: row.num_for_sale,
-      currency: row.currency,
-      communityHave: row.community_have,
-      communityWant: row.community_want,
-      ratingAverage: row.rating_average,
-      ratingCount: row.rating_count,
-      enrichedAt: row.enriched_at,
-    },
+    snapshot: snapshotFromRow(row),
     updatedAt: row.updated_at,
+  };
+}
+
+export function snapshotFromRow(row: ReleaseRow): ReleaseSnapshot {
+  return {
+    lowestPrice: row.lowest_price,
+    numForSale: row.num_for_sale,
+    currency: row.currency,
+    communityHave: row.community_have,
+    communityWant: row.community_want,
+    ratingAverage: row.rating_average,
+    ratingCount: row.rating_count,
+    enrichedAt: row.enriched_at,
   };
 }
 

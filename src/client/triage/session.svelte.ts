@@ -1009,17 +1009,7 @@ function sameItems(left: QueueItem[], right: QueueItem[]): boolean {
 }
 
 function withMarketData(item: QueueItem, snapshot: ReleaseSnapshot): QueueItem {
-  return {
-    ...item,
-    lowestPrice: snapshot.lowestPrice,
-    numForSale: snapshot.numForSale,
-    currency: snapshot.currency,
-    communityHave: snapshot.communityHave,
-    communityWant: snapshot.communityWant,
-    ratingAverage: snapshot.ratingAverage,
-    ratingCount: snapshot.ratingCount,
-    enrichedAt: snapshot.enrichedAt,
-  };
+  return { ...item, ...snapshot };
 }
 
 /**
