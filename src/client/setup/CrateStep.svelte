@@ -58,12 +58,16 @@
   }
 
   function downloadText(): string {
-    if (!downloadProgress || downloadProgress.phase === "finding") return "finding the newest catalogue";
+    if (!downloadProgress || downloadProgress.phase === "finding")
+      return "finding the newest catalogue";
     if (downloadProgress.alreadyDownloaded) return "downloaded before";
-    if (downloadProgress.phase === "done") return `${formatBytes(downloadProgress.receivedBytes)}, checked`;
+    if (downloadProgress.phase === "done")
+      return `${formatBytes(downloadProgress.receivedBytes)}, checked`;
     const total = downloadProgress.totalBytes;
     if (!total) return formatBytes(downloadProgress.receivedBytes);
-    const left = download?.startedAt ? transferLeft(downloadProgress.receivedBytes, total, download.startedAt) : null;
+    const left = download?.startedAt
+      ? transferLeft(downloadProgress.receivedBytes, total, download.startedAt)
+      : null;
     return `${formatBytes(downloadProgress.receivedBytes)} of ${formatBytes(total)}${left ? ` · ${left}` : ""}`;
   }
 
@@ -99,17 +103,22 @@
   {#if flow.cratePhase === "nothing-matches"}
     <h1 id="crate-title">Nothing in the catalogue matches these picks</h1>
     <p class="lead">
-      Digga read every release and kept none in these styles and years. Pick others, and the load reads the catalogue
-      again from the file it has.
+      Digga read every release and kept none in these styles and years. Pick others, and the load
+      reads the catalogue again from the file it has.
     </p>
     <div class="actions">
-      <Action primary onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+      <Action primary onclick={() => void flow.changePicks()} disabled={flow.busy}
+        >Change your picks</Action
+      >
     </div>
   {:else if flow.cratePhase === "ready"}
     <div class="ready">
       <Stamp text="ready to dig" tone="accent" size="xl" seed={4} slam />
       <h1 id="crate-title" class="headline">
-        The catalogue is in: {formatCounted(stats.value?.universe.releases ?? loadProgress?.upserted ?? 0, "release")},
+        The catalogue is in: {formatCounted(
+          stats.value?.universe.releases ?? loadProgress?.upserted ?? 0,
+          "release",
+        )},
         {formatCounted(toDig, "record")} to dig.
       </h1>
     </div>
@@ -120,7 +129,10 @@
 
   {#if flow.waitingForImports}
     <div class="notice">
-      <p>Reading your collection and wantlist first, so the load also keeps other records on your labels.</p>
+      <p>
+        Reading your collection and wantlist first, so the load also keeps other records on your
+        labels.
+      </p>
       <Action onclick={() => void flow.startWithoutImports()}>Start without it</Action>
     </div>
   {/if}
@@ -130,30 +142,40 @@
     {#if flow.crateStop?.kind === "checksum-retry"}
       <div class="notice">
         <p>{flow.crateStop.note}</p>
-        <p class="quiet">What loaded so far stays; the load reads the new download from the start.</p>
+        <p class="quiet">
+          What loaded so far stays; the load reads the new download from the start.
+        </p>
       </div>
     {:else if flow.crateStop?.kind === "download-stopped"}
       <div class="notice">
         <p>{flow.crateStop.message}</p>
         <p class="quiet">
-          What loaded so far stays, and so does anything you dug. Starting again downloads the catalogue and reads it
-          from the start.
+          What loaded so far stays, and so does anything you dug. Starting again downloads the
+          catalogue and reads it from the start.
         </p>
         <div class="actions">
-          <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}>Start again</Action>
-          <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+          <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}
+            >Start again</Action
+          >
+          <Action onclick={() => void flow.changePicks()} disabled={flow.busy}
+            >Change your picks</Action
+          >
         </div>
       </div>
     {:else if flow.crateStop?.kind === "load-stopped"}
       <div class="notice">
         <p>{flow.crateStop.message}</p>
         <p class="quiet">
-          What loaded so far stays, and so does anything you dug. Picking up reads the catalogue from the start, and
-          downloads it again if it was not whole.
+          What loaded so far stays, and so does anything you dug. Picking up reads the catalogue
+          from the start, and downloads it again if it was not whole.
         </p>
         <div class="actions">
-          <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}>Pick up</Action>
-          <Action onclick={() => void flow.changePicks()} disabled={flow.busy}>Change your picks</Action>
+          <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}
+            >Pick up</Action
+          >
+          <Action onclick={() => void flow.changePicks()} disabled={flow.busy}
+            >Change your picks</Action
+          >
         </div>
       </div>
     {/if}
@@ -163,7 +185,9 @@
     {#if download && !flow.loadDone}
       <ProgressRow
         label="Download"
-        fraction={downloadProgress?.totalBytes ? downloadProgress.receivedBytes / downloadProgress.totalBytes : null}
+        fraction={downloadProgress?.totalBytes
+          ? downloadProgress.receivedBytes / downloadProgress.totalBytes
+          : null}
         text={downloadText()}
       />
     {/if}
@@ -172,7 +196,9 @@
       <span><b>{formatCount(releasesKept)}</b> {nounFor(releasesKept, "release")} kept</span>
       <span><b>{formatCount(toDig)}</b> {nounFor(toDig, "record")} to dig</span>
       {#if toDig > 0}
-        <span class="quiet">At 20 seconds a record, that is {formatCounted(digHours, "hour")}. Pace yourself.</span>
+        <span class="quiet"
+          >At 20 seconds a record, that is {formatCounted(digHours, "hour")}. Pace yourself.</span
+        >
       {/if}
     </p>
   </div>
@@ -183,7 +209,9 @@
         counts={expected}
         {span}
         filled={kept}
-        undated={flow.census?.styles.filter((style) => picks.includes(style.name)).reduce((sum, style) => sum + style.undated, 0) ?? 0}
+        undated={flow.census?.styles
+          .filter((style) => picks.includes(style.name))
+          .reduce((sum, style) => sum + style.undated, 0) ?? 0}
         filledUndated={loadProgress?.keptByYear[UNDATED_YEAR] ?? 0}
       />
       <figcaption>What Digga expects in outline, what it has kept in ink.</figcaption>
@@ -203,7 +231,9 @@
 
   {#if flow.cratePhase !== "nothing-matches"}
     {#if flow.account?.tokenUsername}
-      <p class="quiet">A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.</p>
+      <p class="quiet">
+        A want goes on your Discogs wantlist when you press <kbd>A</kbd>. <kbd>Z</kbd> takes it off again.
+      </p>
     {/if}
 
     <div class="keys">
@@ -221,14 +251,16 @@
   {#if flow.loadDone}
     {#if flow.pickedDump}
       <p class="quiet">
-        Digga read the catalogue from <code>{homeRelative(flow.pickedDump)}</code>, the file you chose, and leaves it
-        where it is.
+        Digga read the catalogue from <code>{homeRelative(flow.pickedDump)}</code>, the file you
+        chose, and leaves it where it is.
       </p>
     {:else if flow.dumpFile && !flow.dumpDeleted}
       <div class="dump">
         <p class="quiet">
-          The catalogue file uses {downloadProgress ? formatBytes(downloadProgress.receivedBytes) : "about 10 GB"} in
-          the dumps folder. Keep it to change your styles without downloading again this month.
+          The catalogue file uses {downloadProgress
+            ? formatBytes(downloadProgress.receivedBytes)
+            : "about 10 GB"} in the dumps folder. Keep it to change your styles without downloading again
+          this month.
         </p>
         <Action onclick={() => void flow.deleteDump()} disabled={flow.busy}>Delete it</Action>
       </div>
@@ -253,7 +285,12 @@
           <span class="quiet">ready at {formatCount(DIG_THRESHOLD)} records</span>
         {/if}
         {#if flow.loadRunning}
-          <button type="button" class="link" onclick={() => void flow.changePicks()} disabled={flow.busy}>
+          <button
+            type="button"
+            class="link"
+            onclick={() => void flow.changePicks()}
+            disabled={flow.busy}
+          >
             Change your picks
           </button>
         {/if}

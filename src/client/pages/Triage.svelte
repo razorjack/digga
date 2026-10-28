@@ -179,7 +179,8 @@
   }
 
   function saveNote(text: string): void {
-    if (noteItem && session.noteFor(noteItem) !== normalizeNote(text)) session.setNote(noteItem, text);
+    if (noteItem && session.noteFor(noteItem) !== normalizeNote(text))
+      session.setNote(noteItem, text);
     cancelNote();
   }
 
@@ -394,7 +395,10 @@
       <p class="banner">
         <span>
           {ROUND_TITLES[session.round.kind]} <b>{formatCount(session.upcoming.length)}</b> of
-          {formatCount(session.round.total)} left. Only a verdict key changes the saved decision; <Key label="N" size="sm" /> leaves it.
+          {formatCount(session.round.total)} left. Only a verdict key changes the saved decision; <Key
+            label="N"
+            size="sm"
+          /> leaves it.
         </span>
         <button type="button" aria-keyshortcuts="Escape" onclick={() => session.endRound()}>
           <Key label="Esc" size="sm" aria-hidden="true" /> back to the queue
@@ -403,13 +407,18 @@
     {:else if session.scope}
       <p class="banner">
         <span>
-          Digging {SCOPE_NOUN[session.scope.kind]} <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
+          Digging {SCOPE_NOUN[session.scope.kind]}
+          <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
             <b>{formatCount(scopeRemaining)}</b> left under your filters{/if}.
         </span>
         {#if session.scope.kind === "seller"}
           <a href="#/shop/{session.scope.id}">Shop my wants from this seller</a>
         {/if}
-        <button type="button" aria-keyshortcuts="Escape" onclick={() => void session.setScope(null)}>
+        <button
+          type="button"
+          aria-keyshortcuts="Escape"
+          onclick={() => void session.setScope(null)}
+        >
           <Key label="Esc" size="sm" aria-hidden="true" /> back to the whole queue
         </button>
       </p>
@@ -427,7 +436,14 @@
             onprice={() => void session.price()}
           />
           {#if note || pressingNote || editingNote}
-            <NoteLine {note} {pressingNote} bind:draft={noteDraft} editing={editingNote} onsave={saveNote} oncancel={cancelNote} />
+            <NoteLine
+              {note}
+              {pressingNote}
+              bind:draft={noteDraft}
+              editing={editingNote}
+              onsave={saveNote}
+              oncancel={cancelNote}
+            />
           {/if}
         </div>
         {#if session.currentDetail}

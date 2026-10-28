@@ -97,12 +97,12 @@
         {:else if overlay.kind === "no_audio"}
           <p class="title">{overlay.title}</p>
           {#if mode === "triage"}
-          <p class="options">
-            <span><Key label="S" /> search YouTube</span>
-            <span><Key label="⌘V" /> paste a YouTube link to play it</span>
-            <span><Key label="D" /> no audio, off the queue</span>
-          </p>
-          <p class="small">Verdict keys still work.</p>
+            <p class="options">
+              <span><Key label="S" /> search YouTube</span>
+              <span><Key label="⌘V" /> paste a YouTube link to play it</span>
+              <span><Key label="D" /> no audio, off the queue</span>
+            </p>
+            <p class="small">Verdict keys still work.</p>
           {:else}
             <p class="small">You can still shortlist or skip this copy, or open it on Discogs.</p>
           {/if}
@@ -126,7 +126,9 @@
     </p>
     <p class="time">
       <span class="state">{statusCopy}</span>
-      {formatDuration(player.time)}<span class="quiet">&nbsp;/ {formatDuration(player.duration)}</span>
+      {formatDuration(player.time)}<span class="quiet"
+        >&nbsp;/ {formatDuration(player.duration)}</span
+      >
     </p>
   </div>
 

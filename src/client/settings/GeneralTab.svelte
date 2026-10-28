@@ -35,7 +35,11 @@
 <section>
   <h2 id="{id}-appearance">Appearance</h2>
   <div class="appearance">
-    <fieldset class="inline" aria-labelledby="{id}-appearance" aria-describedby="{id}-appearance-hint">
+    <fieldset
+      class="inline"
+      aria-labelledby="{id}-appearance"
+      aria-describedby="{id}-appearance-hint"
+    >
       {#each COLOR_SCHEMES as scheme (scheme)}
         <label class="check">
           <input

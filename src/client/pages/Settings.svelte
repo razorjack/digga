@@ -183,7 +183,8 @@
                 aria-describedby={unsaved.includes(destination) ? `${id}-unsaved` : undefined}
               >
                 {SETTINGS_TAB_LABEL[destination]}
-                {#if unsaved.includes(destination)}<span class="unsaved" aria-hidden="true"></span>{/if}
+                {#if unsaved.includes(destination)}<span class="unsaved" aria-hidden="true"
+                  ></span>{/if}
               </a>
             </li>
           {/each}
@@ -199,7 +200,12 @@
         {#if settings.error}
           <p class="quiet">Settings did not load: {settings.error}</p>
           <p>
-            <button type="button" class="secondary" aria-busy={settings.loading} onclick={() => void settings.retry()}>
+            <button
+              type="button"
+              class="secondary"
+              aria-busy={settings.loading}
+              onclick={() => void settings.retry()}
+            >
               Try again
             </button>
           </p>
@@ -211,7 +217,17 @@
           {#if tab === "digging"}
             <DiggingTab bind:draft {issues} {formId} onsubmit={submit} />
           {:else if tab === "library"}
-            <LibraryTab bind:draft unsaved={dirty} {issues} {formId} onsubmit={submit} jobs={jobState} {startJob} {cancelJob} {showFlash} />
+            <LibraryTab
+              bind:draft
+              unsaved={dirty}
+              {issues}
+              {formId}
+              onsubmit={submit}
+              jobs={jobState}
+              {startJob}
+              {cancelJob}
+              {showFlash}
+            />
           {:else if tab === "discogs"}
             <DiscogsTab
               bind:draft

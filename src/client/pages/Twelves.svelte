@@ -83,7 +83,8 @@
    * selected one to the end of the shelf. On the snoozed shelf both start a round from the selection.
    */
   function hearAgain(range: ReplayRange): void {
-    const request = twelves.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay(range);
+    const request =
+      twelves.shelf === "tracks" ? selectedTrackReplay() : selectedRecordsReplay(range);
     if (!request) return;
     ui.replay(request);
     navigate("triage");
@@ -153,7 +154,8 @@
   const REPEATING_KEYS = new Set(["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
   function onkeydown(event: KeyboardEvent): void {
-    if (ui.helpOpen || event.defaultPrevented || isControlKey(event) || hasCommandModifier(event)) return;
+    if (ui.helpOpen || event.defaultPrevented || isControlKey(event) || hasCommandModifier(event))
+      return;
     const key = shortcutKey(event);
     if (key === null) return;
     if (event.repeat && !REPEATING_KEYS.has(key)) {
@@ -273,242 +275,277 @@
   </aside>
 
   <div class="pane">
-  <search class="tools">
-    <label class="filter">
-      <Key label="/" size="sm" />
-      <input
-        type="search"
-        bind:this={filterInput}
-        bind:value={twelves.query}
-        onkeydown={onFilterKey}
-        placeholder="artist, title, label, cat no"
-        aria-label="Filter"
-        aria-keyshortcuts="/"
-      />
-    </label>
-    <fieldset class="sort" aria-keyshortcuts="S">
-      <legend><Key label="S" size="sm" aria-hidden="true" /> sort</legend>
-      <div class="segments">
-        {#each SORTS as option (option.id)}
-          <label>
-            <input type="radio" class="visually-hidden" name="sort" value={option.id} bind:group={twelves.sort} />
-            {option.label}
-          </label>
-        {/each}
-      </div>
-    </fieldset>
-  </search>
-
-  <div class="shelf">
-  {#if twelves.shelf === "maybe" || (twelves.shelf === "all" && twelves.pending > 0)}
-    <div class="handoff">
-      {#if !hasMaybeList}
-        <p>Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step with it.</p>
-      {:else}
-        <p>
-          {#if twelves.pending > 0}
-            <b>{formatCount(twelves.pending)}</b>
-            {twelves.pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet. The Discogs
-            API cannot add to lists: <Key label="O" /> opens the release, where "Add to list" is one
-            click.
-          {:else}
-            Every maybe here is on your Discogs Maybe list.
-          {/if}
-        </p>
-        <button
-          type="button"
-          class="check"
-          disabled={twelves.checking}
-          aria-keyshortcuts="I"
-          onclick={() => void twelves.checkList()}
-        >
-          <Key label="I" aria-hidden="true" />
-          {twelves.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
-        </button>
-      {/if}
-    </div>
-  {/if}
-
-  {#if showWantlistHandoff}
-    <div class="handoff">
-      <p>
-        {#if twelves.wantsPending.length > 0}
-          <b>{formatCount(twelves.wantsPending.length)}</b>
-          {twelves.wantsPending.length === 1 ? "record is" : "records are"} not on your Discogs wantlist.
-          <Key label="A" /> on a want or <Key label="C" /> on a grail adds it.
-        {:else}
-          Everything here is on your Discogs wantlist.
-        {/if}
-      </p>
-      {#if twelves.wantsPending.length > 1}
-        <button type="button" class="check" disabled={twelves.pushing} onclick={() => twelves.addPendingToWantlist()}>
-          {twelves.pushing ? "Adding…" : `add all ${formatCount(twelves.wantsPending.length)}`}
-        </button>
-      {/if}
-    </div>
-  {/if}
-
-  {#if twelves.shelf === "no_audio" && twelves.counts.no_audio > 0}
-    <div class="handoff">
-      <p>
-        None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy a video's
-        link there and press <Key label="⌘V" /> here to attach it, and the record goes back to the queue. A newer
-        dump brings back the records Discogs has a video for since.
-      </p>
-    </div>
-  {/if}
-
-  {#if twelves.shelf === "snoozed" && twelves.counts.snoozed > 0}
-    <div class="handoff">
-      <p>
-        <Key label="Enter" /> hears the snoozed records again in Triage, from the selected one. A verdict
-        replaces the snooze; <Key label="N" /> leaves it.
-      </p>
-    </div>
-  {/if}
-
-  {#if twelves.loading}
-    <p class="empty">Loading…</p>
-  {:else if twelves.error}
-    <p class="empty">Twelves did not load: {twelves.error}</p>
-  {:else if onTracks && twelves.visibleTracks.length === 0}
-    {@render emptyShelf()}
-  {:else if onTracks}
-    <TrackTable
-      tracks={twelves.trackPage.items}
-      sort={twelves.sort}
-      selectedKey={twelves.selectedTrackKey}
-      {editingKey}
-      onselect={(key) => (twelves.selectedTrackKey = key)}
-      onsave={saveTrackNote}
-      oncancel={() => (editingKey = null)}
-    />
-  {:else if twelves.visible.length === 0}
-    {@render emptyShelf()}
-  {:else}
-    <table class="box" bind:this={table}>
-      <caption class="visually-hidden">
-        {shelfLabel}{#if page.count > 1}, {formatCount(page.first)} to {formatCount(page.last)} of {formatCount(page.total)}{/if}
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col" class="catno">Cat no</th>
-          <th scope="col" class="who" aria-sort={columnSort(twelves.sort, "record")}>Record</th>
-          <th scope="col" class="where" aria-sort={columnSort(twelves.sort, "label")}>
-            Label<span class="visually-hidden">, year and country</span>
-          </th>
-          <th scope="col" class="market" aria-sort={columnSort(twelves.sort, "market")}>Market</th>
-          <th scope="col" class="verdict">Verdict</th>
-          <th scope="col" class="day" aria-sort={columnSort(twelves.sort, "decided")}>Decided</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each twelves.page.items as item (item.key)}
-          {@const release = item.release}
-          {@const isSelected = item.key === twelves.selectedKey}
-          {@const stamp = recordStamp(item)}
-          <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
-          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-          <tr
-            class:selected={isSelected}
-            aria-current={isSelected ? "true" : undefined}
-            data-triage-key={item.key}
-            data-release-id={release?.id}
-            onclick={() => (twelves.selectedKey = item.key)}
-          >
-            <td class="catno">{release?.catno ?? ""}</td>
-            <td class="who">
-              {#if release}
-                <a href={discogsReleaseUrl(release.id)} target="_blank" rel="noopener noreferrer">
-                  <span class="artist">{release.artistDisplay}</span>
-                  <span class="title">{release.title}</span>
-                </a>
-              {:else}
-                <span class="title">Not in the loaded dump ({item.key})</span>
-              {/if}
-              {#if editingKey === item.key}
-                <input
-                  class="note-input"
-                  bind:value={noteDraft}
-                  {@attach focusOnMount}
-                  maxlength="4000"
-                  aria-label="Note"
-                  onkeydown={(event) => onNoteKey(event, item)}
-                  onblur={() => (editingKey = null)}
-                />
-              {:else if item.note}
-                <p class="note">{item.note}</p>
-              {/if}
-              {#each item.pressingNotes as pressing (pressing.releaseId)}
-                <p class="note">
-                  {pressing.notes} <span class="quiet">(on {pressing.catno ?? "another pressing"})</span>
-                </p>
-              {/each}
-              {#if notOnList(item)}
-                <p class="pending">not on your Discogs Maybe list yet</p>
-              {:else if notOnWantlist(item)}
-                <p class="pending">not on your Discogs wantlist</p>
-              {/if}
-            </td>
-            <td class="where">
-              {#if release}
-                <span>{release.labelName ?? ""}</span>
-                <span class="quiet">{[release.year, release.country].filter(Boolean).join(" ")}</span>
-              {/if}
-            </td>
-            <td class="market">
-              {#if release?.enrichedAt}
-                <span>{release.lowestPrice !== null ? formatPrice(release.lowestPrice, release.currency) : "none for sale"}</span>
-                <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
-              {:else}
-                <span class="quiet">no market data</span>
-              {/if}
-            </td>
-            <td class="verdict">
-              <Stamp
-                text={STATUS_COPY[stamp]}
-                tone={STATUS_TONE[stamp]}
-                seed={release?.id ?? item.key.length}
-                size="sm"
+    <search class="tools">
+      <label class="filter">
+        <Key label="/" size="sm" />
+        <input
+          type="search"
+          bind:this={filterInput}
+          bind:value={twelves.query}
+          onkeydown={onFilterKey}
+          placeholder="artist, title, label, cat no"
+          aria-label="Filter"
+          aria-keyshortcuts="/"
+        />
+      </label>
+      <fieldset class="sort" aria-keyshortcuts="S">
+        <legend><Key label="S" size="sm" aria-hidden="true" /> sort</legend>
+        <div class="segments">
+          {#each SORTS as option (option.id)}
+            <label>
+              <input
+                type="radio"
+                class="visually-hidden"
+                name="sort"
+                value={option.id}
+                bind:group={twelves.sort}
               />
-            </td>
-            <td class="day quiet">
-              <time datetime={item.since}>{formatDay(item.since)}</time>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/if}
+              {option.label}
+            </label>
+          {/each}
+        </div>
+      </fieldset>
+    </search>
 
-  </div>
+    <div class="shelf">
+      {#if twelves.shelf === "maybe" || (twelves.shelf === "all" && twelves.pending > 0)}
+        <div class="handoff">
+          {#if !hasMaybeList}
+            <p>
+              Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step
+              with it.
+            </p>
+          {:else}
+            <p>
+              {#if twelves.pending > 0}
+                <b>{formatCount(twelves.pending)}</b>
+                {twelves.pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet.
+                The Discogs API cannot add to lists: <Key label="O" /> opens the release, where "Add to
+                list" is one click.
+              {:else}
+                Every maybe here is on your Discogs Maybe list.
+              {/if}
+            </p>
+            <button
+              type="button"
+              class="check"
+              disabled={twelves.checking}
+              aria-keyshortcuts="I"
+              onclick={() => void twelves.checkList()}
+            >
+              <Key label="I" aria-hidden="true" />
+              {twelves.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
+            </button>
+          {/if}
+        </div>
+      {/if}
 
-  <footer class="foot">
-    <p class="hints">
-      <span><Key label="J" /><Key label="K" /> move</span>
-      <span><Key label="O" /> discogs</span>
-      <span><Key label="E" /> note</span>
-      {#if !onTracks}
-        <span><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span>
-        <span><Key label="I" /> check Maybe list</span>
+      {#if showWantlistHandoff}
+        <div class="handoff">
+          <p>
+            {#if twelves.wantsPending.length > 0}
+              <b>{formatCount(twelves.wantsPending.length)}</b>
+              {twelves.wantsPending.length === 1 ? "record is" : "records are"} not on your Discogs wantlist.
+              <Key label="A" /> on a want or <Key label="C" /> on a grail adds it.
+            {:else}
+              Everything here is on your Discogs wantlist.
+            {/if}
+          </p>
+          {#if twelves.wantsPending.length > 1}
+            <button
+              type="button"
+              class="check"
+              disabled={twelves.pushing}
+              onclick={() => twelves.addPendingToWantlist()}
+            >
+              {twelves.pushing ? "Adding…" : `add all ${formatCount(twelves.wantsPending.length)}`}
+            </button>
+          {/if}
+        </div>
       {/if}
-      {#if twelves.shelf === "no_audio"}
-        <span><Key label="Y" /> youtube</span>
-        <span><Key label="⌘V" /> attach a link</span>
+
+      {#if twelves.shelf === "no_audio" && twelves.counts.no_audio > 0}
+        <div class="handoff">
+          <p>
+            None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy
+            a video's link there and press <Key label="⌘V" /> here to attach it, and the record goes back
+            to the queue. A newer dump brings back the records Discogs has a video for since.
+          </p>
+        </div>
       {/if}
-      <span><Key label="Enter" /> hear again</span>
-      {#if !onTracks && twelves.shelf !== "snoozed"}
-        <span><Key label="Shift" /><Key label="Enter" /> hear to the end</span>
+
+      {#if twelves.shelf === "snoozed" && twelves.counts.snoozed > 0}
+        <div class="handoff">
+          <p>
+            <Key label="Enter" /> hears the snoozed records again in Triage, from the selected one. A
+            verdict replaces the snooze; <Key label="N" /> leaves it.
+          </p>
+        </div>
       {/if}
-      <span><Key label="Z" /> undo</span>
-    </p>
-    <div class="status">
-      <Flash message={twelves.flash} align="end" />
-      {#if page.count > 1}
-        <Pager {page} noun={onTracks ? "tracks" : "records"} onturn={(turn) => twelves.turnPage(turn)} />
+
+      {#if twelves.loading}
+        <p class="empty">Loading…</p>
+      {:else if twelves.error}
+        <p class="empty">Twelves did not load: {twelves.error}</p>
+      {:else if onTracks && twelves.visibleTracks.length === 0}
+        {@render emptyShelf()}
+      {:else if onTracks}
+        <TrackTable
+          tracks={twelves.trackPage.items}
+          sort={twelves.sort}
+          selectedKey={twelves.selectedTrackKey}
+          {editingKey}
+          onselect={(key) => (twelves.selectedTrackKey = key)}
+          onsave={saveTrackNote}
+          oncancel={() => (editingKey = null)}
+        />
+      {:else if twelves.visible.length === 0}
+        {@render emptyShelf()}
+      {:else}
+        <table class="box" bind:this={table}>
+          <caption class="visually-hidden">
+            {shelfLabel}{#if page.count > 1}, {formatCount(page.first)} to {formatCount(page.last)} of
+              {formatCount(page.total)}{/if}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" class="catno">Cat no</th>
+              <th scope="col" class="who" aria-sort={columnSort(twelves.sort, "record")}>Record</th>
+              <th scope="col" class="where" aria-sort={columnSort(twelves.sort, "label")}>
+                Label<span class="visually-hidden">, year and country</span>
+              </th>
+              <th scope="col" class="market" aria-sort={columnSort(twelves.sort, "market")}
+                >Market</th
+              >
+              <th scope="col" class="verdict">Verdict</th>
+              <th scope="col" class="day" aria-sort={columnSort(twelves.sort, "decided")}
+                >Decided</th
+              >
+            </tr>
+          </thead>
+          <tbody>
+            {#each twelves.page.items as item (item.key)}
+              {@const release = item.release}
+              {@const isSelected = item.key === twelves.selectedKey}
+              {@const stamp = recordStamp(item)}
+              <!-- J and K select from the keyboard; the click is the mouse equivalent. -->
+              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+              <tr
+                class:selected={isSelected}
+                aria-current={isSelected ? "true" : undefined}
+                data-triage-key={item.key}
+                data-release-id={release?.id}
+                onclick={() => (twelves.selectedKey = item.key)}
+              >
+                <td class="catno">{release?.catno ?? ""}</td>
+                <td class="who">
+                  {#if release}
+                    <a
+                      href={discogsReleaseUrl(release.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span class="artist">{release.artistDisplay}</span>
+                      <span class="title">{release.title}</span>
+                    </a>
+                  {:else}
+                    <span class="title">Not in the loaded dump ({item.key})</span>
+                  {/if}
+                  {#if editingKey === item.key}
+                    <input
+                      class="note-input"
+                      bind:value={noteDraft}
+                      {@attach focusOnMount}
+                      maxlength="4000"
+                      aria-label="Note"
+                      onkeydown={(event) => onNoteKey(event, item)}
+                      onblur={() => (editingKey = null)}
+                    />
+                  {:else if item.note}
+                    <p class="note">{item.note}</p>
+                  {/if}
+                  {#each item.pressingNotes as pressing (pressing.releaseId)}
+                    <p class="note">
+                      {pressing.notes}
+                      <span class="quiet">(on {pressing.catno ?? "another pressing"})</span>
+                    </p>
+                  {/each}
+                  {#if notOnList(item)}
+                    <p class="pending">not on your Discogs Maybe list yet</p>
+                  {:else if notOnWantlist(item)}
+                    <p class="pending">not on your Discogs wantlist</p>
+                  {/if}
+                </td>
+                <td class="where">
+                  {#if release}
+                    <span>{release.labelName ?? ""}</span>
+                    <span class="quiet"
+                      >{[release.year, release.country].filter(Boolean).join(" ")}</span
+                    >
+                  {/if}
+                </td>
+                <td class="market">
+                  {#if release?.enrichedAt}
+                    <span
+                      >{release.lowestPrice !== null
+                        ? formatPrice(release.lowestPrice, release.currency)
+                        : "none for sale"}</span
+                    >
+                    <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
+                  {:else}
+                    <span class="quiet">no market data</span>
+                  {/if}
+                </td>
+                <td class="verdict">
+                  <Stamp
+                    text={STATUS_COPY[stamp]}
+                    tone={STATUS_TONE[stamp]}
+                    seed={release?.id ?? item.key.length}
+                    size="sm"
+                  />
+                </td>
+                <td class="day quiet">
+                  <time datetime={item.since}>{formatDay(item.since)}</time>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       {/if}
     </div>
-  </footer>
+
+    <footer class="foot">
+      <p class="hints">
+        <span><Key label="J" /><Key label="K" /> move</span>
+        <span><Key label="O" /> discogs</span>
+        <span><Key label="E" /> note</span>
+        {#if !onTracks}
+          <span
+            ><Key label="A" /><Key label="M" /><Key label="C" /><Key label="R" /><Key label="L" /> re-judge</span
+          >
+          <span><Key label="I" /> check Maybe list</span>
+        {/if}
+        {#if twelves.shelf === "no_audio"}
+          <span><Key label="Y" /> youtube</span>
+          <span><Key label="⌘V" /> attach a link</span>
+        {/if}
+        <span><Key label="Enter" /> hear again</span>
+        {#if !onTracks && twelves.shelf !== "snoozed"}
+          <span><Key label="Shift" /><Key label="Enter" /> hear to the end</span>
+        {/if}
+        <span><Key label="Z" /> undo</span>
+      </p>
+      <div class="status">
+        <Flash message={twelves.flash} align="end" />
+        {#if page.count > 1}
+          <Pager
+            {page}
+            noun={onTracks ? "tracks" : "records"}
+            onturn={(turn) => twelves.turnPage(turn)}
+          />
+        {/if}
+      </div>
+    </footer>
   </div>
 </div>
 
@@ -530,8 +567,16 @@
     background: var(--surface);
     user-select: none;
   }
-  .shop-link { padding: 8px 12px; color: var(--fg-accent); }
-  .shop-link span { display: block; margin-top: 4px; color: var(--fg-muted); font-size: var(--text-sm); }
+  .shop-link {
+    padding: 8px 12px;
+    color: var(--fg-accent);
+  }
+  .shop-link span {
+    display: block;
+    margin-top: 4px;
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+  }
   .sidebar h1 {
     padding-inline: 12px;
     font-size: var(--text-lg);

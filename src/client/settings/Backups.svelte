@@ -59,8 +59,11 @@
   {:else if backups}
     {#if backups.failure}
       <p class="problem">
-        A scheduled backup failed <time datetime={backups.failure.at}>{formatAge(backups.failure.at)}</time>:
-        {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at once.
+        A scheduled backup failed <time datetime={backups.failure.at}
+          >{formatAge(backups.failure.at)}</time
+        >:
+        {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at
+        once.
       </p>
     {/if}
     <div class="vault">
@@ -76,13 +79,18 @@
             </tr>
           </thead>
           <tbody>
-            {@render dailyRow("Your decisions", backups.decisions.backups[0], backups.decisions.kept)}
+            {@render dailyRow(
+              "Your decisions",
+              backups.decisions.backups[0],
+              backups.decisions.kept,
+            )}
             {@render dailyRow("The database", backups.backups[0], backups.kept)}
             <tr>
               <th scope="row">Checkpoints</th>
               {#if latestCheckpoint}
                 <td>
-                  {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time>{:else}{latestCheckpoint.day}{/if}
+                  {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time
+                    >{:else}{latestCheckpoint.day}{/if}
                 </td>
                 <td>{formatBytes(latestCheckpoint.bytes)}</td>
               {:else}
@@ -99,7 +107,13 @@
     </div>
   {/if}
   <div class="inline">
-    <button type="button" class="secondary" disabled={saving} aria-busy={saving} onclick={() => void backUpNow()}>
+    <button
+      type="button"
+      class="secondary"
+      disabled={saving}
+      aria-busy={saving}
+      onclick={() => void backUpNow()}
+    >
       Back up now
     </button>
     <p role="status">{message ?? ""}</p>
@@ -107,19 +121,22 @@
   <details>
     <summary>What each backup holds, and how to restore it</summary>
     <p>
-      <b>Your decisions</b>: once a day, Digga writes your verdicts, notes, track marks, listening and decision
-      histories, saved sessions, attached links and settings to <code>decisions-YYYY-MM-DD.json.gz</code>. Days when
-      nothing changed add none. <code>npm run digga -- restore</code> with the file brings them back into a library
-      loaded from a dump; add <code>--config</code> to restore the settings as well.
+      <b>Your decisions</b>: once a day, Digga writes your verdicts, notes, track marks, listening
+      and decision histories, saved sessions, attached links and settings to
+      <code>decisions-YYYY-MM-DD.json.gz</code>. Days when nothing changed add none.
+      <code>npm run digga -- restore</code>
+      with the file brings them back into a library loaded from a dump; add <code>--config</code> to restore
+      the settings as well.
     </p>
     <p>
-      <b>The database</b>: copied once a day while the server runs. To restore a copy, stop the server and run
-      <code>npm run digga -- restore</code> with the file; it keeps the database it replaces. Schema upgrades first
-      save a separate <code>before-migration</code> copy, which restores the same way.
+      <b>The database</b>: copied once a day while the server runs. To restore a copy, stop the
+      server and run
+      <code>npm run digga -- restore</code> with the file; it keeps the database it replaces. Schema
+      upgrades first save a separate <code>before-migration</code> copy, which restores the same way.
     </p>
     <p>
-      <b>Checkpoints</b>: every fifteen minutes, and when the server stops cleanly, changed personal data gets a
-      checkpoint, in addition to the daily backups.
+      <b>Checkpoints</b>: every fifteen minutes, and when the server stops cleanly, changed personal
+      data gets a checkpoint, in addition to the daily backups.
     </p>
   </details>
 </section>

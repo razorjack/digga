@@ -26,7 +26,9 @@
             <th scope="col" class="job-name"><span class="visually-hidden">Job</span></th>
             <th scope="col" class="job-status"><span class="visually-hidden">Status</span></th>
             <th scope="col"><span class="visually-hidden">Progress</span></th>
-            <th scope="col" class="job-started"><span class="visually-hidden">Started, duration</span></th>
+            <th scope="col" class="job-started"
+              ><span class="visually-hidden">Started, duration</span></th
+            >
             <th scope="col" class="job-action"><span class="visually-hidden">Action</span></th>
           </tr>
         </thead>
@@ -38,7 +40,11 @@
               <td class="job-status">{job.status}</td>
               <td class="job-progress">
                 {#if job.status === "running" && progress.fraction !== null}
-                  <progress class="meter" value={progress.fraction} aria-labelledby="{id}-job-{job.id}"></progress>
+                  <progress
+                    class="meter"
+                    value={progress.fraction}
+                    aria-labelledby="{id}-job-{job.id}"
+                  ></progress>
                 {/if}
                 {progress.text}{job.error ? `: ${job.error}` : ""}
               </td>

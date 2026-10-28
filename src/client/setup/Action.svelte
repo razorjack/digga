@@ -22,10 +22,15 @@
     disabled?: boolean;
     onclick?: () => void;
   } = $props();
-
 </script>
 
-<button {type} class:primary {disabled} aria-keyshortcuts={shortcuts ?? keys ?? undefined} {onclick}>
+<button
+  {type}
+  class:primary
+  {disabled}
+  aria-keyshortcuts={shortcuts ?? keys ?? undefined}
+  {onclick}
+>
   {@render children()}
   {#if keys}<Key label={keys} size="sm" aria-hidden="true" />{/if}
 </button>

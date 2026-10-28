@@ -32,7 +32,9 @@
     // Last, so F then Enter still digs the first label of the record on screen.
     return newRecords ? [...recordScopes, newRecords] : recordScopes;
   });
-  const listed: (QueueScope | ScopeMatch)[] = $derived(search.active ? search.matches : recordScopes);
+  const listed: (QueueScope | ScopeMatch)[] = $derived(
+    search.active ? search.matches : recordScopes,
+  );
   /** The option moved to with the arrows or a click; the first one until then. */
   let chosenKey = $state<string | null>(null);
   const checked = $derived(

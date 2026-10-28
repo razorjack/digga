@@ -30,7 +30,8 @@
   >
     <Key label="←" size="sm" aria-hidden="true" />
   </button>
-  <span>{formatCount(page.first)}–{formatCount(page.last)} of {formatCount(page.total)} {noun}</span>
+  <span>{formatCount(page.first)}–{formatCount(page.last)} of {formatCount(page.total)} {noun}</span
+  >
   <button
     type="button"
     tabindex="-1"

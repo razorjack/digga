@@ -31,7 +31,12 @@
           <span class="price">{priceOf(listing)}</span>
           <span class="grade">
             <span aria-hidden="true">
-              <Stamp text={grade.text} tone={grade.tone ? STAMP_TONES[grade.tone] : "plain"} seed={listing.id} size="sm" />
+              <Stamp
+                text={grade.text}
+                tone={grade.tone ? STAMP_TONES[grade.tone] : "plain"}
+                seed={listing.id}
+                size="sm"
+              />
             </span>
             <span class="visually-hidden">{grade.spoken}</span>
           </span>

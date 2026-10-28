@@ -51,25 +51,28 @@
 <section class="step" aria-labelledby="catalogue-title">
   <h1 id="catalogue-title">Fetch the catalogue</h1>
   <p class="lead">
-    <b>Dig every record in your styles, by ear.</b> Digga plays a few seconds of each track on every record in the
-    styles and years you pick. One key per record: skip, want, maybe, grail. What you want lands in Twelves, and on
-    your Discogs wantlist if you like.
+    <b>Dig every record in your styles, by ear.</b> Digga plays a few seconds of each track on every record
+    in the styles and years you pick. One key per record: skip, want, maybe, grail. What you want lands
+    in Twelves, and on your Discogs wantlist if you like.
   </p>
-  <p class="lead">Setting up takes about 20 minutes, mostly waiting. You can start digging after the first few.</p>
+  <p class="lead">
+    Setting up takes about 20 minutes, mostly waiting. You can start digging after the first few.
+  </p>
 
   <div class="what" aria-live="polite" aria-busy={flow.setup === null}>
     {#if picked}
       <p>
-        Digga reads releases from <code>{homeRelative(picked)}</code>, the file you chose, not from Discogs' API. The
-        file stays where it is.
+        Digga reads releases from <code>{homeRelative(picked)}</code>, the file you chose, not from
+        Discogs' API. The file stays where it is.
       </p>
     {:else if newest && catalogue}
       <p>
         Discogs publishes every release in one file a month. Digga downloads the newest, from
-        <b>{formatDumpDate(newest.date)}</b>{#if newest.bytes}: <b>{formatBytes(newest.bytes)}</b>{/if}, into
-        <code>{homeRelative(catalogue.dumpsDir)}</code>{#if catalogue.freeBytes !== null}{" "}({formatBytes(
-            catalogue.freeBytes,
-          )} free){/if}. Digga reads releases from this file, not from Discogs' API.
+        <b>{formatDumpDate(newest.date)}</b>{#if newest.bytes}: <b>{formatBytes(newest.bytes)}</b
+          >{/if}, into
+        <code>{homeRelative(catalogue.dumpsDir)}</code
+        >{#if catalogue.freeBytes !== null}{" "}({formatBytes(catalogue.freeBytes)} free){/if}.
+        Digga reads releases from this file, not from Discogs' API.
       </p>
     {:else if catalogue?.error}
       <p class="problem">Digga can't reach data.discogs.com: {catalogue.error}.</p>
@@ -85,19 +88,21 @@
   <div class="outcome">
     <p class="problem" role="alert">
       {#if shortOfSpace && catalogue}
-        The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} free, counting 1 GB to spare, and the disk with
+        The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} free, counting 1 GB to spare, and
+        the disk with
         <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(catalogue.freeBytes ?? 0)}.
         {#if canChooseFolder}
           Free some space, or choose a folder on another disk.
         {:else}
-          Free some space, or put the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in <code>.env</code> and
-          start Digga again.
+          Free some space, or put the catalogue on another disk: set <code>DIGGA_DUMPS_DIR</code> in
+          <code>.env</code> and start Digga again.
         {/if}
       {:else if pickedMissing && picked}
-        Digga can't find <code>{homeRelative(picked)}</code>, the file you chose. Connect its disk, or choose another
-        file.
+        Digga can't find <code>{homeRelative(picked)}</code>, the file you chose. Connect its disk,
+        or choose another file.
       {:else if folderMissing && catalogue}
-        Digga can't find <code>{homeRelative(catalogue.dumpsDir)}</code>, the folder you chose for the catalogue.
+        Digga can't find <code>{homeRelative(catalogue.dumpsDir)}</code>, the folder you chose for
+        the catalogue.
         {#if canChooseFolder}
           Connect its disk, or choose another folder.
         {:else}
@@ -109,10 +114,16 @@
 
     <div class="actions">
       {#if picked}
-        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy || pickedMissing}>Continue</Action>
-        <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}>Choose another file</Action>
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy || pickedMissing}
+          >Continue</Action
+        >
+        <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}
+          >Choose another file</Action
+        >
         {#if pickedMissing}
-          <Action onclick={() => void flow.checkCatalogueAgain()} disabled={flow.busy}>Check again</Action>
+          <Action onclick={() => void flow.checkCatalogueAgain()} disabled={flow.busy}
+            >Check again</Action
+          >
         {/if}
       {:else if flow.download?.status === "running"}
         <p class="quiet">The catalogue is downloading.</p>
@@ -121,7 +132,9 @@
         <p class="quiet">Digga has the {formatDumpDate(newest.date)} catalogue already.</p>
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
       {:else if newest}
-        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}>Fetch the catalogue</Action>
+        <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}
+          >Fetch the catalogue</Action
+        >
       {/if}
       {#if picked === null && (catalogue?.error || shortOfSpace || folderMissing)}
         <Action onclick={() => void flow.checkCatalogueAgain()} disabled={flow.busy}>
@@ -129,10 +142,14 @@
         </Action>
       {/if}
       {#if canChooseFolder}
-        <Action onclick={() => void flow.chooseDumpsFolder()} disabled={flow.busy}>Choose a folder…</Action>
+        <Action onclick={() => void flow.chooseDumpsFolder()} disabled={flow.busy}
+          >Choose a folder…</Action
+        >
       {/if}
       {#if canChooseFile}
-        <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}>Use a dump file I have</Action>
+        <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}
+          >Use a dump file I have</Action
+        >
       {/if}
     </div>
   </div>

@@ -15,7 +15,9 @@
       <p class="title">
         Continue your session from <time datetime={checkpoint.pending.updatedAt}>{savedAt}</time>?
       </p>
-      <p class="detail">Resume restores its filters, scope, passed records and playback position.</p>
+      <p class="detail">
+        Resume restores its filters, scope, passed records and playback position.
+      </p>
     </div>
     <div class="actions">
       <button

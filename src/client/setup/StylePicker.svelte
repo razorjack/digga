@@ -41,7 +41,9 @@
   });
 
   function toggle(name: string, on: boolean): void {
-    picks = on ? [...picks.filter((pick) => pick !== name), name] : picks.filter((pick) => pick !== name);
+    picks = on
+      ? [...picks.filter((pick) => pick !== name), name]
+      : picks.filter((pick) => pick !== name);
     problem = "";
   }
 
@@ -78,7 +80,9 @@
         <li>
           <span class="name">{pick}</span>
           <span class="count">{formatCount(sizes.get(pick) ?? 0)}</span>
-          <button type="button" aria-label="Remove {pick}" onclick={() => toggle(pick, false)}>×</button>
+          <button type="button" aria-label="Remove {pick}" onclick={() => toggle(pick, false)}
+            >×</button
+          >
         </li>
       {/each}
     </ul>

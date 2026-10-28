@@ -519,7 +519,7 @@ test(
       await settings.open("backups");
 
       await expect(settings.backups.getByText(/^A scheduled backup failed /)).toHaveText(
-        /^A scheduled backup failed just now:\s+the daily decisions backup failed: .*EACCES.*; the decisions checkpoint failed: .*EACCES.*\. Digga tries again every fifteen minutes; Back up now tries at once\.$/,
+        /^A scheduled backup failed just now:\s+the daily decisions backup failed: .*EACCES.*; the decisions checkpoint failed: .*EACCES.*\. Digga tries again every fifteen minutes; Back up now tries at\s+once\.$/,
       );
     } finally {
       unprotect();

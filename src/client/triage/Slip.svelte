@@ -51,7 +51,12 @@
       {#key slip.id}
         <div class="stamp">
           {#if slip.kind === "verdict"}
-            <Stamp text={STATUS_COPY[slip.status]} tone={STATUS_TONE[slip.status]} seed={slip.item.id} slam />
+            <Stamp
+              text={STATUS_COPY[slip.status]}
+              tone={STATUS_TONE[slip.status]}
+              seed={slip.item.id}
+              slam
+            />
           {:else if slip.kind === "pass"}
             <Stamp text="later" tone="muted" seed={slip.item.id} slam />
           {:else if slip.kind === "label"}

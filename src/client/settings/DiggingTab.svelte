@@ -56,7 +56,10 @@
 
   /** A line that still names a hidden label keeps its Discogs id. */
   function setHiddenLabels(text: string): void {
-    draft.filters.excludeLabels = hiddenLabelsFromNames(parseLines(text), draft.filters.excludeLabels);
+    draft.filters.excludeLabels = hiddenLabelsFromNames(
+      parseLines(text),
+      draft.filters.excludeLabels,
+    );
   }
 
   /** Every style checked is stored as null, so a style added to the universe is dug too. */
@@ -109,8 +112,12 @@
             or only those on labels and by artists you want
           </label>
         </div>
-        <span class="hint" id="{id}-undated-hint">The labels and artists of the records you want or own.</span>
-        <span class="hint problem" id="{id}-years-problem" hidden={!yearsProblem}>{yearsProblem}</span>
+        <span class="hint" id="{id}-undated-hint"
+          >The labels and artists of the records you want or own.</span
+        >
+        <span class="hint problem" id="{id}-years-problem" hidden={!yearsProblem}
+          >{yearsProblem}</span
+        >
       </fieldset>
       <div class="field">
         <label class="name" for="{id}-formats">Formats</label>
@@ -134,7 +141,9 @@
           onchange={(event) => (draft.filters.countries = parseList(event.currentTarget.value))}
           placeholder="any country"
         />
-        <span class="hint" id="{id}-countries-hint">As Discogs writes them: UK, Germany, US. Empty means any.</span>
+        <span class="hint" id="{id}-countries-hint"
+          >As Discogs writes them: UK, Germany, US. Empty means any.</span
+        >
       </div>
       <fieldset class="field">
         <legend class="name">Format details</legend>
@@ -143,14 +152,16 @@
             aria-label="Only with"
             aria-describedby="{id}-descriptions-hint"
             value={joinList(draft.filters.includeDescriptions)}
-            onchange={(event) => (draft.filters.includeDescriptions = parseList(event.currentTarget.value))}
+            onchange={(event) =>
+              (draft.filters.includeDescriptions = parseList(event.currentTarget.value))}
             placeholder="only with: any"
           />
           <input
             aria-label="Leave out"
             aria-describedby="{id}-descriptions-hint"
             value={joinList(draft.filters.excludeDescriptions)}
-            onchange={(event) => (draft.filters.excludeDescriptions = parseList(event.currentTarget.value))}
+            onchange={(event) =>
+              (draft.filters.excludeDescriptions = parseList(event.currentTarget.value))}
             placeholder="leave out: none"
           />
         </div>
@@ -166,11 +177,12 @@
           aria-describedby="{id}-labels-hint"
           value={hiddenLabelLines(draft.filters.excludeLabels)}
           onchange={(event) => setHiddenLabels(event.currentTarget.value)}
-          placeholder="none"
-        ></textarea>
+          placeholder="none"></textarea>
         <span class="hint" id="{id}-labels-hint">
-          One per line, as Discogs writes it; Not On Label also hides self-releases. <Key label="X" size="sm" /> in
-          Triage adds one.
+          One per line, as Discogs writes it; Not On Label also hides self-releases. <Key
+            label="X"
+            size="sm"
+          /> in Triage adds one.
         </span>
       </div>
       <fieldset class="field">
@@ -178,26 +190,44 @@
         <div class="skips">
           <div class="skip">
             <label class="check">
-              <input type="checkbox" aria-describedby="{id}-videos-hint" bind:checked={draft.filters.skipWithoutVideos} />
+              <input
+                type="checkbox"
+                aria-describedby="{id}-videos-hint"
+                bind:checked={draft.filters.skipWithoutVideos}
+              />
               releases without videos
             </label>
-            <span class="hint" id="{id}-videos-hint">No playable YouTube video on any pressing; a newer dump may add one.</span>
+            <span class="hint" id="{id}-videos-hint"
+              >No playable YouTube video on any pressing; a newer dump may add one.</span
+            >
           </div>
           {#if hasSeenRecords}
             <div class="skip">
               <label class="check">
-                <input type="checkbox" aria-describedby="{id}-history-hint" bind:checked={draft.filters.skipHistory} />
+                <input
+                  type="checkbox"
+                  aria-describedby="{id}-history-hint"
+                  bind:checked={draft.filters.skipHistory}
+                />
                 records opened before
               </label>
-              <span class="hint" id="{id}-history-hint">Turn off to dig the records you only opened on Discogs.</span>
+              <span class="hint" id="{id}-history-hint"
+                >Turn off to dig the records you only opened on Discogs.</span
+              >
             </div>
           {/if}
           <div class="skip">
             <label class="check">
-              <input type="checkbox" aria-describedby="{id}-heard-hint" bind:checked={draft.player.skipHeard} />
+              <input
+                type="checkbox"
+                aria-describedby="{id}-heard-hint"
+                bind:checked={draft.player.skipHeard}
+              />
               tunes heard before
             </label>
-            <span class="hint" id="{id}-heard-hint">When a record starts and when moving on; any track can still be picked.</span>
+            <span class="hint" id="{id}-heard-hint"
+              >When a record starts and when moving on; any track can still be picked.</span
+            >
           </div>
         </div>
       </fieldset>
@@ -264,7 +294,9 @@
           {@attach reportProblem(issues, "queue.limit")}
         />
         <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
-        <span class="hint problem" id="{id}-batch-problem" hidden={!batchProblem}>{batchProblem}</span>
+        <span class="hint problem" id="{id}-batch-problem" hidden={!batchProblem}
+          >{batchProblem}</span
+        >
       </div>
     </div>
   </section>
@@ -298,7 +330,9 @@
           bind:value={draft.player.seekStepSeconds}
           {@attach reportProblem(issues, "player.seekStepSeconds")}
         />
-        <span class="hint" id="{id}-seek-hint">Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span>
+        <span class="hint" id="{id}-seek-hint"
+          >Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span
+        >
         <span class="hint problem" id="{id}-seek-problem" hidden={!seekProblem}>{seekProblem}</span>
       </div>
     </div>

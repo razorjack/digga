@@ -28,7 +28,9 @@
     currency ?? flow.profile?.currency ?? settings.value?.discogs.currency ?? "EUR",
   );
   const importTime = $derived(
-    Math.round(importSeconds(flow.profile?.collection ?? 0) + importSeconds(flow.profile?.wantlist ?? 0)),
+    Math.round(
+      importSeconds(flow.profile?.collection ?? 0) + importSeconds(flow.profile?.wantlist ?? 0),
+    ),
   );
   const tokenProblem = $derived(refused === "token" ? (flow.error ?? "") : "");
   const usernameProblem = $derived(refused === "username" ? (flow.error ?? "") : "");
@@ -50,7 +52,10 @@
   }
 
   /** The field takes the step's error once the page shows it, so its description is complete. */
-  async function reportRefusal(field: "token" | "username", input: HTMLInputElement | null): Promise<void> {
+  async function reportRefusal(
+    field: "token" | "username",
+    input: HTMLInputElement | null,
+  ): Promise<void> {
     refused = field;
     await tick();
     input?.reportValidity();
@@ -84,13 +89,15 @@
     <p>With a Discogs token Digga can:</p>
     <ul>
       <li>leave records you own or already want out of the queue</li>
-      <li>put a record on your wantlist when you press <kbd>A</kbd> (<kbd>Z</kbd> takes it back)</li>
+      <li>
+        put a record on your wantlist when you press <kbd>A</kbd> (<kbd>Z</kbd> takes it back)
+      </li>
       <li>ask for the lowest price when you press <kbd>P</kbd></li>
     </ul>
     <p>
-      Digga reads the catalogue from the file it downloaded, not through your account. It uses the token only for
-      things you do: the ones above, and showing your account in Settings. One request at a time, within Discogs'
-      rate limit.
+      Digga reads the catalogue from the file it downloaded, not through your account. It uses the
+      token only for things you do: the ones above, and showing your account in Settings. One
+      request at a time, within Discogs' rate limit.
     </p>
     <RequestList />
   </div>
@@ -102,8 +109,12 @@
         <p>Checking your Discogs account…</p>
       {:else if connectedAs}
         <p>
-          Connected as <b>{connectedAs}</b>{#if flow.profile?.collection !== null && flow.profile?.collection !== undefined}:
-            {formatCount(flow.profile.collection)} in your collection, {formatCounted(flow.profile.wantlist ?? 0, "want")}{/if}.
+          Connected as <b>{connectedAs}</b
+          >{#if flow.profile?.collection !== null && flow.profile?.collection !== undefined}:
+            {formatCount(flow.profile.collection)} in your collection, {formatCounted(
+              flow.profile.wantlist ?? 0,
+              "want",
+            )}{/if}.
           {#if fromEnvironment}The token comes from <code>DISCOGS_TOKEN</code>.{/if}
         </p>
       {/if}
@@ -111,8 +122,13 @@
     {#if !connectedAs && !flow.accountChecking}
       <form class="token" onsubmit={connect}>
         <p class="hint" id="token-hint">
-          The token stays on this computer. Get one on discogs.com under Settings › Developers › Generate new token.
-          <a href="https://www.discogs.com/settings/developers" target="_blank" rel="noopener noreferrer">Open discogs.com</a>
+          The token stays on this computer. Get one on discogs.com under Settings › Developers ›
+          Generate new token.
+          <a
+            href="https://www.discogs.com/settings/developers"
+            target="_blank"
+            rel="noopener noreferrer">Open discogs.com</a
+          >
         </p>
         <label for="token">Token</label>
         <div class="field">
@@ -137,7 +153,8 @@
         <summary>No token? Use your username</summary>
         <form onsubmit={useUsername}>
           <p class="hint" id="username-hint">
-            Digga can read a public collection and wantlist by username, more slowly. Wants you add with
+            Digga can read a public collection and wantlist by username, more slowly. Wants you add
+            with
             <kbd>A</kbd> then stay in Digga, and Twelves marks them for adding on discogs.com.
           </p>
           <label for="username">Discogs username</label>

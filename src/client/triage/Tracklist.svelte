@@ -54,7 +54,14 @@
 
   const isCurrent = (state: VideoState) => state === "playing" || state === "cued";
 
-  const GLYPH = { playing: "▶", cued: "●", video: "●", failed: "×", blocked: "×", none: "" } as const;
+  const GLYPH = {
+    playing: "▶",
+    cued: "●",
+    video: "●",
+    failed: "×",
+    blocked: "×",
+    none: "",
+  } as const;
   const HINT = {
     playing: "playing",
     cued: "cued",
@@ -74,7 +81,11 @@
       {@const state = videoState(track.position, index)}
       {@const heardNow = mine && player.heardNow.has(track.position)}
       {@const heard = track.heard || (player.heardKeys.has(track.heardKey) && !heardNow)}
-      <li data-position={track.position} class="row {state}" class:heard={heard && !isCurrent(state)}>
+      <li
+        data-position={track.position}
+        class="row {state}"
+        class:heard={heard && !isCurrent(state)}
+      >
         <button
           type="button"
           tabindex="-1"
@@ -85,7 +96,9 @@
         >
           <span class="pos">{track.position}</span>
           <span class="glyph" title={HINT[state]}>
-            <span aria-hidden="true">{GLYPH[state]}</span><span class="visually-hidden">{HINT[state]}</span>
+            <span aria-hidden="true">{GLYPH[state]}</span><span class="visually-hidden"
+              >{HINT[state]}</span
+            >
           </span>
           <span class="name">
             {#if track.artistDisplay && track.artistDisplay !== releaseArtist}
@@ -97,7 +110,12 @@
             {#if heard && !heardNow}<span class="note">heard</span>{/if}
             {#if heardNow && !isCurrent(state)}<span class="note">played</span>{/if}
             {#if state === "failed" || state === "blocked"}<span class="note">no embed</span>{/if}
-            {#if track.mark}<Stamp text={MARK_COPY[track.mark]} tone={track.mark === "meh" ? "muted" : "accent"} size="sm" seed={track.seq + detail.release.id} />{/if}
+            {#if track.mark}<Stamp
+                text={MARK_COPY[track.mark]}
+                tone={track.mark === "meh" ? "muted" : "accent"}
+                size="sm"
+                seed={track.seq + detail.release.id}
+              />{/if}
           </span>
           <span class="dur">{formatDuration(track.durationSeconds)}</span>
         </button>
@@ -120,10 +138,14 @@
         >
           <span class="pos"></span>
           <span class="glyph" title={HINT[stray]}>
-            <span aria-hidden="true">{GLYPH[stray]}</span><span class="visually-hidden">{HINT[stray]}</span>
+            <span aria-hidden="true">{GLYPH[stray]}</span><span class="visually-hidden"
+              >{HINT[stray]}</span
+            >
           </span>
           <span class="name">{entry.video.title || entry.video.videoId}</span>
-          <span class="tags">{#if failed}<span class="note">no embed</span>{/if}</span>
+          <span class="tags"
+            >{#if failed}<span class="note">no embed</span>{/if}</span
+          >
           <span class="dur">{formatDuration(entry.video.durationSeconds)}</span>
         </button>
       </li>

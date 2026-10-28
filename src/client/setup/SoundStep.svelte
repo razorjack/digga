@@ -37,8 +37,9 @@
   const loadYears = $derived(chosenLoadYears ?? (span ? loadYearsFor(span) : null));
   const histogram = $derived(census ? yearHistogram(census, picks) : new Map<number, number>());
   const undated = $derived(
-    census?.styles.filter((style) => picks.includes(style.name)).reduce((sum, style) => sum + style.undated, 0) ??
-      0,
+    census?.styles
+      .filter((style) => picks.includes(style.name))
+      .reduce((sum, style) => sum + style.undated, 0) ?? 0,
   );
   const estimate = $derived(
     census && span && loadYears && picks.length > 0
@@ -83,12 +84,14 @@
 <form class="step" aria-labelledby="sound-title" onsubmit={fill}>
   <h1 id="sound-title">Pick your sound</h1>
   <p class="lead">
-    Digga keeps the releases in these styles and years. You can change both later in Settings and load again.
+    Digga keeps the releases in these styles and years. You can change both later in Settings and
+    load again.
   </p>
 
   {#if suggested.length > 0 && !confirmed}
     <p class="suggested">
-      Your Discogs records are mostly <b>{names.format(suggested.map((style) => style.name))}</b>, so
+      Your Discogs records are mostly <b>{names.format(suggested.map((style) => style.name))}</b>,
+      so
       {suggested.length === 1 ? "it is" : "they are"} picked. Change them as you like.
     </p>
   {/if}
@@ -130,8 +133,8 @@
         {#if loadYears}
           <details class="load-years">
             <summary>
-              Digga loads {loadYears[0]}–{loadYears[1]}, some years either side, so you can widen the range later
-              without loading again.
+              Digga loads {loadYears[0]}–{loadYears[1]}, some years either side, so you can widen
+              the range later without loading again.
             </summary>
             <div class="range">
               <label>
@@ -170,10 +173,12 @@
 
     <p class="estimate" role="status">
       {#if estimate && span}
-        About <b>{formatCount(estimatedReleases)}</b> {nounFor(estimatedReleases, "release")}, {formatBytes(estimate.bytes)};
-        {formatCount(roundEstimate(estimate.dug))} of them from {span[0]}–{span[1]}{vinylOnly ? " on vinyl" : ""}.
-        The load reads all {formatCount(roundEstimate(census.releases))} releases on Discogs whatever you pick, so it
-        takes 15 to 20 minutes either way.
+        About <b>{formatCount(estimatedReleases)}</b>
+        {nounFor(estimatedReleases, "release")}, {formatBytes(estimate.bytes)};
+        {formatCount(roundEstimate(estimate.dug))} of them from {span[0]}–{span[1]}{vinylOnly
+          ? " on vinyl"
+          : ""}. The load reads all {formatCount(roundEstimate(census.releases))} releases on Discogs
+        whatever you pick, so it takes 15 to 20 minutes either way.
       {/if}
     </p>
   {:else}
@@ -184,7 +189,9 @@
     <p class="problem" role="alert">{flow.error ?? ""}</p>
 
     <div class="actions">
-      <Action primary type="submit" keys="Enter" disabled={flow.busy || !census}>Fill the crate</Action>
+      <Action primary type="submit" keys="Enter" disabled={flow.busy || !census}
+        >Fill the crate</Action
+      >
       <button type="button" class="back" onclick={() => flow.goTo("discogs")}>Back</button>
     </div>
   </div>

@@ -140,7 +140,13 @@
     />
     <feComposite in="SourceGraphic" in2="voids" operator="in" result="inked" />
     <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="3" result="warp" />
-    <feDisplacementMap in="inked" in2="warp" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+    <feDisplacementMap
+      in="inked"
+      in2="warp"
+      scale="2.5"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
   </filter>
   <filter id="ink-fine" x="-10%" y="-25%" width="120%" height="150%">
     <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="11" result="grain" />
@@ -152,7 +158,13 @@
     />
     <feComposite in="SourceGraphic" in2="voids" operator="in" result="inked" />
     <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="1" seed="5" result="warp" />
-    <feDisplacementMap in="inked" in2="warp" scale="1.2" xChannelSelector="R" yChannelSelector="G" />
+    <feDisplacementMap
+      in="inked"
+      in2="warp"
+      scale="1.2"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
   </filter>
 </svg>
 
@@ -179,11 +191,15 @@
         <div class="counter">
           {#if stats.value}
             <p><b>{formatCount(stats.value.dug)}</b> dug</p>
-            <p><b>{formatCount(stats.value.remaining)}</b> to go{loadStatus.loading ? " so far" : ""}</p>
+            <p>
+              <b>{formatCount(stats.value.remaining)}</b> to go{loadStatus.loading ? " so far" : ""}
+            </p>
             {#if stats.value.remaining > 0 && !loadStatus.loading}
               <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
             {/if}
-            {#if stats.session > 0}<p class="session">+{formatCount(stats.session)} this session</p>{/if}
+            {#if stats.session > 0}<p class="session">
+                +{formatCount(stats.session)} this session
+              </p>{/if}
           {:else}
             <p class="error">Server unreachable</p>
           {/if}

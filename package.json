@@ -16,11 +16,13 @@
     "electron:package": "vp build && node scripts/package-electron.ts && node scripts/electron-health-check.ts",
     "check:portability": "node scripts/check-portability.ts",
     "check:svelte": "svelte-check --tsconfig ./tsconfig.app.json",
+    "check:format-svelte": "prettier --check \"src/**/*.svelte\"",
+    "format:svelte": "prettier --write \"src/**/*.svelte\"",
     "e2e": "vp build && playwright test --config tests/e2e/playwright.config.ts",
     "e2e:smoke": "vp build && playwright test --config tests/e2e/playwright.config.ts --grep @P0",
     "e2e:electron": "vp build && playwright test --config tests/e2e/playwright.electron.config.ts",
     "e2e:packaged": "vp run electron:package && playwright test --config tests/e2e/playwright.packaged.config.ts",
-    "verify": "vp check && vp test && vp run check:portability && vp run check:svelte && vp run e2e:smoke"
+    "verify": "vp check && vp run check:format-svelte && vp test && vp run check:portability && vp run check:svelte && vp run e2e:smoke"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
@@ -41,6 +43,8 @@
     "@types/node": "^24.13.3",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
+    "prettier": "^3.9.10",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelte": "^5.57.0",
     "svelte-check": "^4.7.6",
     "typescript": "~6.0.2",

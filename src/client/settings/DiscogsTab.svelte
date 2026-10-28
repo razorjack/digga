@@ -6,7 +6,11 @@
   import Key from "../components/Key.svelte";
   import RequestList from "../setup/RequestList.svelte";
   import { errorMessage, settings, stats } from "../stores.svelte.ts";
-  import { type DiscogsSettings, tokenStorageText, usernameAfterTokenSave } from "./discogs.svelte.ts";
+  import {
+    type DiscogsSettings,
+    tokenStorageText,
+    usernameAfterTokenSave,
+  } from "./discogs.svelte.ts";
   import JobList from "./JobList.svelte";
   import { SAVE_BEFORE_JOB, type SettingsJobs } from "./jobs.svelte.ts";
   import { recentJobs, TAB_JOBS } from "./tabs.ts";
@@ -47,7 +51,8 @@
     draft.discogs.username === "" || draft.discogs.username !== settings.value?.discogs.username,
   );
   const maybeListMissing = $derived(
-    draft.discogs.maybeListId !== null && !discogs.lists.some((list) => list.id === draft.discogs.maybeListId),
+    draft.discogs.maybeListId !== null &&
+      !discogs.lists.some((list) => list.id === draft.discogs.maybeListId),
   );
 
   /**
@@ -62,7 +67,8 @@
     if (token === null) showFlash("Token removed.");
     else if (discogs.account?.error) showFlash("Token saved, but Discogs did not confirm it.");
     else showFlash("Token saved.");
-    if (discogs.account && discogs.account.username !== savedUsername) await adoptUsername(savedUsername);
+    if (discogs.account && discogs.account.username !== savedUsername)
+      await adoptUsername(savedUsername);
     else if (settings.value?.discogs.username) void discogs.loadLists();
   }
 
@@ -72,7 +78,11 @@
    */
   async function adoptUsername(savedUsername: string): Promise<void> {
     await settings.load();
-    draft.discogs.username = usernameAfterTokenSave(draft.discogs.username, savedUsername, discogs.account);
+    draft.discogs.username = usernameAfterTokenSave(
+      draft.discogs.username,
+      savedUsername,
+      discogs.account,
+    );
   }
 
   async function forgetDiscogsData(account: string): Promise<void> {
@@ -108,8 +118,10 @@
       <h2 id="{id}-discogs-title">Discogs</h2>
       <p>
         Digga reads the catalogue from the dump. The token is used only for what you do: imports,
-        <Key label="A" size="sm" /> and <Key label="C" size="sm" /> wants, <Key label="P" size="sm" /> prices, and
-        this page.
+        <Key label="A" size="sm" /> and <Key label="C" size="sm" /> wants, <Key
+          label="P"
+          size="sm"
+        /> prices, and this page.
       </p>
       <RequestList />
     </header>
@@ -123,12 +135,20 @@
           autocomplete="off"
           spellcheck="false"
         />
-        <span class="hint" id="{id}-username-hint">Collection and wantlist imports read this account.</span>
+        <span class="hint" id="{id}-username-hint"
+          >Collection and wantlist imports read this account.</span
+        >
         {#if discogs.account?.dataAccount}
           {@const dataAccount = discogs.account.dataAccount}
           <span class="hint" id="{id}-data-account">
-            The library holds {dataAccount}'s collection, wantlist and Maybe list; forget them to use another account.
-            <button type="button" class="link" disabled={discogs.forgetting} onclick={() => void forgetDiscogsData(dataAccount)}>
+            The library holds {dataAccount}'s collection, wantlist and Maybe list; forget them to
+            use another account.
+            <button
+              type="button"
+              class="link"
+              disabled={discogs.forgetting}
+              onclick={() => void forgetDiscogsData(dataAccount)}
+            >
               Forget them
             </button>
           </span>
@@ -160,7 +180,12 @@
             {discogs.tokenSaving ? "Checking…" : "Save token"}
           </button>
           {#if tokenSaved}
-            <button type="button" class="link" disabled={discogs.tokenSaving} onclick={() => void saveToken(null)}>
+            <button
+              type="button"
+              class="link"
+              disabled={discogs.tokenSaving}
+              onclick={() => void saveToken(null)}
+            >
               Remove
             </button>
           {/if}
@@ -174,8 +199,8 @@
         </p>
         <span class="hint" id="{id}-token-hint">
           {#if tokenFromEnvironment}
-            DISCOGS_TOKEN in the environment, or in the .env digga started with, overrides a saved token; remove it
-            there to change the token here.
+            DISCOGS_TOKEN in the environment, or in the .env digga started with, overrides a saved
+            token; remove it there to change the token here.
           {:else}
             {tokenStorageText(discogs.account)}
           {/if}
@@ -183,10 +208,18 @@
       </div>
       <div class="field narrow">
         <label class="name" for="{id}-currency">Currency</label>
-        <select id="{id}-currency" aria-describedby="{id}-currency-hint" bind:value={draft.discogs.currency}>
-          {#each DISCOGS_CURRENCIES as currency (currency)}<option value={currency}>{currency}</option>{/each}
+        <select
+          id="{id}-currency"
+          aria-describedby="{id}-currency-hint"
+          bind:value={draft.discogs.currency}
+        >
+          {#each DISCOGS_CURRENCIES as currency (currency)}<option value={currency}
+              >{currency}</option
+            >{/each}
         </select>
-        <span class="hint" id="{id}-currency-hint">For the lowest price <Key label="P" size="sm" /> shows in Triage.</span>
+        <span class="hint" id="{id}-currency-hint"
+          >For the lowest price <Key label="P" size="sm" /> shows in Triage.</span
+        >
       </div>
       <div class="field">
         <label class="name" for="{id}-maybe-list">Maybe list</label>
@@ -202,7 +235,9 @@
               <option value={String(list.id)}>{list.name}{list.public ? "" : " (private)"}</option>
             {/each}
             {#if maybeListMissing}
-              <option value={String(draft.discogs.maybeListId)}>List {draft.discogs.maybeListId}</option>
+              <option value={String(draft.discogs.maybeListId)}
+                >List {draft.discogs.maybeListId}</option
+              >
             {/if}
           </select>
           <button
@@ -212,7 +247,8 @@
             aria-describedby={usernameUnsaved ? `${id}-lists-username-hint` : undefined}
             onclick={() => void discogs.loadLists()}
           >
-            {#if discogs.listsState === "loading"}Reading lists…{:else if discogs.lists.length > 0}Reload lists{:else}Read my lists{/if}
+            {#if discogs.listsState === "loading"}Reading lists…{:else if discogs.lists.length > 0}Reload
+              lists{:else}Read my lists{/if}
           </button>
         </div>
         <span class="hint" id="{id}-maybe-list-hint">
@@ -223,7 +259,9 @@
           {/if}
         </span>
         {#if usernameUnsaved}
-          <span class="hint" id="{id}-lists-username-hint">Save the username first: Digga reads the lists of the saved one.</span>
+          <span class="hint" id="{id}-lists-username-hint"
+            >Save the username first: Digga reads the lists of the saved one.</span
+          >
         {/if}
       </div>
     </div>
@@ -242,8 +280,20 @@
     <fieldset class="field">
       <legend class="name">Your Discogs</legend>
       <div class="inline wrap">
-        <button type="button" class="secondary" disabled={unsaved} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startImport("collection"))}>Collection</button>
-        <button type="button" class="secondary" disabled={unsaved} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button>
+        <button
+          type="button"
+          class="secondary"
+          disabled={unsaved}
+          aria-describedby={unsaved ? `${id}-job-settings` : undefined}
+          onclick={() => startJob(() => api.startImport("collection"))}>Collection</button
+        >
+        <button
+          type="button"
+          class="secondary"
+          disabled={unsaved}
+          aria-describedby={unsaved ? `${id}-job-settings` : undefined}
+          onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button
+        >
         <button
           type="button"
           class="secondary"
@@ -268,7 +318,12 @@
             spellcheck="false"
             required
           />
-          <button type="submit" class="secondary" disabled={unsaved || sellerUsername.trim() === ""} aria-describedby={unsaved ? `${id}-job-settings` : undefined}>Read shop</button>
+          <button
+            type="submit"
+            class="secondary"
+            disabled={unsaved || sellerUsername.trim() === ""}
+            aria-describedby={unsaved ? `${id}-job-settings` : undefined}>Read shop</button
+          >
         </div>
         <span class="hint" id="{id}-seller-hint">
           What a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just that.
@@ -281,7 +336,8 @@
   <details>
     <summary>How imports run</summary>
     <p>
-      Imports run on the server; closing this page does not stop them. A shop is read at about 100 listings a second, at most 10,000. Buying stays on Discogs.
+      Imports run on the server; closing this page does not stop them. A shop is read at about 100
+      listings a second, at most 10,000. Buying stays on Discogs.
     </p>
   </details>
 </section>

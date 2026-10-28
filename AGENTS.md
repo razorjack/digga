@@ -47,7 +47,9 @@ vp check                         # format + lint + type check (oxfmt, oxlint, ts
 vp test                          # vitest, tests/**/*.test.ts
 vp run check:portability         # Electron-ready rules, see below
 vp run check:svelte              # svelte-check for .svelte files
-vp run verify                    # all four of the above, then vp run e2e:smoke (about 20 s)
+vp run check:format-svelte       # Prettier's check of the .svelte files, which oxfmt skips
+vp run format:svelte             # format the .svelte files with Prettier
+vp run verify                    # vp check, the checks and vp test above, then vp run e2e:smoke (about 20 s)
 ```
 
 `vp` is the Vite+ CLI. The global `vp` delegates to the project-local `vite-plus`; without it use
@@ -180,7 +182,9 @@ release/               gitignored, the packaged app and dmg or AppImage, and ins
   the library folder: it holds the Discogs username and whatever `PUT /api/settings` writes. Never
   commit one.
 - Comments explain constraints, not what the code says. No em dashes; en dash with spaces in prose.
-- Formatting and lint are owned by `vp check --fix`.
+- Formatting and lint are owned by `vp check --fix`, and for `.svelte` files by
+  `vp run format:svelte` (Prettier with `prettier-plugin-svelte`, configured in `.prettierrc.json`).
+  oxfmt reads a `.prettierignore` too, so the Svelte scope stays in the script's glob.
 - Prefer short, descriptive commit titles that explain the change without a commit body.
 - Push only when the owner asks, and never after each commit. Every push runs the whole suite on
   GitHub Actions (about five minutes), which GitHub provides free for open-source projects, so

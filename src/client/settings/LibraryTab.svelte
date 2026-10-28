@@ -2,7 +2,13 @@
   import { onDestroy, untrack } from "svelte";
   import type { DumpFile } from "../../shared/api.ts";
   import type { Config, ConfigIssue } from "../../shared/config.ts";
-  import { formatBytes, formatCount, formatCounted, formatDay, nounFor } from "../../shared/display.ts";
+  import {
+    formatBytes,
+    formatCount,
+    formatCounted,
+    formatDay,
+    nounFor,
+  } from "../../shared/display.ts";
   import { parseInteger } from "../../shared/integer.ts";
   import type { Job } from "../../shared/types.ts";
   import { api } from "../api.ts";
@@ -29,7 +35,17 @@
     showFlash: (message: string) => void;
   }
 
-  let { draft = $bindable(), unsaved, issues, formId, onsubmit, jobs, startJob, cancelJob, showFlash }: Props = $props();
+  let {
+    draft = $bindable(),
+    unsaved,
+    issues,
+    formId,
+    onsubmit,
+    jobs,
+    startJob,
+    cancelJob,
+    showFlash,
+  }: Props = $props();
   const id = $props.id();
   const dumpFiles = new DumpFiles();
 
@@ -52,7 +68,9 @@
 
   /** The server runs one dump download, load or update at a time. */
   const dumpJobRunning = $derived(
-    jobs.items.some((job) => job.status === "running" && TAB_JOBS.library.some((type) => type === job.type)),
+    jobs.items.some(
+      (job) => job.status === "running" && TAB_JOBS.library.some((type) => type === job.type),
+    ),
   );
   const dumpJobs = $derived(recentJobs(jobs.items, TAB_JOBS.library));
 
@@ -72,7 +90,8 @@
 
   async function deleteDump(file: DumpFile): Promise<void> {
     const size = formatBytes(file.bytes);
-    if (!confirm(`Delete ${file.name} (${size})? Loading it again means downloading it again.`)) return;
+    if (!confirm(`Delete ${file.name} (${size})? Loading it again means downloading it again.`))
+      return;
     deletingDump = true;
     try {
       await dumpFiles.delete(file.name);
@@ -87,7 +106,11 @@
 
   function loadDump(): void {
     void startJob(() =>
-      api.startDumpLoad({ file: dumpFile.trim(), limit: dumpLimit ?? undefined, dryRun: dumpDryRun }),
+      api.startDumpLoad({
+        file: dumpFile.trim(),
+        limit: dumpLimit ?? undefined,
+        dryRun: dumpDryRun,
+      }),
     );
   }
 
@@ -108,11 +131,20 @@
         <dt class="name" id="{id}-catalogue">Catalogue</dt>
         <dd>
           <ul class="counts" aria-labelledby="{id}-catalogue">
-            <li><b>{formatCount(summary.universe.releases)}</b> {nounFor(summary.universe.releases, "release")}</li>
-            <li><b>{formatCount(summary.universe.keys)}</b> {nounFor(summary.universe.keys, "record")}</li>
+            <li>
+              <b>{formatCount(summary.universe.releases)}</b>
+              {nounFor(summary.universe.releases, "release")}
+            </li>
+            <li>
+              <b>{formatCount(summary.universe.keys)}</b>
+              {nounFor(summary.universe.keys, "record")}
+            </li>
             <li><b>{formatCount(summary.universe.filteredKeys)}</b> match your saved filters</li>
             <li><b>{formatCount(summary.remaining)}</b> still to dig</li>
-            <li><b>{formatCount(summary.heardTracks)}</b> {nounFor(summary.heardTracks, "tune")} heard</li>
+            <li>
+              <b>{formatCount(summary.heardTracks)}</b>
+              {nounFor(summary.heardTracks, "tune")} heard
+            </li>
           </ul>
         </dd>
       </div>
@@ -136,14 +168,23 @@
         <dt class="name">Dump</dt>
         <dd>
           <p class="quiet">
-            {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}>{formatDay(summary.dump.date)}</time> dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No dump loaded yet.{/if}
+            {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}
+                >{formatDay(summary.dump.date)}</time
+              > dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No
+              dump loaded yet.{/if}
             {#if summary.dump.lastLoad}
               {@const load = summary.dump.lastLoad}
               {@const missing = missingReleasesNote(load.missing)}
-              The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}>{formatDay(load.finishedAt)}</time>,{/if}
-              added {formatCounted(load.added, "release")}{#if load.coverage > 0}, {formatCount(load.coverage)} of them in other styles for their label or artist{/if}.
+              The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}
+                  >{formatDay(load.finishedAt)}</time
+                >,{/if}
+              added {formatCounted(load.added, "release")}{#if load.coverage > 0}, {formatCount(
+                  load.coverage,
+                )} of them in other styles for their label or artist{/if}.
               {#if load.toDig > 0}
-                {formatCount(load.toDig)} {nounFor(load.toDig, "record among them is", "records among them are")} still to dig; <Key label="F" size="sm" /> in Triage offers them.
+                {formatCount(load.toDig)}
+                {nounFor(load.toDig, "record among them is", "records among them are")} still to dig;
+                <Key label="F" size="sm" /> in Triage offers them.
               {/if}
               {#if missing}{missing}{/if}
             {/if}
@@ -158,8 +199,10 @@
   <section>
     <header>
       <h2>Universe</h2>
-      <p>What future dump loads add or refresh. Removing a style or narrowing these years does not
-        remove or hide records already loaded. Use Digging filters to narrow the queue.</p>
+      <p>
+        What future dump loads add or refresh. Removing a style or narrowing these years does not
+        remove or hide records already loaded. Use Digging filters to narrow the queue.
+      </p>
     </header>
     <div class="fields">
       <div class="field">
@@ -183,8 +226,7 @@
             aria-describedby="{id}-load-years-hint"
             max={loadTo}
             value={loadFrom ?? ""}
-            oninput={(event) =>
-              setLoadYears(parseInteger(event.currentTarget.value), loadTo)}
+            oninput={(event) => setLoadYears(parseInteger(event.currentTarget.value), loadTo)}
           />
           <span class="quiet">to</span>
           <input
@@ -193,8 +235,7 @@
             aria-describedby="{id}-load-years-hint {id}-load-years-problem"
             min={loadFrom}
             value={loadTo ?? ""}
-            oninput={(event) =>
-              setLoadYears(loadFrom, parseInteger(event.currentTarget.value))}
+            oninput={(event) => setLoadYears(loadFrom, parseInteger(event.currentTarget.value))}
             {@attach reportProblem(issues, "universe.loadYears")}
           />
           <span class="hint" id="{id}-load-years-hint">Leave either empty to load every year.</span>
@@ -206,11 +247,16 @@
       <fieldset class="field">
         <legend class="name">Coverage</legend>
         <label class="check">
-          <input type="checkbox" aria-describedby="{id}-coverage-hint" bind:checked={draft.universe.coverage} />
+          <input
+            type="checkbox"
+            aria-describedby="{id}-coverage-hint"
+            bind:checked={draft.universe.coverage}
+          />
           also other styles from the labels and artists you want
         </label>
         <span class="hint" id="{id}-coverage-hint">
-          When at least a third of the label's or artist's releases in the load years carry one of the styles above.
+          When at least a third of the label's or artist's releases in the load years carry one of
+          the styles above.
         </span>
       </fieldset>
     </div>
@@ -222,18 +268,30 @@
     <h2 id="{id}-dump-title">Dump</h2>
     <p role="status" id="{id}-job-settings">{unsaved ? SAVE_BEFORE_JOB : ""}</p>
     <p>
-      Discogs publishes every release once a month, over 10 GB compressed. Update downloads the newest
-      dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
+      Discogs publishes every release once a month, over 10 GB compressed. Update downloads the
+      newest dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
     </p>
   </header>
   <div class="fields">
     <fieldset class="field">
       <legend class="name">From Discogs</legend>
       <div class="inline wrap">
-        <button type="button" class="secondary" disabled={unsaved || dumpJobRunning} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startDumpUpdate())}>
+        <button
+          type="button"
+          class="secondary"
+          disabled={unsaved || dumpJobRunning}
+          aria-describedby={unsaved ? `${id}-job-settings` : undefined}
+          onclick={() => startJob(() => api.startDumpUpdate())}
+        >
           Update from the newest dump
         </button>
-        <button type="button" class="secondary" disabled={unsaved || dumpJobRunning} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={() => startJob(() => api.startDumpDownload())}>
+        <button
+          type="button"
+          class="secondary"
+          disabled={unsaved || dumpJobRunning}
+          aria-describedby={unsaved ? `${id}-job-settings` : undefined}
+          onclick={() => startJob(() => api.startDumpDownload())}
+        >
           Download only
         </button>
       </div>
@@ -248,8 +306,19 @@
           {#each dumpFiles.value.files as file (file.name)}
             <li>
               <span>{file.name}</span>
-              <span class="quiet">{formatBytes(file.bytes)}, {dumpUse(file, newest, stats.value?.dump.date ?? null)}</span>
-              <button type="button" class="link" disabled={dumpJobRunning || deletingDump} onclick={() => void deleteDump(file)}>
+              <span class="quiet"
+                >{formatBytes(file.bytes)}, {dumpUse(
+                  file,
+                  newest,
+                  stats.value?.dump.date ?? null,
+                )}</span
+              >
+              <button
+                type="button"
+                class="link"
+                disabled={dumpJobRunning || deletingDump}
+                onclick={() => void deleteDump(file)}
+              >
                 Delete<span class="visually-hidden"> {file.name}</span>
               </button>
             </li>
@@ -262,7 +331,13 @@
     <fieldset class="field">
       <legend class="name">From a file</legend>
       <div class="inline wrap">
-        <input class="file" list="{id}-dump-files" bind:value={dumpFile} placeholder="file name or absolute path" aria-label="Dump file" />
+        <input
+          class="file"
+          list="{id}-dump-files"
+          bind:value={dumpFile}
+          placeholder="file name or absolute path"
+          aria-label="Dump file"
+        />
         <datalist id="{id}-dump-files">
           {#each dumpFiles.value?.files ?? [] as file (file.name)}
             <option value={file.name}>{formatBytes(file.bytes)}</option>
@@ -277,7 +352,13 @@
           oninput={(event) => (dumpLimit = parseInteger(event.currentTarget.value))}
         />
         <label class="check"><input type="checkbox" bind:checked={dumpDryRun} /> dry run</label>
-        <button type="button" class="secondary" disabled={unsaved || dumpJobRunning || dumpFile.trim() === ""} aria-describedby={unsaved ? `${id}-job-settings` : undefined} onclick={loadDump}>
+        <button
+          type="button"
+          class="secondary"
+          disabled={unsaved || dumpJobRunning || dumpFile.trim() === ""}
+          aria-describedby={unsaved ? `${id}-job-settings` : undefined}
+          onclick={loadDump}
+        >
           Load
         </button>
       </div>
@@ -287,12 +368,15 @@
   <details>
     <summary>How updates, downloads and loads work</summary>
     <p>
-      Update downloads the newest dump into {#if dumpFiles.value}<code>{dumpFiles.value.directory}</code>{:else}the
-        dumps folder{/if} unless it is there, checks it against the checksum Discogs publishes, and loads it. Download
-      only and Load do one step each. Load also takes an absolute path, and a limit and a dry run for trying a file.
+      Update downloads the newest dump into {#if dumpFiles.value}<code
+          >{dumpFiles.value.directory}</code
+        >{:else}the dumps folder{/if} unless it is there, checks it against the checksum Discogs publishes,
+      and loads it. Download only and Load do one step each. Load also takes an absolute path, and a limit
+      and a dry run for trying a file.
     </p>
     <p>
-      A dump that is loaded, or older than one that is, can go: Digga reads a dump only while it loads it.
+      A dump that is loaded, or older than one that is, can go: Digga reads a dump only while it
+      loads it.
     </p>
   </details>
 </section>

@@ -22,10 +22,14 @@
   );
   const otherLabels = $derived(
     detail
-      ? [...new Set(detail.release.labels.map((label) => label.name))].filter((name) => name !== item.labelName)
+      ? [...new Set(detail.release.labels.map((label) => label.name))].filter(
+          (name) => name !== item.labelName,
+        )
       : [],
   );
-  const genres = $derived(detail ? detail.release.genres.filter((genre) => genre !== "Electronic") : []);
+  const genres = $derived(
+    detail ? detail.release.genres.filter((genre) => genre !== "Electronic") : [],
+  );
   const enrichedAt = $derived(item.enrichedAt);
   // The button never keeps focus, so Space always reaches the player.
   const keepFocus = (event: MouseEvent) => event.preventDefault();
@@ -94,7 +98,9 @@
           {#if pricing}
             <span class="quiet">asking Discogs…</span>
           {:else if enrichedAt !== null}
-            <span class="quiet">checked <time datetime={enrichedAt}>{formatAge(enrichedAt)}</time></span>
+            <span class="quiet"
+              >checked <time datetime={enrichedAt}>{formatAge(enrichedAt)}</time></span
+            >
           {:else}
             <span class="quiet">no price or have/want yet</span>
           {/if}
@@ -118,7 +124,11 @@
         {formatCounted(siblings.length, "other version")} on this master:
         {siblings
           .slice(0, 3)
-          .map((sibling) => [sibling.year, sibling.country, sibling.formatSummary.split(" (")[0]].filter(Boolean).join(" "))
+          .map((sibling) =>
+            [sibling.year, sibling.country, sibling.formatSummary.split(" (")[0]]
+              .filter(Boolean)
+              .join(" "),
+          )
           .join("; ")}{siblings.length > 3 ? "; …" : ""}
       </p>
     {/if}

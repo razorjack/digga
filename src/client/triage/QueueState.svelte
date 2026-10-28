@@ -44,9 +44,16 @@
   <div class="state">
     <h1 class="headline">The settings did not load.</h1>
     <p class="quiet">{settingsError}</p>
-    <p class="quiet">The queue starts from your settings. Check that the server runs, then try again.</p>
+    <p class="quiet">
+      The queue starts from your settings. Check that the server runs, then try again.
+    </p>
     <p class="actions">
-      <button type="button" aria-keyshortcuts="Enter" aria-busy={retryingSettings} onclick={onretrysettings}>
+      <button
+        type="button"
+        aria-keyshortcuts="Enter"
+        aria-busy={retryingSettings}
+        onclick={onretrysettings}
+      >
         <Key label="Enter" primary aria-hidden="true" /> try again
       </button>
     </p>
@@ -65,8 +72,10 @@
     <Art name="press" size={160} />
     <h1 class="headline">You have dug everything loaded so far.</h1>
     <p class="quiet">
-      {screen.percent === null ? "The catalogue is loading" : `${screen.percent}% of the catalogue is read`};
-      records join the queue as they arrive, and the next one shows here.
+      {screen.percent === null
+        ? "The catalogue is loading"
+        : `${screen.percent}% of the catalogue is read`}; records join the queue as they arrive, and
+      the next one shows here.
     </p>
   </div>
 {:else if screen.kind === "no-releases"}
@@ -88,8 +97,9 @@
   <div class="state">
     <h1 class="headline">Your filters match no records.</h1>
     <p class="quiet">
-      {formatCount(screen.loadedRecords)} {nounFor(screen.loadedRecords, "record is", "records are")} loaded.
-      Widen the years, formats or countries in settings{skipsWithoutVideos ? ", or let in releases without videos" : ""}.
+      {formatCount(screen.loadedRecords)}
+      {nounFor(screen.loadedRecords, "record is", "records are")} loaded. Widen the years, formats or
+      countries in settings{skipsWithoutVideos ? ", or let in releases without videos" : ""}.
     </p>
     <p class="actions">
       <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
@@ -99,8 +109,13 @@
   </div>
 {:else if screen.kind === "scope-dug"}
   <div class="state">
-    <h1 class="headline">Nothing is left to dig from {SCOPE_NOUN[screen.scope.kind]} {screen.scope.name}.</h1>
-    <p class="quiet">Under your filters, that is: widen the years, formats or countries in settings to dig further.</p>
+    <h1 class="headline">
+      Nothing is left to dig from {SCOPE_NOUN[screen.scope.kind]}
+      {screen.scope.name}.
+    </h1>
+    <p class="quiet">
+      Under your filters, that is: widen the years, formats or countries in settings to dig further.
+    </p>
     <p class="actions">
       {#if passed > 0}
         <button type="button" aria-keyshortcuts="N" onclick={ongoround}>

@@ -22,7 +22,9 @@
   <progress max="1" value={fraction} aria-label="Catalogue downloaded"></progress>
   <span class="numbers">
     {#if progress?.totalBytes}
-      {formatBytes(progress.receivedBytes)} of {formatBytes(progress.totalBytes)}{left ? ` · ${left}` : ""}
+      {formatBytes(progress.receivedBytes)} of {formatBytes(progress.totalBytes)}{left
+        ? ` · ${left}`
+        : ""}
     {:else}
       finding the newest catalogue
     {/if}
