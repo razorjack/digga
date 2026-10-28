@@ -1,4 +1,5 @@
 import type { MarkedTrack, QueueItem, TwelvesItem } from "../../shared/api.ts";
+import { formatPrice } from "../../shared/display.ts";
 import type { TrackMark } from "../../shared/types.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import type { RecordStamp, TriageStatus } from "../keymap.ts";
@@ -176,6 +177,17 @@ export function recordStamp(item: TwelvesItem): RecordStamp {
   if (status === "candidate" || status === "accepted") return status;
   if (item.membership.onWantlist) return "wantlist";
   return status ?? "maybe";
+}
+
+/** The year and country a release came out in, as far as Discogs knows them: "2000 UK". */
+export function yearAndCountry(release: QueueItem): string {
+  return [release.year, release.country].filter(Boolean).join(" ");
+}
+
+/** The cheapest copy for sale, as the shelf's market column shows it. */
+export function lowestPriceText(release: QueueItem): string {
+  if (release.lowestPrice === null) return "none for sale";
+  return formatPrice(release.lowestPrice, release.currency);
 }
 
 /** The shelf a re-judgement puts the record on; a skip takes it off the shelves. */

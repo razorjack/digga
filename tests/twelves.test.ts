@@ -5,6 +5,7 @@ import {
   columnSort,
   compareNullable,
   countShelves,
+  lowestPriceText,
   notOnWantlist,
   pageAround,
   PAGE_SIZE,
@@ -14,9 +15,11 @@ import {
   turnedPageStart,
   visibleItems,
   visibleTracks,
+  yearAndCountry,
 } from "../src/client/twelves/model.ts";
 import type { MarkedTrack, TwelvesItem, VerdictInput } from "../src/shared/api.ts";
 import type { TrackMark, Verdict } from "../src/shared/types.ts";
+import { formatPrice } from "../src/shared/display.ts";
 import { queueItem } from "./helpers/catalog.ts";
 
 const decidedAt = "2026-01-01T00:00:00.000Z";
@@ -440,4 +443,18 @@ it("retries failed removals with the same verdict key and keeps undo intact", as
   await shelf.undo();
   expect(shelf.items[0]?.verdict?.status).toBe("accepted");
   expect(shelf.items[0]?.membership.onWantlist).toBe(true);
+});
+
+describe("the shelf's release columns", () => {
+  it("say the year and country the release has", () => {
+    expect(yearAndCountry({ ...queueItem(1), year: 2000, country: "UK" })).toBe("2000 UK");
+    expect(yearAndCountry({ ...queueItem(1), year: null, country: "UK" })).toBe("UK");
+    expect(yearAndCountry({ ...queueItem(1), year: null, country: null })).toBe("");
+  });
+
+  it("price the cheapest copy, or say none is for sale", () => {
+    const priced = { ...queueItem(1), lowestPrice: 12.5, currency: "EUR" };
+    expect(lowestPriceText(priced)).toBe(formatPrice(12.5, "EUR"));
+    expect(lowestPriceText(queueItem(1))).toBe("none for sale");
+  });
 });

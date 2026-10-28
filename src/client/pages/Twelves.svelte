@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import type { MarkedTrack, TwelvesItem } from "../../shared/api.ts";
   import { discogsReleaseUrl } from "../../shared/discogs-urls.ts";
-  import { formatCount, formatDay, formatPrice } from "../../shared/display.ts";
+  import { formatCount, formatDay } from "../../shared/display.ts";
   import { normalizeNote } from "../../shared/notes.ts";
   import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
   import Art from "../components/Art.svelte";
@@ -31,11 +31,13 @@
     SORTS,
     EMPTY,
     columnSort,
+    lowestPriceText,
     notOnList,
     notOnWantlist,
     recordStamp,
     replayedItems,
     trackKey,
+    yearAndCountry,
     type ReplayRange,
   } from "../twelves/model.ts";
   const twelves = new TwelvesShelf();
@@ -479,18 +481,12 @@
                 <td class="where">
                   {#if release}
                     <span>{release.labelName ?? ""}</span>
-                    <span class="quiet"
-                      >{[release.year, release.country].filter(Boolean).join(" ")}</span
-                    >
+                    <span class="quiet">{yearAndCountry(release)}</span>
                   {/if}
                 </td>
                 <td class="market">
                   {#if release?.enrichedAt}
-                    <span
-                      >{release.lowestPrice !== null
-                        ? formatPrice(release.lowestPrice, release.currency)
-                        : "none for sale"}</span
-                    >
+                    <span>{lowestPriceText(release)}</span>
                     <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
                   {:else}
                     <span class="quiet">no market data</span>

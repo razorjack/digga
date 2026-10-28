@@ -73,6 +73,7 @@
     ),
   );
   const dumpJobs = $derived(recentJobs(jobs.items, TAB_JOBS.library));
+  const canLoadDump = $derived(!unsaved && !dumpJobRunning && dumpFile.trim() !== "");
 
   // A download adds a dump, so the folder is read again whenever the jobs settle.
   $effect(() => {
@@ -355,7 +356,7 @@
         <button
           type="button"
           class="secondary"
-          disabled={unsaved || dumpJobRunning || dumpFile.trim() === ""}
+          disabled={!canLoadDump}
           aria-describedby={unsaved ? `${id}-job-settings` : undefined}
           onclick={loadDump}
         >

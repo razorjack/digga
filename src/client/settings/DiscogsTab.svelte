@@ -50,6 +50,14 @@
   const usernameUnsaved = $derived(
     draft.discogs.username === "" || draft.discogs.username !== settings.value?.discogs.username,
   );
+  const canSaveToken = $derived(
+    !tokenFromEnvironment && !discogs.tokenSaving && tokenDraft.trim() !== "",
+  );
+  const canReadLists = $derived(discogs.listsState !== "loading" && !usernameUnsaved);
+  /** The Maybe list import reads the list saved in the settings. */
+  const canImportMaybeList = $derived(
+    !unsaved && (settings.value?.discogs.maybeListId ?? null) !== null,
+  );
   const maybeListMissing = $derived(
     draft.discogs.maybeListId !== null &&
       !discogs.lists.some((list) => list.id === draft.discogs.maybeListId),
@@ -171,12 +179,7 @@
             aria-describedby="{id}-token-status {id}-token-hint"
             bind:value={tokenDraft}
           />
-          <button
-            type="submit"
-            form="{id}-token-form"
-            class="secondary"
-            disabled={tokenFromEnvironment || discogs.tokenSaving || tokenDraft.trim() === ""}
-          >
+          <button type="submit" form="{id}-token-form" class="secondary" disabled={!canSaveToken}>
             {discogs.tokenSaving ? "Checking…" : "Save token"}
           </button>
           {#if tokenSaved}
@@ -243,7 +246,7 @@
           <button
             type="button"
             class="secondary"
-            disabled={discogs.listsState === "loading" || usernameUnsaved}
+            disabled={!canReadLists}
             aria-describedby={usernameUnsaved ? `${id}-lists-username-hint` : undefined}
             onclick={() => void discogs.loadLists()}
           >
@@ -297,7 +300,7 @@
         <button
           type="button"
           class="secondary"
-          disabled={unsaved || (settings.value?.discogs.maybeListId ?? null) === null}
+          disabled={!canImportMaybeList}
           aria-describedby={unsaved ? `${id}-job-settings` : undefined}
           onclick={() => startJob(() => api.startImport("list"))}
         >
