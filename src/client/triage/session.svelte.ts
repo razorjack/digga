@@ -577,9 +577,21 @@ export class TriageSession {
 
   /**
    * The label's records leave the buffers, a round's and the queue's, without a restart; the
-   * saved filters leave them out of later reads.
+   * saved filters leave them out of later reads. A read sent before they were saved can still
+   * bring some, so they leave again when it lands.
    */
   leaveOutLabel(label: HiddenLabel): void {
+    this.#dropLabel(label);
+    void this.#reads.inFlight?.then(
+      () => {
+        if (!this.#ended) this.#dropLabel(label);
+      },
+      // A read that failed brought nothing.
+      () => {},
+    );
+  }
+
+  #dropLabel(label: HiddenLabel): void {
     const kept = (item: QueueItem) => !isOnLabel(item, label);
     this.upcoming = this.upcoming.filter(kept);
     this.passed = this.passed.filter(kept);

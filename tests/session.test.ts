@@ -1207,3 +1207,24 @@ it("undo restores the verdict Twelves saved while a replay was hidden", async ()
   expect(verdicts.get(record.verdict.key)?.status).toBe("rejected");
   session.destroy();
 });
+
+it("leaves a label out of the queue read that was out when it was hidden", async () => {
+  const label: HiddenLabel = { id: 88, name: "Moving Shadow" };
+  const server = fakeServer([1, 2], label);
+  const getQueue = server.http.getQueue;
+  const answer = deferred<void>();
+  server.http.getQueue = async (query) => {
+    await answer.promise;
+    return getQueue(query);
+  };
+  const session = new TriageSession(server.app);
+  const start = session.start(50);
+
+  session.leaveOutLabel(label);
+  answer.resolve();
+  await start;
+  await Promise.resolve();
+
+  expect(session.upcoming).toEqual([]);
+  session.destroy();
+});
