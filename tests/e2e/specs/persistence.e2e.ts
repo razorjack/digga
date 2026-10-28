@@ -254,6 +254,13 @@ test(
   async ({ app }) => {
     const triage = new TriagePage(app);
     const header = new HeaderPage(app);
+    // While the server is down, the page goes on saving its position and listens; a slow restart
+    // fails some of those writes, and the next ones save.
+    app.expectProblems({
+      consoleErrors: [
+        /^Failed to load resource: net::ERR_FAILED \(http:\/\/localhost:\d+\/api\/(sessions\/current|listen-log)\)$/,
+      ],
+    });
     await app.open();
     const first = await triage.currentKey();
     // The header reads the stats 0.5 s after a verdict, the last request the verdict causes.
