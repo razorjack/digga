@@ -67,6 +67,10 @@ database and 5 min for requests that wait on a Discogs call. The exported `api` 
   (`twelves/model.ts`), so counts, "add all" and rounds of snoozed records cover the whole shelf.
   It renders the 500 records around the selection (`pageAround`); `J` and `K` cross pages and
   `←` / `→` turn them.
+  Changes show a persistent activity message as soon as they are queued, including the number
+  waiting behind the current change. A saved verdict updates the shelf and selection before
+  waiting on Discogs; membership changes remain unconfirmed until Discogs answers. Completion
+  messages start their display time after the shelf reload, so a slow reload cannot consume it.
 
 ## The universe and the queue
 
@@ -147,7 +151,10 @@ stats, which scan the universe when the catalogue has changed, are read in anoth
 thread the server shares, keeps answering keys meanwhile. `queue/reader.ts` sends each read with
 the catalogue's version on the server's connection, which the worker keeps its results under: a
 verdict commits through the server's connection and would otherwise make the worker compute
-everything again. A server on an injected or in-memory database reads inline. Enrichment is not a
+everything again. Twelves and marked tracks use the same worker, each in a read transaction so
+their releases, notes and verdicts belong to one snapshot. These reads batch release and note
+lookups, including fallback pressings, and do not cache user data between requests.
+A server on an injected or in-memory database reads inline. Enrichment is not a
 job: `P` in Triage fetches price, have/want and current videos for the record on screen
 (`src/server/enrich.ts`, decisions 95 and 97).
 The dump update (`POST /api/jobs/dump-update`, `digga dump update`) is one job of two steps,
@@ -281,3 +288,18 @@ that changes a verdict the page already knows names it (`expected`: its status a
 `decidedAt`): an undo in Triage or Twelves and a change in Twelves. The server refuses such a write
 with `409` when the record's verdict is another one by then, and the page drops the undo step or
 reloads the shelf.
+
+## Performance checks
+
+`node tools/dev/benchmark-library.ts` creates an in-memory synthetic library with 5,000 records,
+10,000 releases, sibling notes and 10,000 saved track marks. It measures direct Twelves and
+marked-track reads and formatting 500 prices, with one warm-up and the median of seven runs.
+Each result includes a SHA-256 digest of its JSON, so an optimization can be checked for changes
+to the returned data as well as elapsed time. It never opens the user's library.
+
+The 2026-10-29 measurement on Node 24.18.0 reduced the Twelves read from 299 ms to 32 ms and
+marked-track reads from 491 ms to 30 ms by batching their lookups. Reusing currency formatters
+reduced formatting 500 prices from 9.45 ms to 0.18 ms. All three result digests stayed identical.
+These are warm, synthetic measurements of the functions, excluding worker startup, HTTP,
+serialization and browser rendering; they are not end-to-end latency guarantees. The held-request
+scenario TWL-31 separately checks navigation, honest progress and ordered undo while Discogs waits.

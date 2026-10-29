@@ -2,6 +2,7 @@
 
 const counts = new Intl.NumberFormat("en-GB");
 const plurals = new Intl.PluralRules("en-GB");
+const prices = new Map<string, Intl.NumberFormat>();
 
 export function formatCount(count: number): string {
   return counts.format(count);
@@ -40,7 +41,12 @@ export function formatWait(ms: number): string {
 /** Price in the currency Discogs reported; a plain number when the currency is unknown. */
 export function formatPrice(amount: number, currency: string | null): string {
   if (currency !== null && /^[A-Z]{3}$/.test(currency)) {
-    return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(amount);
+    let formatter = prices.get(currency);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat("en-GB", { style: "currency", currency });
+      prices.set(currency, formatter);
+    }
+    return formatter.format(amount);
   }
   return amount.toFixed(2);
 }

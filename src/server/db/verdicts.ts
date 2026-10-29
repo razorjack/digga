@@ -74,13 +74,11 @@ export function getVerdict(db: Db, key: string): Verdict | null {
 }
 
 export function getVerdicts(db: Db, keys: string[]): Map<string, Verdict> {
-  const out = new Map<string, Verdict>();
-  const statement = db.prepare("SELECT * FROM verdicts WHERE key = ?");
-  for (const key of keys) {
-    const row = statement.get(key) as VerdictRow | undefined;
-    if (row) out.set(key, rowToVerdict(row));
-  }
-  return out;
+  if (keys.length === 0) return new Map();
+  const rows = db
+    .prepare("SELECT * FROM verdicts WHERE key IN (SELECT value FROM json_each(?))")
+    .all(JSON.stringify(keys)) as VerdictRow[];
+  return new Map(rows.map((row) => [row.key, rowToVerdict(row)]));
 }
 
 /**

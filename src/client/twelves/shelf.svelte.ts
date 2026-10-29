@@ -63,6 +63,9 @@ export class TwelvesShelf {
   checking = $state(false);
   /** Records are being added to the Discogs wantlist. */
   pushing = $state(false);
+  /** Work acknowledged immediately, and held until it finishes. */
+  activity = $state<string | null>(null);
+  pendingChanges = $state(0);
 
   /** How many maybes are not on the Discogs Maybe list. */
   pending = $derived(this.items.filter(notOnList).length);
@@ -101,6 +104,7 @@ export class TwelvesShelf {
     this.#closed.abort();
     this.#loads.end();
     this.#flash.destroy();
+    this.activity = null;
   }
 
   /** A short message about what just happened, which clears itself. */
@@ -108,8 +112,14 @@ export class TwelvesShelf {
     return this.#flash.text;
   }
 
+  get progress(): string | null {
+    if (this.activity === null || this.pendingChanges < 2) return this.activity;
+    return `${this.activity} ${formatCounted(this.pendingChanges - 1, "change")} queued.`;
+  }
+
   async load(): Promise<void> {
     const isCurrent = this.#loads.next();
+    if (this.activity !== null) this.activity = "Refreshing Twelves…";
     try {
       const [response, marks] = await Promise.all([
         this.#client.getTwelves(),
@@ -122,7 +132,7 @@ export class TwelvesShelf {
     } catch (error) {
       if (isCurrent()) this.error = errorMessage(error);
     } finally {
-      this.loading = false;
+      if (isCurrent()) this.loading = false;
     }
   }
 
@@ -136,15 +146,30 @@ export class TwelvesShelf {
   }
 
   /** Queues a change after the earlier ones; an error it throws shows as the flash. */
-  #queueChange(change: () => Promise<void>): Promise<void> {
-    return this.#changes.run(change).catch((error: unknown) => {
-      this.showFlash(errorMessage(error));
+  #queueChange(message: string, change: () => Promise<void>): Promise<void> {
+    if (this.#closed.signal.aborted) return Promise.resolve();
+    this.pendingChanges += 1;
+    this.activity ??= message;
+    return this.#changes.run(async () => {
+      this.activity = message;
+      try {
+        await change();
+      } catch (error) {
+        this.showFlash(errorMessage(error));
+      } finally {
+        this.pendingChanges -= 1;
+        this.activity = null;
+      }
     });
   }
 
   /** Queues a change to a record, which reads the record as it is when the change runs. */
-  #queueRecordChange(key: string, change: (item: TwelvesItem) => Promise<void>): void {
-    void this.#queueChange(async () => {
+  #queueRecordChange(
+    key: string,
+    message: string,
+    change: (item: TwelvesItem) => Promise<void>,
+  ): void {
+    void this.#queueChange(message, async () => {
       const item = this.items.find((candidate) => candidate.key === key);
       if (item) await change(item);
     });
@@ -234,16 +259,19 @@ export class TwelvesShelf {
         expected: expectedVerdict(previous),
       });
       this.#replaceVerdict(item.key, saved);
+      if (!this.visible.some((visible) => visible.key === this.selectedKey))
+        this.selectedKey = neighbour;
     } catch (error) {
-      this.showFlash(`Not saved: ${errorMessage(error)}`);
       if (isConflict(error)) await this.load();
+      this.showFlash(`Not saved: ${errorMessage(error)}`);
       return;
     }
+    this.activity = "Verdict saved. Updating your Discogs wantlist…";
     const wantlist = await this.#syncWantlist(item, status);
     const entry: UndoEntry = { kind: "verdict", previous, saved, wantlist: wantlist.entry };
     this.undoStack = [...this.undoStack, entry];
-    this.showFlash(`${rejudgedSentence(nameOf(item), status)}${wantlist.note} Z undoes it.`);
     await this.load();
+    this.showFlash(`${rejudgedSentence(nameOf(item), status)}${wantlist.note} Z undoes it.`);
     if (!this.visible.some((visible) => visible.key === this.selectedKey))
       this.selectedKey = neighbour;
     void stats.refresh();
@@ -255,7 +283,7 @@ export class TwelvesShelf {
 
   /** Saves the note on the record's shown release; an empty note removes it. */
   saveNote(selectedItem: TwelvesItem, note: string | null): void {
-    this.#queueRecordChange(selectedItem.key, async (item) => {
+    this.#queueRecordChange(selectedItem.key, "Saving note…", async (item) => {
       const releaseId = item.release?.id ?? null;
       if (releaseId === null) {
         this.showFlash("This record is not in the loaded dump, so a note cannot go on it.");
@@ -271,14 +299,14 @@ export class TwelvesShelf {
         ...this.undoStack,
         { kind: "note", key: item.key, releaseId, previous: item.note },
       ];
-      this.showFlash(`${note ? "Note saved." : "Note removed."} Z undoes it.`);
       await this.load();
+      this.showFlash(`${note ? "Note saved." : "Note removed."} Z undoes it.`);
     });
   }
 
   /** Z: undoes the last change once the changes before it have run. */
   undo(): Promise<void> {
-    return this.#queueChange(() => this.#undoLast());
+    return this.#queueChange("Undoing…", () => this.#undoLast());
   }
 
   async #undoLast(): Promise<void> {
@@ -295,19 +323,20 @@ export class TwelvesShelf {
           expected: expectedVerdict(entry.saved),
         });
     } catch (error) {
-      this.showFlash(`Undo failed: ${errorMessage(error)}`);
       // A verdict changed elsewhere since leaves nothing this page can undo.
       if (isConflict(error)) {
         this.undoStack = this.undoStack.slice(0, -1);
         await this.load();
       }
+      this.showFlash(`Undo failed: ${errorMessage(error)}`);
       return;
     }
     this.undoStack = this.undoStack.slice(0, -1);
+    this.activity = "Restoring your Discogs wantlist…";
     const error = entry.kind === "verdict" ? await this.#undoWantlistChange(entry) : null;
     this.selectedKey = entry.kind === "note" ? entry.key : entry.previous.key;
-    this.showFlash(error ? `Undone, but the Discogs wantlist did not follow: ${error}` : "Undone.");
     await this.load();
+    this.showFlash(error ? `Undone, but the Discogs wantlist did not follow: ${error}` : "Undone.");
     void stats.refresh();
   }
 
@@ -331,25 +360,38 @@ export class TwelvesShelf {
 
   /** Adds every want and grail shown that is missing from the Discogs wantlist. */
   addPendingToWantlist(): void {
+    if (this.pushing) return;
     const pending = this.wantsPending;
-    void this.#queueChange(() => this.#addToWantlist(pending));
+    if (pending.length === 0) return;
+    this.pushing = true;
+    void this.#queueChange("Adding to your Discogs wantlist…", async () => {
+      try {
+        // Earlier queued changes may have added or removed some of these wants.
+        const byKey = new Map(this.items.map((item) => [item.key, item]));
+        const current: TwelvesItem[] = [];
+        for (const wanted of pending) {
+          const item = byKey.get(wanted.key);
+          if (item && notOnWantlist(item)) current.push(item);
+        }
+        await this.#addToWantlist(current);
+      } finally {
+        this.pushing = false;
+      }
+    });
   }
 
   async #addToWantlist(list: TwelvesItem[]): Promise<void> {
-    if (this.pushing || list.length === 0) return;
-    this.pushing = true;
+    if (list.length === 0) return;
     let added = 0;
     let error: string | null = null;
     for (const item of list) {
       const releaseId = releaseIdOf(item);
       if (releaseId === null) continue;
-      if (list.length > 1)
-        this.#flash.hold(`Adding to your Discogs wantlist: ${added + 1} of ${list.length}…`);
+      this.activity = `Adding to your Discogs wantlist: ${added + 1} of ${list.length}…`;
       error = await this.#pushToWantlist(releaseId);
       if (error) break;
       added += 1;
     }
-    this.pushing = false;
     await this.load();
     if (error)
       this.showFlash(
@@ -366,7 +408,7 @@ export class TwelvesShelf {
   }
 
   rejudge(selectedItem: TwelvesItem, status: TriageStatus): void {
-    this.#queueRecordChange(selectedItem.key, async (item) => {
+    this.#queueRecordChange(selectedItem.key, "Saving verdict…", async (item) => {
       const { verdict } = item;
       if (verdict === null || !isTriageStatus(verdict.status)) {
         this.showFlash("Wantlist and owned records come from Discogs; change them there.");
@@ -386,10 +428,11 @@ export class TwelvesShelf {
   async #retryWantlistRemoval(item: TwelvesItem, verdict: Verdict): Promise<void> {
     const releaseId = releaseIdOf(item);
     if (releaseId === null) return;
+    this.activity = "Updating your Discogs wantlist…";
     const removal = await this.#removeWantedPressings(item, releaseId);
     if (removal.entry) this.#rememberRetriedRemoval(verdict, removal.entry);
-    this.showFlash(`${nameOf(item)}.${removal.note} Z undoes it.`);
     await this.load();
+    this.showFlash(`${nameOf(item)}.${removal.note} Z undoes it.`);
     void stats.refresh();
   }
 
@@ -418,7 +461,7 @@ export class TwelvesShelf {
 
   /** Attaches a YouTube link to the record's release; a record without audio goes back to the queue. */
   attachVideo(selectedItem: TwelvesItem, url: string): void {
-    this.#queueRecordChange(selectedItem.key, async (item) => {
+    this.#queueRecordChange(selectedItem.key, "Attaching YouTube link…", async (item) => {
       const releaseId = releaseIdOf(item);
       if (releaseId === null) {
         this.showFlash("This record is not in the loaded dump, so a link cannot go on it.");
@@ -440,7 +483,7 @@ export class TwelvesShelf {
 
   /** Saves the note on a marked track, keeping its mark. */
   saveTrackNote(track: MarkedTrack, note: string | null): void {
-    void this.#queueChange(async () => {
+    void this.#queueChange("Saving track note…", async () => {
       const { releaseId, position, mark, heardKey } = track.mark;
       const tune = {
         heardKey,

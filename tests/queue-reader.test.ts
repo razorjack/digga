@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { catalogueVersion } from "../src/server/db/catalogue-memo.ts";
 import { type Db, openDb } from "../src/server/db/db.ts";
 import { upsertVerdict } from "../src/server/db/verdicts.ts";
+import { saveReleaseNote } from "../src/server/db/notes.ts";
+import { listMarkedTracks } from "../src/server/queue/track-marks.ts";
+import { queryTwelves } from "../src/server/queue/twelves.ts";
 import { type QueueReader, workerQueueReader } from "../src/server/queue/reader.ts";
 import { DEFAULT_CONFIG } from "../src/shared/config.ts";
 import { loadDump } from "../src/server/dump/load.ts";
@@ -46,6 +49,21 @@ describe("the queue reader's worker", () => {
     expect(await ids()).toEqual([1006, 1001]);
     db.prepare("UPDATE releases SET year = 1997 WHERE id = 1006").run();
     expect(await ids()).toEqual([1001]);
+  });
+
+  it("reads shelf notes, verdicts and marks freshly through the worker", async () => {
+    upsertVerdict(db, { key: "m:501", status: "accepted", source: "triage", releaseId: 1001 });
+    saveReleaseNote(db, 1002, "The other pressing");
+    db.prepare(`INSERT INTO track_verdicts (release_id, heard_key, position, mark, decided_at)
+      VALUES (1001, 'missing tune', 'A', 'keep', '2026-01-01')`).run();
+    expect(await reader.twelves(null, null)).toEqual(queryTwelves(db, null, null));
+    expect(await reader.trackMarks()).toEqual(listMarkedTracks(db));
+
+    saveReleaseNote(db, 1002, "Changed note");
+    upsertVerdict(db, { key: "m:501", status: "snoozed", source: "triage", releaseId: 1001 });
+    expect(await reader.twelves(["accepted"], null)).toEqual([]);
+    expect(await reader.twelves(null, null)).toEqual(queryTwelves(db, null, null));
+    expect((await reader.trackMarks())[0]?.verdict?.status).toBe("snoozed");
   });
 
   it("rejects a read that fails, and goes on reading after it and after closing", async () => {

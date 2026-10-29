@@ -159,9 +159,12 @@ Retired: the shelf no longer has a sandbox mode to switch (decision 150 in `docs
 
 ## Completion contracts
 
+- Queued changes immediately show persistent activity text, with a count of changes waiting
+  behind the active one. This text is progress, not completion. The final flash appears after
+  the shelf reload. A saved local verdict can move selection while its Discogs update is pending.
 - Twelves' actions end the same way (`pages/twelves.ts`). Its flash shows only after the work it
   reports: a re-judgement saves the verdict, then adds to or takes from the Discogs wantlist, then
-  shows the flash and loads the shelf again. So a re-judgement ends once `POST /api/verdicts` and
+  loads the shelf again and shows the flash. So a re-judgement ends once `POST /api/verdicts` and
   the `GET /api/twelves` after it have answered and the flash says where the record went; a
   change to the wantlist has reached the fake by then, since the server answers the page only
   after the fake has answered it. A record note ends once its `PUT /api/releases/:id/note` has
@@ -256,3 +259,14 @@ Priority: **P1**.
 Given: `small` with a snoozed record. Replay it, return to Twelves and reject it, then return to
 Triage without starting another replay. Judge and undo. The record retains the rejection made in
 Twelves, not the snooze cached when the replay began.
+
+## TWL-31
+
+Priority: **P1**.
+
+Given: `small-account` with a saved token and three snoozed records. Re-judge the middle record
+as a want while the fake holds the wantlist request. The saved record leaves the shelf, selection
+moves to its neighbour, and navigation remains available. The status says the verdict was saved
+and Discogs is still being updated; the API confirms a saved want without a wantlist membership.
+Pressing undo shows one queued change. Releasing the held request lets undo restore the snooze
+and remove the wantlist entry before the completion message appears.

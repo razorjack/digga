@@ -1,19 +1,24 @@
 import { Worker } from "node:worker_threads";
-import type { QueueItem, Stats } from "../../shared/api.ts";
-import type { Config } from "../../shared/config.ts";
+import type { MarkedTrack, QueueItem, Stats, TwelvesItem } from "../../shared/api.ts";
+import type { Config, Filters } from "../../shared/config.ts";
 import type { ScopeRef } from "../../shared/scope.ts";
+import type { VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import { computeStats } from "../stats.ts";
 import { countRemaining, type QueueParams, queryQueue } from "./query.ts";
+import { listMarkedTracks } from "./track-marks.ts";
+import { queryTwelves } from "./twelves.ts";
 
 /**
- * The reads that scan the universe: the queue and the stats. In a server with a library file
+ * Reads of the catalogue and shelves. In a server with a library file
  * they run in a worker with its own connection, so a scan that computes again after a load or a
  * new want never holds up the server's thread, which in the Digga app is the window's too.
  */
 export interface QueueReader {
   queue(query: QueueParams): Promise<QueuePage>;
   stats(config: Config, scope: ScopeRef | null): Promise<Stats>;
+  twelves(statuses: VerdictStatus[] | null, filters: Filters | null): Promise<TwelvesItem[]>;
+  trackMarks(): Promise<MarkedTrack[]>;
   close(): Promise<void>;
 }
 
@@ -25,7 +30,11 @@ export interface QueuePage {
 
 export type ReaderRequest =
   | { kind: "queue"; query: QueueParams }
-  | { kind: "stats"; config: Config; scope: ScopeRef | null };
+  | { kind: "stats"; config: Config; scope: ScopeRef | null }
+  | { kind: "twelves"; statuses: VerdictStatus[] | null; filters: Filters | null }
+  | { kind: "trackMarks" };
+
+type ReaderResult = QueuePage | Stats | TwelvesItem[] | MarkedTrack[];
 
 /** A request with the catalogue's version, which the worker keeps its results under. */
 export interface ReaderMessage {
@@ -35,10 +44,10 @@ export interface ReaderMessage {
 }
 
 export type ReaderReply =
-  | { id: number; ok: true; result: QueuePage | Stats }
+  | { id: number; ok: true; result: ReaderResult }
   | { id: number; ok: false; message: string };
 
-export function answerReaderRequest(db: Db, request: ReaderRequest): QueuePage | Stats {
+export function answerReaderRequest(db: Db, request: ReaderRequest): ReaderResult {
   switch (request.kind) {
     case "queue":
       return {
@@ -47,6 +56,10 @@ export function answerReaderRequest(db: Db, request: ReaderRequest): QueuePage |
       };
     case "stats":
       return computeStats(db, request.config, request.scope);
+    case "twelves":
+      return db.transaction(() => queryTwelves(db, request.statuses, request.filters))();
+    case "trackMarks":
+      return db.transaction(() => listMarkedTracks(db))();
   }
 }
 
@@ -56,6 +69,9 @@ export function inlineQueueReader(db: Db): QueueReader {
     queue: async (query) => answerReaderRequest(db, { kind: "queue", query }) as QueuePage,
     stats: async (config, scope) =>
       answerReaderRequest(db, { kind: "stats", config, scope }) as Stats,
+    twelves: async (statuses, filters) =>
+      answerReaderRequest(db, { kind: "twelves", statuses, filters }) as TwelvesItem[],
+    trackMarks: async () => answerReaderRequest(db, { kind: "trackMarks" }) as MarkedTrack[],
     close: async () => {},
   };
 }
@@ -76,6 +92,9 @@ export function workerQueueReader(dbFile: string, version: () => string): QueueR
     // The worker answers a request with what answerReaderRequest() returns for its kind.
     queue: (query) => ask({ kind: "queue", query }) as Promise<QueuePage>,
     stats: (config, scope) => ask({ kind: "stats", config, scope }) as Promise<Stats>,
+    twelves: (statuses, filters) =>
+      ask({ kind: "twelves", statuses, filters }) as Promise<TwelvesItem[]>,
+    trackMarks: () => ask({ kind: "trackMarks" }) as Promise<MarkedTrack[]>,
     async close() {
       const stopping = current;
       current = null;
@@ -88,7 +107,7 @@ export function workerQueueReader(dbFile: string, version: () => string): QueueR
 class ReaderWorker {
   running = true;
   #worker: Worker;
-  #pending = new Map<number, PromiseWithResolvers<QueuePage | Stats>>();
+  #pending = new Map<number, PromiseWithResolvers<ReaderResult>>();
   #lastId = 0;
 
   constructor(dbFile: string) {
@@ -103,9 +122,9 @@ class ReaderWorker {
     });
   }
 
-  ask(version: string, request: ReaderRequest): Promise<QueuePage | Stats> {
+  ask(version: string, request: ReaderRequest): Promise<ReaderResult> {
     this.#lastId += 1;
-    const reply = Promise.withResolvers<QueuePage | Stats>();
+    const reply = Promise.withResolvers<ReaderResult>();
     this.#pending.set(this.#lastId, reply);
     const message: ReaderMessage = { id: this.#lastId, version, request };
     this.#worker.postMessage(message);

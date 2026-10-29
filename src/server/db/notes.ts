@@ -34,3 +34,35 @@ export function pressingNotes(
     )
     .all(release.masterId, release.id) as PressingNote[];
 }
+
+/** Shelf notes, including other pressings, read together instead of once per record. */
+export function notesForReleases(
+  db: Db,
+  releases: { id: number; masterId: number | null }[],
+): Map<number, { note: string | null; pressingNotes: PressingNote[] }> {
+  if (releases.length === 0) return new Map();
+  const ids = releases.map((release) => release.id);
+  const masters = [...new Set(releases.map((release) => release.masterId))];
+  const rows = db
+    .prepare(`SELECT n.release_id AS releaseId, r.master_id AS masterId,
+      r.catno, n.notes FROM release_notes n JOIN releases r ON r.id = n.release_id
+    WHERE n.notes IS NOT NULL AND (r.id IN (SELECT value FROM json_each(@ids))
+      OR r.master_id IN (SELECT value FROM json_each(@masters)))
+    ORDER BY n.updated_at DESC`)
+    .all({ ids: JSON.stringify(ids), masters: JSON.stringify(masters) }) as (PressingNote & {
+    masterId: number | null;
+  })[];
+  const ownNotes = new Map(rows.map((row) => [row.releaseId, row.notes]));
+  const byMaster = Map.groupBy(rows, (row) => row.masterId);
+  const notes = new Map<number, { note: string | null; pressingNotes: PressingNote[] }>();
+  for (const release of releases) {
+    const siblings = release.masterId === null ? [] : (byMaster.get(release.masterId) ?? []);
+    notes.set(release.id, {
+      note: ownNotes.get(release.id) ?? null,
+      pressingNotes: siblings
+        .filter((row) => row.releaseId !== release.id)
+        .map(({ releaseId, catno, notes }) => ({ releaseId, catno, notes })),
+    });
+  }
+  return notes;
+}

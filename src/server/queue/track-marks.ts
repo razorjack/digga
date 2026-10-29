@@ -2,8 +2,8 @@ import type { MarkedTrack } from "../../shared/api.ts";
 import type { TrackMark } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import { heldRecords } from "../db/memberships.ts";
-import { getVerdict } from "../db/verdicts.ts";
-import { queueItemForRelease } from "./query.ts";
+import { getVerdicts } from "../db/verdicts.ts";
+import { queueItems } from "./query.ts";
 
 interface MarkedTrackRow {
   release_id: number;
@@ -39,8 +39,14 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
        ORDER BY tv.decided_at DESC, tv.release_id, tv.heard_key`,
     )
     .all() as MarkedTrackRow[];
+  const ids = [...new Set(rows.map((row) => row.release_id))];
+  const releases = new Map(queueItems(db, ids).map((release) => [release.id, release]));
+  const verdicts = getVerdicts(
+    db,
+    [...releases.values()].map((release) => release.triageKey),
+  );
   return rows.map((row) => {
-    const release = queueItemForRelease(db, row.release_id);
+    const release = releases.get(row.release_id) ?? null;
     return {
       wantlistReleaseIds:
         release === null ? [] : (held.get(release.triageKey)?.wantlistReleaseIds ?? []),
@@ -57,7 +63,7 @@ export function listMarkedTracks(db: Db): MarkedTrack[] {
       },
       track: markedTrackTitle(row),
       release,
-      verdict: release ? getVerdict(db, release.triageKey) : null,
+      verdict: release ? (verdicts.get(release.triageKey) ?? null) : null,
     };
   });
 }

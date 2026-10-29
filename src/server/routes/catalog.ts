@@ -14,8 +14,6 @@ import {
   type TwelvesResponse,
 } from "../../shared/api.ts";
 import { searchScopes } from "../queue/scopes.ts";
-import { queryTwelves } from "../queue/twelves.ts";
-import { listMarkedTracks } from "../queue/track-marks.ts";
 import type { AppContext } from "../context.ts";
 import { badRequest, paramId, parseJson, parseQuery } from "./request.ts";
 import { attachVideo } from "../attach-video.ts";
@@ -102,18 +100,17 @@ async function attachVideoRoute(c: Context, context: AppContext) {
   return c.json(buildReleaseDetail(db, id));
 }
 
-function twelves(c: Context, context: AppContext) {
-  const { db } = context;
+async function twelves(c: Context, context: AppContext) {
   const query = parseQuery(c, TwelvesQuerySchema);
   if (!query.ok) return query.response;
   const config = context.getConfig();
   const filters = query.data.applyFilters ? config.filters : null;
-  const body: TwelvesResponse = { items: queryTwelves(db, query.data.status, filters) };
+  const body: TwelvesResponse = { items: await context.reader.twelves(query.data.status, filters) };
   return c.json(body);
 }
 
-function trackMarks(c: Context, context: AppContext) {
-  const body: TrackMarksResponse = { items: listMarkedTracks(context.db) };
+async function trackMarks(c: Context, context: AppContext) {
+  const body: TrackMarksResponse = { items: await context.reader.trackMarks() };
   return c.json(body);
 }
 

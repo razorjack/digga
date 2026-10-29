@@ -1,11 +1,17 @@
-import { TWELVES_STATUSES, type TwelvesItem } from "../../shared/api.ts";
+import { TWELVES_STATUSES, type QueueItem, type TwelvesItem } from "../../shared/api.ts";
 import type { Filters } from "../../shared/config.ts";
 import type { RecordMembership, Verdict, VerdictStatus } from "../../shared/types.ts";
 import type { Db } from "../db/db.ts";
 import { type HeldRecord, heldRecords, NOT_HELD } from "../db/memberships.ts";
-import { pressingNotes, releaseNote } from "../db/notes.ts";
+import { notesForReleases } from "../db/notes.ts";
 import { listVerdicts } from "../db/verdicts.ts";
-import { buildFilterWhere, queueItemForRelease, representativeForKey } from "./query.ts";
+import { buildFilterWhere, queueItems, representativesForKeys } from "./query.ts";
+
+interface ShelfRecord {
+  key: string;
+  verdict: Verdict | null;
+  held: HeldRecord | null;
+}
 
 /**
  * The records on the Twelves shelves, newest first: those decided in Digga with one of the
@@ -17,43 +23,58 @@ export function queryTwelves(
   statuses: VerdictStatus[] | null,
   filters: Filters | null,
 ): TwelvesItem[] {
-  const held = heldRecords(db);
+  const records = shelfRecords(db, statuses);
+  const releases = shelfReleases(db, records);
+  const notes = notesForReleases(db, [...releases.values()]);
+  const passes = filterTest(db, filters);
   const items: TwelvesItem[] = [];
+  for (const { key, verdict, held } of records) {
+    const release = releases.get(key) ?? null;
+    if (!passes(release?.id ?? null)) continue;
+    const savedNotes = release ? notes.get(release.id) : undefined;
+    items.push({
+      key,
+      verdict,
+      release,
+      membership: held ? membershipOf(held) : NOT_HELD,
+      since: verdict?.decidedAt ?? held?.since ?? "",
+      ...(savedNotes ?? { note: null, pressingNotes: [] }),
+    });
+  }
+  return items.toSorted((left, right) => right.since.localeCompare(left.since));
+}
+
+function shelfRecords(db: Db, statuses: VerdictStatus[] | null): ShelfRecord[] {
+  const held = heldRecords(db);
+  const records: ShelfRecord[] = [];
   for (const verdict of listVerdicts(db, statuses ?? TWELVES_STATUSES)) {
-    items.push(twelvesItem(db, verdict.key, { verdict, held: held.get(verdict.key) ?? null }));
+    records.push({ key: verdict.key, verdict, held: held.get(verdict.key) ?? null });
     held.delete(verdict.key);
   }
   if (statuses === null)
     for (const [key, record] of held)
       if (record.owned || record.onWantlist || record.onList)
-        items.push(twelvesItem(db, key, { verdict: null, held: record }));
-
-  const passes = filterTest(db, filters);
-  return items
-    .filter((item) => passes(item.release?.id ?? null))
-    .toSorted((left, right) => right.since.localeCompare(left.since));
+        records.push({ key, verdict: null, held: record });
+  return records;
 }
 
-function twelvesItem(
-  db: Db,
-  key: string,
-  record: { verdict: Verdict | null; held: HeldRecord | null },
-): TwelvesItem {
-  const { verdict, held } = record;
-  const releaseId = verdict?.releaseId ?? held?.releaseId ?? null;
-  const release =
-    (releaseId === null ? null : queueItemForRelease(db, releaseId)) ??
-    representativeForKey(db, key);
-  return {
-    key,
-    verdict,
-    release,
-    membership: held ? membershipOf(held) : NOT_HELD,
-    since: verdict?.decidedAt ?? held?.since ?? "",
-    note: release ? (releaseNote(db, release.id) ?? null) : null,
-    pressingNotes: release ? pressingNotes(db, release) : [],
-  };
+function shelfReleases(db: Db, records: ShelfRecord[]): Map<string, QueueItem> {
+  const ids = records.map(savedReleaseId).filter((id) => id !== null);
+  const byId = new Map(queueItems(db, ids).map((release) => [release.id, release]));
+  const releases = new Map<string, QueueItem>();
+  const missing: string[] = [];
+  for (const record of records) {
+    const id = savedReleaseId(record);
+    const release = id === null ? undefined : byId.get(id);
+    if (release) releases.set(record.key, release);
+    else missing.push(record.key);
+  }
+  for (const [key, release] of representativesForKeys(db, missing)) releases.set(key, release);
+  return releases;
 }
+
+const savedReleaseId = (record: ShelfRecord) =>
+  record.verdict?.releaseId ?? record.held?.releaseId ?? null;
 
 function membershipOf(held: HeldRecord): RecordMembership {
   const { owned, onWantlist, wantlistReleaseIds, onList, wantRemoved } = held;

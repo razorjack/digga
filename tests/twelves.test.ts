@@ -99,6 +99,104 @@ async function setup() {
 }
 
 describe("Twelves changes", () => {
+  it("acknowledges a verdict immediately, then waits for the saved verdict before moving selection", async () => {
+    const { shelf, http } = await setup();
+    const items = [record(1), record(2), record(3)];
+    shelf.items = items;
+    shelf.shelf = "maybe";
+    shelf.selectedKey = "r:2";
+    const saved = Promise.withResolvers<Verdict>();
+    const pushed = Promise.withResolvers<void>();
+    http.postVerdict.mockReturnValueOnce(saved.promise);
+    http.pushToWantlist.mockReturnValueOnce(pushed.promise);
+
+    shelf.rejudge(items[1]!, "accepted");
+    expect(shelf.activity).toBe("Saving verdict…");
+    expect(shelf.selectedKey).toBe("r:2");
+    expect(shelf.items[1]!.verdict?.status).toBe("maybe");
+    saved.resolve({ ...items[1]!.verdict, status: "accepted" });
+    await vi.waitFor(() => expect(http.pushToWantlist).toHaveBeenCalled());
+
+    expect(shelf.selectedKey).toBe("r:3");
+    expect(shelf.items[1]!.verdict?.status).toBe("accepted");
+    expect(shelf.activity).toBe("Verdict saved. Updating your Discogs wantlist…");
+    expect(shelf.items[1]!.membership.onWantlist).toBe(false);
+    expect(shelf.undoStack).toHaveLength(0);
+    pushed.resolve();
+    await shelf.settled();
+    expect(shelf.activity).toBeNull();
+    expect(shelf.undoStack).toHaveLength(1);
+  });
+
+  it("clears activity on failure and acknowledges an undo queued behind an unfinished push", async () => {
+    const { shelf, http } = await setup();
+    http.postVerdict.mockRejectedValueOnce(new Error("disk full"));
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await shelf.settled();
+    expect(shelf.activity).toBeNull();
+    expect(shelf.flash).toBe("Not saved: disk full");
+    expect(shelf.items[0]!.verdict?.status).toBe("maybe");
+
+    const pushed = Promise.withResolvers<void>();
+    http.pushToWantlist.mockReturnValueOnce(pushed.promise);
+    shelf.rejudge(shelf.items[0]!, "accepted");
+    await vi.waitFor(() => expect(http.pushToWantlist).toHaveBeenCalled());
+    const undone = shelf.undo();
+    expect(shelf.activity).toBe("Verdict saved. Updating your Discogs wantlist…");
+    expect(shelf.progress).toContain("1 change queued.");
+    expect(http.removeFromWantlist).not.toHaveBeenCalled();
+    pushed.resolve();
+    await undone;
+    expect(http.removeFromWantlist).toHaveBeenCalledTimes(1);
+    expect(shelf.activity).toBeNull();
+    expect(shelf.flash).toBe("Undone.");
+    expect(shelf.pendingChanges).toBe(0);
+  });
+
+  it("acknowledges bulk additions synchronously and refuses a duplicate click while queued", async () => {
+    const { shelf, http } = await setup();
+    const items = [record(2), record(1)].map((item) => ({
+      ...item,
+      verdict: { ...item.verdict, status: "accepted" as const },
+    }));
+    shelf.items = items;
+    shelf.sort = "artist";
+    http.getTwelves.mockResolvedValue({ items });
+    const pushed = Promise.withResolvers<void>();
+    http.pushToWantlist.mockReturnValueOnce(pushed.promise);
+    shelf.addPendingToWantlist();
+    expect(shelf.pushing).toBe(true);
+    expect(shelf.activity).toBe("Adding to your Discogs wantlist…");
+    shelf.addPendingToWantlist();
+    await vi.waitFor(() => expect(http.pushToWantlist).toHaveBeenCalledTimes(1));
+    expect(shelf.activity).toBe("Adding to your Discogs wantlist: 1 of 2…");
+    pushed.resolve();
+    await shelf.settled();
+    expect(http.pushToWantlist).toHaveBeenCalledTimes(2);
+    expect(http.pushToWantlist).toHaveBeenNthCalledWith(1, 1);
+    expect(http.pushToWantlist).toHaveBeenNthCalledWith(2, 2);
+    expect(shelf.pushing).toBe(false);
+    expect(shelf.activity).toBeNull();
+  });
+
+  it("keeps the newest load pending when an earlier read finishes first", async () => {
+    const { shelf, http } = await setup();
+    const first = Promise.withResolvers<{ items: (TwelvesItem & { verdict: Verdict })[] }>();
+    const second = Promise.withResolvers<{ items: (TwelvesItem & { verdict: Verdict })[] }>();
+    http.getTwelves.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    shelf.loading = true;
+    const firstLoad = shelf.load();
+    const secondLoad = shelf.load();
+    first.resolve({ items: [record(2)] });
+    await firstLoad;
+    expect(shelf.loading).toBe(true);
+    expect(shelf.items[0]!.key).toBe("r:1");
+    second.resolve({ items: [record(3)] });
+    await secondLoad;
+    expect(shelf.loading).toBe(false);
+    expect(shelf.items[0]!.key).toBe("r:3");
+  });
+
   it("limits bulk wantlist additions to the current search", async () => {
     const { shelf } = await setup();
     shelf.items = [record(1), record(2)].map((item) => ({

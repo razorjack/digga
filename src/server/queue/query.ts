@@ -365,7 +365,8 @@ function catalogueKey(db: Db, filters: Filters, parts: unknown[]): string {
 }
 
 /** The releases as queue items, in the order of `ids`. */
-function queueItems(db: Db, ids: number[]): QueueItem[] {
+export function queueItems(db: Db, ids: number[]): QueueItem[] {
+  if (ids.length === 0) return [];
   const rows = db
     .prepare(`${BASE_SELECT} r.id IN (SELECT value FROM json_each(?))`)
     .all(JSON.stringify(ids)) as QueueRow[];
@@ -456,4 +457,16 @@ export function representativeForKey(db: Db, key: string): QueueItem | null {
     .prepare(`${BASE_SELECT} r.triage_key = ? ORDER BY ${REPRESENTATIVE_ORDER} LIMIT 1`)
     .get(key) as QueueRow | undefined;
   return row ? rowToQueueItem(row) : null;
+}
+
+/** Representatives for records whose saved pressing is missing from the catalogue. */
+export function representativesForKeys(db: Db, keys: string[]): Map<string, QueueItem> {
+  if (keys.length === 0) return new Map();
+  const rows = db
+    .prepare(`WITH base AS (
+    ${BASE_SELECT} r.triage_key IN (SELECT value FROM json_each(?))
+  ), ${RANKED}
+  SELECT * FROM ranked WHERE rn = 1`)
+    .all(JSON.stringify(keys)) as QueueRow[];
+  return new Map(rows.map((row) => [row.triage_key, rowToQueueItem(row)]));
 }

@@ -358,6 +358,7 @@
               type="button"
               class="check"
               disabled={twelves.pushing}
+              aria-busy={twelves.pushing}
               onclick={() => twelves.addPendingToWantlist()}
             >
               {twelves.pushing ? "Adding…" : `add all ${formatCount(twelves.wantsPending.length)}`}
@@ -532,7 +533,7 @@
         <span><Key label="Z" /> undo</span>
       </p>
       <div class="status">
-        <Flash message={twelves.flash} align="end" />
+        <Flash message={twelves.progress ?? twelves.flash} align="end" />
         {#if page.count > 1}
           <Pager
             {page}
