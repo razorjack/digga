@@ -18,6 +18,7 @@ import type {
 } from "../../src/server/discogs/types.ts";
 import {
   ACCOUNTS,
+  ALL_RELEASES,
   type FixtureAccount,
   releaseById,
   videoCatalogue,
@@ -95,6 +96,7 @@ const DISCOGS_ROUTES = (
     ["GET /users/:user/lists", userLists],
     ["GET /lists/:id", listItems],
     ["GET /releases/:id", marketRelease],
+    ["GET /masters/:id/versions", masterVersions],
   ] satisfies [string, DiscogsHandler][]
 ).map(([pattern, handler]) => ({ pattern: compilePattern(pattern), handler }));
 
@@ -636,12 +638,24 @@ export const MARKET = {
   rating: { average: 4.33, count: 27 },
 };
 
+function masterVersions(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
+  const versions = ALL_RELEASES.filter(
+    (release) => release.master?.id === Number(request.params.id),
+  ).map((release) => ({ id: release.id, format: ['12"', ...release.descriptions].join(", ") }));
+  return { status: 200, body: { pagination: pagination(1, versions.length), versions } };
+}
+
 function marketRelease(_fakes: FakeServices, request: FakeRequest): FakeAnswer {
   const fixture = releaseById(Number(request.params.id));
   if (!fixture) return { status: 404, body: { message: "Release not found." } };
   const release: DiscogsRelease = {
-    id: fixture.id,
-    title: fixture.title,
+    ...basicInformation(fixture.id),
+    master_id: fixture.master?.id,
+    country: fixture.country,
+    tracklist: fixture.tracks.map((track) => ({
+      ...track,
+      artists: track.artists.map((name, index) => ({ id: index + 1, name })),
+    })),
     lowest_price: MARKET.lowestPrice,
     num_for_sale: MARKET.numForSale,
     community: { have: MARKET.have, want: MARKET.want, rating: MARKET.rating },
@@ -712,7 +726,7 @@ function basicInformation(id: number): DiscogsBasicInformation {
     year: fixture.year ?? 0,
     artists: fixture.artists.map((name, index) => ({ id: index + 1, name })),
     labels: [{ id: fixture.label.id, name: fixture.label.name, catno: fixture.label.catno }],
-    formats: [{ name: "Vinyl", qty: "1", descriptions: ['12"'] }],
+    formats: [{ name: "Vinyl", qty: "1", descriptions: ['12"', ...fixture.descriptions] }],
     genres: ["Electronic"],
     styles: [...fixture.styles],
   };

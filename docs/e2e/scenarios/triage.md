@@ -483,3 +483,13 @@ Priority: **P1**.
 Given: `small`. Type a note and click Snooze without pressing Enter. Undo returns to the same
 record with the note saved independently. Editing it and pressing Escape leaves the saved note
 unchanged after reload. Leaving the note field saves; explicit cancellation discards the edit.
+
+## TRI-51
+
+Priority: **P1**.
+
+Given: `small` with a saved token and a matching white label wanted manually on Discogs but not
+imported. Settings initially leaves automatic alternatives off. Enable white labels and promos
+and save. Want the first record in Triage: its retail release and matching promo are added;
+its different-mix promo is not. Undo removes the retail and new promo entries while preserving
+the manual white label and its note.

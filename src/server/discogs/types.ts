@@ -28,6 +28,8 @@ export interface DiscogsVideo {
 }
 
 export interface DiscogsTrack {
+  type_?: string;
+  sub_tracks?: DiscogsTrack[];
   position: string;
   title: string;
   duration?: string;
@@ -168,4 +170,9 @@ export interface DiscogsMaster {
   id: number;
   main_release: number;
   title?: string;
+}
+
+export interface DiscogsVersionsPage {
+  pagination: DiscogsPagination;
+  versions: { id: number; format: string }[];
 }

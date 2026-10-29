@@ -36,6 +36,8 @@ export interface FixtureRelease {
   videos: FixtureVideo[];
   /** Videos added on Discogs after the dumps: only its release answer (`P`) lists them. */
   laterVideos: FixtureVideo[];
+  /** Additional Discogs format descriptions, for alternative pressing discovery. */
+  descriptions: string[];
 }
 
 export interface FixtureAccount {
@@ -89,9 +91,9 @@ function video(
 }
 
 function release(
-  fields: Omit<FixtureRelease, "master" | "laterVideos"> & Partial<FixtureRelease>,
+  fields: Omit<FixtureRelease, "master" | "laterVideos" | "descriptions"> & Partial<FixtureRelease>,
 ): FixtureRelease {
-  return { master: null, laterVideos: [], ...fields };
+  return { master: null, laterVideos: [], descriptions: [], ...fields };
 }
 
 const AXIS_PLATE = { id: 30, name: "Axis Plate" };
@@ -687,7 +689,30 @@ export const BULK_CHECKPOINTS = { "100-to-dig": 100, "600-to-dig": 600 };
  */
 export const BULK: FixtureRelease[] = generateBulk();
 
+/** Versions absent from the dump, discovered from Discogs by TWL-32 and TRI-51. */
+export const WHITE_LABEL_PRESSING = release({
+  ...FIRST_RECORD,
+  id: 98001,
+  descriptions: ["White Label"],
+  videos: [],
+  laterVideos: [],
+});
+export const PROMO_PRESSING = release({
+  ...WHITE_LABEL_PRESSING,
+  id: 98002,
+  descriptions: ["Promo"],
+});
+export const REMIX_PROMO_PRESSING = release({
+  ...WHITE_LABEL_PRESSING,
+  id: 98003,
+  descriptions: ["Promo"],
+  tracks: [{ ...FIRST_RECORD.tracks[0]!, title: "Pressure Drop (Different Mix)" }],
+});
+
 export const ALL_RELEASES: FixtureRelease[] = [
+  WHITE_LABEL_PRESSING,
+  PROMO_PRESSING,
+  REMIX_PROMO_PRESSING,
   ...SMALL,
   ...SEPTEMBER_ADDITIONS,
   NOT_IN_ANY_DUMP,

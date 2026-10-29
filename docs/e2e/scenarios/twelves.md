@@ -270,3 +270,17 @@ moves to its neighbour, and navigation remains available. The status says the ve
 and Discogs is still being updated; the API confirms a saved want without a wantlist membership.
 Pressing undo shows one queued change. Releasing the held request lets undo restore the snooze
 and remove the wantlist entry before the completion message appears.
+
+## TWL-32
+
+Priority: **P1**.
+
+Given: `small` with a saved token. A retail release is wanted manually on Discogs, then imported.
+A white label is added on Discogs after the import, with a note. Its white label, matching promo
+and different-mix promo are absent from the dump.
+
+Filter the Discogs wantlist shelf to the retail record and preview the filtered records' alternatives.
+Matching pressings are selected and the different-mix promo requires review. Add the selection:
+only the missing promo is written. Twelves shows one record with three wanted pressings. Close
+and undo: the added promo disappears, while both manual wants and their notes remain. The public
+Twelves API confirms the remaining release IDs.

@@ -1,3 +1,5 @@
+import { AlternativeWants } from "./alternative-wants.ts";
+import type { AlternativeOptions } from "../../shared/alternative-pressings.ts";
 import type { QueueItem } from "../../shared/api.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import { type Api, ApiRequestError } from "../api.ts";
@@ -9,7 +11,16 @@ import { errorMessage } from "../stores.svelte.ts";
 export type PushOutcome = "done" | "failed" | null;
 
 export interface WantlistSyncOptions {
-  api: Pick<Api, "getRelease" | "pushToWantlist" | "removeFromWantlist">;
+  api: Pick<
+    Api,
+    | "getRelease"
+    | "pushToWantlist"
+    | "removeFromWantlist"
+    | "previewAlternatives"
+    | "addAlternativeWants"
+    | "undoAlternativeWants"
+  >;
+  alternativeOptions: () => AlternativeOptions;
   /** The waits before each new try of a failed push. */
   retryDelaysMs: number[];
   /** The newest verdict the session gave the record; undefined when it gave none. */
@@ -25,6 +36,7 @@ export interface WantlistSyncOptions {
  */
 export class WantlistSync {
   #options: WantlistSyncOptions;
+  #alternatives: AlternativeWants;
   /** Release ids by triage key that this session put on the Discogs wantlist. */
   #onWantlist = new Map<string, number[]>();
   /** The pressings a record taken into a round had on the wantlist, which undo restores. */
@@ -35,11 +47,13 @@ export class WantlistSync {
 
   constructor(options: WantlistSyncOptions) {
     this.#options = options;
+    this.#alternatives = new AlternativeWants(options.api, options.flash);
   }
 
   /** Stops the retries; a call already sent finishes, but nothing more is sent. */
   destroy(): void {
     this.#ended = true;
+    this.#alternatives.destroy();
     for (const [timer, resolve] of this.#retryTimers) {
       clearTimeout(timer);
       resolve();
@@ -99,8 +113,17 @@ export class WantlistSync {
   #sync(item: QueueItem): Promise<"added" | "removed" | null> {
     return this.#writes.run(async (): Promise<"added" | "removed" | null> => {
       if (this.#ended) return null;
-      if (this.#wanted(item.triageKey)) return this.#addWantedPressings(item);
-      return this.#removeWantedPressings(item.triageKey);
+      const latest = this.#options.latestVerdict(item.triageKey);
+      if (latest === undefined || !isWantlistVerdict(latest))
+        await this.#alternatives.undo(item.triageKey);
+      if (!this.#wanted(item.triageKey)) return this.#removeWantedPressings(item.triageKey);
+      const outcome = await this.#addWantedPressings(item);
+      if (latest !== undefined && isWantlistVerdict(latest))
+        await this.#alternatives.add(item, this.#options.alternativeOptions(), () => {
+          const current = this.#options.latestVerdict(item.triageKey);
+          return current !== undefined && isWantlistVerdict(current);
+        });
+      return outcome;
     });
   }
 

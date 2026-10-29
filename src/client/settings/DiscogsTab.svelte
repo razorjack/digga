@@ -224,6 +224,29 @@
           >For the lowest price <Key label="P" size="sm" /> shows in Triage.</span
         >
       </div>
+      <fieldset class="field" aria-describedby="{id}-alternatives-hint">
+        <legend class="name">Also add alternative pressings to Discogs</legend>
+        <div class="inline wrap">
+          <label
+            ><input type="checkbox" bind:checked={draft.discogs.alternativePressings.whiteLabels} /> White
+            labels</label
+          >
+          <label
+            ><input type="checkbox" bind:checked={draft.discogs.alternativePressings.promos} /> Promos</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              bind:checked={draft.discogs.alternativePressings.testPressings}
+            /> Test pressings</label
+          >
+        </div>
+        <p class="hint" id="{id}-alternatives-hint">
+          For future Wants and Grails in Triage: add vinyl versions of the same master with matching
+          credited tracks and mix titles. Uncertain matches need review in Twelves. Use “Add
+          alternative pressings…” in Twelves for existing wants.
+        </p>
+      </fieldset>
       <div class="field">
         <label class="name" for="{id}-maybe-list">Maybe list</label>
         <div class="inline wrap">

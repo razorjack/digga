@@ -1,3 +1,9 @@
+import type {
+  AddAlternativesInput,
+  AlternativeAdditions,
+  AlternativesPreview,
+  AlternativesPreviewInput,
+} from "../shared/alternative-pressings.ts";
 import {
   filtersParam,
   type BackupsResponse,
@@ -97,6 +103,12 @@ export interface Api {
   getJob(id: string): Promise<Job>;
   cancelJob(id: string): Promise<{ cancelled: boolean; job: Job }>;
   /** The server writes the note: the release's grail and keep tracks and the record's note. */
+  previewAlternatives(
+    input: AlternativesPreviewInput,
+    signal?: AbortSignal,
+  ): Promise<AlternativesPreview>;
+  addAlternativeWants(input: AddAlternativesInput): Promise<AlternativeAdditions>;
+  undoAlternativeWants(operationId: string): Promise<AlternativeAdditions>;
   pushToWantlist(releaseId: number): Promise<WantlistPushResponse>;
   removeFromWantlist(releaseId: number): Promise<WantlistPushResponse>;
   /** Whether a token is set and whose it is; asks Discogs once per call. */
@@ -173,6 +185,7 @@ function queryString(params: Record<string, string | number | boolean | undefine
 export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIMEOUTS): Api {
   const call = httpCaller(baseUrl, timeouts.localMs);
   const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
+  const callAlternatives = httpCaller(baseUrl, 30 * 60_000);
   const callDialog = httpCaller(baseUrl, timeouts.dialogMs);
   return {
     getShoppingSellers: () => call("GET", "/shopping"),
@@ -219,6 +232,11 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     getJobs: () => call("GET", "/jobs"),
     getJob: (id) => call("GET", `/jobs/${id}`),
     cancelJob: (id) => call("POST", `/jobs/${id}/cancel`),
+    previewAlternatives: (input, signal) =>
+      callAlternatives("POST", "/discogs/alternatives/preview", input, signal),
+    addAlternativeWants: (input) => callAlternatives("POST", "/discogs/alternatives/add", input),
+    undoAlternativeWants: (operationId) =>
+      callAlternatives("POST", "/discogs/alternatives/undo", { operationId }),
     pushToWantlist: (releaseId) => callDiscogs("POST", `/discogs/wantlist/${releaseId}`),
     removeFromWantlist: (releaseId) => callDiscogs("DELETE", `/discogs/wantlist/${releaseId}`),
     getDiscogsAccount: () => callDiscogs("GET", "/discogs/account"),
@@ -241,12 +259,18 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
 export const api: Api = createHttpApi();
 
 function httpCaller(baseUrl: string, timeoutMs: number) {
-  return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+  return async <T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ): Promise<T> => {
     const { response, text } = await fetchText(`${baseUrl}${path}`, {
       method,
       headers: body === undefined ? {} : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
       timeoutMs,
+      signal,
     });
     const data: unknown = text === "" ? null : JSON.parse(text);
     if (!response.ok) {
@@ -264,11 +288,19 @@ function httpCaller(baseUrl: string, timeoutMs: number) {
 /** Fetches and reads the body; the timeout covers both, so a stalled answer fails too. */
 async function fetchText(
   url: string,
-  request: { method: string; headers: HeadersInit; body: string | undefined; timeoutMs: number },
+  request: {
+    method: string;
+    headers: HeadersInit;
+    body: string | undefined;
+    timeoutMs: number;
+    signal?: AbortSignal;
+  },
 ): Promise<{ response: Response; text: string }> {
-  const { timeoutMs, ...init } = request;
+  const { timeoutMs, signal, ...init } = request;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const deadline = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
-    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetch(url, { ...init, signal: deadline });
     return { response, text: await response.text() };
   } catch (error) {
     if (error instanceof DOMException && error.name === "TimeoutError")

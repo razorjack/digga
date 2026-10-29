@@ -44,6 +44,7 @@ function fakeDiscogs(
     getCollectionPage: (_u, page) => Promise.resolve(collection[page - 1]!),
     getWantlistPage: (_u, page) => Promise.resolve(wants[page - 1]!),
     getIdentity: () => Promise.reject(new Error("unused")),
+    getMasterVersions: () => Promise.reject(new Error("unused")),
     getMaster: () => Promise.reject(new Error("unused")),
     getUserLists: () => Promise.reject(new Error("unused")),
     getList: () => Promise.reject(new Error("unused")),

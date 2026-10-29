@@ -1477,3 +1477,19 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      release details answered in 2 to 8 ms while a stats read computed for 0.8 s. Moving the whole
      server into a `utilityProcess` was not needed: `safeStorage`, the native dialogs and the E2E
      guard stay in the main process with it.
+
+202. **Alternative wants add pressings without replacing existing Discogs entries.** Twelves offers
+     a preview for the selected wanted record or the wanted records on the filtered shelf. It reads
+     the master's versions from Discogs, including releases absent from the loaded dump, and shows
+     white labels, promos and optionally test pressings. Matching credited tracklists are selected;
+     different or incomplete tracklists need explicit selection. Generic titles or anonymous credits
+     never establish an automatic match, and mix names and duplicate tracks remain significant.
+     Unofficial versions are excluded. A release without a master cannot be expanded automatically.
+     The separate Settings > Discogs choices default off and apply to future Want and Grail actions
+     in Triage. They do not change the digging filters or retroactively expand the account.
+     Additions read the live wantlist first, preserving existing entries and their notes. Each
+     operation records its successful additions in `wantlist_expansions`; repeating its request
+     retries failures without duplicating successful writes. Undo removes only those additions and
+     retains failed removals for retry. Twelves keeps one record per master and lists its wanted
+     release IDs. Shop still matches exact release IDs, so adding an alternative makes that
+     pressing eligible there. No background task continually adds newly submitted versions.

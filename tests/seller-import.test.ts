@@ -55,6 +55,7 @@ function fakeShop(pages: DiscogsListing[][] | number, requested: number[] = []) 
     getCollectionPage: unused,
     getWantlistPage: unused,
     getIdentity: unused,
+    getMasterVersions: () => Promise.reject(new Error("unused")),
     getMaster: unused,
     getUserLists: unused,
     getList: unused,

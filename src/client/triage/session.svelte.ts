@@ -17,7 +17,7 @@ import { type Api, api as appApi, isConflict } from "../api.ts";
 import { type CurrentCheck, Generation, SerialQueue } from "../async.ts";
 import type { TriageStatus } from "../keymap.ts";
 import type { VideosChange } from "../player/triage-player.svelte.ts";
-import { errorMessage, stats } from "../stores.svelte.ts";
+import { errorMessage, settings, stats } from "../stores.svelte.ts";
 import { TimedMessage } from "../timed-message.svelte.ts";
 import { DetailCache } from "./detail-cache.svelte.ts";
 import { countVerdict } from "./optimistic-stats.ts";
@@ -157,6 +157,12 @@ export class TriageSession {
     });
     this.#wantlist = new WantlistSync({
       api,
+      alternativeOptions: () =>
+        settings.value?.discogs.alternativePressings ?? {
+          whiteLabels: false,
+          promos: false,
+          testPressings: false,
+        },
       retryDelaysMs: opts.pushRetryDelaysMs ?? PUSH_RETRY_DELAYS_MS,
       latestVerdict: (key) => this.#latestVerdict(key),
       flash: (message) => this.#flash.show(message),

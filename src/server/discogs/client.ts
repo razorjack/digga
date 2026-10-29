@@ -9,6 +9,7 @@ import type {
   DiscogsUser,
   DiscogsUserListsPage,
   DiscogsWantlistPage,
+  DiscogsVersionsPage,
 } from "./types.ts";
 
 import {
@@ -56,6 +57,7 @@ export interface DiscogsClient {
   getWantlistPage(username: string, page: number, perPage?: number): Promise<DiscogsWantlistPage>;
   getIdentity(): Promise<DiscogsIdentity>;
   getMaster(id: number): Promise<DiscogsMaster>;
+  getMasterVersions(id: number, page: number): Promise<DiscogsVersionsPage>;
   /** A user's public profile; 404 when the username does not exist. */
   getUser(username: string): Promise<DiscogsUser>;
   /** One page of a seller's listings; only For Sale ones unless the token is the seller's. */
@@ -87,6 +89,8 @@ type CallOptions = Omit<RequestOptions, "signal" | "retries">;
 type Request = <Result>(path: string, query?: Query, options?: CallOptions) => Promise<Result>;
 type Query = Parameters<DiscogsTransport["request"]>[1];
 
+// Each method declares one endpoint on the shared transport.
+// eslint-disable-next-line max-lines-per-function
 function clientFor(
   transport: DiscogsTransport,
   options: { authenticated: boolean; signal?: AbortSignal; retries: RetryPolicy },
@@ -119,6 +123,8 @@ function clientFor(
       }),
     getIdentity: () => request<DiscogsIdentity>("/oauth/identity"),
     getMaster: (id) => request<DiscogsMaster>(`/masters/${id}`),
+    getMasterVersions: (id, page) =>
+      request<DiscogsVersionsPage>(`/masters/${id}/versions`, { page, per_page: 100 }),
     getUser: (username) => request<DiscogsUser>(`/users/${encodeURIComponent(username)}`),
     getInventoryPage: (username, page, perPage = 100) =>
       request<DiscogsInventoryPage>(`/users/${encodeURIComponent(username)}/inventory`, {

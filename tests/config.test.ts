@@ -54,7 +54,7 @@ describe("config schema", () => {
 
   it("reads a config saved with enrich ahead, which no longer exists, and drops it", () => {
     const config = ConfigSchema.parse({ discogs: { username: "dj", enrichAhead: 5 } });
-    expect(config.discogs).toEqual({ username: "dj", currency: "EUR", maybeListId: null });
+    expect(config.discogs).toEqual({ ...DEFAULT_CONFIG.discogs, username: "dj" });
   });
 
   it("accepts nullable year bounds and null loadYears", () => {

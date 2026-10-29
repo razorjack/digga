@@ -6,7 +6,12 @@
   "discogs": {
     "username": "",
     "currency": "EUR",
-    "maybeListId": null
+    "maybeListId": null,
+    "alternativePressings": {
+      "whiteLabels": false,
+      "promos": false,
+      "testPressings": false
+    }
   },
   "universe": {
     "styles": ["Drum n Bass"],

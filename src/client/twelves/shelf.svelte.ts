@@ -1,3 +1,7 @@
+import type {
+  AddAlternativesInput,
+  AlternativeAdditions,
+} from "../../shared/alternative-pressings.ts";
 import { expectedVerdict, type MarkedTrack, type TwelvesItem } from "../../shared/api.ts";
 import type { Verdict, VerdictStatus } from "../../shared/types.ts";
 import { api as appApi, type Api, isConflict } from "../api.ts";
@@ -28,6 +32,7 @@ import {
 } from "./model.ts";
 
 type UndoEntry =
+  | { kind: "alternatives"; operationIds: string[] }
   | {
       kind: "verdict";
       previous: Verdict;
@@ -315,6 +320,10 @@ export class TwelvesShelf {
       this.showFlash("Nothing to undo.");
       return;
     }
+    if (entry.kind === "alternatives") {
+      await this.#undoAlternatives(entry);
+      return;
+    }
     try {
       if (entry.kind === "note") await this.#client.putReleaseNote(entry.releaseId, entry.previous);
       else
@@ -356,6 +365,61 @@ export class TwelvesShelf {
       if (error) errors.push(error);
     }
     return errors.length > 0 ? errors.join("; ") : null;
+  }
+
+  async addAlternatives(inputs: AddAlternativesInput[]): Promise<AlternativeAdditions[]> {
+    const results: AlternativeAdditions[] = [];
+    await this.#queueChange("Adding alternative pressings…", async () => {
+      const operationIds = inputs.map((input) => input.operationId);
+      const remembered = this.undoStack.some(
+        (entry) =>
+          entry.kind === "alternatives" &&
+          entry.operationIds.some((id) => operationIds.includes(id)),
+      );
+      if (!remembered) this.undoStack = [...this.undoStack, { kind: "alternatives", operationIds }];
+      for (const input of inputs) {
+        try {
+          results.push(await this.#client.addAlternativeWants(input));
+        } catch (error) {
+          results.push({
+            operationId: input.operationId,
+            added: [],
+            existing: [],
+            undone: false,
+            errors: [{ releaseId: input.releaseId, error: errorMessage(error) }],
+          });
+        }
+      }
+      await this.load();
+      this.showFlash("Alternative pressings checked. Z undoes the additions.");
+      void stats.refresh();
+    });
+    return results;
+  }
+
+  async #undoAlternatives(entry: Extract<UndoEntry, { kind: "alternatives" }>): Promise<void> {
+    const remaining: string[] = [];
+    const errors: string[] = [];
+    for (const operationId of entry.operationIds) {
+      try {
+        const result = await this.#client.undoAlternativeWants(operationId);
+        if (!result.undone) remaining.push(operationId);
+        errors.push(...result.errors.map((failure) => `${failure.releaseId}: ${failure.error}`));
+      } catch (error) {
+        remaining.push(operationId);
+        errors.push(errorMessage(error));
+      }
+    }
+    this.undoStack = this.undoStack.slice(0, -1);
+    if (remaining.length > 0)
+      this.undoStack = [...this.undoStack, { kind: "alternatives", operationIds: remaining }];
+    await this.load();
+    this.showFlash(
+      errors.length > 0
+        ? `Some additions remain: ${errors.join("; ")}. Z retries.`
+        : "Additions undone. Your existing wants were kept.",
+    );
+    void stats.refresh();
   }
 
   /** Adds every want and grail shown that is missing from the Discogs wantlist. */

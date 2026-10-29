@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AlternativeOptionsSchema } from "./alternative-pressings.ts";
 
 export const QUEUE_STRATEGIES = ["label_sweep", "country", "year", "random"] as const;
 export type QueueStrategy = (typeof QUEUE_STRATEGIES)[number];
@@ -82,6 +83,7 @@ export const ConfigSchema = z.object({
   discogs: z
     .object({
       username: z.string().default(""),
+      alternativePressings: AlternativeOptionsSchema.prefault({}),
       currency: z.string().length(3).default("EUR"),
       /** The Discogs list that holds maybes; the M verdict appears when it is set. */
       maybeListId: z.number().int().positive().nullable().default(null),

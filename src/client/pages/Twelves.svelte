@@ -22,6 +22,9 @@
   import { youtubeSearchUrl } from "../../shared/youtube.ts";
   import { navigate, openExternal } from "../router.svelte.ts";
   import { settings, ui } from "../stores.svelte.ts";
+  import AlternativePressings from "../twelves/AlternativePressings.svelte";
+  import { canExpandWants } from "../twelves/alternatives.svelte.ts";
+  import { alternativesEnabled } from "../../shared/alternative-pressings.ts";
   import { TwelvesShelf } from "../twelves/shelf.svelte.ts";
   import Pager from "../twelves/Pager.svelte";
   import TrackTable from "../twelves/TrackTable.svelte";
@@ -41,6 +44,18 @@
     type ReplayRange,
   } from "../twelves/model.ts";
   const twelves = new TwelvesShelf();
+  let alternativeItems = $state<TwelvesItem[] | null>(null);
+  const expandable = $derived(twelves.visible.filter(canExpandWants));
+  const selectedExpandable = $derived(
+    twelves.selected !== null && canExpandWants(twelves.selected),
+  );
+  const alternativeOptions = $derived(
+    settings.value?.discogs.alternativePressings ?? {
+      whiteLabels: false,
+      promos: false,
+      testPressings: false,
+    },
+  );
   /** Wants and grails go to the Discogs wantlist; their shelves say whether all of them got there. */
   const showWantlistHandoff = $derived(
     twelves.shelf === "accepted" ||
@@ -156,7 +171,13 @@
   const REPEATING_KEYS = new Set(["j", "k", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
   function onkeydown(event: KeyboardEvent): void {
-    if (ui.helpOpen || event.defaultPrevented || isControlKey(event) || hasCommandModifier(event))
+    if (
+      alternativeItems !== null ||
+      ui.helpOpen ||
+      event.defaultPrevented ||
+      isControlKey(event) ||
+      hasCommandModifier(event)
+    )
       return;
     const key = shortcutKey(event);
     if (key === null) return;
@@ -222,7 +243,7 @@
   /** A copied YouTube link goes on the selected record's release. */
   function onpaste(event: ClipboardEvent): void {
     const selected = twelves.selected;
-    if (ui.helpOpen || onTracks || !selected) return;
+    if (alternativeItems !== null || ui.helpOpen || onTracks || !selected) return;
     const link = pastedLink(event);
     if (link === null) return;
     event.preventDefault();
@@ -251,6 +272,17 @@
     </div>
   {/if}
 {/snippet}
+
+{#if alternativeItems !== null}
+  <AlternativePressings
+    items={alternativeItems}
+    initialOptions={alternativesEnabled(alternativeOptions)
+      ? alternativeOptions
+      : { whiteLabels: true, promos: true, testPressings: false }}
+    write={(inputs) => twelves.addAlternatives(inputs)}
+    onclose={() => (alternativeItems = null)}
+  />
+{/if}
 
 <div class="twelves">
   <aside class="sidebar">
@@ -310,6 +342,23 @@
     </search>
 
     <div class="shelf">
+      {#if !onTracks && expandable.length > 0}
+        <div class="handoff">
+          <p>Add white-label and promo versions while keeping your existing wants.</p>
+          <button
+            type="button"
+            disabled={!selectedExpandable || twelves.pendingChanges > 0}
+            onclick={() => (alternativeItems = twelves.selected ? [twelves.selected] : [])}
+            >Add alternative pressings…</button
+          >
+          <button
+            type="button"
+            disabled={twelves.pendingChanges > 0}
+            onclick={() => (alternativeItems = [...expandable])}
+            >Alternatives for {expandable.length} filtered records…</button
+          >
+        </div>
+      {/if}
       {#if twelves.shelf === "maybe" || (twelves.shelf === "all" && twelves.pending > 0)}
         <div class="handoff">
           {#if !hasMaybeList}
@@ -453,6 +502,19 @@
                     </a>
                   {:else}
                     <span class="title">Not in the loaded dump ({item.key})</span>
+                  {/if}
+                  {#if item.membership.wantlistReleaseIds.length > 1}
+                    <details>
+                      <summary>{item.membership.wantlistReleaseIds.length} wanted pressings</summary
+                      >
+                      {#each item.membership.wantlistReleaseIds as releaseId (releaseId)}
+                        <a
+                          href={discogsReleaseUrl(releaseId)}
+                          target="_blank"
+                          rel="noopener noreferrer">Discogs release {releaseId}</a
+                        >
+                      {/each}
+                    </details>
                   {/if}
                   {#if editingKey === item.key}
                     <input

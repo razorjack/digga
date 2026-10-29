@@ -45,6 +45,7 @@ function fakeDiscogs(calls: string[]): DiscogsClient {
       if (id === 9601) return Promise.resolve(release(9601, null, "Main"));
       return Promise.reject(new Error("404"));
     },
+    getMasterVersions: () => Promise.reject(new Error("unused")),
     getMaster: (id) => {
       calls.push(`master ${id}`);
       return Promise.resolve({ id, main_release: 9601 });

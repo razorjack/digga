@@ -386,3 +386,8 @@ stub `shell.openExternal` so no browser opens. The harness's own preload holds t
 until a host releases it, so a manual run does not use it. The
 [Electron rehearsal](HISTORY.md#the-electron-main-process-electron-unpackaged) shows the commands,
 and the [spike](HISTORY.md#the-electron-spike-electron-unpackaged) the launcher's checks.
+
+Alternative pressing scenarios use `WHITE_LABEL_PRESSING`, `PROMO_PRESSING` and
+`REMIX_PROMO_PRESSING`, versions of `FIRST_RECORD` present only in `ALL_RELEASES`. They never
+enter the generated dumps. The fake master-versions endpoint reads this catalogue, and the
+release endpoint supplies full credited tracklists and format descriptions for matching.
