@@ -347,12 +347,14 @@
           <p>Add white-label and promo versions while keeping your existing wants.</p>
           <button
             type="button"
+            class="check"
             disabled={!selectedExpandable || twelves.pendingChanges > 0}
             onclick={() => (alternativeItems = twelves.selected ? [twelves.selected] : [])}
             >Add alternative pressings…</button
           >
           <button
             type="button"
+            class="check"
             disabled={twelves.pendingChanges > 0}
             onclick={() => (alternativeItems = [...expandable])}
             >Alternatives for {expandable.length} filtered records…</button
