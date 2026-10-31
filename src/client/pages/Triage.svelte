@@ -276,7 +276,7 @@
     const entry = player.entry;
     const detail = player.detail;
     if (!entry || !detail) {
-      session.showFlash("Track marks go on the playing track; nothing is playing.");
+      session.showFlash("Nothing is playing, so there is no track to mark.");
       return;
     }
     if (!entry.track) {

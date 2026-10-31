@@ -372,9 +372,7 @@ test(
 
     const requestsBefore = app.apiRequests().length;
     await app.page.keyboard.press("a");
-    await expect(twelves.messages).toHaveText(
-      "Track marks change in Triage, on the playing track.",
-    );
+    await expect(twelves.messages).toHaveText("Mark tracks in Triage, while they play.");
     // The flash comes from the key press itself; nothing was sent for it.
     expect(app.apiRequests().slice(requestsBefore)).toEqual([]);
   },

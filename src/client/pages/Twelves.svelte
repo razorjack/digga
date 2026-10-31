@@ -237,7 +237,7 @@
       return true;
     }
     if (!verdictForKey(key)) return false;
-    twelves.showFlash("Track marks change in Triage, on the playing track.");
+    twelves.showFlash("Mark tracks in Triage, while they play.");
     return true;
   }
 

@@ -12,9 +12,9 @@ export interface Destination {
 
 /** The pages the toolbar switches between; the setup is reached from the app, not the toolbar. */
 export const PAGES: Destination[] = [
-  { route: "triage", label: "Triage", key: "T", help: "triage" },
-  { route: "twelves", label: "Twelves", key: "W", help: "twelves" },
-  { route: "shop", label: "Shop", key: "H", help: "shop my wants" },
+  { route: "triage", label: "Triage", key: "T", help: "Triage" },
+  { route: "twelves", label: "Twelves", key: "W", help: "Twelves" },
+  { route: "shop", label: "Shop", key: "H", help: "Shop: your wants on sale from one seller" },
 ];
 
 /** Settings has its own button at the toolbar's end, where apps keep it. */
@@ -22,7 +22,7 @@ export const SETTINGS: Destination = {
   route: "settings",
   label: "Settings",
   key: ",",
-  help: "settings",
+  help: "Settings",
 };
 
 /** Every page with a key. */

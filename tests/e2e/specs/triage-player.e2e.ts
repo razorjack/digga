@@ -463,9 +463,7 @@ test.describe("digging a run of tracks, with the clock", () => {
       await app.page.keyboard.press("n");
       await expect(triage.player.getByText("Nothing playing", { exact: true })).toBeVisible();
       await app.page.keyboard.press(trackMarkKey("keep"));
-      await expect(triage.messages).toHaveText(
-        "Track marks go on the playing track; nothing is playing.",
-      );
+      await expect(triage.messages).toHaveText("Nothing is playing, so there is no track to mark.");
 
       await new HeaderPage(app).goTo("twelves");
       await twelves.showShelf("tracks");

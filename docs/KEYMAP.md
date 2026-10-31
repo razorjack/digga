@@ -11,14 +11,14 @@ in Twelves. Holding a key down never repeats a verdict.
 
 ## Pages (everywhere)
 
-| key | action                 |
-| --- | ---------------------- |
-| `T` | triage                 |
-| `W` | twelves                |
-| `H` | shop my wants          |
-| `,` | settings               |
-| `?` | show or hide the keys  |
-| Esc | close the keys overlay |
+| key | action                                   |
+| --- | ---------------------------------------- |
+| `T` | Triage                                   |
+| `W` | Twelves                                  |
+| `H` | Shop: your wants on sale from one seller |
+| `,` | Settings                                 |
+| `?` | show or hide the keys                    |
+| Esc | close the keys overlay                   |
 
 In the desktop app the View menu also has Triage (`Cmd+1`), Twelves (`Cmd+2`) and Keys (`Cmd+/`),
 and the application menu Settings… (`Cmd+,`); elsewhere `Ctrl` takes the place of `Cmd`. The menu
@@ -124,7 +124,7 @@ as one under Other videos, cannot be marked, and the page says so.
 | `/`                         | focus the filter; Enter or Esc leaves it                                                             |
 | `O`                         | open the release on discogs.com                                                                      |
 | `E`                         | edit the note (of the record, or of the track on Tracks); Enter saves                                |
-| `A` `M` `C` `R` `L` `D`     | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)                         |
+| `A` `M` `C` `R` `L` `D`     | change the verdict (`R` takes it off the shelves, `D` means no audio)                                |
 | `Y`                         | search YouTube for the record                                                                        |
 | `⌘V`                        | attach a copied YouTube link to the record; no audio goes back to the queue (`Ctrl+V` outside macOS) |
 | `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there, or say it is already                            |

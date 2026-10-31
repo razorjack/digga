@@ -62,7 +62,7 @@ export const VERDICT_KEYS: VerdictKey[] = [
   {
     status: "no_audio",
     key: "D",
-    hint: "off the queue, unjudged",
+    hint: "nothing plays, so it leaves the queue without a verdict",
     group: "defer",
   },
 ];
@@ -147,19 +147,18 @@ function verdictKeyGroup(hasMaybeList: boolean): KeyGroup {
         keys: [verdict.key],
         label:
           verdict.needsMaybeList && !hasMaybeList
-            ? `${STATUS_COPY[verdict.status]}: pick your Discogs Maybe list in Settings first`
+            ? `${STATUS_COPY[verdict.status]}: choose your Discogs Maybe list in Settings first`
             : `${STATUS_COPY[verdict.status]}: ${verdict.hint}`,
       })),
-      { keys: ["N"], label: "next: decide later, it stays in the queue" },
-      { keys: ["E"], label: "write a note; Enter or leaving the field saves, Esc cancels" },
-      { keys: ["X"], label: "hide the record's label: its records leave the queue" },
-      { keys: ["F"], label: "dig one label, artist or seller: the queue narrows to its records" },
-      { keys: ["Z"], label: "undo the last verdict or next" },
+      { keys: ["N"], label: "next: decide later, and it stays in the queue" },
+      { keys: ["E"], label: "write a note (Enter or leaving the field saves it, Esc cancels)" },
+      { keys: ["X"], label: "hide label: every record on this label leaves the queue" },
       {
-        keys: ["Esc"],
-        label:
-          "leave a round of snoozed records, or the label, artist or seller, back to the queue",
+        keys: ["F"],
+        label: "dig one label, artist or seller: only their records stay in the queue",
       },
+      { keys: ["Z"], label: "undo the last verdict, next or hidden label" },
+      { keys: ["Esc"], label: "back to the whole queue from snoozed records or a dig" },
     ],
   };
 }
@@ -177,16 +176,16 @@ function playerKeyGroup(seekStepSeconds: number): KeyGroup {
         keys: ["P"],
         label: "ask Discogs for the release's lowest price, have/want and current videos",
       },
-      { keys: ["S"], label: "search YouTube for the release" },
+      { keys: ["S"], label: "search YouTube for the record" },
       { keys: commandKeys("V"), label: "attach a copied YouTube link to the release, and play it" },
     ],
   };
 }
 
 const TRACK_MARK_KEY_GROUP: KeyGroup = {
-  title: "Track marks",
+  title: "Mark the playing track",
   keys: [
-    { keys: ["⇧K"], label: "keep the playing track" },
+    { keys: ["⇧K"], label: "keep" },
     { keys: ["⇧M"], label: "meh" },
     { keys: ["⇧C"], label: "grail" },
   ],
@@ -196,16 +195,16 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
   {
     title: "Twelves",
     keys: [
-      { keys: ["1", "…", "9"], label: "switch shelf; 8 is the tracks you marked, 9 no audio" },
+      { keys: ["1", "…", "9"], label: "switch shelf (8 is your marked tracks, 9 is no audio)" },
       { keys: ["J", "K"], label: "move down / up (also ↓ ↑), into the next page too" },
       { keys: ["←", "→"], label: "previous / next page of 500" },
       { keys: ["S"], label: "change the sort" },
       { keys: ["O"], label: "open the release on discogs.com" },
       { keys: ["E"], label: "edit the note, on a record or a marked track" },
-      { keys: ["A", "M", "C", "R", "L", "D"], label: "re-judge a triage verdict" },
+      { keys: ["A", "M", "C", "R", "L", "D"], label: "change the verdict (D is no audio)" },
       { keys: ["Y"], label: "search YouTube for the record" },
       { keys: commandKeys("V"), label: "attach a copied YouTube link to the record" },
-      { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
+      { keys: ["A", "C"], label: "on a want or grail missing from your Discogs wantlist: add it" },
       { keys: ["Enter"], label: "replay the selected record or marked track in Triage" },
       {
         keys: ["Shift", "Enter"],
