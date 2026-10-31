@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { QueueItem, ReleaseDetail } from "../../shared/api.ts";
   import { formatDuration } from "../../shared/display.ts";
+  import CommandKey from "../components/CommandKey.svelte";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import { PLAYER_STATUS_COPY, SEEKING_COPY } from "../player/status.ts";
@@ -99,7 +100,7 @@
           {#if mode === "triage"}
             <p class="options">
               <span><Key label="S" /> search YouTube</span>
-              <span><Key label="⌘V" /> paste a YouTube link to play it</span>
+              <span><CommandKey key="V" /> paste a YouTube link to play it</span>
               <span><Key label="D" /> no audio, off the queue</span>
             </p>
             <p class="small">Verdict keys still work.</p>

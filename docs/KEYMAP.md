@@ -27,18 +27,18 @@ from text fields.
 
 ## Triage: player
 
-| key       | action                                                               |
-| --------- | -------------------------------------------------------------------- |
-| `Space`   | play / pause (also starts sound the first time, see below)           |
-| `J` / `K` | next / previous track (video) of the current release                 |
-| `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s); repeats while held |
-| `1` … `9` | jump to 10% … 90% of the video; a paused video stays paused          |
-| `O`       | open the release on discogs.com                                      |
-| `P`       | ask Discogs for the price, copies for sale, have/want and videos     |
-| `S`       | open a YouTube search for artist + title                             |
-| `E`       | write a note; Enter or leaving the field saves, Esc cancels          |
-| `⌘V`      | attach a copied YouTube link to the release and play it              |
-| `Enter`   | retry when the settings, the queue or the release failed to load     |
+| key       | action                                                                           |
+| --------- | -------------------------------------------------------------------------------- |
+| `Space`   | play / pause (also starts sound the first time, see below)                       |
+| `J` / `K` | next / previous track (video) of the current release                             |
+| `←` / `→` | seek -/+ `player.seekStepSeconds` (default 10 s); repeats while held             |
+| `1` … `9` | jump to 10% … 90% of the video; a paused video stays paused                      |
+| `O`       | open the release on discogs.com                                                  |
+| `P`       | ask Discogs for the price, copies for sale, have/want and videos                 |
+| `S`       | open a YouTube search for artist + title                                         |
+| `E`       | write a note; Enter or leaving the field saves, Esc cancels                      |
+| `⌘V`      | attach a copied YouTube link to the release and play it (`Ctrl+V` outside macOS) |
+| `Enter`   | retry when the settings, the queue or the release failed to load                 |
 
 `P` asks Discogs once for the record on screen and shows the answer with its age ("checked 3
 days ago"); pressing it again refreshes it. Digga asks for nothing ahead, so the records you skip
@@ -115,23 +115,23 @@ as one under Other videos, cannot be marked, and the page says so.
 
 ## Twelves
 
-| key                         | action                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| `1` … `9`                   | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks, no audio |
-| `J` / `K`, `↓` / `↑`        | move the selection, across pages                                                          |
-| `←` / `→`                   | previous / next page; a page holds 500 records                                            |
-| `S`                         | next sort order (newest, label, artist, year, price, want)                                |
-| `/`                         | focus the filter; Enter or Esc leaves it                                                  |
-| `O`                         | open the release on discogs.com                                                           |
-| `E`                         | edit the note (of the record, or of the track on Tracks); Enter saves                     |
-| `A` `M` `C` `R` `L` `D`     | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)              |
-| `Y`                         | search YouTube for the record                                                             |
-| `⌘V`                        | attach a copied YouTube link to the record; no audio goes back to the queue               |
-| `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there, or say it is already                 |
-| `Enter`                     | replay the selected record in Triage; on Snoozed, it and the snoozed records after it     |
-| `Shift+Enter`               | replay the selected record and the records after it on the shelf                          |
-| `I`                         | read the Discogs Maybe list again                                                         |
-| `Z`                         | undo the last change, including what it did to the Discogs wantlist                       |
+| key                         | action                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `1` … `9`                   | shelf: everything, want, Discogs wantlist, owned, maybe, grail, snoozed, tracks, no audio            |
+| `J` / `K`, `↓` / `↑`        | move the selection, across pages                                                                     |
+| `←` / `→`                   | previous / next page; a page holds 500 records                                                       |
+| `S`                         | next sort order (newest, label, artist, year, price, want)                                           |
+| `/`                         | focus the filter; Enter or Esc leaves it                                                             |
+| `O`                         | open the release on discogs.com                                                                      |
+| `E`                         | edit the note (of the record, or of the track on Tracks); Enter saves                                |
+| `A` `M` `C` `R` `L` `D`     | re-judge a triage verdict (`R` takes it off the shelves, `D` means no audio)                         |
+| `Y`                         | search YouTube for the record                                                                        |
+| `⌘V`                        | attach a copied YouTube link to the record; no audio goes back to the queue (`Ctrl+V` outside macOS) |
+| `A` / `C` on a want / grail | add it to the Discogs wantlist when it is not there, or say it is already                            |
+| `Enter`                     | replay the selected record in Triage; on Snoozed, it and the snoozed records after it                |
+| `Shift+Enter`               | replay the selected record and the records after it on the shelf                                     |
+| `I`                         | read the Discogs Maybe list again                                                                    |
+| `Z`                         | undo the last change, including what it did to the Discogs wantlist                                  |
 
 A verdict key that matches the record's verdict writes nothing and says so: "Already on your
 Discogs wantlist." for a want or grail there, otherwise "Already on the Maybe shelf." and the like.

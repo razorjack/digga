@@ -3,6 +3,7 @@
   import { type Config, validateConfig } from "../../shared/config.ts";
   import { JOB_LABEL } from "../../shared/job-display.ts";
   import type { Job } from "../../shared/types.ts";
+  import { commandShortcut } from "../keymap.ts";
   import { loadStatus } from "../load-status.svelte.ts";
   import { getAnchor, guardLeaving, navigate } from "../router.svelte.ts";
   import type { Route } from "../routes.ts";
@@ -273,7 +274,7 @@
             disabled={problems.length > 0 || saving}
             aria-keyshortcuts="Meta+S Control+S"
           >
-            Save settings <kbd class="kbd" aria-hidden="true">⌘S</kbd>
+            Save settings <kbd class="kbd" aria-hidden="true">{commandShortcut("S")}</kbd>
           </button>
         {/if}
       </div>

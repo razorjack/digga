@@ -2,6 +2,12 @@ import type { TrackMark, VerdictStatus } from "../shared/types.ts";
 import { youtubeIdFromUrl } from "../shared/youtube.ts";
 import { ROUTES } from "./routes.ts";
 
+/**
+ * The modifier that paste and save are held with, as the keyboard labels it: ⌘ on Apple systems,
+ * Ctrl elsewhere. The handlers accept either; only the caps differ.
+ */
+export const COMMAND_MODIFIER = commandModifier(globalThis.navigator?.platform ?? "");
+
 /** Verdicts the triage keys write. */
 export type TriageStatus = Extract<
   VerdictStatus,
@@ -130,55 +136,61 @@ export const GLOBAL_KEYS: KeyGroup = {
 };
 
 export function triageKeyGroups(seekStepSeconds: number, hasMaybeList: boolean): KeyGroup[] {
-  return [
-    {
-      title: "Verdicts",
-      keys: [
-        ...VERDICT_KEYS.map((verdict) => ({
-          keys: [verdict.key],
-          label:
-            verdict.needsMaybeList && !hasMaybeList
-              ? `${STATUS_COPY[verdict.status]}: pick your Discogs Maybe list in Settings first`
-              : `${STATUS_COPY[verdict.status]}: ${verdict.hint}`,
-        })),
-        { keys: ["N"], label: "next: decide later, it stays in the queue" },
-        { keys: ["E"], label: "write a note; Enter or leaving the field saves, Esc cancels" },
-        { keys: ["X"], label: "hide the record's label: its records leave the queue" },
-        { keys: ["F"], label: "dig one label, artist or seller: the queue narrows to its records" },
-        { keys: ["Z"], label: "undo the last verdict or next" },
-        {
-          keys: ["Esc"],
-          label:
-            "leave a round of snoozed records, or the label, artist or seller, back to the queue",
-        },
-      ],
-    },
-    {
-      title: "Player",
-      keys: [
-        { keys: ["Space"], label: "play / pause" },
-        { keys: ["J", "K"], label: "next / previous track (J skips heard tunes)" },
-        { keys: ["←", "→"], label: `seek ${seekStepSeconds} s` },
-        { keys: ["1", "…", "9"], label: "jump to 10% … 90%" },
-        { keys: ["O"], label: "open the release on discogs.com" },
-        {
-          keys: ["P"],
-          label: "ask Discogs for the release's lowest price, have/want and current videos",
-        },
-        { keys: ["S"], label: "search YouTube for the release" },
-        { keys: ["⌘V"], label: "attach a copied YouTube link to the release, and play it" },
-      ],
-    },
-    {
-      title: "Track marks",
-      keys: [
-        { keys: ["⇧K"], label: "keep the playing track" },
-        { keys: ["⇧M"], label: "meh" },
-        { keys: ["⇧C"], label: "grail" },
-      ],
-    },
-  ];
+  return [verdictKeyGroup(hasMaybeList), playerKeyGroup(seekStepSeconds), TRACK_MARK_KEY_GROUP];
 }
+
+function verdictKeyGroup(hasMaybeList: boolean): KeyGroup {
+  return {
+    title: "Verdicts",
+    keys: [
+      ...VERDICT_KEYS.map((verdict) => ({
+        keys: [verdict.key],
+        label:
+          verdict.needsMaybeList && !hasMaybeList
+            ? `${STATUS_COPY[verdict.status]}: pick your Discogs Maybe list in Settings first`
+            : `${STATUS_COPY[verdict.status]}: ${verdict.hint}`,
+      })),
+      { keys: ["N"], label: "next: decide later, it stays in the queue" },
+      { keys: ["E"], label: "write a note; Enter or leaving the field saves, Esc cancels" },
+      { keys: ["X"], label: "hide the record's label: its records leave the queue" },
+      { keys: ["F"], label: "dig one label, artist or seller: the queue narrows to its records" },
+      { keys: ["Z"], label: "undo the last verdict or next" },
+      {
+        keys: ["Esc"],
+        label:
+          "leave a round of snoozed records, or the label, artist or seller, back to the queue",
+      },
+    ],
+  };
+}
+
+function playerKeyGroup(seekStepSeconds: number): KeyGroup {
+  return {
+    title: "Player",
+    keys: [
+      { keys: ["Space"], label: "play / pause" },
+      { keys: ["J", "K"], label: "next / previous track (J skips heard tunes)" },
+      { keys: ["←", "→"], label: `seek ${seekStepSeconds} s` },
+      { keys: ["1", "…", "9"], label: "jump to 10% … 90%" },
+      { keys: ["O"], label: "open the release on discogs.com" },
+      {
+        keys: ["P"],
+        label: "ask Discogs for the release's lowest price, have/want and current videos",
+      },
+      { keys: ["S"], label: "search YouTube for the release" },
+      { keys: commandKeys("V"), label: "attach a copied YouTube link to the release, and play it" },
+    ],
+  };
+}
+
+const TRACK_MARK_KEY_GROUP: KeyGroup = {
+  title: "Track marks",
+  keys: [
+    { keys: ["⇧K"], label: "keep the playing track" },
+    { keys: ["⇧M"], label: "meh" },
+    { keys: ["⇧C"], label: "grail" },
+  ],
+};
 
 export const TWELVES_KEY_GROUPS: KeyGroup[] = [
   {
@@ -192,7 +204,7 @@ export const TWELVES_KEY_GROUPS: KeyGroup[] = [
       { keys: ["E"], label: "edit the note, on a record or a marked track" },
       { keys: ["A", "M", "C", "R", "L", "D"], label: "re-judge a triage verdict" },
       { keys: ["Y"], label: "search YouTube for the record" },
-      { keys: ["⌘V"], label: "attach a copied YouTube link to the record" },
+      { keys: commandKeys("V"), label: "attach a copied YouTube link to the record" },
       { keys: ["A"], label: "on a want missing from the Discogs wantlist: add it" },
       { keys: ["Enter"], label: "replay the selected record or marked track in Triage" },
       {
@@ -271,6 +283,21 @@ export function shortcutKey(event: Pick<KeyboardEvent, "key" | "shiftKey">): str
 /** Shortcuts are single keys; anything held with Cmd, Ctrl or Alt belongs to the browser. */
 export function hasCommandModifier(event: KeyboardEvent): boolean {
   return event.metaKey || event.ctrlKey || event.altKey;
+}
+
+/** `navigator.platform` names Apple systems Mac…, iPhone or iPad. */
+export function commandModifier(platform: string): "⌘" | "Ctrl" {
+  return /^(Mac|iPhone|iPad)/.test(platform) ? "⌘" : "Ctrl";
+}
+
+/** A Cmd or Ctrl shortcut's caps: one ⌘V cap on Apple keyboards, Ctrl and V elsewhere. */
+export function commandKeys(key: string, modifier = COMMAND_MODIFIER): string[] {
+  return modifier === "⌘" ? [`⌘${key}`] : ["Ctrl", key];
+}
+
+/** The same shortcut as text: ⌘S, or Ctrl+S. */
+export function commandShortcut(key: string, modifier = COMMAND_MODIFIER): string {
+  return commandKeys(key, modifier).join("+");
 }
 
 /** Cmd+A on a Mac, Ctrl+A elsewhere. */

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  commandKeys,
+  commandModifier,
+  commandShortcut,
   GLOBAL_KEYS,
   isSelectAll,
   isTriageStatus,
@@ -83,5 +86,29 @@ describe("shortcutKey", () => {
   it("tells Shift+Enter from Enter", () => {
     expect(shortcutKey({ key: "Enter", shiftKey: false })).toBe("Enter");
     expect(shortcutKey({ key: "Enter", shiftKey: true })).toBe("Shift+Enter");
+  });
+});
+
+describe("commandModifier", () => {
+  it("is ⌘ on the platforms navigator.platform names for Apple systems", () => {
+    for (const platform of ["MacIntel", "iPhone", "iPad"])
+      expect(commandModifier(platform)).toBe("⌘");
+  });
+
+  it("is Ctrl on Linux, Windows and an unknown platform", () => {
+    for (const platform of ["Linux x86_64", "Win32", ""])
+      expect(commandModifier(platform)).toBe("Ctrl");
+  });
+});
+
+describe("commandKeys and commandShortcut", () => {
+  it("draw one ⌘ cap on Apple keyboards", () => {
+    expect(commandKeys("V", "⌘")).toEqual(["⌘V"]);
+    expect(commandShortcut("S", "⌘")).toBe("⌘S");
+  });
+
+  it("draw Ctrl and the key elsewhere", () => {
+    expect(commandKeys("V", "Ctrl")).toEqual(["Ctrl", "V"]);
+    expect(commandShortcut("S", "Ctrl")).toBe("Ctrl+S");
   });
 });

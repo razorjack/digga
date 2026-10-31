@@ -6,6 +6,7 @@
   import { normalizeNote } from "../../shared/notes.ts";
   import { type ReplayRequest, replayItemOf, replayTrack } from "../../shared/replay.ts";
   import Art from "../components/Art.svelte";
+  import CommandKey from "../components/CommandKey.svelte";
   import Flash from "../components/Flash.svelte";
   import Key from "../components/Key.svelte";
   import Stamp from "../components/Stamp.svelte";
@@ -422,8 +423,8 @@
         <div class="handoff">
           <p>
             None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy
-            a video's link there and press <Key label="⌘V" /> here to attach it, and the record goes back
-            to the queue. A newer dump brings back the records Discogs has a video for since.
+            a video's link there and press <CommandKey key="V" /> here to attach it, and the record goes
+            back to the queue. A newer dump brings back the records Discogs has a video for since.
           </p>
         </div>
       {/if}
@@ -588,7 +589,7 @@
         {/if}
         {#if twelves.shelf === "no_audio"}
           <span><Key label="Y" /> youtube</span>
-          <span><Key label="⌘V" /> attach a link</span>
+          <span><CommandKey key="V" /> attach a link</span>
         {/if}
         <span><Key label="Enter" /> hear again</span>
         {#if !onTracks && twelves.shelf !== "snoozed"}
