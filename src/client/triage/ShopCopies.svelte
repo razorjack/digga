@@ -28,7 +28,7 @@
       {#each shown as listing (listing.id)}
         {@const grade = listingGrade(listing)}
         <li>
-          <span class="price">{priceOf(listing)}</span>
+          <span class="price figures">{priceOf(listing)}</span>
           <span class="grade">
             <span aria-hidden="true">
               <Stamp
@@ -64,8 +64,6 @@
     color: var(--fg-faint);
     font-size: var(--text-xs);
     font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
   ul {
     display: grid;

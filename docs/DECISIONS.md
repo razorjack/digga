@@ -1493,3 +1493,13 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      retains failed removals for retry. Twelves keeps one record per master and lists its wanted
      release IDs. Shop still matches exact release IDs, so adding an alternative makes that
      pressing eligible there. No background task continually adds newly submitted versions.
+203. **IBM Plex Sans sets the interface; Martian Mono keeps identifiers and figures.** With every
+     word in a monospace, Digga read more like a website or a terminal tool than an app, and
+     monospace text with small letter-spaced capitals and slashes between counts is a common
+     generic look. Plex sets text, controls and section headings; Martian Mono keeps key caps,
+     paths and what the `figures` class marks (catalogue numbers, track positions, durations,
+     counts and prices), so they still line up. Michroma keeps the artist, page and dialog titles,
+     counters, stamps and verdict copy (decision 30), and no longer heads sections inside a page or
+     sets the setup's button and window title. The three smallest sizes went up one step, to 11,
+     12 and 13 px, because a proportional face at the monospace's sizes reads small. Column
+     headers lost their letter-spaced capitals, and thin rules replace the slashes in the readout.

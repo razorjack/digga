@@ -84,8 +84,8 @@
         data-position={track.mark.position}
         onclick={() => onselect(key)}
       >
-        <td class="catno">{release?.catno ?? ""}</td>
-        <td class="pos">{track.mark.position}</td>
+        <td class="catno figures">{release?.catno ?? ""}</td>
+        <td class="pos figures">{track.mark.position}</td>
         <td class="track">
           <span class="title">
             {#if track.track?.artistDisplay && track.track.artistDisplay !== release?.artistDisplay}
@@ -130,7 +130,7 @@
             size="sm"
           />
         </td>
-        <td class="day quiet">
+        <td class="day quiet figures">
           <time datetime={track.mark.decidedAt}>{formatDay(track.mark.decidedAt)}</time>
         </td>
       </tr>

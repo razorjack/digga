@@ -229,8 +229,8 @@
   legend {
     float: none;
     margin-bottom: 10px;
-    font-family: var(--display);
     font-size: var(--text-lg);
+    font-weight: 600;
   }
   .range {
     display: flex;

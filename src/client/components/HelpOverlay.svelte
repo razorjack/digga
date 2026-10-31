@@ -88,7 +88,9 @@
     margin-bottom: 20px;
   }
   h2 {
+    font-family: var(--display);
     font-size: var(--text-xl);
+    font-weight: 400;
   }
   .head button {
     display: inline-flex;

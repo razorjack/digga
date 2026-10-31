@@ -71,9 +71,12 @@ Tokens live in `src/client/styles.css`; the reasons are in `docs/DECISIONS.md` (
   `#1c1a15` text with `#4f4b42` for secondary and `#605c53` for faint text. The flyer stays the
   fill under flyer-ink; marks and accented text turn dark amber `#855000`, since yellow is 1.2:1
   on paper. The grain darkens paper where it lightens the dark ground.
-- **Type:** Michroma for artist names, page titles, counters, verdict copy and stamps; Martian
-  Mono (87.5% width) for everything else. Sizes run 10 / 11 / 12.5 / 14 / 17 / 22 / 30 / 40 /
-  64 px.
+- **Type:** Michroma for artist names, page and dialog titles, counters, verdict copy and stamps;
+  IBM Plex Sans for the interface: text, controls and section headings (decision 197); Martian
+  Mono (87.5% width) for identifiers and figures: key caps, paths, catalogue numbers, track
+  positions, durations, counts and prices, which the `figures` class marks. Sizes run 11 / 12 /
+  13 / 14 / 17 / 22 / 30 / 40 / 64 px. Column headers and controls are in sentence case; the
+  readout separates its counts with thin rules.
 - **Toolbar:** one bar on sleeve across the top of every page, which is also the window's title
   bar in the desktop app (the traffic lights sit in its left end, and its empty space drags the
   window). Triage and Twelves form a segmented control with their keys; the counts (dug / to go /

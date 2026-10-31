@@ -54,10 +54,7 @@
     border-color: var(--accent);
     background: var(--accent);
     color: var(--on-accent);
-    font-family: var(--display);
-    font-size: var(--text-sm);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 600;
   }
   .primary:hover:not(:disabled) {
     border-color: var(--accent);

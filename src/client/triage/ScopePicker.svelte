@@ -221,7 +221,9 @@
     padding: 28px 32px 28px;
   }
   h2 {
+    font-family: var(--display);
     font-size: var(--text-xl);
+    font-weight: 400;
   }
   .search input {
     width: 100%;

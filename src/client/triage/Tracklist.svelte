@@ -94,7 +94,7 @@
           onmousedown={(event) => event.preventDefault()}
           onclick={() => index !== null && onplay(index)}
         >
-          <span class="pos">{track.position}</span>
+          <span class="pos figures">{track.position}</span>
           <span class="glyph" title={HINT[state]}>
             <span aria-hidden="true">{GLYPH[state]}</span><span class="visually-hidden"
               >{HINT[state]}</span
@@ -117,7 +117,7 @@
                 seed={track.seq + detail.release.id}
               />{/if}
           </span>
-          <span class="dur">{formatDuration(track.durationSeconds)}</span>
+          <span class="dur figures">{formatDuration(track.durationSeconds)}</span>
         </button>
       </li>
     {/if}
@@ -136,7 +136,7 @@
           onmousedown={(ev) => ev.preventDefault()}
           onclick={() => onplay(index)}
         >
-          <span class="pos"></span>
+          <span class="pos figures"></span>
           <span class="glyph" title={HINT[stray]}>
             <span aria-hidden="true">{GLYPH[stray]}</span><span class="visually-hidden"
               >{HINT[stray]}</span
@@ -146,7 +146,7 @@
           <span class="tags"
             >{#if failed}<span class="note">no embed</span>{/if}</span
           >
-          <span class="dur">{formatDuration(entry.video.durationSeconds)}</span>
+          <span class="dur figures">{formatDuration(entry.video.durationSeconds)}</span>
         </button>
       </li>
     {/each}

@@ -66,7 +66,9 @@
     background: color-mix(in srgb, var(--bg) 82%, transparent);
   }
   h2 {
+    font-family: var(--display);
     font-size: var(--text-lg);
+    font-weight: 400;
   }
   p {
     margin-top: 10px;

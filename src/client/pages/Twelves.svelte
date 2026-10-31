@@ -302,7 +302,7 @@
           />
           <Key label={String(index + 1)} size="sm" aria-hidden="true" />
           <span class="shelf-label">{option.label}</span>
-          <span class="count">{formatCount(twelves.counts[option.id])}</span>
+          <span class="count figures">{formatCount(twelves.counts[option.id])}</span>
         </label>
       {/each}
     </fieldset>
@@ -491,7 +491,7 @@
                 data-release-id={release?.id}
                 onclick={() => (twelves.selectedKey = item.key)}
               >
-                <td class="catno">{release?.catno ?? ""}</td>
+                <td class="catno figures">{release?.catno ?? ""}</td>
                 <td class="who">
                   {#if release}
                     <a
@@ -565,7 +565,7 @@
                     size="sm"
                   />
                 </td>
-                <td class="day quiet">
+                <td class="day quiet figures">
                   <time datetime={item.since}>{formatDay(item.since)}</time>
                 </td>
               </tr>

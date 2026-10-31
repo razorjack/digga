@@ -37,7 +37,6 @@
   font-weight: 600;
 }
 .settings code {
-  font-family: inherit;
   color: var(--fg);
   overflow-wrap: anywhere;
 }

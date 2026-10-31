@@ -100,7 +100,7 @@
     <p class="label" id="{nextId}-label">Up next</p>
     {#if next}
       <p class="what">
-        <span class="catno">{next.catno ?? ""}</span>
+        <span class="catno figures">{next.catno ?? ""}</span>
         {name(next)}
       </p>
       <p class="quiet">

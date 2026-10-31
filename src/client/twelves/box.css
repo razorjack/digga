@@ -14,11 +14,9 @@
   border-bottom: 1px solid var(--rule);
   background: var(--bg);
   color: var(--fg-faint);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: var(--text-xs);
+  font-weight: 500;
   text-align: left;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 .box th[aria-sort] {

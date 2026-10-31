@@ -79,7 +79,7 @@
       {#each picks as pick (pick)}
         <li>
           <span class="name">{pick}</span>
-          <span class="count">{formatCount(sizes.get(pick) ?? 0)}</span>
+          <span class="count figures">{formatCount(sizes.get(pick) ?? 0)}</span>
           <button type="button" aria-label="Remove {pick}" onclick={() => toggle(pick, false)}
             >×</button
           >
@@ -108,7 +108,7 @@
             onchange={(event) => toggle(style.name, event.currentTarget.checked)}
           />
           {style.name}
-          <span class="count">{formatCount(style.releases)}</span>
+          <span class="count figures">{formatCount(style.releases)}</span>
           <span class="genre">{style.genre}</span>
         </label>
       {:else}
@@ -121,7 +121,7 @@
         <details>
           <summary>
             {group.genre}
-            <span class="count">{group.styles.length} styles</span>
+            <span class="count figures">{group.styles.length} styles</span>
           </summary>
           <fieldset>
             <legend class="visually-hidden">{group.genre} styles</legend>
@@ -133,7 +133,7 @@
                   onchange={(event) => toggle(style.name, event.currentTarget.checked)}
                 />
                 {style.name}
-                <span class="count">{formatCount(style.releases)}</span>
+                <span class="count figures">{formatCount(style.releases)}</span>
               </label>
             {/each}
           </fieldset>
@@ -190,7 +190,6 @@
     filter: url(#ink-fine);
   }
   .picked .count {
-    font-family: var(--mono);
     font-size: var(--text-2xs);
     text-transform: none;
     color: var(--fg-muted);

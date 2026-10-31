@@ -288,10 +288,8 @@
   }
   .title {
     grid-column: 2;
-    font-family: var(--display);
     font-size: var(--text-sm);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: 600;
     color: var(--fg-muted);
   }
   .pages {
@@ -341,14 +339,17 @@
     background: var(--sunken);
     box-shadow: inset 0 1px 3px var(--sunken-shadow);
     color: var(--fg-faint);
-    font-size: var(--text-xs);
-    letter-spacing: 0.04em;
+    font-size: var(--text-sm);
     white-space: nowrap;
   }
   .counter p + p::before {
-    content: "/" / "";
+    content: "";
+    display: inline-block;
+    width: 1px;
+    height: 1em;
     margin-right: 14px;
-    color: var(--rule);
+    vertical-align: -0.15em;
+    background: var(--rule);
   }
   .counter b {
     font-family: var(--display);

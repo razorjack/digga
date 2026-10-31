@@ -117,7 +117,7 @@
   <div class="now">
     <p class="track">
       {#if entry?.track}
-        <span class="pos">{entry.track.position}</span>{entry.track.title}
+        <span class="pos figures">{entry.track.position}</span>{entry.track.title}
       {:else if entry}
         {entry.video.title}
       {:else}
@@ -126,9 +126,11 @@
     </p>
     <p class="time">
       <span class="state">{statusCopy}</span>
-      {formatDuration(player.time)}<span class="quiet"
-        >&nbsp;/ {formatDuration(player.duration)}</span
-      >
+      <span class="figures">
+        {formatDuration(player.time)}<span class="quiet"
+          >&nbsp;/ {formatDuration(player.duration)}</span
+        >
+      </span>
     </p>
   </div>
 

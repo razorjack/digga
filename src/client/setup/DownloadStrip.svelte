@@ -20,7 +20,7 @@
 <aside class="strip" aria-label="Download">
   <span class="label">Fetching the catalogue</span>
   <progress max="1" value={fraction} aria-label="Catalogue downloaded"></progress>
-  <span class="numbers">
+  <span class="numbers figures">
     {#if progress?.totalBytes}
       {formatBytes(progress.receivedBytes)} of {formatBytes(progress.totalBytes)}{left
         ? ` · ${left}`

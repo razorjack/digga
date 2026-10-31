@@ -181,7 +181,6 @@
     max-width: 60ch;
   }
   code {
-    font-family: inherit;
     color: var(--fg);
   }
   .actions {
