@@ -259,8 +259,8 @@
         <p class="quiet">
           The catalogue file uses {downloadProgress
             ? formatBytes(downloadProgress.receivedBytes)
-            : "about 10 GB"} in the dumps folder. Keep it to change your styles without downloading again
-          this month.
+            : "about 10 GB"} in the catalogue folder. Keep it to change your styles without downloading
+          again this month.
         </p>
         <Action onclick={() => void flow.deleteDump()} disabled={flow.busy}>Delete it</Action>
       </div>
