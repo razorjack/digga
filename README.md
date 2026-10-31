@@ -57,7 +57,7 @@ you imported from Discogs. Filter and sort the shelves, add notes, change a verd
 to snoozed records for another listen. The Tracks shelf lists every track you marked grail or
 keep, each with its own note.
 
-![Twelves sorted by artist: the shelves with their counts in a sidebar, and records with their stamps: wants with their prices, maybes, records from the Discogs wantlist, and three Rascal & Klone twelves from the collection](docs/assets/screenshots/twelves.webp)
+![Twelves sorted by artist: the shelves with their counts in a sidebar, and records with their stamps: wants with their prices, maybes not yet on the Discogs Maybe list, records from the Discogs wantlist, and Rascal & Klone twelves from the collection](docs/assets/screenshots/twelves.webp)
 
 Once your Discogs account is connected, `A` and `C` also add the record to your Discogs wantlist,
 with your note and the tracks you marked as the want's note. Digga still remembers which wants are
@@ -196,7 +196,7 @@ A new library starts with the setup. It takes about 20 minutes, mostly waiting:
 
 ![The setup's Pick your sound step beside its four steps: Drum n Bass picked from the Discogs collection and wantlist, a style search, and the years over a histogram of their releases](docs/assets/screenshots/setup-sound.webp)
 
-![The setup's Fill the crate step: the download and the load, the releases kept so far and the records to dig, the years filling in, the record just pulled, and Start digging while the load runs](docs/assets/screenshots/setup-crate.webp)
+![The setup's Fill the crate step: the load's progress, the releases kept so far and the records to dig, the years filling in, the record just pulled, and Start digging while the load runs](docs/assets/screenshots/setup-crate.webp)
 
 There is no practice round: Digga saves your verdicts from the first one.
 
