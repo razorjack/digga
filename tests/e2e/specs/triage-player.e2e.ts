@@ -366,7 +366,7 @@ test.describe("digging records without audio", () => {
       await expect(triage.record).toHaveAttribute("data-release-id", String(EMBEDDING_OFF.id));
       await expect(triage.currentTrack).toHaveAttribute("data-position", playable!.position);
       await expect(triage.playerStatus("playing")).toBeVisible();
-      await expect(triage.track(blocked!.position)).toContainText("video blocks embedding");
+      await expect(triage.track(blocked!.position)).toContainText("video plays only on YouTube");
       await expect(
         triage.track(blocked!.position).getByText("won't play", { exact: true }),
       ).toBeVisible();
