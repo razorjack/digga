@@ -237,7 +237,7 @@
                 disabled={locked}
                 onchange={() => session.switchView(view.value)}
               />
-              {view.label} <span class="count">{viewCount(view.value)}</span>
+              {view.label} <span class="count figures">{viewCount(view.value)}</span>
             </label>
           {/each}
         </fieldset>
@@ -254,9 +254,13 @@
                   onclick={() => session.select(item.listing.id)}
                 >
                   <span class="artist">{item.release.artistDisplay}</span>
-                  <span class="price">{copyPrice(item)}</span>
+                  <span class="price" class:figures={item.listing.price !== null}
+                    >{copyPrice(item)}</span
+                  >
                   <span class="title">{item.release.title}</span>
-                  <span class="catno">{item.release.catno ?? `release ${item.release.id}`}</span>
+                  <span class="catno figures"
+                    >{item.release.catno ?? `release ${item.release.id}`}</span
+                  >
                   {#if item.availability !== "available"}<span class="warning"
                       >{item.availability === "unknown"
                         ? "Availability unknown"
@@ -278,7 +282,7 @@
         <div class="subtotal" role="group" aria-label="Shortlist subtotal">
           <p><b>{shortlist.length} shortlisted</b></p>
           {#if shortlist.length > 0}
-            {#each totals as total (total.currency)}<p class="amount">
+            {#each totals as total (total.currency)}<p class="amount figures">
                 {formatPrice(total.amount, total.currency)}
               </p>{/each}
             <p class="quiet">

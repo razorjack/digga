@@ -556,7 +556,9 @@
                 </td>
                 <td class="market">
                   {#if release?.enrichedAt}
-                    <span>{lowestPriceText(release)}</span>
+                    <span class:figures={release.lowestPrice !== null}
+                      >{lowestPriceText(release)}</span
+                    >
                     <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
                   {:else}
                     <span class="quiet">no price yet</span>
