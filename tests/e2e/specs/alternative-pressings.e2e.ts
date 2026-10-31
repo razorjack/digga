@@ -65,7 +65,7 @@ test(
     await expect(dialog.getByRole("status")).toHaveText(/Selected pressings are on your wantlist/, {
       timeout: 20_000,
     });
-    await expect(dialog.getByText("1 added; 1 already wanted.")).toBeVisible();
+    await expect(dialog.getByText("1 added, 1 already on your wantlist.")).toBeVisible();
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(twelves.records.filter({ hasText: FIRST_RECORD.title })).toHaveCount(1);

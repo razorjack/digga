@@ -69,8 +69,9 @@
     </form>
   </header>
   <p>
-    Keep your existing wants and add selected vinyl pressings of the same Discogs master. Matching
-    tracks are selected; review different or incomplete tracklists yourself.
+    Digga keeps your existing wants and adds the vinyl pressings you select from the same Discogs
+    master. Pressings with matching tracks are selected for you. Check different or incomplete
+    tracklists yourself.
   </p>
   <fieldset disabled={busy || started}>
     <legend>Include</legend>
@@ -98,7 +99,7 @@
         </ol>
       </details>
       {#if entry.preview.source.masterId === null}
-        <p>This release has no Discogs master. Automatic alternatives cannot be identified.</p>
+        <p>This release has no Discogs master, so Digga cannot find other pressings of it.</p>
       {:else if entry.preview.candidates.length === 0}
         <p>No alternative pressings found for these formats.</p>
       {/if}
@@ -142,7 +143,7 @@
     </section>
   {/each}
   {#each preview.results as result (result.operationId)}
-    <p>{result.added.length} added; {result.existing.length} already wanted.</p>
+    <p>{result.added.length} added, {result.existing.length} already on your wantlist.</p>
     {#each result.errors as failure, index (index)}<p class="problem">
         Release {failure.releaseId}: {failure.error}
       </p>{/each}

@@ -110,7 +110,7 @@ export class AlternativesPreviewState {
         ? "Some pressings were not added. Retry the failed additions, or close and press Z to undo."
         : "Selected pressings are on your wantlist. Close and press Z to undo the additions.";
     } catch (error) {
-      this.progress = `Additions were not confirmed: ${errorMessage(error)}. Retry to recover their result.`;
+      this.progress = `Could not confirm the additions: ${errorMessage(error)}. Press Retry additions to try again.`;
     } finally {
       this.writing = false;
     }

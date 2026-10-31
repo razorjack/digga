@@ -273,7 +273,7 @@
           {#if session.items.length === 0}
             <p class="quiet">
               {session.view === "pending"
-                ? "No unreviewed matching copies. Refresh your wantlist or shop, review your shortlist, or revisit skipped copies."
+                ? "No copies left to review. Refresh your wantlist or the shop, or look through your shortlist and the copies you skipped."
                 : "No copies here yet."}
             </p>
           {/if}
@@ -326,8 +326,8 @@
               </ul>
             {/if}
             <p class="quiet">
-              Choose a saved shop or read one by Discogs username. Matches are the exact pressings
-              on your Discogs wantlist; digging filters and verdicts do not apply.
+              Choose a saved shop or read one by Discogs username. Digga matches the exact pressings
+              on your Discogs wantlist. Your digging filters and verdicts do not apply here.
             </p>
             <p class="quiet">
               <a href="#/settings/discogs">Connect your Discogs account</a> if you have not imported your
@@ -408,8 +408,8 @@
                     </p>{/if}
                   {#if current.availability !== "available"}<p class="warning">
                       {current.availability === "unknown"
-                        ? "This copy was not found in the partial inventory. Check availability on Discogs."
-                        : "This copy is no longer in the seller’s inventory. Your saved selection remains here."}
+                        ? "Digga read only part of this shop, and this copy was not in it. Check on Discogs whether it is still for sale."
+                        : "The seller no longer lists this copy. Your decision on it stays here."}
                     </p>{/if}
                 </div>
               </div>
@@ -437,7 +437,8 @@
                 {#if session.detailError}<button
                     type="button"
                     class="text"
-                    onclick={() => session.select(session.selectedId)}>Retry release</button
+                    onclick={() => session.select(session.selectedId)}
+                    >Load the release again</button
                   >{/if}
               </div>
             </div>

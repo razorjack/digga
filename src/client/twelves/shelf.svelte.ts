@@ -418,7 +418,7 @@ export class TwelvesShelf {
     await this.load();
     this.showFlash(
       errors.length > 0
-        ? `Some additions remain: ${errors.join("; ")}. Z retries.`
+        ? `Could not undo every addition: ${errors.join("; ")}. Press Z to try again.`
         : "Additions undone. Your existing wants were kept.",
     );
     void stats.refresh();

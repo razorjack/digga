@@ -242,9 +242,9 @@
           >
         </div>
         <p class="hint" id="{id}-alternatives-hint">
-          For future Wants and Grails in Triage: add vinyl versions of the same master with matching
-          credited tracks and mix titles. Uncertain matches need review in Twelves. Use “Add
-          alternative pressings…” in Twelves for existing wants.
+          When you mark a want or a grail in Triage, Digga also adds vinyl versions of the same
+          master whose credited tracks and mix titles match. Check uncertain matches, and records
+          you already want, with “Add alternative pressings…” in Twelves.
         </p>
       </fieldset>
       <div class="field">

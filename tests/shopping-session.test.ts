@@ -80,7 +80,7 @@ describe("shopping session", () => {
     const cached = session.detail;
     await session.refreshAudio();
     expect(session.detail).toBe(cached);
-    expect(session.error).toContain("Audio refresh failed: offline");
+    expect(session.error).toContain("Could not refresh the audio: offline");
     expect(session.refreshingAudio).toBe(false);
     await session.refreshAudio();
     expect(session.error).toBeNull();

@@ -46,7 +46,7 @@ export class AlternativeWants {
           .map((candidate) => candidate.release.id);
         if (preview.errors.length > 0)
           this.#flash(
-            `${item.title}: some alternative pressings could not be checked. Review them in Twelves.`,
+            `Could not check some alternative pressings of ${item.title}. Review them in Twelves.`,
           );
         if (releaseIds.length === 0) return;
         input = {
@@ -63,12 +63,12 @@ export class AlternativeWants {
       if (this.#closed.signal.aborted) return;
       if (result.errors.length > 0)
         this.#flash(
-          `${item.title}: want saved; alternative pressings need attention in Twelves. ${result.errors.map((failure) => `${failure.releaseId}: ${failure.error}`).join("; ")}`,
+          `Want saved, but Digga could not add some alternative pressings of ${item.title}: ${result.errors.map((failure) => `${failure.releaseId}: ${failure.error}`).join("; ")}. Review them in Twelves.`,
         );
     } catch (error) {
       if (!this.#closed.signal.aborted)
         this.#flash(
-          `${item.title}: want saved; alternative pressings were not confirmed. ${errorMessage(error)}. Review them in Twelves.`,
+          `Want saved, but Digga could not confirm the alternative pressings of ${item.title}: ${errorMessage(error)}. Review them in Twelves.`,
         );
     }
   }

@@ -146,7 +146,7 @@ export class ShoppingSession {
       this.detailError = null;
       this.message = "Audio links refreshed from Discogs.";
     } catch (error) {
-      if (isCurrent()) this.error = `Audio refresh failed: ${errorMessage(error)}`;
+      if (isCurrent()) this.error = `Could not refresh the audio: ${errorMessage(error)}`;
     } finally {
       if (isCurrent()) this.refreshingAudio = false;
     }

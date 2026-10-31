@@ -114,7 +114,7 @@ describe("automatic alternative wants", () => {
     api.previewAlternatives.mockRejectedValue(new Error("Unavailable"));
     expect(await sync.push(item, () => {})).toBe("done");
     expect(flash).toHaveBeenCalledWith(
-      expect.stringContaining("want saved; alternative pressings were not confirmed"),
+      expect.stringContaining("Want saved, but Digga could not confirm the alternative pressings"),
     );
     sync.destroy();
   });
