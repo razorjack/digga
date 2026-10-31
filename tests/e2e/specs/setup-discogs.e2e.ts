@@ -18,7 +18,7 @@ import { PUSH_RETRY_DELAYS_MS } from "../../../src/shared/wantlist.ts";
 import { DJ, releaseById } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { type Picks, SetupPage, type SetupStep } from "../pages/setup.ts";
-import { TriagePage } from "../pages/triage.ts";
+import { SAVED_NOT_PUSHED, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import type { DiggaApp } from "../support/app.ts";
 import { LiveRegionWatch } from "../support/live-regions.ts";
@@ -309,9 +309,9 @@ test.describe("with the clock", () => {
       const key = await triage.currentKey();
       const push = await triage.judgeAndPush("accepted");
       expect(push.status()).toBe(400);
-      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
+      await expect(triage.lastAction).toContainText(SAVED_NOT_PUSHED);
       await expect(triage.messages).toHaveText(
-        `${want.artists[0]} – ${want.title} is not on the Discogs wantlist: Set your Discogs token in Settings first. A in Twelves tries again.`,
+        `Could not add ${want.artists[0]} – ${want.title} to your Discogs wantlist: Set your Discogs token in Settings first. Press A on it in Twelves to try again.`,
       );
       // A refusal will not pass later, so nothing is tried again after the first delay.
       await app.clock.runFor(PUSH_RETRY_DELAYS_MS[0]! + 1000);

@@ -192,7 +192,9 @@
           {#if stats.value}
             <p><b>{formatCount(stats.value.dug)}</b> dug</p>
             <p>
-              <b>{formatCount(stats.value.remaining)}</b> to go{loadStatus.loading ? " so far" : ""}
+              <b>{formatCount(stats.value.remaining)}</b> to go{loadStatus.loading
+                ? ", still loading"
+                : ""}
             </p>
             {#if stats.value.remaining > 0 && !loadStatus.loading}
               <p class="eta">{eta ? `ETA ${eta}` : "ETA after a few verdicts"}</p>
@@ -201,7 +203,7 @@
                 +{formatCount(stats.session)} this session
               </p>{/if}
           {:else}
-            <p class="error">Server unreachable</p>
+            <p class="error">Can't reach Digga</p>
           {/if}
         </div>
       {/if}

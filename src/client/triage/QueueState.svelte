@@ -45,7 +45,8 @@
     <h1 class="headline">The settings did not load.</h1>
     <p class="quiet">{settingsError}</p>
     <p class="quiet">
-      The queue starts from your settings. Check that the server runs, then try again.
+      Digga needs your settings to build the queue. Try again, and restart Digga if this keeps
+      happening.
     </p>
     <p class="actions">
       <button
@@ -54,7 +55,7 @@
         aria-busy={retryingSettings}
         onclick={onretrysettings}
       >
-        <Key label="Enter" primary aria-hidden="true" /> try again
+        <Key label="Enter" primary aria-hidden="true" /> Try again
       </button>
     </p>
   </div>
@@ -63,8 +64,7 @@
     <h1 class="headline">The queue did not load.</h1>
     <p class="quiet">{queueError}</p>
     <p class="quiet">
-      Check that the server runs (<code>npm run digga -- serve</code>), then press
-      <Key label="Enter" /> to try again.
+      Press <Key label="Enter" /> to try again. If this keeps happening, restart Digga.
     </p>
   </div>
 {:else if screen.kind === "waiting-for-load"}
@@ -74,22 +74,21 @@
     <p class="quiet">
       {screen.percent === null
         ? "The catalogue is loading"
-        : `${screen.percent}% of the catalogue is read`}; records join the queue as they arrive, and
-      the next one shows here.
+        : `${screen.percent}% of the catalogue is loaded`}. New records join the queue as they load
+      and show up here.
     </p>
   </div>
 {:else if screen.kind === "no-releases"}
   <div class="state">
     <Art name="press" size={160} />
-    <h1 class="headline">No releases loaded yet.</h1>
+    <h1 class="headline">No records loaded yet.</h1>
     <p class="quiet">
-      Digga digs a Discogs releases dump. In settings, under Library, "Update from the newest dump"
-      downloads the latest one, over 10 GB, and loads it. The styles and years it keeps are under
-      Universe beside it.
+      Digga digs the Discogs catalogue, a download of over 10 GB. Get it with “Update the catalogue”
+      in Settings › Library, where you also pick the styles and years to load.
     </p>
     <p class="actions">
       <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings", "library")}>
-        <Key label="," aria-hidden="true" /> settings
+        <Key label="," aria-hidden="true" /> Settings
       </button>
     </p>
   </div>
@@ -99,11 +98,11 @@
     <p class="quiet">
       {formatCount(screen.loadedRecords)}
       {nounFor(screen.loadedRecords, "record is", "records are")} loaded. Widen the years, formats or
-      countries in settings{skipsWithoutVideos ? ", or let in releases without videos" : ""}.
+      countries in Settings{skipsWithoutVideos ? ", or stop skipping records without videos" : ""}.
     </p>
     <p class="actions">
       <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
-        <Key label="," aria-hidden="true" /> settings
+        <Key label="," aria-hidden="true" /> Settings
       </button>
     </p>
   </div>
@@ -114,19 +113,20 @@
       {screen.scope.name}.
     </h1>
     <p class="quiet">
-      Under your filters, that is: widen the years, formats or countries in settings to dig further.
+      This counts only records that match your filters. To dig further, widen the years, formats or
+      countries in Settings.
     </p>
     <p class="actions">
       {#if passed > 0}
         <button type="button" aria-keyshortcuts="N" onclick={ongoround}>
-          <Key label="N" aria-hidden="true" /> go round the {formatCount(passed)} you passed
+          <Key label="N" aria-hidden="true" /> Hear the {formatCount(passed)} you passed again
         </button>
       {/if}
       {#if screen.scope.kind === "seller"}
         <a href="#/shop/{screen.scope.id}">Shop my wants from this seller</a>
       {/if}
       <button type="button" aria-keyshortcuts="Escape" onclick={onleavescope}>
-        <Key label="Esc" primary aria-hidden="true" /> back to the whole queue
+        <Key label="Esc" primary aria-hidden="true" /> Back to the whole queue
       </button>
     </p>
   </div>
@@ -136,21 +136,21 @@
     <h1 class="headline">{endOfQueueHeadline(passed)}</h1>
     <p class="quiet">
       {screen.dug === null ? "" : `${formatCount(screen.dug)} dug so far.`}
-      Widen the years, formats or countries in settings to dig further.
+      Widen the years, formats or countries in Settings to dig further.
     </p>
     <p class="actions">
       {#if passed > 0}
         <button type="button" aria-keyshortcuts="N" onclick={ongoround}>
-          <Key label="N" primary aria-hidden="true" /> go round the {formatCount(passed)} you passed
+          <Key label="N" primary aria-hidden="true" /> Hear the {formatCount(passed)} you passed again
         </button>
       {/if}
       {#if snoozed > 0}
         <button type="button" disabled={loadingSnoozed} onclick={onhearsnoozed}>
-          hear the {formatCount(snoozed)} snoozed again
+          Hear the {formatCount(snoozed)} snoozed {nounFor(snoozed, "record")} again
         </button>
       {/if}
       <button type="button" aria-keyshortcuts="," onclick={() => navigate("settings")}>
-        <Key label="," aria-hidden="true" /> settings
+        <Key label="," aria-hidden="true" /> Settings
       </button>
     </p>
   </div>
@@ -179,9 +179,6 @@
   .quiet {
     color: var(--fg-muted);
     max-width: 60ch;
-  }
-  code {
-    color: var(--fg);
   }
   .actions {
     display: flex;

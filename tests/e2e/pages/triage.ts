@@ -8,7 +8,10 @@ import type { DiggaApp } from "../support/app.ts";
 import { HeaderPage } from "./header.ts";
 
 /** The slip's last word on a push to the Discogs wantlist, whichever way it went. */
-const PUSH_ENDED = /Added to your Discogs wantlist\.|Saved, but not on the Discogs wantlist\./;
+/** The slip's line after a want the Discogs wantlist did not take. */
+export const SAVED_NOT_PUSHED = "Saved in Digga, but not on your Discogs wantlist.";
+const PUSH_ENDED =
+  /Added to your Discogs wantlist\.|Saved in Digga, but not on your Discogs wantlist\./;
 
 /** The player logs a listen after 4 s of playback and adds at most 1 s per 250 ms tick. */
 export const LOGGED_LISTEN_MS = 4500;
@@ -120,7 +123,7 @@ export class TriagePage {
 
   /** The strip above the desk while a round of snoozed records or a scope runs. */
   get banner(): Locator {
-    return this.root.getByText(/^(Digging|Hearing snoozed records again|Replaying Twelves)/);
+    return this.root.getByText(/^(Digging|Hearing snoozed records again|Replaying from Twelves)/);
   }
 
   /** F's dialog: the record's labels and artists, the last load's records, and a search. */
@@ -139,7 +142,7 @@ export class TriagePage {
 
   /** At the end of the queue, or of a scope, the button that brings back the records passed. */
   get goRoundButton(): Locator {
-    return this.root.getByRole("button", { name: /^go round the \d+ you passed$/ });
+    return this.root.getByRole("button", { name: /^Hear the \d+ you passed again$/ });
   }
 
   /** The player's status line while it reads the status's copy. */
@@ -305,7 +308,7 @@ export class TriagePage {
   /** The end of the queue's button: returns once the snoozed records have loaded as a round. */
   async hearSnoozed(): Promise<void> {
     const loaded = this.#response("GET", "/api/twelves");
-    await this.root.getByRole("button", { name: /^hear the \d+ snoozed again$/ }).click();
+    await this.root.getByRole("button", { name: /^Hear the \d+ snoozed records? again$/ }).click();
     await this.#completed(await loaded);
     await expect(this.banner).toContainText("Hearing snoozed records again");
   }
@@ -492,7 +495,7 @@ export class TriagePage {
     const saved = this.#response("PUT", "/api/settings");
     await this.app.page.keyboard.press("z");
     await (await saved).finished();
-    await expect(this.lastAction).toContainText("Its label is back in the queue.");
+    await expect(this.lastAction).toContainText("The label's records are back in the queue.");
   }
 
   async #pressSpace(from: PlayerStatus, to: PlayerStatus): Promise<void> {

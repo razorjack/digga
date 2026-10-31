@@ -116,7 +116,7 @@ test(
     expect(fakes.wantlists.get(DJ.username)!.has(PROMO_PRESSING.id)).toBe(true);
     expect(fakes.wantlists.get(DJ.username)!.has(REMIX_PROMO_PRESSING.id)).toBe(false);
     await triage.undoVerdict(triageKeyOf(FIRST_RECORD));
-    await expect(triage.messages).toHaveText("Taken off your Discogs wantlist again.", {
+    await expect(triage.messages).toHaveText("Removed from your Discogs wantlist.", {
       timeout: 15_000,
     });
     expect(fakes.wantlists.get(DJ.username)!.get(WHITE_LABEL_PRESSING.id)).toBe("Manual note");

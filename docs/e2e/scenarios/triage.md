@@ -37,7 +37,7 @@ Priority: **P1**.
 
 `J` and `K` change track; `J` skips heard tunes and refused videos and falls back to heard ones; `K`
 skips refused videos but not heard ones; a video's end advances; `J` on the last track says "That
-was the last track. Judge it."; after the last video ends, "end of the tracks"
+was the last track. Your verdict?"; after the last video ends, "end of the tracks"
 
 ## TRI-05
 
@@ -78,8 +78,8 @@ Priority: **P1**.
 
 Priority: **P1**.
 
-`N` passes: slip "later"; the record returns after the queue; the end screen offers "go round the N
-you passed", and its headline says every release has a verdict "apart from the N you passed"
+`N` passes: slip "later"; the record returns after the queue; the end screen offers "Hear the N
+you passed again", and its headline says every record has a verdict "except the N you passed"
 
 ## TRI-10
 
@@ -128,9 +128,9 @@ Priority: **P1**.
 
 Given: `small-account` with a saved token, the clock paused.
 
-The fake fails four `PUT`s (`500`, the page's `502` declared): the slip reads "trying again in 5
-s.", "in 30 s." and "in 2 min." as each wait runs out, then "Saved, but not on the Discogs
-wantlist.", and the message names the record; Twelves marks it
+The fake fails four `PUT`s (`500`, the page's `502` declared): the slip reads "Trying again in 5
+s.", "in 30 s." and "in 2 min." as each wait runs out, then "Saved in Digga, but not on your
+Discogs wantlist.", and the message names the record; Twelves marks it
 
 ## TRI-16
 
@@ -193,7 +193,7 @@ Priority: **P2**.
 Given: `labels: Rollers Archive, Tempest Audio`.
 
 A scope dug to the end with one of its records passed: "Nothing is left to dig from the label …"
-and "go round the 1 you passed", which brings the record back under the scope's banner; Esc returns
+and "Hear the 1 you passed again", which brings the record back under the scope's banner; Esc returns
 to the whole queue, which starts from that record again, since a pass belongs to the queue it was
 made in
 
@@ -249,11 +249,11 @@ work
 Priority: **P1**.
 
 Refused videos: the playing video, refused with `app.youtube.fail(id, 150)`, is skipped with the
-notice "… won't play here: the uploader blocks embedding. Skipped." (the hidden decks find a refused
+notice "… won't play here: the uploader allows it only on YouTube. Skipped." (the hidden decks find a refused
 catalogue video first, silently; see [The fake YouTube IFrame
-API](../FIXTURES.md#the-fake-youtube-iframe-api)); a release whose only video is refused shows "Its
-only video won't play here.", and one whose several videos all are "None of its N videos will play
-here."; `embed="false"` videos show "no embed" and are never loaded
+API](../FIXTURES.md#the-fake-youtube-iframe-api)); a release whose only video is refused shows "This
+release's only video won't play here.", and one whose several videos all are "None of this
+release's N videos will play here."; `embed="false"` videos show "won't play" and are never loaded
 
 ## TRI-29
 
@@ -277,8 +277,8 @@ verdict replaces a snooze, `N` leaves it, Esc returns
 Priority: **P2**.
 
 No releases loaded: a fresh library (`newLibrary("empty")`), where `digga dump load` of a dump
-without releases finishes having kept nothing, then `relaunch({ library })`: "No releases loaded
-yet." and the settings button (`,`), which opens Settings on the Library tab
+without releases finishes having kept nothing, then `relaunch({ library })`: "No records loaded
+yet." and the Settings button (`,`), which opens Settings on the Library tab
 
 ## TRI-32
 

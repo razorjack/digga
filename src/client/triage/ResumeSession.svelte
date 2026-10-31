@@ -16,7 +16,8 @@
         Continue your session from <time datetime={checkpoint.pending.updatedAt}>{savedAt}</time>?
       </p>
       <p class="detail">
-        Resume restores its filters, scope, passed records and playback position.
+        Resuming brings back your filters, the label, artist or seller you were digging, the records
+        you passed and where the player was.
       </p>
     </div>
     <div class="actions">

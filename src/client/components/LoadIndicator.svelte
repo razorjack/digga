@@ -7,7 +7,7 @@
 
   let { href }: { href: string } = $props();
 
-  const verb = $derived(loadStatus.loading ? "loading" : "fetching");
+  const verb = $derived(loadStatus.loading ? "loading" : "downloading");
   const percent = $derived(
     loadStatus.fraction === null ? null : Math.floor(loadStatus.fraction * 100),
   );

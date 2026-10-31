@@ -36,9 +36,9 @@
   };
 
   function undoneText(undone: TriageStatus | "pass" | "label"): string {
-    if (undone === "label") return "Its label is back in the queue.";
-    const what = undone === "pass" ? "next" : STATUS_COPY[undone];
-    return `Back on it; the ${what} is gone.`;
+    if (undone === "label") return "The label's records are back in the queue.";
+    if (undone === "pass") return "Undone. The record is back.";
+    return `The ${STATUS_COPY[undone]} is undone.`;
   }
 </script>
 
@@ -46,7 +46,9 @@
   <!-- Groups, not sections: named sections would add two landmarks to every verdict. -->
   <div class="slip last" role="group" aria-label="Last action" aria-live="polite" aria-busy={busy}>
     {#if slip === null}
-      <p class="quiet">Your verdicts land here. <Key label="Z" /> takes the last one back.</p>
+      <p class="quiet">
+        Your verdicts show up here. Press <Key label="Z" /> to take the last one back.
+      </p>
     {:else}
       {#key slip.id}
         <div class="stamp">
@@ -72,19 +74,19 @@
           {#if slip.kind === "verdict" && slip.push === "pending"}
             Adding to your Discogs wantlist…
           {:else if slip.kind === "verdict" && slip.push === "retrying"}
-            Not on your Discogs wantlist yet; trying again in {formatWait(slip.retryInMs ?? 0)}.
+            Not on your Discogs wantlist yet. Trying again in {formatWait(slip.retryInMs ?? 0)}.
           {:else if slip.kind === "verdict" && slip.push === "done"}
             Added to your Discogs wantlist.
           {:else if slip.kind === "verdict" && slip.push === "failed"}
-            Saved, but not on the Discogs wantlist.
+            Saved in Digga, but not on your Discogs wantlist. Press A on it in Twelves to try again.
           {:else if slip.kind === "verdict" && slip.status === "maybe"}
-            On the Maybe shelf; add it to your Discogs list from Twelves.
+            On the Maybe shelf. Twelves shows which maybes to add to your Discogs list.
           {:else if slip.kind === "verdict" && slip.status === "snoozed"}
             On the Snoozed shelf, out of the queue.
           {:else if slip.kind === "pass"}
             {PASS_TEXT[slip.stays]}
           {:else if slip.kind === "label"}
-            Every record on {slip.label} is out of the queue; Settings lists the hidden labels.
+            Records on {slip.label} are hidden from the queue. Settings › Digging lists hidden labels.
           {:else if slip.kind === "undo"}
             {undoneText(slip.undone)}
           {:else}

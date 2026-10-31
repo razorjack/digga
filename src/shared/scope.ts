@@ -89,6 +89,8 @@ export function newRecordsScope(
   now: Date = new Date(),
 ): ScopeMatch | null {
   if (!load || load.toDig === 0) return null;
-  const dump = load.dumpDate ? `the ${formatDay(load.dumpDate, now)} dump` : "the last dump";
-  return { kind: "load", id: load.id, name: `added from ${dump}`, records: load.toDig };
+  const name = load.dumpDate
+    ? `added from the ${formatDay(load.dumpDate, now)} catalogue`
+    : "added by the last load";
+  return { kind: "load", id: load.id, name, records: load.toDig };
 }

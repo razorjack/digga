@@ -54,7 +54,7 @@ test.describe("digging a label of two records", () => {
       await expect(triage.root.getByText("all dug", { exact: true })).toBeVisible();
       await expect(triage.root.getByText(endOfQueueHeadline(1), { exact: true })).toBeVisible();
       await expect(
-        triage.root.getByRole("button", { name: "go round the 1 you passed" }),
+        triage.root.getByRole("button", { name: "Hear the 1 you passed again" }),
       ).toBeVisible();
       await triage.goRound();
       await expect(triage.record).toHaveAttribute("data-triage-key", passed);
@@ -84,7 +84,7 @@ test.describe("digging a label of two records", () => {
       await triage.leaveRound();
 
       await expect(
-        triage.root.getByRole("button", { name: "hear the 2 snoozed again" }),
+        triage.root.getByRole("button", { name: "Hear the 2 snoozed records again" }),
       ).toBeVisible();
       const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");
       const verdicts = exported.verdicts.filter((verdict) => snoozed.has(verdict.key));
@@ -137,7 +137,7 @@ test.describe("digging a self-release label, then a compilation's label", () => 
       await triage.hideLabel();
       await expect(triage.lastAction).toContainText("label hidden");
       await expect(triage.lastAction).toContainText(
-        `Every record on ${label} is out of the queue; Settings lists the hidden labels.`,
+        `Records on ${label} are hidden from the queue. Settings › Digging lists hidden labels.`,
       );
       await expect(triage.record).toHaveAttribute("data-release-id", String(COMPILATION.id));
       expect(await labelsInQueue(app)).toEqual([ROLLERS_ARCHIVE.name]);
@@ -148,7 +148,7 @@ test.describe("digging a self-release label, then a compilation's label", () => 
       await header.goTo("triage");
       await triage.undoLabel();
       await expect(triage.record).toHaveAttribute("data-triage-key", hidden);
-      await expect(triage.lastAction).toContainText("Its label is back in the queue.");
+      await expect(triage.lastAction).toContainText("The label's records are back in the queue.");
       expect(await labelsInQueue(app)).toEqual([label, ROLLERS_ARCHIVE.name]);
     },
   );
@@ -216,18 +216,18 @@ test.describe("digging a compilation's label, then another", () => {
       for (const name of offered)
         await expect(onRecord.getByRole("radio", { name, exact: true })).toBeVisible();
       await expect(onRecord.getByRole("radio", { name: `${label} label` })).toBeChecked();
-      const added = triage.scopePicker.getByRole("group", { name: "Added by the last dump load" });
+      const added = triage.scopePicker.getByRole("group", { name: "New in the last load" });
       await expect(added.getByRole("radio")).toHaveAccessibleName(
         new RegExp(`${formatCount(stats.dump.lastLoad!.toDig)} to dig$`),
       );
 
       await triage.digScope();
       await expect(triage.banner).toHaveText(
-        `Digging the label ${label}: 2 left under your filters.`,
+        `Digging the label ${label}: 2 left that match your filters.`,
       );
       await triage.judge("rejected");
       await expect(triage.banner).toHaveText(
-        `Digging the label ${label}: 1 left under your filters.`,
+        `Digging the label ${label}: 1 left that match your filters.`,
       );
       await expect(triage.record.getByText(label, { exact: true })).toBeVisible();
       await triage.judge("rejected");
@@ -255,12 +255,12 @@ test.describe("digging a compilation's label, then another", () => {
       await triage.pass();
       await triage.judge("rejected");
       await expect(nothingLeft).toBeVisible();
-      await expect(triage.goRoundButton).toHaveAccessibleName("go round the 1 you passed");
+      await expect(triage.goRoundButton).toHaveAccessibleName("Hear the 1 you passed again");
 
       await triage.goRound();
       await expect(triage.record).toHaveAttribute("data-triage-key", passed);
       await expect(triage.banner).toHaveText(
-        `Digging the label ${label}: 1 left under your filters.`,
+        `Digging the label ${label}: 1 left that match your filters.`,
       );
       await triage.pass();
       await expect(nothingLeft).toBeVisible();
@@ -278,7 +278,7 @@ test.describe("digging a compilation's label, then another", () => {
       const triage = new TriagePage(app);
       const settings = new SettingsPage(app);
       const header = new HeaderPage(app);
-      const banner = `Digging the label ${ROLLERS_ARCHIVE.name}: 1 left under your filters.`;
+      const banner = `Digging the label ${ROLLERS_ARCHIVE.name}: 1 left that match your filters.`;
       await app.open();
       await triage.openScopePicker();
       await triage.digScope();
@@ -337,7 +337,7 @@ test.describe("with filters that match nothing", () => {
         triage.root.getByText(`${formatCount(stats.universe.keys)} records are loaded.`),
       ).toBeVisible();
       await expect(
-        triage.root.getByRole("button", { name: "settings", exact: true }),
+        triage.root.getByRole("button", { name: "Settings", exact: true }),
       ).toHaveAttribute("aria-keyshortcuts", ",");
       await expect(triage.record).toHaveCount(0);
     },
@@ -358,10 +358,10 @@ test(
     await app.open();
 
     await expect(
-      triage.root.getByRole("heading", { name: "No releases loaded yet." }),
+      triage.root.getByRole("heading", { name: "No records loaded yet." }),
     ).toBeVisible();
     await expect(triage.record).toHaveCount(0);
-    const toSettings = triage.root.getByRole("button", { name: "settings", exact: true });
+    const toSettings = triage.root.getByRole("button", { name: "Settings", exact: true });
     await expect(toSettings).toHaveAttribute("aria-keyshortcuts", ",");
     await toSettings.click();
     await expect(new SettingsPage(app).tabLink("library")).toHaveAttribute("aria-current", "page");
@@ -605,7 +605,7 @@ test.describe("with a Discogs account and shopkeeper's shop read", () => {
       await triage.scopeSearch.focus();
       await triage.searchScopes("zzq");
       await expect(triage.scopeStatus).toHaveText(
-        "Nothing matches “zzq”. A seller's shop is read in Settings, under Discogs.",
+        "Nothing matches “zzq”. To dig a seller, read their shop first in Settings › Discogs.",
       );
       await expect(triage.scopePicker.getByRole("radio")).toHaveCount(0);
       await triage.closeScopePicker();
@@ -630,7 +630,7 @@ test.describe("with a Discogs account and shopkeeper's shop read", () => {
       ).toBeChecked();
       await triage.digScope();
       await expect(triage.banner).toHaveText(
-        "Digging the seller shopkeeper: 1 left under your filters.",
+        "Digging the seller shopkeeper: 1 left that match your filters.",
       );
       await expect(triage.record).toHaveAttribute("data-release-id", String(SHOP_PRESSING.id));
       const copy = SHOPKEEPER.inventory[0]!;

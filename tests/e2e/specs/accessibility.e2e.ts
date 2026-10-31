@@ -302,7 +302,7 @@ test.describe("with the September dump listed", () => {
       await triage.judge("snoozed");
       await expect(triage.lastAction).toContainText(STATUS_COPY.snoozed);
       await app.page.keyboard.press("m");
-      await expect(triage.messages).toHaveText(/^M needs your Discogs Maybe list/);
+      await expect(triage.messages).toHaveText(/^To use M, choose your Discogs Maybe list/);
 
       await twelves.open();
       await twelves.writeNote("rolling bassline");

@@ -5,6 +5,6 @@ import { formatCount } from "../../shared/display.ts";
  * again, so while there are any, the headline does not say that every record has one.
  */
 export function endOfQueueHeadline(passed: number): string {
-  if (passed === 0) return "Every release under your filters has a verdict.";
-  return `Every release under your filters has a verdict, apart from the ${formatCount(passed)} you passed.`;
+  if (passed === 0) return "Every record that matches your filters has a verdict.";
+  return `Every record that matches your filters has a verdict, except the ${formatCount(passed)} you passed.`;
 }

@@ -161,7 +161,7 @@ test.describe("with a Discogs account and the clock", () => {
       expect(response.ok()).toBe(true);
       await response.finished();
 
-      await expect(triage.messages).toHaveText("Taken off your Discogs wantlist again.");
+      await expect(triage.messages).toHaveText("Removed from your Discogs wantlist.");
       const wantlistWrite = expect.objectContaining({ params: { user: "dj", id: releaseId } });
       expect(fakes.requests("PUT /users/:user/wants/:id")).toEqual([wantlistWrite]);
       expect(fakes.requests("DELETE /users/:user/wants/:id")).toEqual([wantlistWrite]);
@@ -319,7 +319,7 @@ test(
 
     await app.page.keyboard.press(verdictKey("maybe"));
     await expect(triage.messages).toHaveText(
-      "M needs your Discogs Maybe list: pick it in Settings, under Discogs.",
+      "To use M, choose your Discogs Maybe list in Settings › Discogs.",
     );
     await expect(triage.record).toHaveAttribute("data-triage-key", key);
     // Verdicts are written in order, so one M had sent would be saved before this one.
@@ -348,7 +348,7 @@ test.describe("with a Discogs Maybe list", () => {
       await triage.judge("maybe");
       await expect(triage.lastAction).toContainText(STATUS_COPY.maybe);
       await expect(triage.lastAction).toContainText(
-        "On the Maybe shelf; add it to your Discogs list from Twelves.",
+        "On the Maybe shelf. Twelves shows which maybes to add to your Discogs list.",
       );
       await expect(triage.record).not.toHaveAttribute("data-triage-key", key);
       const exported = await app.api.get<DecisionsExport>("/api/export/decisions.json");

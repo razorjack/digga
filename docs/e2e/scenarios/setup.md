@@ -86,8 +86,9 @@ the collection and wantlist are imported by username; a later want stays in Digg
 with the declared `400` ("Set your Discogs token in Settings first") and is not tried again (a
 refusal will not pass later, `mayPassLater` in `triage/session.svelte.ts`: one push request after
 the clock has run past the first retry delay, and nothing reaches the fake's wantlist); the slip
-says "Saved, but not on the Discogs wantlist.", the flash "<artist> – <title> is not on the
-Discogs wantlist: Set your Discogs token in Settings first. A in Twelves tries again.", and
+says "Saved in Digga, but not on your Discogs wantlist.", the flash "Could not add <artist> –
+<title> to your Discogs wantlist: Set your Discogs token in Settings first. Press A on it in Twelves
+to try again.", and
 Twelves marks it "not on your Discogs wantlist" on the Want shelf, which counts 1 such record
 
 ## SETUP-11

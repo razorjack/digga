@@ -249,7 +249,7 @@ export class TriagePlayer {
     const next = nextEntry(this.entries, this.entryIndex, this.#playlistState(), {
       fallback: true,
     });
-    if (next === null) this.#notice.show("That was the last track. Judge it.");
+    if (next === null) this.#notice.show("That was the last track. Your verdict?");
     else this.playEntry(next);
   }
 

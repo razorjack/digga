@@ -48,7 +48,7 @@ Electron app always opens `localhost`, and its window has no address bar)
 Priority: **P1**.
 
 Settings load normally; `route` aborts `/api/queue*` and `/api/stats*` until lifted: the header
-reads "Server unreachable" (it does only while stats have never loaded) and Triage "The queue did
+reads "Can't reach Digga" (it does only while stats have never loaded) and Triage "The queue did
 not load"; once requests pass, Enter loads the queue, and a page change brings the header's counts
 
 ## SHELL-08

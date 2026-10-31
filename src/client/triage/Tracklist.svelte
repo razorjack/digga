@@ -67,7 +67,7 @@
     cued: "cued",
     video: "has a video",
     failed: "video would not play",
-    blocked: "video blocks embedding",
+    blocked: "video plays only on YouTube",
     none: "no video",
   } as const;
 </script>
@@ -109,7 +109,7 @@
           <span class="tags">
             {#if heard && !heardNow}<span class="note">heard</span>{/if}
             {#if heardNow && !isCurrent(state)}<span class="note">played</span>{/if}
-            {#if state === "failed" || state === "blocked"}<span class="note">no embed</span>{/if}
+            {#if state === "failed" || state === "blocked"}<span class="note">won't play</span>{/if}
             {#if track.mark}<Stamp
                 text={MARK_COPY[track.mark]}
                 tone={track.mark === "meh" ? "muted" : "accent"}
@@ -144,7 +144,7 @@
           </span>
           <span class="name">{entry.video.title || entry.video.videoId}</span>
           <span class="tags"
-            >{#if failed}<span class="note">no embed</span>{/if}</span
+            >{#if failed}<span class="note">won't play</span>{/if}</span
           >
           <span class="dur figures">{formatDuration(entry.video.durationSeconds)}</span>
         </button>

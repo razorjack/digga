@@ -297,7 +297,7 @@ describe("triage session", () => {
     await until(() => session.slip?.kind === "verdict" && session.slip.push === "failed");
     expect(pushes).toHaveBeenCalledTimes(4);
     expect(session.flash).toBe(
-      `${queueItem(1).artistDisplay} – ${queueItem(1).title} is not on the Discogs wantlist: Discogs answered 503. A in Twelves tries again.`,
+      `Could not add ${queueItem(1).artistDisplay} – ${queueItem(1).title} to your Discogs wantlist: Discogs answered 503. Press A on it in Twelves to try again.`,
     );
   });
 
@@ -313,7 +313,7 @@ describe("triage session", () => {
     await wait(20);
     expect(pushes).toHaveBeenCalledTimes(1);
     expect(session.flash).toBe(
-      `${queueItem(1).artistDisplay} – ${queueItem(1).title} is not on the Discogs wantlist: ${refusal}. A in Twelves tries again.`,
+      `Could not add ${queueItem(1).artistDisplay} – ${queueItem(1).title} to your Discogs wantlist: ${refusal}. Press A on it in Twelves to try again.`,
     );
   });
 

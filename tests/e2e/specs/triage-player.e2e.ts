@@ -243,14 +243,14 @@ test.describe("with the clock", () => {
       await app.youtube.fail(videoOf(FIRST_RECORD, refused!.position).id, 150);
 
       await expect(triage.notices).toHaveText(
-        `${refused!.position} ${refused!.title} won't play here: the uploader blocks embedding. Skipped.`,
+        `${refused!.position} ${refused!.title} won't play here: the uploader allows it only on YouTube. Skipped.`,
       );
       await expect(triage.currentTrack).toHaveAttribute("data-position", next!.position);
       await expect(triage.playerStatus("playing")).toBeVisible();
       expect(await app.youtube.audible()).toBe(videoOf(FIRST_RECORD, next!.position).id);
       await expect(triage.track(refused!.position)).toContainText("video would not play");
       await expect(
-        triage.track(refused!.position).getByText("no embed", { exact: true }),
+        triage.track(refused!.position).getByText("won't play", { exact: true }),
       ).toBeVisible();
     },
   );
@@ -319,7 +319,7 @@ test.describe("digging records without audio", () => {
       for (const offer of [
         "S search YouTube",
         `${commandKeys("V").join("")} paste a YouTube link to play it`,
-        "D no audio, off the queue",
+        "D mark as no audio",
         "Verdict keys still work.",
       ])
         await expect(triage.player.getByText(offer, { exact: true })).toBeVisible();
@@ -335,7 +335,7 @@ test.describe("digging records without audio", () => {
   );
 
   test(
-    "TRI-28 records whose videos are all refused say so; embed=false videos read no embed and never load",
+    "TRI-28 records whose videos are all refused say so; embed=false videos read won't play and never load",
     { tag: ["@TRI-28", "@P1"] },
     async ({ app }) => {
       const triage = new TriagePage(app);
@@ -347,7 +347,7 @@ test.describe("digging records without audio", () => {
 
       await expect(triage.record).toHaveAttribute("data-release-id", String(ONLY_VIDEO_REFUSED.id));
       await expect(
-        triage.player.getByText("Its only video won't play here.", { exact: true }),
+        triage.player.getByText("This release's only video won't play here.", { exact: true }),
       ).toBeVisible();
       await triage.pass();
       await expect(triage.record).toHaveAttribute(
@@ -356,7 +356,9 @@ test.describe("digging records without audio", () => {
       );
       const videos = EVERY_VIDEO_REFUSED.videos.length;
       await expect(
-        triage.player.getByText(`None of its ${videos} videos will play here.`, { exact: true }),
+        triage.player.getByText(`None of this release's ${videos} videos will play here.`, {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(triage.playerStatus("no_audio")).toBeVisible();
 
@@ -366,7 +368,7 @@ test.describe("digging records without audio", () => {
       await expect(triage.playerStatus("playing")).toBeVisible();
       await expect(triage.track(blocked!.position)).toContainText("video blocks embedding");
       await expect(
-        triage.track(blocked!.position).getByText("no embed", { exact: true }),
+        triage.track(blocked!.position).getByText("won't play", { exact: true }),
       ).toBeVisible();
       const loaded = (await app.youtube.loads()).map((load) => load.videoId);
       expect(loaded).not.toContain(blockedVideo.id);
@@ -412,7 +414,7 @@ test.describe("digging a run of tracks, with the clock", () => {
       // Paused, the notice stays until the test has read it.
       await app.clock.pause();
       await app.page.keyboard.press("j");
-      await expect(triage.notices).toHaveText("That was the last track. Judge it.");
+      await expect(triage.notices).toHaveText("That was the last track. Your verdict?");
       await expect(triage.currentTrack).toHaveAttribute("data-position", b3!);
       await app.youtube.end();
       await expect(triage.playerStatus("ended")).toBeVisible();

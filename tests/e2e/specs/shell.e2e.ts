@@ -156,7 +156,7 @@ test(
 
     // Triage asks for its queue only once the settings have loaded.
     await expect(triage.root.getByText("The queue did not load.", { exact: true })).toBeVisible();
-    await expect(header.root).toContainText("Server unreachable");
+    await expect(header.root).toContainText("Can't reach Digga");
 
     await queue.lift();
     await stats.lift();
@@ -164,7 +164,7 @@ test(
     // The header reads the stats again when the page changes.
     await header.goTo("twelves");
     await expect(header.root).toContainText(/\d+ dug/);
-    await expect(header.root).not.toContainText("Server unreachable");
+    await expect(header.root).not.toContainText("Can't reach Digga");
   },
 );
 

@@ -102,7 +102,7 @@
               >checked <time datetime={enrichedAt}>{formatAge(enrichedAt)}</time></span
             >
           {:else}
-            <span class="quiet">no price or have/want yet</span>
+            <span class="quiet">no price yet</span>
           {/if}
         </p>
       {/key}
@@ -115,7 +115,7 @@
         onclick={onprice}
       >
         <Key label="P" size="sm" aria-hidden="true" />
-        {enrichedAt === null ? "ask Discogs" : "ask again"}
+        {enrichedAt === null ? "Ask Discogs" : "Ask again"}
       </button>
     </div>
 

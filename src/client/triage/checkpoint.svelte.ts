@@ -1,4 +1,5 @@
 import type { Config } from "../../shared/config.ts";
+import { formatCount } from "../../shared/display.ts";
 import type {
   SavedSession,
   SessionInput,
@@ -203,5 +204,7 @@ function withSessionSettings(config: Config, saved: SavedSession): Config {
 
 function resumedMessage(unavailable: number): string {
   if (unavailable === 0) return "Session resumed. Press Space to listen.";
-  return `Session resumed. ${unavailable} saved records are now decided, filtered out, or missing. Press Space to listen.`;
+  const records =
+    unavailable === 1 ? "1 of its records is" : `${formatCount(unavailable)} of its records are`;
+  return `Session resumed. ${records} left out because they now have a verdict, no longer match your filters or are gone. Press Space to listen.`;
 }

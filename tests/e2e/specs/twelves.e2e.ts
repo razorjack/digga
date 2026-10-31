@@ -319,12 +319,12 @@ test(
     expect(await twelves.selectedKey()).toBe(triageKeyOf(EVENT_HORIZON));
 
     await twelves.replaySelected(EVENT_HORIZON.id);
-    await expect(triage.banner).toContainText("Replaying Twelves: 1 of 1 left.");
+    await expect(triage.banner).toContainText("Replaying from Twelves: 1 of 1 left.");
     await triage.leaveRound();
     await header.goTo("twelves");
     expect(await twelves.selectedKey()).toBe(triageKeyOf(EVENT_HORIZON));
     await twelves.replayToEnd(EVENT_HORIZON.id);
-    await expect(triage.banner).toContainText("Replaying Twelves: 4 of 4 left.");
+    await expect(triage.banner).toContainText("Replaying from Twelves: 4 of 4 left.");
     await triage.leaveRound();
     await header.goTo("twelves");
 

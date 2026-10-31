@@ -7,7 +7,7 @@ import { youtubeSearchUrl } from "../../../src/shared/youtube.ts";
 import { DJ, FIRST_RECORD, ONLY_VIDEO_REFUSED } from "../fixtures/catalogue.ts";
 import { HeaderPage } from "../pages/header.ts";
 import { SettingsPage } from "../pages/settings.ts";
-import { isRequest, TriagePage } from "../pages/triage.ts";
+import { isRequest, SAVED_NOT_PUSHED, TriagePage } from "../pages/triage.ts";
 import { TwelvesPage } from "../pages/twelves.ts";
 import { MARKET } from "../../../tools/dev/fake-services.ts";
 import { expect, test } from "../support/test.ts";
@@ -72,7 +72,7 @@ test.describe("with a Discogs account", () => {
       expect(response.ok()).toBe(true);
       await response.finished();
 
-      await expect(triage.messages).toHaveText("Taken off your Discogs wantlist again.");
+      await expect(triage.messages).toHaveText("Removed from your Discogs wantlist.");
       const [put] = fakes.requests("PUT /users/:user/wants/:id");
       const [removal] = fakes.requests("DELETE /users/:user/wants/:id");
       expect(put).toMatchObject({ params: { user: DJ.username, id: releaseId } });
@@ -113,7 +113,7 @@ test(
     const [pressureDrop, , lowTide] = FIRST_RECORD.tracks.map((track) => track.position);
     const held = fakes.hold("GET /releases/:id");
     await app.open();
-    await expect(triage.market).toHaveText("no price or have/want yet");
+    await expect(triage.market).toHaveText("no price yet");
     await expect(triage.currentTrack).toHaveAttribute("data-position", pressureDrop!);
     await expect(triage.track(lowTide!)).toContainText("no video");
 
@@ -186,7 +186,7 @@ test(
     fakes.fail("GET /releases/:id", { status: 404, times: 1 });
     await app.open();
     await expect(triage.record).toHaveAttribute("data-release-id", String(releaseId));
-    await expect(triage.market).toHaveText("no price or have/want yet");
+    await expect(triage.market).toHaveText("no price yet");
     const before = await app.api.get<ReleaseDetail>(`/api/releases/${releaseId}`);
 
     const asked = app.page.waitForResponse((response) =>
@@ -201,7 +201,7 @@ test(
       "The price did not load: Discogs did not return the release",
     );
     await expect(triage.market).toHaveAttribute("aria-busy", "false");
-    await expect(triage.market).toHaveText("no price or have/want yet");
+    await expect(triage.market).toHaveText("no price yet");
     const [playing, withVideo, withoutVideo] = FIRST_RECORD.tracks.map((track) => track.position);
     await expect(triage.currentTrack).toHaveAttribute("data-position", playing!);
     await expect(triage.track(withVideo!)).toContainText("has a video");
@@ -239,7 +239,7 @@ test.describe("with the username dj and the clock", () => {
       await app.clock.pause();
       await triage.judge("accepted");
 
-      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
+      await expect(triage.lastAction).toContainText(SAVED_NOT_PUSHED);
       await expect(triage.messages).toContainText(
         "Discogs answered 403: check the Discogs token in Settings and that it belongs to your Discogs username.",
       );
@@ -278,13 +278,13 @@ test.describe("with a Discogs account and the clock", () => {
       await app.clock.pause();
       await triage.judge("accepted");
       for (const delayMs of PUSH_RETRY_DELAYS_MS) {
-        await expect(triage.lastAction).toContainText(`trying again in ${formatWait(delayMs)}.`);
+        await expect(triage.lastAction).toContainText(`Trying again in ${formatWait(delayMs)}.`);
         await app.clock.runFor(delayMs);
       }
 
-      await expect(triage.lastAction).toContainText("Saved, but not on the Discogs wantlist.");
+      await expect(triage.lastAction).toContainText(SAVED_NOT_PUSHED);
       await expect(triage.messages).toHaveText(
-        / is not on the Discogs wantlist: .+\. A in Twelves tries again\.$/,
+        /^Could not add .+ to your Discogs wantlist: .+\. Press A on it in Twelves to try again\.$/,
       );
       await expect(triage.messages).toContainText(FIRST_RECORD.title);
       expect(fakes.requests("PUT /users/:user/wants/:id")).toHaveLength(4);
@@ -316,7 +316,7 @@ test.describe("with a Discogs account and the clock", () => {
       await app.clock.pause();
       await triage.judge("accepted");
       await expect(triage.lastAction).toContainText(
-        `Not on your Discogs wantlist yet; trying again in ${formatWait(firstDelayMs!)}.`,
+        `Not on your Discogs wantlist yet. Trying again in ${formatWait(firstDelayMs!)}.`,
       );
       await app.clock.runFor(firstDelayMs!);
 

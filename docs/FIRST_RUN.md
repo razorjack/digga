@@ -376,7 +376,7 @@ above it reads "A want goes on your Discogs wantlist when you press A. Z takes i
 ## Digging during the load
 
 - **Header:** after the counters, a "loading 41%" link to `#/setup` with a thin `<progress>` along
-  the bottom edge of the header. The "to go" count reads "5,594 to go so far"; the ETA is hidden
+  the bottom edge of the header. The "to go" count reads "5,594 to go, still loading"; the ETA is hidden
   until the load finishes, since it would grow every second. The same indicator shows for any
   dump job, so a monthly update started in Settings gets it too.
 - **Queue:** each refill queries the database again, so new records join as they arrive. While a

@@ -79,7 +79,7 @@ export function embedErrorReason(code: number): string {
       return "removed or private";
     case 101:
     case 150:
-      return "the uploader blocks embedding";
+      return "the uploader allows it only on YouTube";
     case 2:
       return "invalid video id";
     case 5:

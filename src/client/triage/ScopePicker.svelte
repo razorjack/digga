@@ -46,7 +46,7 @@
     if (!search.active) return recordScopes.length === 0 ? "Type two letters or more." : "";
     if (search.searching) return "Searching…";
     if (options.length === 0)
-      return `Nothing matches “${search.text.trim()}”. A seller's shop is read in Settings, under Discogs.`;
+      return `Nothing matches “${search.text.trim()}”. To dig a seller, read their shop first in Settings › Discogs.`;
     return `${formatCounted(options.length, "match", "matches")}, most records first.`;
   });
 
@@ -184,7 +184,7 @@
     </fieldset>
     {#if newRecords && !search.active}
       <fieldset class="options">
-        <legend>Added by the last dump load</legend>
+        <legend>New in the last load</legend>
         {@render choice(newRecords)}
       </fieldset>
     {/if}
@@ -193,10 +193,10 @@
 
     <div class="actions">
       <button type="submit" disabled={!checked} aria-keyshortcuts="Enter">
-        <Key label="Enter" primary aria-hidden="true" /> dig
+        <Key label="Enter" primary aria-hidden="true" /> Dig
       </button>
       <button type="button" aria-keyshortcuts="Escape" onclick={cancel}>
-        <Key label="Esc" aria-hidden="true" /> cancel
+        <Key label="Esc" aria-hidden="true" /> Cancel
       </button>
     </div>
   </form>

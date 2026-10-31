@@ -359,7 +359,7 @@ export class TwelvesPage {
     await this.app.page.keyboard.press(key);
     const triage = new TriagePage(this.app);
     await expect(triage.record).toBeVisible();
-    await expect(triage.banner).toContainText("Replaying Twelves");
+    await expect(triage.banner).toContainText("Replaying from Twelves");
     await expect(triage.record).toHaveAttribute("data-release-id", String(releaseId));
   }
 

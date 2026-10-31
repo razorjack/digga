@@ -66,7 +66,7 @@
 
   const ROUND_TITLES: Record<Round["kind"], string> = {
     snoozed: "Hearing snoozed records again:",
-    replay: "Replaying Twelves:",
+    replay: "Replaying from Twelves:",
   };
 
   const seekStep = $derived(settings.value?.player.seekStepSeconds ?? 10);
@@ -265,7 +265,7 @@
   function judge(status: TriageStatus): void {
     if (!session.current) return;
     if (status === "maybe" && !hasMaybeList) {
-      session.showFlash("M needs your Discogs Maybe list: pick it in Settings, under Discogs.");
+      session.showFlash("To use M, choose your Discogs Maybe list in Settings › Discogs.");
       return;
     }
     savePendingNote();
@@ -395,13 +395,13 @@
       <p class="banner">
         <span>
           {ROUND_TITLES[session.round.kind]} <b>{formatCount(session.upcoming.length)}</b> of
-          {formatCount(session.round.total)} left. Only a verdict key changes the saved decision; <Key
+          {formatCount(session.round.total)} left. A verdict key replaces the saved verdict, and <Key
             label="N"
             size="sm"
-          /> leaves it.
+          /> keeps it.
         </span>
         <button type="button" aria-keyshortcuts="Escape" onclick={() => session.endRound()}>
-          <Key label="Esc" size="sm" aria-hidden="true" /> back to the queue
+          <Key label="Esc" size="sm" aria-hidden="true" /> Back to the queue
         </button>
       </p>
     {:else if session.scope}
@@ -409,7 +409,7 @@
         <span>
           Digging {SCOPE_NOUN[session.scope.kind]}
           <b>{session.scope.name}</b>{#if scopeRemaining !== null}:
-            <b>{formatCount(scopeRemaining)}</b> left under your filters{/if}.
+            <b>{formatCount(scopeRemaining)}</b> left that match your filters{/if}.
         </span>
         {#if session.scope.kind === "seller"}
           <a href="#/shop/{session.scope.id}">Shop my wants from this seller</a>
@@ -419,7 +419,7 @@
           aria-keyshortcuts="Escape"
           onclick={() => void session.setScope(null)}
         >
-          <Key label="Esc" size="sm" aria-hidden="true" /> back to the whole queue
+          <Key label="Esc" size="sm" aria-hidden="true" /> Back to the whole queue
         </button>
       </p>
     {/if}

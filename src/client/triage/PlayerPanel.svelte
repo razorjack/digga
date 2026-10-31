@@ -66,8 +66,8 @@
         kind: "no_audio",
         title:
           videoCount === 1
-            ? "Its only video won't play here."
-            : `None of its ${videoCount} videos will play here.`,
+            ? "This release's only video won't play here."
+            : `None of this release's ${videoCount} videos will play here.`,
       };
     if (player.status === "starting") return { kind: "message", title: "Starting the player…" };
     if (mine && player.status === "needs_gesture") return { kind: "gesture" };
@@ -101,7 +101,7 @@
             <p class="options">
               <span><Key label="S" /> search YouTube</span>
               <span><CommandKey key="V" /> paste a YouTube link to play it</span>
-              <span><Key label="D" /> no audio, off the queue</span>
+              <span><Key label="D" /> mark as no audio</span>
             </p>
             <p class="small">Verdict keys still work.</p>
           {:else}
@@ -155,7 +155,7 @@
     <span><Key label="J" /><Key label="K" /> track</span>
     <span><Key label="←" /><Key label="→" /> {seekStepSeconds} s</span>
     <span><Key label="1–9" /> jump</span>
-    <span><Key label="O" /> discogs</span>
+    <span><Key label="O" /> Discogs</span>
     {#if mode === "triage"}<span><Key label="E" /> note</span>{/if}
   </div>
 

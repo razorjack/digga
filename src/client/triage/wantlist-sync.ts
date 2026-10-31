@@ -87,7 +87,7 @@ export class WantlistSync {
         const delayMs = this.#options.retryDelaysMs[tries];
         if (delayMs === undefined || !mayPassLater(error)) {
           this.#options.flash(
-            `${item.artistDisplay} – ${item.title} is not on the Discogs wantlist: ${errorMessage(error)}. A in Twelves tries again.`,
+            `Could not add ${item.artistDisplay} – ${item.title} to your Discogs wantlist: ${errorMessage(error)}. Press A on it in Twelves to try again.`,
           );
           return "failed";
         }
@@ -103,10 +103,12 @@ export class WantlistSync {
     try {
       if ((await this.#sync(item)) !== "removed") return;
       if (this.#ended) return;
-      this.#options.flash("Taken off your Discogs wantlist again.");
+      this.#options.flash("Removed from your Discogs wantlist.");
     } catch (error) {
       if (this.#ended) return;
-      this.#options.flash(`Still on your Discogs wantlist: ${errorMessage(error)}`);
+      this.#options.flash(
+        `Could not remove ${item.artistDisplay} – ${item.title} from your Discogs wantlist: ${errorMessage(error)}. Remove it on discogs.com.`,
+      );
     }
   }
 
