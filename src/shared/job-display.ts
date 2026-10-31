@@ -79,8 +79,8 @@ function importProgress(progress: ImportProgress): ProgressSummary {
  */
 function loadProgress(progress: DumpLoadProgress): ProgressSummary {
   const { scanned, matched, coverage, added, missing, bytesRead, totalBytes } = progress;
-  const parts = [`scanned ${formatCount(scanned)}`, `matched ${formatCount(matched)}`];
-  if (coverage > 0) parts.push(`${formatCount(coverage)} more for their label or artist`);
+  const parts = [`read ${formatCount(scanned)}`, `kept ${formatCount(matched)}`];
+  if (coverage > 0) parts.push(`${formatCount(coverage)} more from related labels and artists`);
   if (added !== null) parts.push(`${formatCount(added)} new`);
   if (missing) parts.push(`${formatCount(missing)} not found`);
   return {
@@ -92,8 +92,8 @@ function loadProgress(progress: DumpLoadProgress): ProgressSummary {
 /** The dump, by its date, and how much of it has arrived. */
 function downloadProgress(progress: DumpDownloadProgress): ProgressSummary {
   const { phase, file, receivedBytes, totalBytes, alreadyDownloaded } = progress;
-  if (file === null) return { text: "looking for the newest dump", fraction: null };
-  const dump = `${/(\d{4})(\d{2})(\d{2})/.exec(file)?.slice(1).join("-") ?? file} dump`;
+  if (file === null) return { text: "looking for the newest catalogue", fraction: null };
+  const dump = `${/(\d{4})(\d{2})(\d{2})/.exec(file)?.slice(1).join("-") ?? file} catalogue`;
   if (alreadyDownloaded) return { text: `${dump}, downloaded before`, fraction: 1 };
   if (phase === "done") return { text: `${dump}, ${formatBytes(receivedBytes)}`, fraction: 1 };
   const total = totalBytes === null ? "" : ` of ${formatBytes(totalBytes)}`;
@@ -118,26 +118,26 @@ function sellerProgress(progress: SellerImportProgress): ProgressSummary {
     ? `${formatCount(read)} of ${formatCounted(listings, "listing")}`
     : formatCounted(read, "listing");
   return {
-    text: `${username}: ${listingsRead}, ${formatCounted(records, "loaded record")}${shopChanges(progress)}`,
+    text: `${username}: ${listingsRead} read, ${formatCount(records)} in your library${shopChanges(progress)}`,
     fraction: 1,
   };
 }
 
-/** "; 3 releases gone, 5 new since the last read" once a shop has been read before. */
+/** ". Since the last read: 3 releases gone, 5 new" once a shop has been read before. */
 function shopChanges(progress: SellerImportProgress): string {
   const { gone, added } = progress;
   if (gone === null || added === null) return "";
-  return `; ${formatCounted(gone, "release")} gone, ${formatCount(added)} new since the last read`;
+  return `. Since the last read: ${formatCounted(gone, "release")} gone, ${formatCount(added)} new`;
 }
 
 export const JOB_LABEL: Record<JobType, string> = {
-  dump_download: "Download dump",
-  dump_load: "Load dump",
-  dump_update: "Update from the newest dump",
+  dump_download: "Download the catalogue",
+  dump_load: "Load the catalogue",
+  dump_update: "Update the catalogue",
   import_collection: "Import collection",
   import_wantlist: "Import wantlist",
   import_list: "Import Maybe list",
-  import_seller: "Read seller shop",
+  import_seller: "Read a seller's shop",
 };
 
 /** "45 s", "7 min 45 s", "2 h 5 min". */

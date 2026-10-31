@@ -8,7 +8,7 @@ and [authoring guidance](../AUTHORING.md). [Scenario conventions and other famil
 Priority: **P1**.
 
 The form shows the saved config, and the save bar no buttons; a change reads "Unsaved changes."
-and marks its tab ("Unsaved changes" as the link's description); Revert restores; Save and
+and marks its tab ("Unsaved changes" as the link's description); Discard changes restores; Save and
 `ControlOrMeta+S` save ("Saved. The queue has reloaded." for a change to what the queue digs,
 "Saved." for one that keeps it); a change stays unsaved on another tab
 and saves from there; a reload keeps it
@@ -139,8 +139,8 @@ Priority: **P2**.
 
 Given: `small-account` with a saved token.
 
-Imports: "Your Discogs" offers Collection, Wantlist and Maybe list, and no history import; Maybe list
-is disabled until a list is saved, not merely chosen; Read shop needs a username, reads
+Imports: "From your account" offers Import collection, Import wantlist and Import Maybe list, and no
+history import; Import Maybe list is disabled until a list is saved, not merely chosen; Read shop needs a username, reads
 `shopkeeper`, and `F`'s search then offers the seller
 
 ## SET-16
@@ -159,7 +159,7 @@ Priority: **P1**.
 
 Given: the September dump listed, its transfer held part-way.
 
-"Update from the newest dump": one job, download then load; the header shows "loading" without a
+"Update the catalogue": one job, download then load; the header shows "loading" without a
 reload; the Library section then counts what the load added (3) and did not find (1), and the
 indicator goes
 
@@ -195,7 +195,7 @@ Priority: **P1**.
 Given: the September dump listed.
 
 A snoozed record with a note, whose release has no master in August, is on the Snoozed shelf with
-its note after "Update from the newest dump" loads September, where the release is on a master;
+its note after "Update the catalogue" loads September, where the release is on a master;
 `/api/releases/:id` gives the verdict under the master's key
 
 ## SET-22
@@ -207,8 +207,8 @@ Given: `small-account` with a saved token.
 A library holds one Discogs account's data (decision 138). The Username field's description says
 the library holds `dj`'s collection, wantlist and Maybe list; `e2e-token-other` is not saved (`409`,
 declared, "Not saved: This library holds the Discogs collection and wantlist of dj; forget them in
-Settings before using other."). "Forget them", its confirmation accepted, forgets 3 items ("Forgot
-3 Discogs items of dj."); then `/api/discogs/account` names no data account, the collected and
+Settings before using other."). "Remove them", its confirmation accepted, removes 3 items ("Removed
+dj's Discogs data (3 items)."); then `/api/discogs/account` names no data account, the collected and
 wanted records are back in the queue, `e2e-token-other` saves and reads as another account's,
 and Twelves' Discogs wantlist and Owned shelves count 0. `tests/wantlist-http.test.ts` covers the
 routes' refusals and `DELETE /api/discogs/data`; this row checks the Settings flow and what the
@@ -245,9 +245,9 @@ clock, which a test cannot move, and a relaunch starts without the failure in an
 
 - Settings' Delete asks with `window.confirm()`, and Playwright dismisses a dialog no listener
   handles. `deleteDump()` registers a `once("dialog")` listener before the click, which records
-  the dialog's type and message and accepts or dismisses as the test says. "Forget them"
+  the dialog's type and message and accepts or dismisses as the test says. "Remove them"
   (`forgetDiscogsData()`) asks the same way; it ends once `DELETE /api/discogs/data` has answered
-  and the page says how many items it forgot.
+  and the page says how many items it removed.
 
 ## SET-24
 
@@ -284,7 +284,7 @@ value; Esc and Save show Twelves and the API has the new value (decision 174).
 
 Priority: **P1**.
 
-Given: `small` with the September dump downloaded. Editing Universe styles disables Load,
+Given: `small` with the September dump downloaded. Editing the styles to load disables Load,
 Update and Download and explains that settings must be saved or discarded. Saving persists the
-styles and enables the buttons. Editing the Discogs username disables Collection and Wantlist
-imports with the same explanation; Revert restores the saved username and enables imports.
+styles and enables the buttons. Editing the Discogs username disables Import collection and Import
+wantlist with the same explanation; Discard changes restores the saved username and enables imports.

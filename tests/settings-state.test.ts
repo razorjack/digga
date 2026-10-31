@@ -196,16 +196,16 @@ describe("the hint on where the token is kept", () => {
 
   it("says whether a saved token is encrypted", () => {
     expect(tokenStorageText(account({ tokenEncrypted: true }))).toBe(
-      "From discogs.com/settings/developers; saved encrypted in secrets.env beside the database.",
+      "Get one at discogs.com/settings/developers. Digga stores it encrypted in your library folder.",
     );
     expect(tokenStorageText(account({}))).toBe(
-      "From discogs.com/settings/developers; saved unencrypted in secrets.env beside the database.",
+      "Get one at discogs.com/settings/developers. Digga stores it unencrypted in your library folder.",
     );
     expect(tokenStorageText(account({ hasToken: false, tokenSource: null }))).toBe(
-      "From discogs.com/settings/developers; saved in secrets.env beside the database.",
+      "Get one at discogs.com/settings/developers. Digga stores it in your library folder.",
     );
     expect(tokenStorageText(null)).toBe(
-      "From discogs.com/settings/developers; saved in secrets.env beside the database.",
+      "Get one at discogs.com/settings/developers. Digga stores it in your library folder.",
     );
   });
 });

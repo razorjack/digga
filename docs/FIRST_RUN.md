@@ -541,7 +541,7 @@ The flow is the same web page. The shell adds:
 2. **The setup screens**, with the load starting after the download: the four steps, the header
    indicator and digging during the load. Early digging already works here, eight minutes in
    instead of two.
-3. **Reading a dump while it downloads**, for the setup and for "Update from the newest dump".
+3. **Reading a dump while it downloads**, for the setup and for "Update the catalogue".
 4. **The style picker in Settings**, and the Electron parts with the shell.
 
 Tests: the census tally and estimate, suggestions from imported releases, reading a growing file

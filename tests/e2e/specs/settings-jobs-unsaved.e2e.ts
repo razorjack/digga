@@ -12,7 +12,7 @@ test(
     await settings.open("library");
     const load = settings.dumpSection.getByRole("button", { name: "Load", exact: true });
     const update = settings.dumpSection.getByRole("button", {
-      name: "Update from the newest dump",
+      name: "Update the catalogue",
     });
     const download = settings.dumpSection.getByRole("button", { name: "Download only" });
     await expect(load).toBeEnabled();
@@ -24,7 +24,7 @@ test(
     await expect(update).toBeDisabled();
     await expect(download).toBeDisabled();
     await expect(settings.dumpSection.getByRole("status")).toHaveText(
-      "Save or discard your settings changes before starting a job.",
+      "Save or discard your changes before starting a download, load or import.",
     );
     await settings.save();
     const saved = await app.api.get<Config>("/api/settings");
@@ -34,14 +34,17 @@ test(
     await expect(download).toBeEnabled();
 
     await settings.showTab("discogs");
-    const collection = settings.imports.getByRole("button", { name: "Collection", exact: true });
-    const wantlist = settings.imports.getByRole("button", { name: "Wantlist", exact: true });
+    const collection = settings.imports.getByRole("button", {
+      name: "Import collection",
+      exact: true,
+    });
+    const wantlist = settings.imports.getByRole("button", { name: "Import wantlist", exact: true });
     await expect(collection).toBeEnabled();
     await settings.username.fill("another-account");
     await expect(collection).toBeDisabled();
     await expect(wantlist).toBeDisabled();
     await expect(settings.imports.getByRole("status")).toHaveText(
-      "Save or discard your settings changes before starting a job.",
+      "Save or discard your changes before starting a download, load or import.",
     );
     await settings.revertButton.click();
     await expect(collection).toBeEnabled();

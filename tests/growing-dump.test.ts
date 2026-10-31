@@ -130,7 +130,7 @@ describe("starting a load during the download", () => {
       const load = await post("/api/jobs/dump-load", { file: DUMP });
       expect(load.status).toBe(202);
       expect((await post("/api/jobs/dump-load", { file: DUMP })).body.error).toBe(
-        'Wait until "Load dump" has finished',
+        'Wait until "Load the catalogue" has finished',
       );
 
       await expect

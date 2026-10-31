@@ -3,7 +3,8 @@ import { api, type Api } from "../api.ts";
 import { Generation } from "../async.ts";
 import { errorMessage, stats } from "../stores.svelte.ts";
 
-export const SAVE_BEFORE_JOB = "Save or discard your settings changes before starting a job.";
+export const SAVE_BEFORE_JOB =
+  "Save or discard your changes before starting a download, load or import.";
 
 export class SettingsJobs {
   items = $state.raw<Job[]>([]);

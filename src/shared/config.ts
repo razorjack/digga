@@ -36,6 +36,10 @@ const HiddenLabelSchema = z.preprocess(
 );
 export type HiddenLabel = z.infer<typeof HiddenLabelSchema>;
 
+/** What the Settings fields say when the number in them is not one the config takes. */
+const BATCH_SIZE_PROBLEM = "Enter a number from 1 to 5,000";
+const SEEK_STEP_PROBLEM = "Enter a number of seconds above 0";
+
 /** A range of years whose ends are in order; an open end always is. */
 function isOrdered(from: number | null, to: number | null): boolean {
   return from === null || to === null || from <= to;
@@ -69,7 +73,7 @@ export const FiltersSchema = z
     excludeDescriptions: z.array(z.string().min(1)).default([]),
   })
   .refine((filters) => isOrdered(filters.yearFrom, filters.yearTo), {
-    message: "The To year comes before the From year",
+    message: "The end year is before the start year",
     path: ["yearTo"],
   });
 
@@ -95,7 +99,7 @@ export const ConfigSchema = z.object({
       loadYears: z
         .tuple([z.number().int(), z.number().int()])
         .refine(([from, to]) => isOrdered(from, to), {
-          message: "The Load to year comes before the Load from year",
+          message: "The last year to load is before the first",
         })
         .nullable()
         .default([1994, 2008]),
@@ -116,7 +120,12 @@ export const ConfigSchema = z.object({
           z.enum(QUEUE_STRATEGIES),
         )
         .default("label_sweep"),
-      limit: z.number().int().positive().max(5000).default(200),
+      limit: z
+        .number({ error: BATCH_SIZE_PROBLEM })
+        .int({ error: BATCH_SIZE_PROBLEM })
+        .positive({ error: BATCH_SIZE_PROBLEM })
+        .max(5000, { error: BATCH_SIZE_PROBLEM })
+        .default(200),
     })
     .prefault({}),
   player: z
@@ -124,7 +133,10 @@ export const ConfigSchema = z.object({
       /** Start a record on, and move forward to, tunes not heard before. */
       skipHeard: z.boolean().default(true),
       startAtFraction: z.number().min(0).max(1).default(0.5),
-      seekStepSeconds: z.number().positive().default(10),
+      seekStepSeconds: z
+        .number({ error: SEEK_STEP_PROBLEM })
+        .positive({ error: SEEK_STEP_PROBLEM })
+        .default(10),
     })
     .prefault({}),
   appearance: z

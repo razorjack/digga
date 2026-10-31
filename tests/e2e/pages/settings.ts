@@ -99,18 +99,21 @@ export class SettingsPage {
 
   /** The Library tab's dump jobs and the dumps folder, with their recent jobs. */
   get dumpSection(): Locator {
-    return this.root.getByRole("region", { name: "Dump" });
+    return this.root.getByRole("region", { name: "Catalogue" });
   }
 
   get skipHistory(): Locator {
-    return this.skip.getByRole("checkbox", { name: "records opened before", exact: true });
+    return this.skip.getByRole("checkbox", {
+      name: "Records from your browser history",
+      exact: true,
+    });
   }
 
   get skipHeard(): Locator {
-    return this.skip.getByRole("checkbox", { name: "tunes heard before", exact: true });
+    return this.skip.getByRole("checkbox", { name: "Tunes heard before", exact: true });
   }
 
-  /** The Skip group: releases without videos, records opened before, tunes heard before. */
+  /** The Skip group: records without videos, records from browser history, tunes heard before. */
   get skip(): Locator {
     return this.root.getByRole("group", { name: "Skip", exact: true });
   }
@@ -141,7 +144,7 @@ export class SettingsPage {
   }
 
   get batch(): Locator {
-    return this.root.getByRole("spinbutton", { name: "Batch" });
+    return this.root.getByRole("spinbutton", { name: "Batch size" });
   }
 
   get startAt(): Locator {
@@ -149,7 +152,7 @@ export class SettingsPage {
   }
 
   get seekStep(): Locator {
-    return this.root.getByRole("spinbutton", { name: "Seek step" });
+    return this.root.getByRole("spinbutton", { name: "Arrow key jump" });
   }
 
   /** "These filters match N records, M still to dig." once the preview has answered. */
@@ -162,7 +165,7 @@ export class SettingsPage {
   }
 
   get revertButton(): Locator {
-    return this.root.getByRole("button", { name: "Revert" });
+    return this.root.getByRole("button", { name: "Discard changes" });
   }
 
   get username(): Locator {
@@ -190,7 +193,7 @@ export class SettingsPage {
   }
 
   get dumps(): Locator {
-    return this.dumpSection.getByRole("list", { name: "Dumps in the folder" });
+    return this.dumpSection.getByRole("list", { name: "Catalogue files in the folder" });
   }
 
   /** The dump's row in the folder's list, with its size and use. */
@@ -200,7 +203,7 @@ export class SettingsPage {
 
   /** The file Load reads, typed or picked from the datalist of the folder's dumps. */
   get dumpFile(): Locator {
-    return this.dumpSection.getByRole("combobox", { name: "Dump file" });
+    return this.dumpSection.getByRole("combobox", { name: "Catalogue file" });
   }
 
   /** The names the dump file field's datalist offers, in order. Never waits. */
@@ -283,7 +286,7 @@ export class SettingsPage {
   async saveToken(token: string | null): Promise<Response> {
     const saved = this.#response("PUT", "/api/discogs/token");
     if (token === null) {
-      await this.discogs.getByRole("button", { name: "Remove" }).click();
+      await this.discogs.getByRole("button", { name: "Remove", exact: true }).click();
     } else {
       await this.token.fill(token);
       await this.saveTokenButton.click();
@@ -358,7 +361,7 @@ export class SettingsPage {
   }
 
   /**
-   * The Username field's "Forget them", the confirmation accepted; returns the confirmation's
+   * The Username field's "Remove them", the confirmation accepted; returns the confirmation's
    * message once the server has forgotten the account's data and the page says how much.
    */
   async forgetDiscogsData(): Promise<string> {
@@ -368,10 +371,12 @@ export class SettingsPage {
       await dialog.accept();
     });
     const forgotten = this.#response("DELETE", "/api/discogs/data");
-    await this.discogs.getByRole("button", { name: "Forget them" }).click();
+    await this.discogs.getByRole("button", { name: "Remove them" }).click();
     const message = await asked.promise;
     await this.#completed(await forgotten);
-    await expect(this.root.getByText(/^Forgot [\d,]+ Discogs items of /)).toBeVisible();
+    await expect(
+      this.root.getByText(/^Removed .+'s Discogs data \([\d,]+ items?\)\.$/),
+    ).toBeVisible();
     return message;
   }
 

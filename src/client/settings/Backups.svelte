@@ -55,15 +55,15 @@
 <section aria-labelledby="{id}-title">
   <h2 id="{id}-title">Backups</h2>
   {#if error}
-    <p>Backups did not load: {error}</p>
+    <p>Could not read the backups: {error}</p>
   {:else if backups}
     {#if backups.failure}
       <p class="problem">
         A scheduled backup failed <time datetime={backups.failure.at}
           >{formatAge(backups.failure.at)}</time
         >:
-        {backups.failure.message}. Digga tries again every fifteen minutes; <b>Back up now</b> tries at
-        once.
+        {backups.failure.message}. Digga tries again every 15 minutes, or you can press
+        <b>Back up now</b>.
       </p>
     {/if}
     <div class="vault">
@@ -86,7 +86,7 @@
             )}
             {@render dailyRow("The database", backups.backups[0], backups.kept)}
             <tr>
-              <th scope="row">Checkpoints</th>
+              <th scope="row">Recent changes</th>
               {#if latestCheckpoint}
                 <td>
                   {#if checkpointAt}<time datetime={checkpointAt}>{formatAge(checkpointAt)}</time
@@ -123,20 +123,20 @@
     <p>
       <b>Your decisions</b>: once a day, Digga writes your verdicts, notes, track marks, listening
       and decision histories, saved sessions, attached links and settings to
-      <code>decisions-YYYY-MM-DD.json.gz</code>. Days when nothing changed add none.
-      <code>npm run digga -- restore</code>
-      with the file brings them back into a library loaded from a dump; add <code>--config</code> to restore
-      the settings as well.
+      <code>decisions-YYYY-MM-DD.json.gz</code>. Days when nothing changed add none. To bring them
+      back into a library rebuilt from the catalogue, run
+      <code>npm run digga -- restore</code> with the file. Add <code>--config</code> to restore the settings
+      too.
     </p>
     <p>
-      <b>The database</b>: copied once a day while the server runs. To restore a copy, stop the
-      server and run
-      <code>npm run digga -- restore</code> with the file; it keeps the database it replaces. Schema
-      upgrades first save a separate <code>before-migration</code> copy, which restores the same way.
+      <b>The database</b>: copied once a day while Digga runs. To restore a copy, quit Digga and run
+      <code>npm run digga -- restore</code> with the file. Digga keeps the database it replaces.
+      Before an update changes the database's structure, Digga also saves a
+      <code>before-migration</code> copy, which restores the same way.
     </p>
     <p>
-      <b>Checkpoints</b>: every fifteen minutes, and when the server stops cleanly, changed personal
-      data gets a checkpoint, in addition to the daily backups.
+      <b>Recent changes</b>: every 15 minutes, and when Digga quits, Digga saves what changed since
+      the last save, on top of the daily backups.
     </p>
   </details>
 </section>
@@ -144,7 +144,7 @@
 <section aria-labelledby="{id}-exports-title">
   <h2 id="{id}-exports-title">Exports</h2>
   <p>
-    What is saved, to download:
+    Download your data:
     <a href={api.exportUrl("decisions.json")} download>verdicts and track marks (JSON)</a>,
     <a href={api.exportUrl("verdicts.csv")} download>verdicts (CSV)</a>,
     <a href={api.exportUrl("track-marks.csv")} download>track marks (CSV)</a>.

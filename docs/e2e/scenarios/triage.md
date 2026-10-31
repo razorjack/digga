@@ -448,8 +448,8 @@ is visible on the same record and the release API still has no verdict.
 
 ### TRI-47: Playback and history controls (P1)
 
-A library without `seen` verdicts has no "records opened before" control in Settings' Skip group,
-once the header's counter shows that the stats have loaded; "tunes heard before" is there. The
+A library without `seen` verdicts has no "Records from your browser history" control in Settings' Skip group,
+once the header's counter shows that the stats have loaded; "Tunes heard before" is there. The
 browser history import that wrote `seen` verdicts is gone (decision 171), so only a library from
 before it shows the control.
 

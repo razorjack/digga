@@ -75,8 +75,8 @@ describe("config schema", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.issues).toEqual([
-        { path: "universe.loadYears", message: "The Load to year comes before the Load from year" },
-        { path: "filters.yearTo", message: "The To year comes before the From year" },
+        { path: "universe.loadYears", message: "The last year to load is before the first" },
+        { path: "filters.yearTo", message: "The end year is before the start year" },
       ]);
     }
   });

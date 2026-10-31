@@ -30,7 +30,7 @@ test(
     const settings = new SettingsPage(app);
     await settings.open("discogs");
     const imported = await settings.startJob(
-      settings.imports.getByRole("button", { name: "Wantlist", exact: true }),
+      settings.imports.getByRole("button", { name: "Import wantlist", exact: true }),
     );
     await settings.waitForJob(imported, "done");
     // This later Discogs addition is deliberately absent from the imported memberships.

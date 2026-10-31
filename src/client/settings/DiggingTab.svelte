@@ -29,7 +29,7 @@
   const filterPreview = new FilterPreview();
 
   const STRATEGY_COPY: Record<QueueStrategy, { label: string; hint: string }> = {
-    label_sweep: { label: "Label sweep", hint: "label by label, in catalogue order" },
+    label_sweep: { label: "By label", hint: "label by label, in catalogue order" },
     country: { label: "By country", hint: "then label and catalogue number" },
     year: { label: "By year", hint: "oldest first, then label" },
     random: { label: "Shuffled", hint: "a new order each day, stable within the day" },
@@ -75,7 +75,7 @@
   <section>
     <header>
       <h2>What to dig</h2>
-      <p>They narrow the loaded releases; the queue follows as soon as you save.</p>
+      <p>These filters narrow the loaded records. The queue updates when you save.</p>
     </header>
     <div class="fields">
       <fieldset class="field">
@@ -100,21 +100,17 @@
           />
           <label class="check">
             <input type="checkbox" bind:checked={draft.filters.includeUnknownYear} />
-            include releases without a year
+            Include releases without a year
           </label>
           <label class="check">
             <input
               type="checkbox"
-              aria-describedby="{id}-undated-hint"
               disabled={draft.filters.includeUnknownYear}
               bind:checked={draft.filters.includeUnknownYearOnCoverage}
             />
-            or only those on labels and by artists you want
+            or only those from labels and artists you want or own
           </label>
         </div>
-        <span class="hint" id="{id}-undated-hint"
-          >The labels and artists of the records you want or own.</span
-        >
         <span class="hint problem" id="{id}-years-problem" hidden={!yearsProblem}
           >{yearsProblem}</span
         >
@@ -179,10 +175,8 @@
           onchange={(event) => setHiddenLabels(event.currentTarget.value)}
           placeholder="none"></textarea>
         <span class="hint" id="{id}-labels-hint">
-          One per line, as Discogs writes it; Not On Label also hides self-releases. <Key
-            label="X"
-            size="sm"
-          /> in Triage adds one.
+          One label per line, spelled as on Discogs. “Not On Label” also hides self-releases. Press
+          <Key label="X" size="sm" /> in Triage to add the label on screen.
         </span>
       </div>
       <fieldset class="field">
@@ -195,10 +189,10 @@
                 aria-describedby="{id}-videos-hint"
                 bind:checked={draft.filters.skipWithoutVideos}
               />
-              releases without videos
+              Records without videos
             </label>
             <span class="hint" id="{id}-videos-hint"
-              >No playable YouTube video on any pressing; a newer dump may add one.</span
+              >No playable YouTube video on any pressing. A later catalogue update may add one.</span
             >
           </div>
           {#if hasSeenRecords}
@@ -209,10 +203,11 @@
                   aria-describedby="{id}-history-hint"
                   bind:checked={draft.filters.skipHistory}
                 />
-                records opened before
+                Records from your browser history
               </label>
               <span class="hint" id="{id}-history-hint"
-                >Turn off to dig the records you only opened on Discogs.</span
+                >An earlier version of Digga found these in your browser history. Turn off to dig
+                them.</span
               >
             </div>
           {/if}
@@ -223,10 +218,11 @@
                 aria-describedby="{id}-heard-hint"
                 bind:checked={draft.player.skipHeard}
               />
-              tunes heard before
+              Tunes heard before
             </label>
             <span class="hint" id="{id}-heard-hint"
-              >When a record starts and when moving on; any track can still be picked.</span
+              >The player skips them when a record starts and when it moves on. You can still play
+              any track.</span
             >
           </div>
         </div>
@@ -283,7 +279,7 @@
         </div>
       </fieldset>
       <div class="field narrow">
-        <label class="name" for="{id}-batch">Batch</label>
+        <label class="name" for="{id}-batch">Batch size</label>
         <input
           type="number"
           id="{id}-batch"
@@ -293,7 +289,9 @@
           bind:value={draft.queue.limit}
           {@attach reportProblem(issues, "queue.limit")}
         />
-        <span class="hint" id="{id}-batch-hint">Releases fetched per queue request.</span>
+        <span class="hint" id="{id}-batch-hint"
+          >How many records Digga fetches from the queue at a time.</span
+        >
         <span class="hint problem" id="{id}-batch-problem" hidden={!batchProblem}
           >{batchProblem}</span
         >
@@ -320,7 +318,7 @@
         </div>
       </div>
       <div class="field narrow">
-        <label class="name" for="{id}-seek">Seek step</label>
+        <label class="name" for="{id}-seek">Arrow key jump</label>
         <input
           type="number"
           id="{id}-seek"
@@ -331,7 +329,7 @@
           {@attach reportProblem(issues, "player.seekStepSeconds")}
         />
         <span class="hint" id="{id}-seek-hint"
-          >Seconds per <Key label="←" size="sm" /> <Key label="→" size="sm" />.</span
+          >Seconds that <Key label="←" size="sm" /> and <Key label="→" size="sm" /> jump.</span
         >
         <span class="hint problem" id="{id}-seek-problem" hidden={!seekProblem}>{seekProblem}</span>
       </div>

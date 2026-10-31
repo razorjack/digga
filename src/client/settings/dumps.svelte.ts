@@ -44,8 +44,7 @@ export class DumpFiles {
 
 /** What a dump in the folder is for: the one the library came from, one to load, or neither. */
 export function dumpUse(file: DumpFile, newest: DumpFile, loadedDate: string | null): string {
-  if (file.date === loadedDate) return "the library was loaded from it";
-  if (file.date < newest.date)
-    return `nothing needs it: the ${formatDay(newest.date)} dump is newer`;
+  if (file.date === loadedDate) return "your library was loaded from this file";
+  if (file.date < newest.date) return `safe to delete: the ${formatDay(newest.date)} file is newer`;
   return "not loaded yet";
 }

@@ -97,9 +97,9 @@
     try {
       await dumpFiles.delete(file.name);
       if (dumpFile === file.name) dumpFile = dumpFiles.newest?.name ?? "";
-      showFlash(`Deleted ${file.name}; ${size} freed.`);
+      showFlash(`Deleted ${file.name}, freeing ${size}.`);
     } catch (error) {
-      showFlash(`Not deleted: ${errorMessage(error)}`);
+      showFlash(`Could not delete it: ${errorMessage(error)}`);
     } finally {
       deletingDump = false;
     }
@@ -159,33 +159,37 @@
             <li><b>{formatCount(summary.verdicts.rejected)}</b> skip</li>
             <li><b>{formatCount(summary.verdicts.snoozed)}</b> snooze</li>
             <li><b>{formatCount(summary.verdicts.no_audio)}</b> no audio</li>
-            <li><b>{formatCount(summary.verdicts.seen)}</b> seen</li>
+            {#if summary.verdicts.seen > 0}
+              <li><b>{formatCount(summary.verdicts.seen)}</b> from browser history</li>
+            {/if}
             <li><b>{formatCount(summary.discogs.wantlist)}</b> on the Discogs wantlist</li>
             <li><b>{formatCount(summary.discogs.collection)}</b> owned</li>
           </ul>
         </dd>
       </div>
       <div class="field">
-        <dt class="name">Dump</dt>
+        <dt class="name">Last load</dt>
         <dd>
           <p class="quiet">
             {#if summary.dump.date}Loaded from the <time datetime={summary.dump.date}
                 >{formatDay(summary.dump.date)}</time
-              > dump.{:else if summary.dump.loadedAt}Loaded from a dump of unknown date.{:else}No
-              dump loaded yet.{/if}
+              > catalogue.{:else if summary.dump.loadedAt}Loaded from a catalogue of unknown date.{:else}No
+              catalogue loaded yet.{/if}
             {#if summary.dump.lastLoad}
               {@const load = summary.dump.lastLoad}
               {@const missing = missingReleasesNote(load.missing)}
               The last load{#if load.finishedAt}, on <time datetime={load.finishedAt}
                   >{formatDay(load.finishedAt)}</time
                 >,{/if}
-              added {formatCounted(load.added, "release")}{#if load.coverage > 0}, {formatCount(
+              added {formatCounted(load.added, "release")}{#if load.coverage > 0}, including {formatCount(
                   load.coverage,
-                )} of them in other styles for their label or artist{/if}.
+                )} in other styles from related labels and artists{/if}.
               {#if load.toDig > 0}
-                {formatCount(load.toDig)}
-                {nounFor(load.toDig, "record among them is", "records among them are")} still to dig;
-                <Key label="F" size="sm" /> in Triage offers them.
+                Of these, {formatCount(load.toDig)}
+                {nounFor(load.toDig, "record is", "records are")} still to dig. Press <Key
+                  label="F"
+                  size="sm"
+                /> in Triage to dig just those.
               {/if}
               {#if missing}{missing}{/if}
             {/if}
@@ -199,10 +203,11 @@
 <form id={formId} {onsubmit}>
   <section>
     <header>
-      <h2>Universe</h2>
+      <h2>What to load</h2>
       <p>
-        What future dump loads add or refresh. Removing a style or narrowing these years does not
-        remove or hide records already loaded. Use Digging filters to narrow the queue.
+        These settings decide which releases future loads keep. Removing a style or narrowing the
+        years does not remove records already loaded. To narrow the queue, use the filters on the
+        Digging tab.
       </p>
     </header>
     <div class="fields">
@@ -215,7 +220,7 @@
           onchange={(event) => (draft.universe.styles = parseList(event.currentTarget.value))}
         />
         <span class="hint" id="{id}-universe-styles-hint">
-          Exact Discogs style names, comma separated: Drum n Bass, Jungle.
+          Exact Discogs style names, comma separated.
         </span>
       </div>
       <fieldset class="field">
@@ -246,18 +251,18 @@
         </span>
       </fieldset>
       <fieldset class="field">
-        <legend class="name">Coverage</legend>
+        <legend class="name">Related releases</legend>
         <label class="check">
           <input
             type="checkbox"
             aria-describedby="{id}-coverage-hint"
             bind:checked={draft.universe.coverage}
           />
-          also other styles from the labels and artists you want
+          Also load other styles from labels and artists you want or own
         </label>
         <span class="hint" id="{id}-coverage-hint">
-          When at least a third of the label's or artist's releases in the load years carry one of
-          the styles above.
+          Only for a label or artist with at least a third of its releases in the load years in one
+          of the styles above.
         </span>
       </fieldset>
     </div>
@@ -266,11 +271,12 @@
 
 <section aria-labelledby="{id}-dump-title">
   <header>
-    <h2 id="{id}-dump-title">Dump</h2>
+    <h2 id="{id}-dump-title">Catalogue</h2>
     <p role="status" id="{id}-job-settings">{unsaved ? SAVE_BEFORE_JOB : ""}</p>
     <p>
-      Discogs publishes every release once a month, over 10 GB compressed. Update downloads the
-      newest dump and loads it; <Key label="F" size="sm" /> in Triage then offers what it added.
+      Discogs publishes its whole catalogue once a month, over 10 GB compressed. “Update the
+      catalogue” downloads the newest one and loads it. Then press <Key label="F" size="sm" /> in Triage
+      to dig what it added.
     </p>
   </header>
   <div class="fields">
@@ -284,7 +290,7 @@
           aria-describedby={unsaved ? `${id}-job-settings` : undefined}
           onclick={() => startJob(() => api.startDumpUpdate())}
         >
-          Update from the newest dump
+          Update the catalogue
         </button>
         <button
           type="button"
@@ -300,10 +306,10 @@
     <div class="field">
       <span class="name">Downloaded</span>
       {#if dumpFiles.error}
-        <p class="quiet">The dumps folder did not load: {dumpFiles.error}.</p>
+        <p class="quiet">Could not read the catalogue folder: {dumpFiles.error}.</p>
       {:else if dumpFiles.value && dumpFiles.newest}
         {@const newest = dumpFiles.newest}
-        <ul class="dumps" aria-label="Dumps in the folder">
+        <ul class="dumps" aria-label="Catalogue files in the folder">
           {#each dumpFiles.value.files as file (file.name)}
             <li>
               <span>{file.name}</span>
@@ -336,8 +342,8 @@
           class="file"
           list="{id}-dump-files"
           bind:value={dumpFile}
-          placeholder="file name or absolute path"
-          aria-label="Dump file"
+          placeholder="file name or full path"
+          aria-label="Catalogue file"
         />
         <datalist id="{id}-dump-files">
           {#each dumpFiles.value?.files ?? [] as file (file.name)}
@@ -347,12 +353,14 @@
         <input
           type="number"
           min="1"
-          placeholder="limit"
-          aria-label="Limit"
+          placeholder="all"
+          aria-label="Releases to load"
           value={dumpLimit ?? ""}
           oninput={(event) => (dumpLimit = parseInteger(event.currentTarget.value))}
         />
-        <label class="check"><input type="checkbox" bind:checked={dumpDryRun} /> dry run</label>
+        <label class="check"
+          ><input type="checkbox" bind:checked={dumpDryRun} /> Trial run, saves nothing</label
+        >
         <button
           type="button"
           class="secondary"
@@ -369,15 +377,15 @@
   <details>
     <summary>How updates, downloads and loads work</summary>
     <p>
-      Update downloads the newest dump into {#if dumpFiles.value}<code
+      “Update the catalogue” downloads the newest catalogue into {#if dumpFiles.value}<code
           >{dumpFiles.value.directory}</code
-        >{:else}the dumps folder{/if} unless it is there, checks it against the checksum Discogs publishes,
-      and loads it. Download only and Load do one step each. Load also takes an absolute path, and a limit
-      and a dry run for trying a file.
+        >{:else}the catalogue folder{/if} unless it is already there, checks it against Discogs' checksum
+      and loads it. “Download only” and “Load” each do one of those steps. “Load” also takes a full path,
+      a number of releases to load and a trial run, for testing a file.
     </p>
     <p>
-      A dump that is loaded, or older than one that is, can go: Digga reads a dump only while it
-      loads it.
+      You can delete a file once it is loaded, or once a newer one is. Digga reads a file only while
+      loading it.
     </p>
   </details>
 </section>

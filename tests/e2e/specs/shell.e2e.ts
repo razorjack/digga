@@ -87,7 +87,7 @@ test(
     // Decision 60: a clicked checkbox used to keep the page keys.
     await settings.showTab("digging");
     const checkbox = settings.root.getByRole("checkbox", {
-      name: "include releases without a year",
+      name: "Include releases without a year",
     });
     // Twice, so the draft is saved again and the page key leaves without asking.
     await checkbox.click();

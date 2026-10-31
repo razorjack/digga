@@ -321,7 +321,7 @@ describe("the download in the jobs panel", () => {
       const base = { file: null, receivedBytes: 0, totalBytes: null, alreadyDownloaded: false };
       updateJobProgress(db, job.id, { ...base, phase: "finding" });
       expect(jobProgress(getJob(db, job.id)!)).toEqual({
-        text: "looking for the newest dump",
+        text: "looking for the newest catalogue",
         fraction: null,
       });
       const file = "discogs_20260901_releases.xml.gz";
@@ -334,11 +334,11 @@ describe("the download in the jobs panel", () => {
         totalBytes: total,
       });
       expect(jobProgress(getJob(db, job.id)!)).toEqual({
-        text: "2026-09-01 dump: 2.5 GB of 10 GB",
+        text: "2026-09-01 catalogue: 2.5 GB of 10 GB",
         fraction: 0.25,
       });
       updateJobProgress(db, job.id, { ...base, phase: "done", file, alreadyDownloaded: true });
-      expect(jobProgress(getJob(db, job.id)!).text).toBe("2026-09-01 dump, downloaded before");
+      expect(jobProgress(getJob(db, job.id)!).text).toBe("2026-09-01 catalogue, downloaded before");
     } finally {
       db.close();
     }
@@ -369,7 +369,7 @@ describe("the download over HTTP", () => {
       const second = await server.app.request("/api/jobs/dump-download", { method: "POST" });
       expect([second.status, ((await second.json()) as ApiError).error]).toEqual([
         400,
-        'Wait until "Download dump" has finished',
+        'Wait until "Download the catalogue" has finished',
       ]);
 
       await expect.poll(() => server.jobs.get(job.id)?.status).toBe("done");
@@ -427,7 +427,7 @@ describe("deleting dumps", () => {
       const refused = await remove(old);
       expect([refused.status, ((await refused.json()) as ApiError).error]).toEqual([
         400,
-        'Wait until "Download dump" has finished',
+        'Wait until "Download the catalogue" has finished',
       ]);
       await expect.poll(() => server.jobs.get(job.id)?.status).toBe("done");
 
@@ -474,7 +474,7 @@ describe("the monthly update over HTTP", () => {
       const load = await post("/api/jobs/dump-load", { file: FIXTURE_GZ });
       expect([load.status, ((await load.json()) as ApiError).error]).toEqual([
         400,
-        'Wait until "Update from the newest dump" has finished',
+        'Wait until "Update the catalogue" has finished',
       ]);
 
       await expect.poll(() => server.jobs.get(job.id)?.status).toBe("done");
@@ -516,7 +516,7 @@ describe("the monthly update over HTTP", () => {
       // The download took ten minutes before the load started.
       const now = Date.parse(running.startedAt!) + 840_000;
       expect(jobProgress(running, now).text).toBe(
-        "scanned 4,000,000, matched 15,000, ~12\u00a0min\u00a0left",
+        "read 4,000,000, kept 15,000, ~12\u00a0min\u00a0left",
       );
     } finally {
       db.close();

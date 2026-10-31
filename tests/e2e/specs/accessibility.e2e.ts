@@ -310,7 +310,7 @@ test.describe("with the September dump listed", () => {
       await settings.open("library");
       fakes.dumps.holdAt("part-way");
       const update = await settings.startJob(
-        settings.dumpSection.getByRole("button", { name: "Update from the newest dump" }),
+        settings.dumpSection.getByRole("button", { name: "Update the catalogue" }),
       );
       await expect(header.loadIndicator).toBeVisible();
       fakes.dumps.release();
@@ -323,7 +323,7 @@ test.describe("with the September dump listed", () => {
         "M needs your Discogs Maybe list",
         "Note saved.",
         "The catalogue is in",
-        "Update from the newest dump started.",
+        "Update the catalogue started.",
       ])
         expect(inserted).not.toContainEqual(expect.stringContaining(text));
     },

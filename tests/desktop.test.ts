@@ -273,7 +273,7 @@ describe("the setup's dialogs", () => {
       runDownloadUntilStopped(server);
       expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
         status: 400,
-        body: { error: 'Wait until "Download dump" has finished' },
+        body: { error: 'Wait until "Download the catalogue" has finished' },
       });
     });
     const named = resolvePaths({ dataDir: tmp, dumpsDir: path.join(tmp, "named") });

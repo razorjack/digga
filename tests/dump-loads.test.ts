@@ -156,7 +156,7 @@ describe("recorded dump loads", () => {
       missing: 3,
     });
     expect(jobProgress(getJob(db, job.id)!).text).toBe(
-      "scanned 19,417,067, matched 71,699, 312 more for their label or artist, 580 new, 3 not found",
+      "read 19,417,067, kept 71,699, 312 more from related labels and artists, 580 new, 3 not found",
     );
     db.close();
   });

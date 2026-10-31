@@ -58,7 +58,7 @@ Decisions 86 to 93.
 - Coverage pass: every load also keeps releases in other styles on the labels and by the artists
   of wanted or owned records, when those mostly release the styles; undated records on them
   reach the queue.
-- Freshness: "Update from the newest dump" (`digga dump update`) downloads and loads the month's
+- Freshness: "Update the catalogue" (`digga dump update`) downloads and loads the month's
   dump in one job. Each load is recorded, Settings says what it added and did not find, and `F`
   digs the records it added.
 
@@ -78,7 +78,7 @@ Decisions 105 to 111; the design is `docs/FIRST_RUN.md`.
   are tracked there. For individual test changes, use the [E2E guide](E2E_TESTING.md).
 
 - The style picker in Settings, instead of the comma-separated Styles field.
-- "Update from the newest dump" reading the dump while it downloads, as the setup does.
+- "Update the catalogue" reading the dump while it downloads, as the setup does.
 
 - If Discogs adds a list-write endpoint, push `M` to the Maybe list like `A` pushes to the
   wantlist, and drop the manual hand-off in Twelves.

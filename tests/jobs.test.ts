@@ -73,18 +73,20 @@ describe("job contracts", () => {
       });
       updateJobProgress(db, job.id, { ...reading, page: 100, read: 10000, records: 212 });
       expect(jobProgress(getJob(db, job.id)!).text).toBe(
-        "Shop: 10,000 of 38,112 listings, 212 loaded records",
+        "Shop: 10,000 of 38,112 listings read, 212 in your library",
       );
       updateJobProgress(db, job.id, { ...reading, listings: 300, records: 5 });
-      expect(jobProgress(getJob(db, job.id)!).text).toBe("Shop: 300 listings, 5 loaded records");
+      expect(jobProgress(getJob(db, job.id)!).text).toBe(
+        "Shop: 300 listings read, 5 in your library",
+      );
       updateJobProgress(db, job.id, { ...reading, listings: 300, records: 5, gone: 3, added: 12 });
       expect(jobProgress(getJob(db, job.id)!).text).toBe(
-        "Shop: 300 listings, 5 loaded records; 3 releases gone, 12 new since the last read",
+        "Shop: 300 listings read, 5 in your library. Since the last read: 3 releases gone, 12 new",
       );
       const single = { ...reading, page: 1, pages: 1, listings: 1, read: 1 };
       updateJobProgress(db, job.id, { ...single, records: 1, gone: 1, added: 0 });
       expect(jobProgress(getJob(db, job.id)!).text).toBe(
-        "Shop: 1 listing, 1 loaded record; 1 release gone, 0 new since the last read",
+        "Shop: 1 listing read, 1 in your library. Since the last read: 1 release gone, 0 new",
       );
     } finally {
       db.close();
@@ -107,11 +109,11 @@ describe("job contracts", () => {
       const running = getJob(db, job.id)!;
       const fourMinutesIn = Date.parse(running.startedAt!) + 240_000;
       expect(jobProgress(running, fourMinutesIn)).toEqual({
-        text: "scanned 4,000,000, matched 15,000, ~12\u00a0min\u00a0left",
+        text: "read 4,000,000, kept 15,000, ~12\u00a0min\u00a0left",
         fraction: 0.25,
       });
       expect(jobProgress(running, Date.parse(running.startedAt!) + 5_000).text).toBe(
-        "scanned 4,000,000, matched 15,000",
+        "read 4,000,000, kept 15,000",
       );
       updateJobProgress(db, job.id, {
         ...counts,
@@ -120,7 +122,7 @@ describe("job contracts", () => {
         totalBytes: null,
       });
       expect(jobProgress(getJob(db, job.id)!, fourMinutesIn)).toEqual({
-        text: "scanned 4,000,000, matched 15,000",
+        text: "read 4,000,000, kept 15,000",
         fraction: null,
       });
     } finally {

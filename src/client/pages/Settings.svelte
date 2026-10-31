@@ -16,6 +16,7 @@
   import GeneralTab from "../settings/GeneralTab.svelte";
   import { SAVE_BEFORE_JOB, SettingsJobs } from "../settings/jobs.svelte.ts";
   import LibraryTab from "../settings/LibraryTab.svelte";
+  import { problemLine } from "../settings/problems.ts";
   import {
     hasSettingsForm,
     SETTINGS_TAB_LABEL,
@@ -46,8 +47,8 @@
     draft !== null && saved !== null && JSON.stringify(draft) !== JSON.stringify(saved),
   );
   const validation = $derived(draft ? validateConfig(draft) : null);
-  const problems = $derived(validation && !validation.ok ? validation.errors : []);
   const issues = $derived(validation && !validation.ok ? validation.issues : []);
+  const problems = $derived(issues.map(problemLine));
   const unsaved = $derived(draft && saved ? unsavedTabs(draft, saved) : []);
   /** The save bar shows only with something to say: a problem, a message or unsaved changes. */
   const idle = $derived(problems.length === 0 && flash.text === null && !dirty);
@@ -266,7 +267,7 @@
           {/if}
         </p>
         {#if dirty}
-          <button type="button" class="secondary" onclick={revert}>Revert</button>
+          <button type="button" class="secondary" onclick={revert}>Discard changes</button>
           <button
             type="submit"
             form={formId}

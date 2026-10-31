@@ -10,6 +10,7 @@ import type {
   ReleaseDetail,
   Stats,
 } from "../../../src/shared/api.ts";
+import { problemLine } from "../../../src/client/settings/problems.ts";
 import { type Config, validateConfig } from "../../../src/shared/config.ts";
 import { formatBytes, formatCount, formatDay } from "../../../src/shared/display.ts";
 import { startSeconds } from "../../../src/shared/playlist.ts";
@@ -39,7 +40,7 @@ import { expect, test } from "../support/test.ts";
 // exports (docs/e2e/scenarios/settings.md).
 
 test(
-  "SET-01 the form shows the saved config; a change is unsaved until Save or Cmd+S, Revert restores, a reload keeps it",
+  "SET-01 the form shows the saved config; a change is unsaved until Save or Cmd+S, Discard changes restores, a reload keeps it",
   { tag: ["@SET-01", "@P1"] },
   async ({ app }) => {
     const settings = new SettingsPage(app);
@@ -126,19 +127,21 @@ test(
     const batchProblem = problemOf({ ...saved, queue: { ...saved.queue, limit: 0 } });
     await expectProblem(settings, settings.batch, batchProblem);
     await expect(settings.batch).toHaveAccessibleDescription(
-      `Releases fetched per queue request. ${batchProblem.message}`,
+      `How many records Digga fetches from the queue at a time. ${batchProblem.message}`,
     );
 
     await settings.batch.fill("50");
     await expectNoProblem(settings.batch);
-    await expect(settings.batch).toHaveAccessibleDescription("Releases fetched per queue request.");
+    await expect(settings.batch).toHaveAccessibleDescription(
+      "How many records Digga fetches from the queue at a time.",
+    );
     await expect(settings.saveButton).toBeEnabled();
 
     await settings.seekStep.fill("0");
     const seekProblem = problemOf({ ...saved, player: { ...saved.player, seekStepSeconds: 0 } });
     await expectProblem(settings, settings.seekStep, seekProblem);
     await expect(settings.seekStep).toHaveAccessibleDescription(
-      new RegExp(`^Seconds per .+\\. ${escapeRegExp(seekProblem.message)}$`),
+      new RegExp(`^Seconds that .+ jump\\. ${escapeRegExp(seekProblem.message)}$`),
     );
   },
 );
@@ -321,10 +324,10 @@ test.describe("with dumps in the folder", () => {
       const size = formatBytes(september.data.length);
       await expect(settings.dump(september.name)).toContainText(`${size}, not loaded yet`);
       await expect(settings.dump(august.name)).toContainText(
-        `${formatBytes(august.data.length)}, the library was loaded from it`,
+        `${formatBytes(august.data.length)}, your library was loaded from this file`,
       );
       await expect(settings.dump(july.name)).toContainText(
-        `${formatBytes(july.data.length)}, nothing needs it: the ${formatDay(september.date)} dump is newer`,
+        `${formatBytes(july.data.length)}, safe to delete: the ${formatDay(september.date)} file is newer`,
       );
 
       const question = `confirm: Delete ${september.name} (${size})? Loading it again means downloading it again.`;
@@ -333,7 +336,7 @@ test.describe("with dumps in the folder", () => {
       expect(app.apiRequests().filter((request) => request.startsWith("DELETE "))).toEqual([]);
       expect(await settings.deleteDump(september.name, "accept")).toBe(question);
       await expect(
-        settings.root.getByText(`Deleted ${september.name}; ${size} freed.`),
+        settings.root.getByText(`Deleted ${september.name}, freeing ${size}.`),
       ).toBeVisible();
       const listed = await app.api.get<DumpsResponse>("/api/dumps");
       expect(listed.files.map((file) => file.name)).toEqual([august.name, july.name]);
@@ -362,7 +365,7 @@ test.describe("with the September dump listed", () => {
   test.use({ diggaOptions: { listedDump: "september" } });
 
   test(
-    "SET-17 Update from the newest dump downloads and loads in one job; the Library counts what it added and did not find",
+    "SET-17 Update the catalogue downloads and loads in one job; the Library counts what it added and did not find",
     { tag: ["@SET-17", "@P1"] },
     async ({ app, fakes }) => {
       const settings = new SettingsPage(app);
@@ -384,14 +387,18 @@ test.describe("with the September dump listed", () => {
         added: SEPTEMBER_ADDITIONS.length,
         missing: 1,
       });
-      await expect(settings.library).toContainText(`from the ${formatDay(september.date)} dump`);
       await expect(settings.library).toContainText(
-        `added ${SEPTEMBER_ADDITIONS.length} releases. ${SEPTEMBER_ADDITIONS.length} records among them are still to dig`,
+        `from the ${formatDay(september.date)} catalogue`,
       );
       await expect(settings.library).toContainText(
-        "It did not find 1 release loaded before, which stay in the library.",
+        `added ${SEPTEMBER_ADDITIONS.length} releases. Of these, ${SEPTEMBER_ADDITIONS.length} records are still to dig`,
       );
-      await expect(settings.dump(september.name)).toContainText("the library was loaded from it");
+      await expect(settings.library).toContainText(
+        "1 release from earlier loads was not in this one. It stays in your library.",
+      );
+      await expect(settings.dump(september.name)).toContainText(
+        "your library was loaded from this file",
+      );
       await expect(header.loadIndicator).toBeHidden();
     },
   );
@@ -442,8 +449,10 @@ test.describe("with the September dump in the folder", () => {
         .toEqual([september.name, smallDump("july").name]);
 
       await settings.dumpFile.fill(september.name);
-      await settings.dumpSection.getByRole("spinbutton", { name: "Limit" }).fill("2");
-      await settings.dumpSection.getByRole("checkbox", { name: "dry run" }).check();
+      await settings.dumpSection.getByRole("spinbutton", { name: "Releases to load" }).fill("2");
+      await settings.dumpSection
+        .getByRole("checkbox", { name: "Trial run, saves nothing" })
+        .check();
       const sent = app.page.waitForRequest(
         (request) =>
           request.method() === "POST" && new URL(request.url()).pathname === "/api/jobs/dump-load",
@@ -461,7 +470,7 @@ test.describe("with the September dump in the folder", () => {
       const job = await app.api.get<Job>(`/api/jobs/${load}`);
       expect(job.progress).toMatchObject({ matched: 2, added: null });
       await expect(settings.job(load)).toContainText(
-        `scanned ${formatCount((job.progress as DumpLoadProgress).scanned)}, matched 2`,
+        `read ${formatCount((job.progress as DumpLoadProgress).scanned)}, kept 2`,
       );
       // A dry run records no load: the library is still the August dump's.
       const stats = await app.api.get<Stats>("/api/stats");
@@ -529,7 +538,7 @@ test(
       await settings.open("backups");
 
       await expect(settings.backups.getByText(/^A scheduled backup failed /)).toHaveText(
-        /^A scheduled backup failed just now:\s+the daily decisions backup failed: .*EACCES.*; the decisions checkpoint failed: .*EACCES.*\. Digga tries again every fifteen minutes; Back up now tries at\s+once\.$/,
+        /^A scheduled backup failed just now:\s+the daily decisions backup failed: .*EACCES.*; the decisions checkpoint failed: .*EACCES.*\. Digga tries again every 15 minutes, or you can press Back up now\.$/,
       );
     } finally {
       unprotect();
@@ -617,7 +626,7 @@ test(
 async function startHeldUpdate(settings: SettingsPage, fakes: FakeServices): Promise<string> {
   fakes.dumps.holdAt("part-way");
   const update = await settings.startJob(
-    settings.dumpSection.getByRole("button", { name: "Update from the newest dump" }),
+    settings.dumpSection.getByRole("button", { name: "Update the catalogue" }),
   );
   await expect.poll(() => fakes.dumps.sentBytes).toBe(fakes.dumps.checkpoint("part-way").offset);
   await settings.waitForJob(update, "running");
@@ -633,7 +642,8 @@ async function jobIds(app: DiggaApp): Promise<string[]> {
 function problemOf(config: Config): { message: string; line: string } {
   const validation = validateConfig(config);
   if (validation.ok) throw new Error("the config is valid");
-  return { message: validation.issues[0]!.message, line: validation.errors[0]! };
+  const issue = validation.issues[0]!;
+  return { message: issue.message, line: problemLine(issue) };
 }
 
 async function expectProblem(
@@ -655,7 +665,7 @@ async function expectNoProblem(field: Locator): Promise<void> {
 
 /** The buttons a running dump job disables: the jobs that write the folder, and each Delete. */
 function dumpButtons(settings: SettingsPage, dumps: string[]) {
-  const jobs = ["Update from the newest dump", "Download only", "Load"].map((name) =>
+  const jobs = ["Update the catalogue", "Download only", "Load"].map((name) =>
     settings.dumpSection.getByRole("button", { name, exact: true }),
   );
   return [...jobs, ...dumps.map((name) => settings.deleteButton(name))];

@@ -47,7 +47,9 @@ test(
       const response = await account;
       expect(response.ok()).toBe(true);
       await response.finished();
-      await expect(settings.token).toHaveAccessibleDescription(/^No Discogs token is set\. /);
+      await expect(settings.token).toHaveAccessibleDescription(
+        /^No Discogs token yet\. Paste one below\. /,
+      );
       expect(fakes.log.filter((request) => request.service === "discogs")).toEqual([]);
     });
 
@@ -74,7 +76,9 @@ test(
     expect(removed.status()).toBe(200);
     await expect(settings.root.getByText("Token removed.", { exact: true })).toBeVisible();
     await expect(settings.token).not.toHaveAttribute("aria-invalid");
-    await expect(settings.token).toHaveAccessibleDescription(/^No Discogs token is set\. /);
+    await expect(settings.token).toHaveAccessibleDescription(
+      /^No Discogs token yet\. Paste one below\. /,
+    );
     expect(await app.api.get<DiscogsAccountResponse>("/api/discogs/account")).toMatchObject({
       hasToken: false,
       tokenSource: null,
@@ -95,9 +99,11 @@ test.describe("with a token from the environment", () => {
 
       await expect(settings.token).toBeDisabled();
       await expect(settings.saveTokenButton).toBeDisabled();
-      await expect(settings.discogs.getByRole("button", { name: "Remove" })).toHaveCount(0);
+      await expect(
+        settings.discogs.getByRole("button", { name: "Remove", exact: true }),
+      ).toHaveCount(0);
       await expect(settings.token).toHaveAccessibleDescription(
-        /^Works for dj, from DISCOGS_TOKEN in the environment\. DISCOGS_TOKEN in the environment, or in the \.env digga started with, overrides a saved token; remove it there to change the token here\.$/,
+        /^Works for dj, from DISCOGS_TOKEN in the environment\. The token comes from DISCOGS_TOKEN, set in the environment or a \.env file, and overrides a saved one\. Remove it there to change the token here\.$/,
       );
       await expect(
         app.api.send("PUT", "/api/discogs/token", { token: "e2e-token-other" }),
@@ -134,7 +140,7 @@ test.describe("with a Discogs account", () => {
       ]);
       await settings.discogs.getByText("Every request Digga makes", { exact: true }).click();
       await expect(settings.discogs.getByRole("listitem").first()).toContainText(
-        "About two requests a visit.",
+        "about two requests when you connect",
       );
     },
   );
@@ -150,13 +156,13 @@ test.describe("with a Discogs account", () => {
       await settings.open("discogs");
 
       await expect(settings.maybeList).toHaveAccessibleDescription(
-        "Lists did not load: Discogs answered 500.",
+        "Could not read your lists: Discogs answered 500.",
       );
       await expect(settings.listsButton).toHaveText("Read my lists");
       await settings.readLists();
       await expect(settings.listsButton).toHaveText("Reload lists");
       await expect(settings.maybeList.getByRole("option")).toHaveText([
-        "None: no M verdict",
+        "None (turns off M)",
         `${MAYBE_LIST.name} (private)`,
         PUBLIC_LIST.name,
       ]);
@@ -201,7 +207,7 @@ test.describe("with a Discogs account", () => {
       for (const key of held) expect(queuedBefore).not.toContain(key);
       await settings.open("discogs");
       await expect(settings.username).toHaveAccessibleDescription(
-        /The library holds dj's collection, wantlist and Maybe list; forget them to use another account\./,
+        /Your library holds dj's collection, wantlist and Maybe list\. To use another account, remove them first\./,
       );
 
       const refused = await settings.saveToken("e2e-token-other");
@@ -211,13 +217,13 @@ test.describe("with a Discogs account", () => {
       );
 
       expect(await settings.forgetDiscogsData()).toBe(
-        "confirm: Forget the collection, wantlist and Maybe list of dj in Digga? Verdicts, notes and marks stay, and Discogs keeps the account as it is.",
+        "confirm: Remove dj's collection, wantlist and Maybe list from Digga? Your verdicts, notes and marks stay, and nothing changes on Discogs.",
       );
       // The collection, and the wantlist with its release no dump has.
       await expect(
-        settings.root.getByText("Forgot 3 Discogs items of dj.", { exact: true }),
+        settings.root.getByText("Removed dj's Discogs data (3 items).", { exact: true }),
       ).toBeVisible();
-      await expect(settings.discogs.getByRole("button", { name: "Forget them" })).toHaveCount(0);
+      await expect(settings.discogs.getByRole("button", { name: "Remove them" })).toHaveCount(0);
       expect(await app.api.get<DiscogsAccountResponse>("/api/discogs/account")).toMatchObject({
         username: DJ.username,
         dataAccount: null,
@@ -243,13 +249,16 @@ test.describe("with a Discogs account", () => {
     async ({ app }) => {
       const settings = new SettingsPage(app);
       const triage = new TriagePage(app);
-      const maybeList = settings.imports.getByRole("button", { name: "Maybe list", exact: true });
+      const maybeList = settings.imports.getByRole("button", {
+        name: "Import Maybe list",
+        exact: true,
+      });
       const readShop = settings.imports.getByRole("button", { name: "Read shop" });
       await settings.open("discogs");
 
       await expect(
-        settings.imports.getByRole("group", { name: "Your Discogs" }).getByRole("button"),
-      ).toHaveText(["Collection", "Wantlist", "Maybe list"]);
+        settings.imports.getByRole("group", { name: "From your account" }).getByRole("button"),
+      ).toHaveText(["Import collection", "Import wantlist", "Import Maybe list"]);
       await expect(maybeList).toBeDisabled();
       await expect(settings.listsButton).toHaveText("Reload lists");
       await settings.maybeList.selectOption({ label: `${MAYBE_LIST.name} (private)` });

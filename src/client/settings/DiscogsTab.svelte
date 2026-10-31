@@ -94,14 +94,14 @@
   }
 
   async function forgetDiscogsData(account: string): Promise<void> {
-    const question = `Forget the collection, wantlist and Maybe list of ${account} in Digga? Verdicts, notes and marks stay, and Discogs keeps the account as it is.`;
+    const question = `Remove ${account}'s collection, wantlist and Maybe list from Digga? Your verdicts, notes and marks stay, and nothing changes on Discogs.`;
     if (!confirm(question)) return;
     try {
       const forgotten = await discogs.forgetData();
-      showFlash(`Forgot ${formatCounted(forgotten, "Discogs item")} of ${account}.`);
+      showFlash(`Removed ${account}'s Discogs data (${formatCounted(forgotten, "item")}).`);
       void stats.refresh();
     } catch (error) {
-      showFlash(`Not forgotten: ${errorMessage(error)}`);
+      showFlash(`Could not remove it: ${errorMessage(error)}`);
     }
   }
 
@@ -125,11 +125,11 @@
     <header>
       <h2 id="{id}-discogs-title">Discogs</h2>
       <p>
-        Digga reads the catalogue from the dump. The token is used only for what you do: imports,
-        <Key label="A" size="sm" /> and <Key label="C" size="sm" /> wants, <Key
-          label="P"
+        Digga reads the catalogue from the monthly download, not from your account. It uses the
+        token only when you act: imports, wants (<Key label="A" size="sm" /> and <Key
+          label="C"
           size="sm"
-        /> prices, and this page.
+        />), prices (<Key label="P" size="sm" />) and this page.
       </p>
       <RequestList />
     </header>
@@ -149,15 +149,15 @@
         {#if discogs.account?.dataAccount}
           {@const dataAccount = discogs.account.dataAccount}
           <span class="hint" id="{id}-data-account">
-            The library holds {dataAccount}'s collection, wantlist and Maybe list; forget them to
-            use another account.
+            Your library holds {dataAccount}'s collection, wantlist and Maybe list. To use another
+            account, remove them first.
             <button
               type="button"
               class="link"
               disabled={discogs.forgetting}
               onclick={() => void forgetDiscogsData(dataAccount)}
             >
-              Forget them
+              Remove them
             </button>
           </span>
         {/if}
@@ -202,8 +202,8 @@
         </p>
         <span class="hint" id="{id}-token-hint">
           {#if tokenFromEnvironment}
-            DISCOGS_TOKEN in the environment, or in the .env digga started with, overrides a saved
-            token; remove it there to change the token here.
+            The token comes from DISCOGS_TOKEN, set in the environment or a .env file, and overrides
+            a saved one. Remove it there to change the token here.
           {:else}
             {tokenStorageText(discogs.account)}
           {/if}
@@ -256,7 +256,7 @@
             value={draft.discogs.maybeListId === null ? "" : String(draft.discogs.maybeListId)}
             onchange={(event) => setMaybeList(event.currentTarget.value)}
           >
-            <option value="">None: no M verdict</option>
+            <option value="">None (turns off M)</option>
             {#each discogs.lists as list (list.id)}
               <option value={String(list.id)}>{list.name}{list.public ? "" : " (private)"}</option>
             {/each}
@@ -279,9 +279,10 @@
         </div>
         <span class="hint" id="{id}-maybe-list-hint">
           {#if discogs.listsState === "error"}
-            Lists did not load: {discogs.listsError}.
+            Could not read your lists: {discogs.listsError}.
           {:else}
-            Where M files maybes. Discogs lets no app add to a list, so Twelves shows what to add.
+            The Discogs list your maybes (M) belong on. Discogs doesn't let apps add to lists, so
+            Twelves shows which maybes still need adding.
           {/if}
         </span>
         {#if usernameUnsaved}
@@ -300,25 +301,28 @@
   <header>
     <h2 id="{id}-imports-title">Imports</h2>
     <p role="status" id="{id}-job-settings">{unsaved ? SAVE_BEFORE_JOB : ""}</p>
-    <p>Seed verdicts from your Discogs collection, wantlist and Maybe list.</p>
+    <p>
+      Bring in your Discogs collection, wantlist and Maybe list, so Digga knows what you own, want
+      or might want.
+    </p>
   </header>
   <div class="fields">
     <fieldset class="field">
-      <legend class="name">Your Discogs</legend>
+      <legend class="name">From your account</legend>
       <div class="inline wrap">
         <button
           type="button"
           class="secondary"
           disabled={unsaved}
           aria-describedby={unsaved ? `${id}-job-settings` : undefined}
-          onclick={() => startJob(() => api.startImport("collection"))}>Collection</button
+          onclick={() => startJob(() => api.startImport("collection"))}>Import collection</button
         >
         <button
           type="button"
           class="secondary"
           disabled={unsaved}
           aria-describedby={unsaved ? `${id}-job-settings` : undefined}
-          onclick={() => startJob(() => api.startImport("wantlist"))}>Wantlist</button
+          onclick={() => startJob(() => api.startImport("wantlist"))}>Import wantlist</button
         >
         <button
           type="button"
@@ -327,13 +331,13 @@
           aria-describedby={unsaved ? `${id}-job-settings` : undefined}
           onclick={() => startJob(() => api.startImport("list"))}
         >
-          Maybe list
+          Import Maybe list
         </button>
       </div>
     </fieldset>
     <form onsubmit={readSellerShop}>
       <fieldset class="field">
-        <legend class="name">Seller shop</legend>
+        <legend class="name">A seller's shop</legend>
         <div class="inline wrap">
           <input
             bind:value={sellerUsername}
@@ -352,7 +356,10 @@
           >
         </div>
         <span class="hint" id="{id}-seller-hint">
-          What a Discogs seller has for sale, so <Key label="F" size="sm" /> in Triage can dig just that.
+          Reads what a Discogs seller has for sale, so you can dig just their stock with <Key
+            label="F"
+            size="sm"
+          /> in Triage.
           <a href="#/shop">Shop my wants</a> matches their copies to your wantlist and keeps a shortlist.
         </span>
       </fieldset>
@@ -362,8 +369,8 @@
   <details>
     <summary>How imports run</summary>
     <p>
-      Imports run on the server; closing this page does not stop them. A shop is read at about 100
-      listings a second, at most 10,000. Buying stays on Discogs.
+      Imports keep running when you leave this page. Digga reads a shop at about 100 listings a
+      second, up to 10,000 listings. Buying still happens on Discogs.
     </p>
   </details>
 </section>

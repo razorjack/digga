@@ -15,11 +15,13 @@ const october: DumpFile = {
 
 describe("dumps in Settings", () => {
   it("say which dump the library came from and which nothing needs", () => {
-    expect(dumpUse(september, september, "2026-09-01")).toBe("the library was loaded from it");
+    expect(dumpUse(september, september, "2026-09-01")).toBe(
+      "your library was loaded from this file",
+    );
     expect(dumpUse(october, october, "2026-09-01")).toBe("not loaded yet");
     // formatDay leaves out the year of dates in the current year.
     expect(dumpUse(september, october, "2026-10-01")).toMatch(
-      /^nothing needs it: the 1 Oct( 2026)? dump is newer$/,
+      /^safe to delete: the 1 Oct( 2026)? file is newer$/,
     );
   });
 
@@ -29,7 +31,7 @@ describe("dumps in Settings", () => {
     const dumps = new DumpFiles({
       getDumps: async () => listing,
       deleteDump: async (name) => {
-        if (refuse) throw new Error('Wait until "Download dump" has finished');
+        if (refuse) throw new Error('Wait until "Download the catalogue" has finished');
         listing = { ...listing, files: listing.files.filter((file) => file.name !== name) };
         return listing;
       },

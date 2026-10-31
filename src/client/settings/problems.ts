@@ -1,6 +1,20 @@
 import type { Attachment } from "svelte/attachments";
 import type { ConfigIssue } from "../../shared/config.ts";
 
+/** The names the Settings fields give the config paths a problem can be at. */
+const FIELD_NAMES: Record<string, string> = {
+  "filters.yearTo": "Years",
+  "universe.loadYears": "Load years",
+  "queue.limit": "Batch size",
+  "player.seekStepSeconds": "Arrow key jump",
+};
+
+/** A problem for the save bar, named by its field: "Batch size: Enter a number from 1 to 5,000". */
+export function problemLine(issue: ConfigIssue): string {
+  const field = FIELD_NAMES[issue.path] ?? issue.path;
+  return field ? `${field}: ${issue.message}` : issue.message;
+}
+
 /** The config problem at `path`, such as "queue.limit"; empty when there is none. */
 export function problemAt(issues: readonly ConfigIssue[], path: string): string {
   return issues.find((issue) => issue.path === path)?.message ?? "";

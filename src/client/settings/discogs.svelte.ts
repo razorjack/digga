@@ -106,23 +106,22 @@ export function usernameAfterTokenSave(
  * browser version saves it that way, and so does the app where the system cannot encrypt it.
  */
 export function tokenStorageText(account: DiscogsAccountResponse | null): string {
-  const source = "From discogs.com/settings/developers";
-  if (account?.tokenSource !== "saved")
-    return `${source}; saved in secrets.env beside the database.`;
+  const source = "Get one at discogs.com/settings/developers.";
+  if (account?.tokenSource !== "saved") return `${source} Digga stores it in your library folder.`;
   const form = account.tokenEncrypted ? "encrypted" : "unencrypted";
-  return `${source}; saved ${form} in secrets.env beside the database.`;
+  return `${source} Digga stores it ${form} in your library folder.`;
 }
 
 function accountProblem(account: DiscogsAccountResponse | null): string | null {
   if (!account) return null;
-  if (!account.hasToken) return "no Discogs token is set";
+  if (!account.hasToken) return "no Discogs token yet. Paste one below";
   if (account.error) return `Discogs did not confirm the token (${account.error})`;
-  if (account.username === "") return "your Discogs username is not set below";
+  if (account.username === "") return "enter your Discogs username below";
   if (
     account.tokenUsername &&
     account.tokenUsername.toLowerCase() !== account.username.toLowerCase()
   )
-    return `the token belongs to ${account.tokenUsername}, not ${account.username}`;
+    return `the token belongs to ${account.tokenUsername}, not ${account.username}. Change the username or paste ${account.username}'s token`;
   return null;
 }
 

@@ -9,10 +9,10 @@ describe("the last load's missing releases", () => {
 
   it("counts one release in the singular and more in the plural", () => {
     expect(missingReleasesNote(1)).toBe(
-      "It did not find 1 release loaded before, which stay in the library.",
+      "1 release from earlier loads was not in this one. It stays in your library.",
     );
     expect(missingReleasesNote(1234)).toBe(
-      "It did not find 1,234 releases loaded before, which stay in the library.",
+      "1,234 releases from earlier loads were not in this one. They stay in your library.",
     );
   });
 });
