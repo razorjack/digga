@@ -373,7 +373,7 @@ describe("the setup after a checksum mismatch", () => {
     expect(flow.step).toBe("crate");
     expect(flow.load?.status).toBe("running");
     expect(flow.checksumRetry).toBe(
-      "The download does not match Discogs' checksum, so Digga downloads it once more.",
+      "The download was damaged (it did not match Discogs' checksum), so Digga is downloading it again.",
     );
   });
 });

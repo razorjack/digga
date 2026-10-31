@@ -72,7 +72,7 @@ downloads the catalogue?", where the download stopped at the fake's checkpoint a
 not resume it, with Quit and Cancel. Cancel keeps the download running, and the setup goes on to
 start the load. Quitting then, as the host's relaunch does, asks "Quit while Digga downloads and
 loads the catalogue?", answered Quit: the server cancels both jobs and stops, the relaunched app
-lists them cancelled, and the crate says "The catalogue stopped loading." with "Pick up". With no
+lists them cancelled, and the crate says "The catalogue stopped loading." with "Load again". With no
 job running, quitting asks nothing
 
 ## ELEC-08
@@ -93,14 +93,14 @@ the notification and creates none ([ELECTRON](../ELECTRON.md#the-harness-preload
 
 Priority: **P2**.
 
-"Use a dump file I have" in step 1 loads a dump the user keeps outside the dumps folder: the
+"Use a catalogue file I have" in step 1 loads a dump the user keeps outside the dumps folder: the
 bulk dump is written to a folder in the test's folder. With no answer the preload cancels the
-open dialog, and step 1 stays as it was, with Fetch enabled. Answered with the file, the setup
+open dialog, and step 1 stays as it was, with Download enabled. Answered with the file, the setup
 moves on to step 2; back on step 1 it names the file and no longer offers the button. With the
 file moved away, a reload stays on step 1, which says "Digga can't find …, the file you chose.
 Connect its disk, or choose another file." with Continue disabled and "Choose another file"
 enabled; with the file back, "Check again" clears it. Continue, Skip, a style and Fill the crate
-load it: the open dialogs recorded are "Use a dump file you have" for
+load it: the open dialogs recorded are "Use a catalogue file you have" for
 one file filtered to `xml.gz`, cancelled and then answered; the settings hold the file in
 `setup.dumpFile`; the fake dumps service sent no transfer, and the only job is the finished load.
 The crate says Digga read the catalogue from the file and leaves it where it is, with no "Delete
@@ -159,13 +159,14 @@ A disk short of space offers another dumps folder, which the app keeps. Without
 names `dumps` in the library's data folder and says "Free some space, or choose a folder on
 another disk.", without `DIGGA_DUMPS_DIR`. "Choose a folder…" with no answer cancels the folder
 dialog and the folder stays; answered with a folder in the test's folder, the message names it,
-Fetch stays disabled, the dialogs recorded are "Choose a folder for the catalogue" for a folder
+Download stays disabled, the dialogs recorded are "Choose a folder for the catalogue" for a folder
 that may be created, and `dumps-folder.json` in the library holds it. With the listing at the
 dump's own size, a relaunch logs the chosen folder as its dumps folder and step 1 names it. With
-the folder then moved away, as a disk is ejected, Fetch reads the setup again and starts nothing:
+the folder then moved away, as a disk is ejected, Download reads the setup again and starts
+nothing:
 step 1 says "Digga can't find …, the folder you chose for the catalogue. Connect its disk, or
-choose another folder.", Fetch is disabled, "Choose a folder…" is offered, no job ran and the
-folder was not created. With the folder back, "Check again" clears it, and Fetch downloads the
+choose another folder.", Download is disabled, "Choose a folder…" is offered, no job ran and the
+folder was not created. With the folder back, "Check again" clears it, and Download fetches the
 dump into it; the default folder stays without a dump. SETUP-05 checks that
 the app offers no folder while `DIGGA_DUMPS_DIR` names one.
 
@@ -176,9 +177,10 @@ Priority: **P2**.
 A quit that stopped the download before any load began is step 1's news. With the download held
 at the fake's checkpoint on step 2, a relaunch answers the quit question with Quit; the relaunched
 app lists the download cancelled, and `#/setup` opens step 1, which says "The download stopped at
-… KB of … KB when Digga quit. Discogs does not allow resuming, so it starts over." Fetch starts a
-new download. Cancelling that one (`POST /api/jobs/:id/cancel`, as Settings' Cancel does) and
-reloading opens step 1 with Fetch and without the quit's message
+… KB of … KB when Digga quit. Discogs downloads can't be resumed, so the next download starts
+from the beginning." Download starts a new download. Cancelling that one
+(`POST /api/jobs/:id/cancel`, as Settings' Cancel does) and reloading opens step 1 with Download
+and without the quit's message
 
 ## ELEC-17
 

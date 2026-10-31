@@ -155,13 +155,13 @@ test.describe("A11Y-01 axe finds nothing serious", () => {
         const setup = new SetupPage(app);
 
         await app.open();
-        await expect(setup.button("Fetch the catalogue")).toBeEnabled();
+        await expect(setup.button("Download the catalogue")).toBeEnabled();
         await expectStepRegion(setup, "catalogue", "Fetch the catalogue");
         await expectAccessible(app.page, "the setup's step 1");
 
         await setup.fetchCatalogue();
         await setup.connect("e2e-token-dj");
-        await expectStepRegion(setup, "discogs", "Bring your Discogs");
+        await expectStepRegion(setup, "discogs", "Connect your Discogs");
         await expect(setup.downloadStrip).toBeVisible();
         await expectAccessible(app.page, "the setup's step 2");
 

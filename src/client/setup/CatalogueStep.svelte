@@ -62,20 +62,25 @@
   <div class="what" aria-live="polite" aria-busy={flow.setup === null}>
     {#if picked}
       <p>
-        Digga reads releases from <code>{homeRelative(picked)}</code>, the file you chose, not from
-        Discogs' API. The file stays where it is.
+        Digga reads releases from <code>{homeRelative(picked)}</code>, the file you chose, and
+        leaves the file where it is.
       </p>
     {:else if newest && catalogue}
       <p>
-        Discogs publishes every release in one file a month. Digga downloads the newest, from
-        <b>{formatDumpDate(newest.date)}</b>{#if newest.bytes}: <b>{formatBytes(newest.bytes)}</b
-          >{/if}, into
-        <code>{homeRelative(catalogue.dumpsDir)}</code
-        >{#if catalogue.freeBytes !== null}{" "}({formatBytes(catalogue.freeBytes)} free){/if}.
-        Digga reads releases from this file, not from Discogs' API.
+        Discogs publishes its whole catalogue as one file each month. Digga downloads the newest
+        one, from
+        <b>{formatDumpDate(newest.date)}</b>{#if newest.bytes}{" "}(<b
+            >{formatBytes(newest.bytes)}</b
+          >){/if}, into
+        <code>{homeRelative(catalogue.dumpsDir)}</code>{#if catalogue.freeBytes !== null}, which has {formatBytes(
+            catalogue.freeBytes,
+          )} free{/if}. Digga reads releases from that file instead of asking Discogs for each one.
       </p>
     {:else if catalogue?.error}
-      <p class="problem">Digga can't reach data.discogs.com: {catalogue.error}.</p>
+      <p class="problem">
+        Digga can't get the list of catalogue files: {catalogue.error}. Check your internet
+        connection, or try again later.
+      </p>
     {:else}
       <p class="quiet">Asking data.discogs.com for the newest catalogue…</p>
     {/if}
@@ -88,9 +93,10 @@
   <div class="outcome">
     <p class="problem" role="alert">
       {#if shortOfSpace && catalogue}
-        The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} free, counting 1 GB to spare, and
-        the disk with
-        <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(catalogue.freeBytes ?? 0)}.
+        The catalogue needs {formatBytes(catalogue.neededBytes ?? 0)} of free space, including 1 GB to
+        spare. The disk with <code>{homeRelative(catalogue.dumpsDir)}</code> has {formatBytes(
+          catalogue.freeBytes ?? 0,
+        )} free.
         {#if canChooseFolder}
           Free some space, or choose a folder on another disk.
         {:else}
@@ -133,7 +139,7 @@
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={flow.busy}>Continue</Action>
       {:else if newest}
         <Action primary keys="Enter" onclick={fetchCatalogue} disabled={!canFetch}
-          >Fetch the catalogue</Action
+          >Download the catalogue</Action
         >
       {/if}
       {#if picked === null && (catalogue?.error || shortOfSpace || folderMissing)}
@@ -148,7 +154,7 @@
       {/if}
       {#if canChooseFile}
         <Action onclick={() => void flow.useDumpFile()} disabled={flow.busy}
-          >Use a dump file I have</Action
+          >Use a catalogue file I have</Action
         >
       {/if}
     </div>

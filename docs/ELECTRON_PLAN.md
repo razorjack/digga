@@ -94,7 +94,7 @@ not integrated has no entry to match.
 The page reaches the app's native dialogs through `/api/desktop` routes, which only a server with
 a `desktop` registers (`src/server/routes/desktop.ts`, decision 168). `GET /api/setup` reports
 `desktop: true` there, and only then does the setup offer them; in the browser they are not
-there. `POST /api/desktop/dump-file` shows "Use a dump file you have", an open dialog for one
+there. `POST /api/desktop/dump-file` shows "Use a catalogue file you have", an open dialog for one
 `.xml.gz` file, and answers the path, or null when cancelled. `POST /api/desktop/dumps-folder`
 shows "Choose a folder for the catalogue" and saves the folder as the dumps folder (decision 169),
 unless `DIGGA_DUMPS_DIR` names it or a download or load runs. Digga never creates a chosen folder,

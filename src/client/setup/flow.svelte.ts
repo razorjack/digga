@@ -360,7 +360,7 @@ export class SetupFlow {
 
   async #startLoad(): Promise<void> {
     const file = this.dumpFile;
-    if (!file) throw new Error("Digga does not know which catalogue to load yet");
+    if (!file) throw new Error("Download the catalogue or choose a catalogue file first.");
     this.load = await api.startDumpLoad({ file });
     this.#followed = true;
     void loadStatus.check();

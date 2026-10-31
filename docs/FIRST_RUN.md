@@ -67,10 +67,10 @@ the batch in progress to commit; better-sqlite3 waits up to 5 s for the lock.
 ## The flow
 
 ```
-1 Fetch the catalogue -> 2 Bring your Discogs -> 3 Pick your sound -> 4 Fill the crate -> Dig
-  the download starts       (optional)             the load starts       "Start digging" after
-                                                                          500 records to dig
-  '------------ the download runs behind steps 2 and 3 --------------'
+1 Fetch the catalogue -> 2 Connect your Discogs -> 3 Pick your sound -> 4 Fill the crate -> Dig
+  the download starts       (optional)               the load starts       "Start digging" after
+                                                                            500 records to dig
+  '------------ the download runs behind steps 2 and 3 ----------------'
 ```
 
 The download needs no choices, so it starts on the first screen, with consent, and runs while
@@ -82,7 +82,7 @@ On the owner's connection that makes:
 
 | Time  | What happens                                                                       |
 | ----- | ---------------------------------------------------------------------------------- |
-| 0:00  | "Fetch the catalogue": the download starts                                         |
+| 0:00  | "Download the catalogue": the download starts                                      |
 | 0:30  | Discogs connected; the collection and wantlist import behind it, about 1 s per 100 |
 | 2:00  | Styles and years confirmed; the load starts on the 2.9 GB downloaded so far        |
 | 2:10  | 500 records to dig: "Start digging" lights up                                      |
@@ -130,7 +130,7 @@ Says what Digga is and what setup will do, and starts the one long download.
                          |
   SIDE A                 |  Dig every record in your styles, by ear. Digga
   A1 Fetch the catalogue |  plays a few seconds of each track on every record
-  A2 Bring your Discogs  |  in the styles and years you pick. One key per
+  A2 Connect your Discogs|  in the styles and years you pick. One key per
   SIDE B                 |  record: skip, want, maybe, grail. What you want
   B1 Pick your sound     |  lands in Twelves, and on your Discogs wantlist if
   B2 Fill the crate      |  you like.
@@ -139,14 +139,14 @@ Says what Digga is and what setup will do, and starts the one long download.
                          |  waiting. You can start digging after the first
                          |  few.
                          |
-                         |  Discogs publishes every release in one file a
-                         |  month. Digga downloads the newest, from
-                         |  1 September 2026: 10.5 GB, into
-                         |  ~/Library/Caches/Digga/dumps (182 GB free). Digga
-                         |  reads releases from this file, not from Discogs'
-                         |  API.
+                         |  Discogs publishes its whole catalogue as one file
+                         |  each month. Digga downloads the newest one, from
+                         |  1 September 2026 (10.5 GB), into
+                         |  ~/Library/Caches/Digga/dumps, which has 182 GB
+                         |  free. Digga reads releases from that file instead
+                         |  of asking Discogs for each one.
                          |----------------------------------------------------
-                         |  [ Fetch the catalogue  Enter ]
+                         |  [ Download the catalogue  Enter ]
 ```
 
 - The dump's date, size, folder and the free space come from `GET /api/setup` when the page
@@ -165,12 +165,12 @@ Says what Digga is and what setup will do, and starts the one long download.
 - The chosen folder is not there, as when its disk is not connected (`dumpsDirMissing` in
   `GET /api/setup`): step 1 says "Digga can't find …, the folder you chose for the catalogue.
   Connect its disk, or choose another folder." with "Check again" and "Choose a folder…", and
-  Fetch is disabled. Fetch reads the setup again first when the folder was chosen, so a folder
-  that went after step 1 opened is caught too. A download never creates a chosen folder: one that
-  is gone fails the job before any request (`createDumpsDir` in `downloadDump`); the default folder
-  and one `DIGGA_DUMPS_DIR` names are created as before.
+  "Download the catalogue" is disabled. That button reads the setup again first when the folder
+  was chosen, so a folder that went after step 1 opened is caught too. A download never creates a
+  chosen folder: one that is gone fails the job before any request (`createDumpsDir` in
+  `downloadDump`); the default folder and one `DIGGA_DUMPS_DIR` names are created as before.
 - data.discogs.com unreachable: the reason and "Try again (Enter)".
-- In the desktop app, "Use a dump file I have" opens a file dialog for a releases dump the user
+- In the desktop app, "Use a catalogue file I have" opens a file dialog for a releases dump the user
   has, anywhere, under any name ending in `.xml.gz` (built on 2026-10-08, decision 168). It is
   offered whatever the listing says, unless the download has begun. The setup saves the file in
   `setup.dumpFile`, moves on to step 2 and loads it in step 4 as it would load a download, reading
@@ -180,26 +180,26 @@ Says what Digga is and what setup will do, and starts the one long download.
   chose. Connect its disk, or choose another file." with "Check again" and Continue disabled. A
   file that goes while the user is on steps 2 and 3 is found only by the load, whose refusal
   ("Dump file not found") step 4 shows; reopening the setup then returns to step 1.
-- From step 2 on, a download strip stays at the foot of the screen: "Fetching the catalogue · 2.9
+- From step 2 on, a download strip stays at the foot of the screen: "Downloading the catalogue · 2.9
   of 10.5 GB · 5 min left", a native `<progress>`.
 
-## Step 2: Bring your Discogs (optional)
+## Step 2: Connect your Discogs (optional)
 
 Connects the account, so Digga leaves out what the user owns or wants and can suggest their
 styles in step 3.
 
 ```
-  Bring your Discogs                                   optional
+  Connect your Discogs                                 optional
 
   With a Discogs token Digga can:
     - leave records you own or already want out of the queue
     - put a record on your wantlist when you press A (Z takes it back)
     - ask for the lowest price when you press P
 
-  Digga reads the catalogue from the file it downloaded, not through
-  your account. It uses the token only for things you do: the ones
-  above, and showing your account in Settings. One request at a time,
-  within Discogs' rate limit.
+  Digga reads the catalogue from the file, not through your account.
+  It uses the token only for the things above and for showing your
+  account in Settings, one request at a time and within Discogs' rate
+  limit.
   > Every request Digga makes
 
   The token stays on this computer. Get one on discogs.com under
@@ -208,7 +208,7 @@ styles in step 3.
   Token  [ ************************ ]  [ Connect ]
 
   Connected as razorjack: 312 in your collection, 1,204 wants.
-  [x] Read my collection and wantlist            about 20 s
+  [x] Import my collection and wantlist          about 20 s
   Prices in [ EUR v ]
 
   [ Continue  Enter ]   Skip
@@ -282,8 +282,9 @@ Chooses what the load keeps, and what Triage digs.
 
            [x] Vinyl only
 
-  About 76,000 releases, 145 MB. The load reads all 19 million releases
-  whatever you pick, so it takes 15 to 20 minutes either way.
+  About 76,000 releases (145 MB on disk). Loading reads all 19 million
+  Discogs releases whatever you pick, so it takes 15 to 20 minutes
+  either way.
 
   [ Fill the crate  Enter ]
 ```
@@ -358,8 +359,8 @@ Shows the load, and lets the user start digging as soon as there is enough to di
   every few seconds. It is not a live region, so screen readers are not flooded.
 - If the imports from step 2 are still running, the read waits for them: the coverage pass reads
   the labels and artists of wanted and owned records when the load starts. The screen says
-  "Reading your wantlist first (page 9 of 13), so the load also keeps other records on your
-  labels", with "Start without it".
+  "Importing your collection and wantlist first, so Digga also keeps other records from your
+  labels and artists", with "Start without them".
 - The last sentence of the screen says that closing the page does not stop the load while the
   server runs. In the desktop app it says that quitting Digga stops the load and asks first.
 - After a load of a file the user chose, the crate names the file and says Digga leaves it where
@@ -399,15 +400,15 @@ above it reads "A want goes on your Discogs wantlist when you press A. Z takes i
 
 ## Failure and resume
 
-| Situation                         | The user sees                                                                                                                                                                                                                                                               | Digga does                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| data.discogs.com unreachable      | The reason and "Try again"                                                                                                                                                                                                                                                  | Nothing has started                                                                                                        |
-| Not enough space                  | Needed, free, and the folder                                                                                                                                                                                                                                                | "Fetch" stays disabled; "Check again" rechecks                                                                             |
-| The download stops                | "The download stopped at 4.1 GB of 10.5 GB: reason. Discogs does not allow resuming, so it starts again." and "Start again"                                                                                                                                                 | The load reading it stops too. The releases loaded so far stay, and can be dug                                             |
-| The checksum does not match       | "The download does not match Discogs' checksum"                                                                                                                                                                                                                             | Downloads once more by itself, then asks                                                                                   |
-| Digga closed during download/load | "The catalogue stopped loading when Digga closed" and "Pick up"; after a quit, "The catalogue stopped loading."; after a quit before any load, step 1 says "The download stopped at 4.1 GB of 10.5 GB when Digga quit. Discogs does not allow resuming, so it starts over." | A crash leaves the jobs interrupted; a quit cancels them. The download starts over; the load reads the dump from the start |
-| The picks match nothing           | "Nothing in the catalogue matches these picks" and "Change your picks"                                                                                                                                                                                                      | Back to step 3                                                                                                             |
-| An import fails (token, Discogs)  | The error on the import's line, with "Try again"                                                                                                                                                                                                                            | The load does not wait for a failed import                                                                                 |
+| Situation                         | The user sees                                                                                                                                                                                                                                                                                                  | Digga does                                                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| data.discogs.com unreachable      | The reason and "Try again"                                                                                                                                                                                                                                                                                     | Nothing has started                                                                                                        |
+| Not enough space                  | Needed, free, and the folder                                                                                                                                                                                                                                                                                   | "Download the catalogue" stays disabled; "Check again" rechecks                                                            |
+| The download stops                | "The download stopped at 4.1 GB of 10.5 GB: reason. Discogs downloads can't be resumed." and "Start again"                                                                                                                                                                                                     | The load reading it stops too. The releases loaded so far stay, and can be dug                                             |
+| The checksum does not match       | "The download was damaged (it did not match Discogs' checksum)"                                                                                                                                                                                                                                                | Downloads once more by itself, then asks                                                                                   |
+| Digga closed during download/load | "The catalogue stopped loading when Digga closed" and "Load again"; after a quit, "The catalogue stopped loading."; after a quit before any load, step 1 says "The download stopped at 4.1 GB of 10.5 GB when Digga quit. Discogs downloads can't be resumed, so the next download starts from the beginning." | A crash leaves the jobs interrupted; a quit cancels them. The download starts over; the load reads the dump from the start |
+| The picks match nothing           | "Nothing in the catalogue matches these picks" and "Change your picks"                                                                                                                                                                                                                                         | Back to step 3                                                                                                             |
+| An import fails (token, Discogs)  | The error on the import's line, with "Try again"                                                                                                                                                                                                                                                               | The load does not wait for a failed import                                                                                 |
 
 Verdicts made during an interrupted load stay: their keys are Discogs ids, and reloading upserts
 the same releases. A finished load takes over the rows of unfinished ones (`dump_loads`).
@@ -529,7 +530,7 @@ The flow is the same web page. The shell adds:
   2026-10-08, decision 166): the question says where the download stands, that Discogs does not
   resume it, how far the load has read and that the releases it kept stay. Cancel keeps both
   running. Closing the window asks the same.
-- "Use a dump file I have" in step 1, with a file dialog (built on 2026-10-08, see step 1).
+- "Use a catalogue file I have" in step 1, with a file dialog (built on 2026-10-08, see step 1).
 - A folder picker for the dumps when the disk is short of space (built on 2026-10-08, see step 1).
 - The token in `safeStorage` (built on 2026-10-06, decision 152 in `DECISIONS.md`).
 

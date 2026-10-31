@@ -142,7 +142,7 @@ test(
     await setup.waitForRecordsToDig(point.recordsToDig);
 
     await expect(setup.releasesKept(point.recordsToDig)).toBeVisible();
-    await expect(setup.progress("Read")).toHaveJSProperty("value", readFraction);
+    await expect(setup.progress("Load")).toHaveJSProperty("value", readFraction);
     await expect(setup.progress("Download")).not.toHaveJSProperty("position", -1);
     await expect(setup.root.getByText("Just pulled", { exact: true })).toBeVisible();
     const { last } = point;
@@ -344,10 +344,10 @@ test(
     fakes.dumps.holdAt(point.name, { transfer: 2 });
 
     await expect(setup.checksumRetry).toContainText(
-      "The download does not match Discogs' checksum, so Digga downloads it once more.",
+      "The download was damaged (it did not match Discogs' checksum), so Digga is downloading it again.",
     );
     expect(await regions.insertedWithText()).not.toContainEqual(
-      expect.stringContaining("does not match"),
+      expect.stringContaining("was damaged"),
     );
     await expect.poll(() => jobStatuses(app, "dump_load")).toEqual(["running", "failed"]);
     fakes.dumps.release();
@@ -381,7 +381,7 @@ test(
     fakes.dumps.release();
 
     await expect(setup.downloadStopped).toContainText(
-      "The download does not match Discogs' checksum. Digga downloaded it twice.",
+      "The download was damaged twice in a row: it did not match Discogs' checksum. Check your internet connection, then start again.",
     );
     expect(fakes.dumps.transfers).toBe(2);
     expect(await jobStatuses(app, "dump_download")).toEqual(["failed"]);
@@ -474,7 +474,7 @@ test(
 );
 
 test(
-  "SETUP-27 Digga closing during the load leaves Pick up, which reads the dump from the start",
+  "SETUP-27 Digga closing during the load leaves Load again, which reads the dump from the start",
   { tag: ["@SETUP-27", "@P1"] },
   async ({ app, fakes }) => {
     test.slow();
@@ -495,7 +495,7 @@ test(
 
     await app.open("#/setup");
     await setup.expectStep("crate");
-    await setup.pickUp();
+    await setup.loadAgain();
     await setup.waitForCatalogue();
     expect(fakes.dumps.transfers).toBe(2);
     expect(await jobStatuses(app, "dump_load")).toEqual(["done", "failed"]);
@@ -559,7 +559,7 @@ function stoppedAt(fakes: FakeServices, offset: number): RegExp {
     "\\.",
   );
   return new RegExp(
-    `^The download stopped at ${where}: [^.]+\\. Discogs does not allow resuming, so it starts again\\.`,
+    `^The download stopped at ${where}: [^.]+\\. Discogs downloads can't be resumed\\.`,
   );
 }
 

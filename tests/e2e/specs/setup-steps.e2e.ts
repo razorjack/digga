@@ -48,11 +48,11 @@ test(
     await app.open();
     // The listing rounds the size to a tenth of a KB, which formatBytes rounds away again.
     await expect(catalogueLine(setup)).toContainText(
-      `from ${formatDumpDate(dump.date)}: ${formatBytes(dump.bytes)}, into ` +
+      `from ${formatDumpDate(dump.date)} (${formatBytes(dump.bytes)}), into ` +
         homeRelative(app.library.dumpsDir),
     );
     // The disk is the machine's own (docs/e2e/HARNESS.md#disk-space), so only its shape is known.
-    await expect(catalogueLine(setup)).toContainText(/\(\d+(\.\d)? (B|KB|MB|GB) free\)\./);
+    await expect(catalogueLine(setup)).toContainText(/, which has \d+(\.\d)? (B|KB|MB|GB) free\./);
     expect(dumpDownloads(fakes)).toEqual([]);
     expect(app.apiRequests()).not.toContain("POST /api/jobs/dump-download");
 
@@ -68,25 +68,26 @@ test(
     fakes.dumps.set({ unavailableStatus: 503 });
     const regions = await LiveRegionWatch.install(app.page);
     const setup = new SetupPage(app);
-    const reason = /^Digga can't reach data\.discogs\.com: .+ answered 503\.$/;
+    const problem = setup.root.getByText(/^Digga can't get the list of catalogue files:/);
 
     await app.open();
-    await expect(setup.root.getByText(reason)).toBeVisible();
-    await expect(setup.button("Fetch the catalogue")).toBeHidden();
+    await expect(problem).toContainText(" 503");
+    await expect(problem).toContainText("Check your internet connection, or try again later.");
+    await expect(setup.button("Download the catalogue")).toBeHidden();
 
     fakes.dumps.set({ unavailableStatus: null });
     await setup.readCatalogueAgain("Try again");
-    await expect(setup.button("Fetch the catalogue")).toBeEnabled();
+    await expect(setup.button("Download the catalogue")).toBeEnabled();
     await expect(catalogueLine(setup)).toContainText(formatDumpDate(fakes.dumps.listed.date));
     await expect(setup.button("Try again")).toBeHidden();
     expect(await regions.insertedWithText()).not.toContainEqual(
-      expect.stringContaining("can't reach"),
+      expect.stringContaining("can't get the list"),
     );
   },
 );
 
 test(
-  "SETUP-05 a catalogue larger than the free space disables Fetch and says how to make room",
+  "SETUP-05 a catalogue larger than the free space disables the download and says how to make room",
   { tag: ["@SETUP-05", "@P1"] },
   async ({ app, fakes }) => {
     // More than any disk has, so the real free space is short whatever the machine.
@@ -98,17 +99,17 @@ test(
 
     await app.open();
     await expect(alert).toContainText(
-      `The catalogue needs ${formatBytes(listedBytes + SPARE_BYTES)} free, counting 1 GB to spare`,
+      `The catalogue needs ${formatBytes(listedBytes + SPARE_BYTES)} of free space, including 1 GB to spare`,
     );
     await expect(alert).toContainText(homeRelative(app.library.dumpsDir));
     await expect(alert).toContainText("set DIGGA_DUMPS_DIR in .env and start Digga again");
-    await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+    await expect(setup.button("Download the catalogue")).toBeDisabled();
     // The desktop app offers no other folder while DIGGA_DUMPS_DIR names this one.
     await expect(setup.button("Choose a folder…")).toBeHidden();
 
     await setup.readCatalogueAgain("Check again");
     await expect(alert).toBeVisible();
-    await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+    await expect(setup.button("Download the catalogue")).toBeDisabled();
     expect(await regions.insertedWithText()).not.toContainEqual(
       expect.stringContaining("The catalogue needs"),
     );
@@ -356,7 +357,7 @@ test.describe("a library with a finished load", () => {
 
 /** Step 1's line about the catalogue it fetches. */
 function catalogueLine(setup: SetupPage) {
-  return setup.root.getByText(/^Discogs publishes every release in one file a month\./);
+  return setup.root.getByText(/^Discogs publishes its whole catalogue as one file each month\./);
 }
 
 /** The releases dumps the fake data.discogs.com has been asked to send, by file name. */

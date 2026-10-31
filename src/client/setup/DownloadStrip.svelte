@@ -18,7 +18,7 @@
 </script>
 
 <aside class="strip" aria-label="Download">
-  <span class="label">Fetching the catalogue</span>
+  <span class="label">Downloading the catalogue</span>
   <progress max="1" value={fraction} aria-label="Catalogue downloaded"></progress>
   <span class="numbers figures">
     {#if progress?.totalBytes}

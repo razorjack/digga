@@ -207,9 +207,9 @@ describe("a download that stopped", () => {
     } as Job;
   }
 
-  it("says where it stopped and why, and that it starts again", () => {
+  it("says where it stopped and why, and that it cannot resume", () => {
     expect(stoppedDownloadMessage(download("failed", "fetch failed", 4_400_000_000))).toBe(
-      "The download stopped at 4.1 GB of 10.5 GB: fetch failed. Discogs does not allow resuming, so it starts again.",
+      "The download stopped at 4.1 GB of 10.5 GB: fetch failed. Discogs downloads can't be resumed.",
     );
   });
 
@@ -226,10 +226,10 @@ describe("a download that stopped", () => {
     };
 
     expect(stoppedDownloadMessage(mismatched("failed", 2))).toBe(
-      "The download does not match Discogs' checksum. Digga downloaded it twice.",
+      "The download was damaged twice in a row: it did not match Discogs' checksum. Check your internet connection, then start again.",
     );
     expect(checksumRetryNote(mismatched("running", 1))).toBe(
-      "The download does not match Discogs' checksum, so Digga downloads it once more.",
+      "The download was damaged (it did not match Discogs' checksum), so Digga is downloading it again.",
     );
     expect(checksumRetryNote(mismatched("running", 0))).toBeNull();
     expect(checksumRetryNote(mismatched("failed", 2))).toBeNull();
@@ -245,10 +245,10 @@ describe("a download that stopped", () => {
 
   it("says where a quit stopped it and that it starts over", () => {
     expect(quitDownloadMessage(download("cancelled", QUIT_JOB_ERROR, 4_400_000_000))).toBe(
-      "The download stopped at 4.1 GB of 10.5 GB when Digga quit. Discogs does not allow resuming, so it starts over.",
+      "The download stopped at 4.1 GB of 10.5 GB when Digga quit. Discogs downloads can't be resumed, so the next download starts from the beginning.",
     );
     expect(quitDownloadMessage(download("cancelled", QUIT_JOB_ERROR, 0))).toBe(
-      "The download stopped when Digga quit. Discogs does not allow resuming, so it starts over.",
+      "The download stopped when Digga quit. Discogs downloads can't be resumed, so the next download starts from the beginning.",
     );
   });
 

@@ -38,10 +38,10 @@ export interface AppDesktop extends Desktop {
 const QUIT = 0;
 
 const DUMP_FILE_DIALOG: OpenDialogOptions = {
-  title: "Use a dump file you have",
+  title: "Use a catalogue file you have",
   properties: ["openFile"],
   // macOS filters on the last part of an extension, .gz, so the server checks for .xml.gz.
-  filters: [{ name: "Discogs releases dump", extensions: ["xml.gz"] }],
+  filters: [{ name: "Discogs catalogue file", extensions: ["xml.gz"] }],
 };
 
 const DUMPS_FOLDER_DIALOG: OpenDialogOptions = {

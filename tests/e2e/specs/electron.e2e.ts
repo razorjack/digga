@@ -395,7 +395,7 @@ test.describe("on a new library", () => {
       await expect(
         setup.root.getByText("The catalogue stopped loading.", { exact: true }),
       ).toBeVisible();
-      await expect(setup.button("Pick up")).toBeVisible();
+      await expect(setup.button("Load again")).toBeVisible();
 
       // With nothing running, quitting asks nothing.
       await electron.relaunch();
@@ -424,7 +424,7 @@ test.describe("on a new library", () => {
       await setup.expectStep("catalogue");
       await expect(
         setup.root.getByText(
-          /^The download stopped at [\d.]+ KB of [\d.]+ KB when Digga quit\. Discogs does not allow resuming, so it starts over\.$/,
+          /^The download stopped at [\d.]+ KB of [\d.]+ KB when Digga quit\. Discogs downloads can't be resumed, so the next download starts from the beginning\.$/,
         ),
       ).toBeVisible();
 
@@ -444,7 +444,7 @@ test.describe("on a new library", () => {
           ["dump_download", "cancelled"],
         ]);
       await setup.reload("catalogue");
-      await expect(setup.button("Fetch the catalogue")).toBeEnabled();
+      await expect(setup.button("Download the catalogue")).toBeEnabled();
       await expect(setup.root.getByText(/when Digga quit/)).toHaveCount(0);
     },
   );
@@ -532,7 +532,7 @@ test.describe("on a new library", () => {
 
       // The preload cancels a dialog it has no answer for; step 1 stays as it was.
       await setup.useDumpFile();
-      await expect(setup.button("Fetch the catalogue")).toBeEnabled();
+      await expect(setup.button("Download the catalogue")).toBeEnabled();
       await setup.expectStep("catalogue");
 
       await electron.answerOpenDialog([file]);
@@ -540,7 +540,7 @@ test.describe("on a new library", () => {
       await setup.expectStep("discogs");
       await setup.back("catalogue");
       await expect(setup.root.getByText(chosenLine)).toBeVisible();
-      await expect(setup.button("Use a dump file I have")).toBeHidden();
+      await expect(setup.button("Use a catalogue file I have")).toBeHidden();
 
       // A file that has gone, as on a disk that is not connected, keeps the setup on step 1.
       const ejected = `${file}.ejected`;
@@ -562,9 +562,9 @@ test.describe("on a new library", () => {
       await setup.waitForCatalogue();
 
       const dialog = {
-        title: "Use a dump file you have",
+        title: "Use a catalogue file you have",
         properties: ["openFile"],
-        filters: [{ name: "Discogs releases dump", extensions: ["xml.gz"] }],
+        filters: [{ name: "Discogs catalogue file", extensions: ["xml.gz"] }],
       };
       expect((await electron.recorded()).openDialogs).toEqual([
         { ...dialog, filePaths: [] },
@@ -610,7 +610,7 @@ test.describe("on a new library without DIGGA_DUMPS_DIR", () => {
       await electron.answerOpenDialog([chosen]);
       await setup.chooseDumpsFolder();
       await expect(alert).toContainText(homeRelative(chosen));
-      await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+      await expect(setup.button("Download the catalogue")).toBeDisabled();
 
       const dialog = {
         title: "Choose a folder for the catalogue",
@@ -629,10 +629,10 @@ test.describe("on a new library without DIGGA_DUMPS_DIR", () => {
       expect(electron.server.stdout).toContain(`dumps: ${chosen}`);
       await electron.open();
       await expect(
-        setup.root.getByText(/^Discogs publishes every release in one file a month\./),
+        setup.root.getByText(/^Discogs publishes its whole catalogue as one file each month\./),
       ).toContainText(homeRelative(chosen));
 
-      // The folder goes, as a disk does when it is ejected; Fetch looks again and downloads nothing.
+      // The folder goes, as a disk does when it is ejected; the download looks again and starts nothing.
       const ejected = `${chosen} ejected`;
       fs.renameSync(chosen, ejected);
       await electron.page.keyboard.press("Enter");
@@ -640,7 +640,7 @@ test.describe("on a new library without DIGGA_DUMPS_DIR", () => {
       await expect(missing).toHaveText(
         `Digga can't find ${homeRelative(chosen)}, the folder you chose for the catalogue. Connect its disk, or choose another folder.`,
       );
-      await expect(setup.button("Fetch the catalogue")).toBeDisabled();
+      await expect(setup.button("Download the catalogue")).toBeDisabled();
       await expect(setup.button("Choose a folder…")).toBeEnabled();
       expect(await jobStatuses(electron)).toEqual([]);
       expect(fs.existsSync(chosen)).toBe(false);

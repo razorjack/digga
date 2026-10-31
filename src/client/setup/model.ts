@@ -243,7 +243,7 @@ export function stoppedDownloadMessage(download: Job | null): string | null {
   if (download?.type !== "dump_download" || download.status !== "failed") return null;
   if (download.error === INTERRUPTED_JOB_ERROR) return null;
   if ((download.progress?.checksumMismatches ?? 0) > 0)
-    return "The download does not match Discogs' checksum. Digga downloaded it twice.";
+    return "The download was damaged twice in a row: it did not match Discogs' checksum. Check your internet connection, then start again.";
   const reason = (download.error ?? "no reason given").replace(/\.$/, "");
   const received = download.progress?.receivedBytes ?? 0;
   if (received === 0) return `The download stopped: ${reason}.`;
@@ -251,7 +251,7 @@ export function stoppedDownloadMessage(download: Job | null): string | null {
   const of = total ? ` of ${formatBytes(total)}` : "";
   return (
     `The download stopped at ${formatBytes(received)}${of}: ${reason}. ` +
-    "Discogs does not allow resuming, so it starts again."
+    "Discogs downloads can't be resumed."
   );
 }
 
@@ -268,7 +268,7 @@ export function quitDownloadMessage(download: Job | null): string | null {
   const at = received > 0 ? ` at ${formatBytes(received)}${of}` : "";
   return (
     `The download stopped${at} when Digga quit. ` +
-    "Discogs does not allow resuming, so it starts over."
+    "Discogs downloads can't be resumed, so the next download starts from the beginning."
   );
 }
 
@@ -288,7 +288,7 @@ export function checksumRetryNote(download: Job | null): string | null {
   if (download?.type !== "dump_download") return null;
   if (!isActiveJob(download)) return null;
   if ((download.progress?.checksumMismatches ?? 0) === 0) return null;
-  return "The download does not match Discogs' checksum, so Digga downloads it once more.";
+  return "The download was damaged (it did not match Discogs' checksum), so Digga is downloading it again.";
 }
 
 /** A load that finished without keeping a release: nothing in the catalogue matches the picks. */

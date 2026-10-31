@@ -133,7 +133,7 @@ test(
 );
 
 test(
-  "SETUP-20 the load waits for imports slower than its start, and Start without it starts it at once",
+  "SETUP-20 the load waits for imports slower than its start, and Start without them starts it at once",
   { tag: ["@SETUP-20", "@P2"] },
   async ({ app, fakes }) => {
     test.slow();
@@ -145,7 +145,7 @@ test(
 
     await setup.fillCrateBehindImports();
     await expect(setup.waitingForImports).toHaveText(
-      "Reading your collection and wantlist first, so the load also keeps other records on your labels.",
+      "Importing your collection and wantlist first, so Digga also keeps other records from your labels and artists.",
     );
     await wantlist.received;
     expect(await jobStatuses(app, "dump_load")).toEqual([]);
@@ -177,7 +177,7 @@ test(
 
     await setup.keepSuggestedStyles(picks);
     await expect(setup.suggestion).toHaveText(
-      "Your Discogs records are mostly Drum n Bass, so it is picked. Change them as you like.",
+      "Your Discogs records are mostly Drum n Bass, so Digga picked it. Change your picks as you like.",
     );
     await expect(setup.pickedStyles.getByRole("listitem")).toHaveCount(picks.length);
 

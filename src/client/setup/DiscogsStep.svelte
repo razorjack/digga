@@ -81,7 +81,7 @@
 
 <section class="step" aria-labelledby="discogs-title">
   <header>
-    <h1 id="discogs-title">Bring your Discogs</h1>
+    <h1 id="discogs-title">Connect your Discogs</h1>
     <span class="optional">optional</span>
   </header>
 
@@ -95,9 +95,9 @@
       <li>ask for the lowest price when you press <kbd>P</kbd></li>
     </ul>
     <p>
-      Digga reads the catalogue from the file it downloaded, not through your account. It uses the
-      token only for things you do: the ones above, and showing your account in Settings. One
-      request at a time, within Discogs' rate limit.
+      Digga reads the catalogue from the file, not through your account. It uses the token only for
+      the things above and for showing your account in Settings, one request at a time and within
+      Discogs' rate limit.
     </p>
     <RequestList />
   </div>
@@ -153,9 +153,8 @@
         <summary>No token? Use your username</summary>
         <form onsubmit={useUsername}>
           <p class="hint" id="username-hint">
-            Digga can read a public collection and wantlist by username, more slowly. Wants you add
-            with
-            <kbd>A</kbd> then stay in Digga, and Twelves marks them for adding on discogs.com.
+            Without a token, Digga reads a public collection and wantlist by username, more slowly.
+            Wants you add with <kbd>A</kbd> stay in Digga, and Twelves marks them for you to add on discogs.com.
           </p>
           <label for="username">Discogs username</label>
           <div class="field">
@@ -169,7 +168,9 @@
               oninput={() => (refused = null)}
               {@attach reportProblem(usernameProblem)}
             />
-            <Action type="submit" disabled={flow.busy || username.trim() === ""}>Use it</Action>
+            <Action type="submit" disabled={flow.busy || username.trim() === ""}
+              >Use this username</Action
+            >
           </div>
         </form>
       </details>
@@ -178,10 +179,10 @@
 
   {#if connectedAs}
     <fieldset class="imports">
-      <legend>What you already know</legend>
+      <legend>From your account</legend>
       <label>
         <input type="checkbox" bind:checked={seeds} />
-        Read my collection and wantlist
+        Import my collection and wantlist
         <span class="quiet">about {importTime} s</span>
       </label>
       <label class="currency">

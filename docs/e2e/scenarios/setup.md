@@ -33,15 +33,16 @@ the button
 Priority: **P1**.
 
 data.discogs.com answers `503` for every request (fake `set({ unavailableStatus: 503 })`): step 1
-reads "Digga can't reach data.discogs.com: … answered 503." with Try again and no Fetch; once the
-fake recovers, Try again shows the dump and enables Fetch
+reads "Digga can't get the list of catalogue files: … 503. Check your internet connection, or try
+again later." with Try again and no Download; once the fake recovers, Try again shows the dump
+and enables Download
 
 ## SETUP-05
 
 Priority: **P1**.
 
 The listing says 900 TB, set before the page opens: an alert, in the page before its text, with the
-space needed (the size and 1 GB to spare), the folder and `DIGGA_DUMPS_DIR`; Fetch is disabled;
+space needed (the size and 1 GB to spare), the folder and `DIGGA_DUMPS_DIR`; Download is disabled;
 "Check again" reads the setup again and still finds too little
 
 ## SETUP-06
@@ -164,10 +165,10 @@ both download and load jobs are running, and `/api/dumps` lists no completed fil
 
 Priority: **P2**.
 
-Imports slower than the load's start (the wantlist pages held at the fake): "Reading your collection
-and wantlist first, so the load also keeps other records on your labels." and "Start without it",
-with no load job yet; "Start without it" starts the load while the wantlist import still runs, and
-once released the imports end `done` and the catalogue is in
+Imports slower than the load's start (the wantlist pages held at the fake): "Importing your
+collection and wantlist first, so Digga also keeps other records from your labels and artists." and
+"Start without them", with no load job yet; "Start without them" starts the load while the
+wantlist import still runs, and once released the imports end `done` and the catalogue is in
 
 ## SETUP-21
 
@@ -208,7 +209,7 @@ Priority: **P1**.
 
 The download drops its connection where the transfer is held at `100-to-dig`, once every byte sent
 is on disk. Under the load: the crate's alert, in the page before its text, reads "The download
-stopped at 6 KB of 79 KB: reason. Discogs does not allow resuming, so it starts again." with "Start
+stopped at 6 KB of 79 KB: reason. Discogs downloads can't be resumed." with "Start
 again" and "Change your picks"; the 100 records loaded stay, and Triage digs them; "Start again"
 downloads and loads to READY TO DIG. On steps 2 and 3: the same sentence at the foot instead of the
 strip; "Start again" brings the strip back, and "Fill the crate" after a stop downloads again before
@@ -220,10 +221,11 @@ Priority: **P2**.
 
 Wrong checksum (fake `set({ wrongChecksums })`), the first transfer held at `100-to-dig` while the
 load reads it, then the second (`holdAt(name, { transfer: 2 })`). Once: the crate's alert, in the
-page before its text, reads "The download does not match Discogs' checksum, so Digga downloads it
-once more."; the load that read the rejected file fails with that reason, a second load reads the
-new download, and the catalogue is in after two transfers. Twice: "The download does not match
-Discogs' checksum. Digga downloaded it twice." with "Start again", which downloads a third time
+page before its text, reads "The download was damaged (it did not match Discogs' checksum), so
+Digga is downloading it again."; the load that read the rejected file fails with that reason, a
+second load reads the new download, and the catalogue is in after two transfers. Twice: "The
+download was damaged twice in a row: it did not match Discogs' checksum. Check your internet
+connection, then start again." with "Start again", which downloads a third time
 
 ## SETUP-27
 
@@ -232,8 +234,8 @@ Priority: **P1**.
 A crash during the load (`relaunch({ crash: true })`), the first transfer held at `100-to-dig`: the
 download and the load are marked failed as interrupted; the crate says "The catalogue stopped
 loading when Digga closed." (docs/FIRST_RUN.md, "Failure and resume"; it said "…: interrupted."
-until this scenario was built) and offers Pick up, which downloads again (two transfers) and reads
-the dump from the start: the new load scans all 1,500 releases
+until this scenario was built) and offers Load again, which downloads again (two transfers) and
+reads the dump from the start: the new load scans all 1,500 releases
 
 ## SETUP-28
 
@@ -301,7 +303,7 @@ username stays empty
 ## Completion contracts
 
 - The setup's actions end the same way (`pages/setup.ts`). A step change ends once the address,
-  the step list's `aria-current="step"` and the step's heading show the new step. Fetch ends once
+  the step list's `aria-current="step"` and the step's heading show the new step. Download ends once
   `POST /api/jobs/dump-download` has answered and step 2 shows; Continue on step 2 once a
   `POST /api/jobs/import/<kind>` has answered for each import it starts and step 3 shows; Connect
   once `PUT /api/discogs/token` and the `GET /api/discogs/profile` after it have answered and
@@ -311,7 +313,7 @@ username stays empty
   `PUT /api/settings` and `POST /api/jobs/dump-load` have answered and the crate shows. "Fill the
   crate" with no style picked sends nothing and ends once the search field has `aria-invalid`. A
   year ends once Tab has left its field, which commits it (`change`), and the field shows it.
-- "Pick up" ends once `POST /api/jobs/dump-download` and
-  `POST /api/jobs/dump-load` have answered and the button has gone. "Start without it" ends once `POST /api/jobs/dump-load` has
-  answered and the notice has gone. The finished load ends once
+- "Load again" ends once `POST /api/jobs/dump-download` and
+  `POST /api/jobs/dump-load` have answered and the button has gone. "Start without them" ends once
+  `POST /api/jobs/dump-load` has answered and the notice has gone. The finished load ends once
   the crate's `h1` reads "The catalogue is in: …" (`waitForCatalogue()`).

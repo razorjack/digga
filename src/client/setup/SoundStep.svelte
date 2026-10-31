@@ -91,8 +91,8 @@
   {#if suggested.length > 0 && !confirmed}
     <p class="suggested">
       Your Discogs records are mostly <b>{names.format(suggested.map((style) => style.name))}</b>,
-      so
-      {suggested.length === 1 ? "it is" : "they are"} picked. Change them as you like.
+      so Digga picked
+      {suggested.length === 1 ? "it" : "them"}. Change your picks as you like.
     </p>
   {/if}
 
@@ -174,11 +174,11 @@
     <p class="estimate" role="status">
       {#if estimate && span}
         About <b>{formatCount(estimatedReleases)}</b>
-        {nounFor(estimatedReleases, "release")}, {formatBytes(estimate.bytes)};
-        {formatCount(roundEstimate(estimate.dug))} of them from {span[0]}–{span[1]}{vinylOnly
+        {nounFor(estimatedReleases, "release")} ({formatBytes(estimate.bytes)}
+        on disk), {formatCount(roundEstimate(estimate.dug))} of them from {span[0]}–{span[1]}{vinylOnly
           ? " on vinyl"
-          : ""}. The load reads all {formatCount(roundEstimate(census.releases))} releases on Discogs
-        whatever you pick, so it takes 15 to 20 minutes either way.
+          : ""}. Loading reads all {formatCount(roundEstimate(census.releases))} Discogs releases whatever
+        you pick, so it takes 15 to 20 minutes either way.
       {/if}
     </p>
   {:else}

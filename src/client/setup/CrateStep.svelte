@@ -103,8 +103,8 @@
   {#if flow.cratePhase === "nothing-matches"}
     <h1 id="crate-title">Nothing in the catalogue matches these picks</h1>
     <p class="lead">
-      Digga read every release and kept none in these styles and years. Pick others, and the load
-      reads the catalogue again from the file it has.
+      Digga read every release and found none in these styles and years. Pick others, and Digga
+      reads the catalogue again from the file it already has.
     </p>
     <div class="actions">
       <Action primary onclick={() => void flow.changePicks()} disabled={flow.busy}
@@ -130,10 +130,10 @@
   {#if flow.waitingForImports}
     <div class="notice">
       <p>
-        Reading your collection and wantlist first, so the load also keeps other records on your
-        labels.
+        Importing your collection and wantlist first, so Digga also keeps other records from your
+        labels and artists.
       </p>
-      <Action onclick={() => void flow.startWithoutImports()}>Start without it</Action>
+      <Action onclick={() => void flow.startWithoutImports()}>Start without them</Action>
     </div>
   {/if}
 
@@ -166,12 +166,12 @@
       <div class="notice">
         <p>{flow.crateStop.message}</p>
         <p class="quiet">
-          What loaded so far stays, and so does anything you dug. Picking up reads the catalogue
-          from the start, and downloads it again if it was not whole.
+          What loaded so far stays, and so does anything you dug. Loading again reads the catalogue
+          from the start, and downloads it again if the file is incomplete.
         </p>
         <div class="actions">
           <Action primary onclick={() => void flow.resumeAfterInterruption()} disabled={flow.busy}
-            >Pick up</Action
+            >Load again</Action
           >
           <Action onclick={() => void flow.changePicks()} disabled={flow.busy}
             >Change your picks</Action
@@ -191,7 +191,7 @@
         text={downloadText()}
       />
     {/if}
-    <ProgressRow label="Read" fraction={flow.loadDone ? 1 : readFraction} text={readText()} />
+    <ProgressRow label="Load" fraction={flow.loadDone ? 1 : readFraction} text={readText()} />
     <p class="counts">
       <span><b>{formatCount(releasesKept)}</b> {nounFor(releasesKept, "release")} kept</span>
       <span><b>{formatCount(toDig)}</b> {nounFor(toDig, "record")} to dig</span>

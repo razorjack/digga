@@ -23,7 +23,7 @@ const COUNT_TIMEOUT_MS = 15_000;
 
 /**
  * The first run's four steps (docs/FIRST_RUN.md). Each action waits for its precondition, such as
- * the listing that enables Fetch, and returns once the work it starts has answered; one that
+ * the listing that enables the download, and returns once the work it starts has answered; one that
  * changes the step returns once the address and the step list show the new step.
  */
 export class SetupPage {
@@ -71,12 +71,12 @@ export class SetupPage {
    * steps 2 and 3 and in the crate; "Start again" goes with it.
    */
   get downloadStopped(): Locator {
-    return this.alert(/^The download (stopped|does not match Discogs' checksum\.)/);
+    return this.alert(/^The download (stopped|was damaged twice)/);
   }
 
   /** The download did not match Discogs' checksum and runs once more by itself. */
   get checksumRetry(): Locator {
-    return this.alert(/^The download does not match Discogs' checksum, so/);
+    return this.alert(/^The download was damaged \(/);
   }
 
   get tokenField(): Locator {
@@ -102,7 +102,7 @@ export class SetupPage {
   }
 
   get seedsCheckbox(): Locator {
-    return this.root.getByRole("checkbox", { name: /^Read my collection and wantlist/ });
+    return this.root.getByRole("checkbox", { name: /^Import my collection and wantlist/ });
   }
 
   get styleSearch(): Locator {
@@ -152,8 +152,8 @@ export class SetupPage {
     return this.root.getByRole("status").filter({ hasText: /^About / });
   }
 
-  /** The crate's progress bar for the download or the read. */
-  progress(label: "Download" | "Read"): Locator {
+  /** The crate's progress bar for the download or the load. */
+  progress(label: "Download" | "Load"): Locator {
     return this.root.getByRole("progressbar", { name: label, exact: true });
   }
 
@@ -178,9 +178,9 @@ export class SetupPage {
     await this.expectStep(step);
   }
 
-  /** Step 1: Enter once the listing has enabled Fetch; returns on step 2, the download started. */
+  /** Step 1: Enter once the listing has enabled the download; returns on step 2, the download started. */
   async fetchCatalogue(): Promise<void> {
-    await expect(this.button("Fetch the catalogue")).toBeEnabled();
+    await expect(this.button("Download the catalogue")).toBeEnabled();
     const started = this.#response("POST", "/api/jobs/dump-download");
     await this.app.page.keyboard.press("Enter");
     await answered(started);
@@ -199,7 +199,7 @@ export class SetupPage {
    * returns once the server has answered.
    */
   async useDumpFile(
-    button: "Use a dump file I have" | "Choose another file" = "Use a dump file I have",
+    button: "Use a catalogue file I have" | "Choose another file" = "Use a catalogue file I have",
   ): Promise<void> {
     const chosen = this.#response("POST", "/api/desktop/dump-file");
     await this.button(button).click();
@@ -245,23 +245,26 @@ export class SetupPage {
     await this.usernameField.fill(username);
     const saved = this.#response("PUT", "/api/settings");
     const profile = this.#response("GET", "/api/discogs/profile");
-    await this.button("Use it").click();
+    await this.button("Use this username").click();
     await answered(saved);
     await answered(profile);
     await expect(this.account).toBeVisible();
     await expect(this.button("Continue")).toBeEnabled();
   }
 
-  /** "Use it" with a username Discogs does not know: returns once the 404 is in and Use it again. */
+  /**
+   * "Use this username" with a username Discogs does not know: returns once the 404 is in and the
+   * button is enabled again.
+   */
   async useUnknownUsername(username: string): Promise<void> {
     await this.root.getByText("No token? Use your username", { exact: true }).click();
     await this.usernameField.fill(username);
     const profile = this.#response("GET", "/api/discogs/profile");
-    await this.button("Use it").click();
+    await this.button("Use this username").click();
     const response = await profile;
     expect(response.status(), "Discogs has no such user").toBe(404);
     await response.finished();
-    await expect(this.button("Use it")).toBeEnabled();
+    await expect(this.button("Use this username")).toBeEnabled();
   }
 
   /** Step 2 with a token Discogs refuses: returns once the step has the answer and Connect again. */
@@ -380,16 +383,16 @@ export class SetupPage {
     await expect(this.waitingForImports).toBeVisible();
   }
 
-  /** The crate's notice while the load waits for the imports, with "Start without it". */
+  /** The crate's notice while the load waits for the imports, with "Start without them". */
   get waitingForImports(): Locator {
-    return this.root.getByText(/^Reading your collection and wantlist first/);
+    return this.root.getByText(/^Importing your collection and wantlist first/);
   }
 
-  /** "Start without it": returns once the load has started and the notice has gone. */
+  /** "Start without them": returns once the load has started and the notice has gone. */
   async startWithoutImports(): Promise<void> {
     await expect(this.waitingForImports).toBeVisible();
     const loadStarted = this.#response("POST", "/api/jobs/dump-load");
-    await this.button("Start without it").click();
+    await this.button("Start without them").click();
     await answered(loadStarted);
     await expect(this.waitingForImports).toBeHidden();
   }
@@ -471,17 +474,17 @@ export class SetupPage {
   }
 
   /**
-   * "Pick up" after Digga closed during the load: returns once the download, unless the dump is
+   * "Load again" after Digga closed during the load: returns once the download, unless the dump is
    * whole, and the load reading it from the start have started.
    */
-  async pickUp(): Promise<void> {
+  async loadAgain(): Promise<void> {
     await expect(this.alert("The catalogue stopped loading when Digga closed.")).toBeVisible();
     const downloading = this.#response("POST", "/api/jobs/dump-download");
     const loading = this.#response("POST", "/api/jobs/dump-load");
-    await this.button("Pick up").click();
+    await this.button("Load again").click();
     await answered(downloading);
     await answered(loading);
-    await expect(this.button("Pick up")).toBeHidden();
+    await expect(this.button("Load again")).toBeHidden();
   }
 
   /** The crate once it counts this many records to dig, which the setup reads every few seconds. */
