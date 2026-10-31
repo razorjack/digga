@@ -303,13 +303,19 @@ describe("Twelves changes", () => {
 describe("the flash after re-judging", () => {
   it("says which shelf the record moved to, or that a skip took it off the shelves", () => {
     const name = "Kestrel – Day Break";
-    expect(rejudgedSentence(name, "accepted")).toBe("Kestrel – Day Break moved to Want.");
-    expect(rejudgedSentence(name, "candidate")).toBe("Kestrel – Day Break moved to Grail.");
-    expect(rejudgedSentence(name, "maybe")).toBe("Kestrel – Day Break moved to Maybe.");
-    expect(rejudgedSentence(name, "snoozed")).toBe("Kestrel – Day Break moved to Snoozed.");
-    expect(rejudgedSentence(name, "no_audio")).toBe("Kestrel – Day Break moved to No audio.");
+    expect(rejudgedSentence(name, "accepted")).toBe("Kestrel – Day Break moved to the Want shelf.");
+    expect(rejudgedSentence(name, "candidate")).toBe(
+      "Kestrel – Day Break moved to the Grail shelf.",
+    );
+    expect(rejudgedSentence(name, "maybe")).toBe("Kestrel – Day Break moved to the Maybe shelf.");
+    expect(rejudgedSentence(name, "snoozed")).toBe(
+      "Kestrel – Day Break moved to the Snoozed shelf.",
+    );
+    expect(rejudgedSentence(name, "no_audio")).toBe(
+      "Kestrel – Day Break moved to the No audio shelf.",
+    );
     expect(rejudgedSentence(name, "rejected")).toBe(
-      "Kestrel – Day Break skipped, off the shelves.",
+      "Kestrel – Day Break skipped and taken off the shelves.",
     );
   });
 
@@ -530,7 +536,7 @@ it("retries failed removals with the same verdict key and keeps undo intact", as
   http.removeFromWantlist.mockRejectedValueOnce(new Error("offline"));
   shelf.rejudge(shelf.items[0]!, "rejected");
   await shelf.settled();
-  expect(shelf.flash).toContain("the same key tries again");
+  expect(shelf.flash).toContain("Press the same key to try again.");
   expect(shelf.items[0]?.membership.onWantlist).toBe(true);
   const historyLength = shelf.undoStack.length;
   shelf.rejudge(shelf.items[0]!, "rejected");

@@ -64,7 +64,7 @@ database and 5 min for requests that wait on a Discogs call. The exported `api` 
   runs, the triage session's `readNewArrivals()` asks the server again at the end of the queue every
   10 seconds, and once more when the load ends.
 - Twelves loads every shelf in one request and filters, sorts and counts in the browser
-  (`twelves/model.ts`), so counts, "add all" and rounds of snoozed records cover the whole shelf.
+  (`twelves/model.ts`), so counts, "Add all" and rounds of snoozed records cover the whole shelf.
   It renders the 500 records around the selection (`pageAround`); `J` and `K` cross pages and
   `←` / `→` turn them.
   Changes show a persistent activity message as soon as they are queued, including the number

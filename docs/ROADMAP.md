@@ -25,7 +25,7 @@ query, Hono API, CLI, placeholder Svelte UI, docs, tests, portability check.
   are real. The server refuses digging writes while it is on.
 - `POST` / `DELETE /api/discogs/wantlist/:id`: `A` adds the release to the Discogs wantlist, `Z`
   takes it off again, Twelves re-judging keeps the wantlist in step and marks wants that did not
-  reach it (`A` retries, "add all" for several).
+  reach it (`A` retries, "Add all" for several).
 - Token status in Settings (`GET /api/discogs/account`, whose token it is).
 - Rounds of snoozed records in Triage, from Twelves (`Enter`) or the end of the queue.
 - `filters.skipWithoutVideos`; first-run states for an empty library and filters that match

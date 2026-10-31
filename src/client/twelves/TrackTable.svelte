@@ -95,7 +95,7 @@
             <span class="quiet">{formatDuration(track.track?.durationSeconds ?? null)}</span>
           </span>
           {#if track.tracklistChanged}<p class="quiet">
-              Tracklist changed; saved tune retained
+              The tracklist changed since you marked this. The mark keeps the original track.
             </p>{/if}
           {#if editingKey === key}
             <input
@@ -119,7 +119,8 @@
             </a>
             {#if track.verdict}<span class="verdict">{STATUS_COPY[track.verdict.status]}</span>{/if}
           {:else}
-            <span class="quiet">Release {track.mark.releaseId} is not in the loaded dump</span>
+            <span class="quiet">Release {track.mark.releaseId} is not in your loaded catalogue</span
+            >
           {/if}
         </td>
         <td class="mark">

@@ -35,6 +35,7 @@
     SORTS,
     EMPTY,
     columnSort,
+    discogsKeyName,
     lowestPriceText,
     notOnList,
     notOnWantlist,
@@ -111,7 +112,9 @@
   function selectedTrackReplay(): ReplayRequest | null {
     const track = twelves.selectedTrack;
     if (!track?.release) {
-      twelves.showFlash("This track's release is not in the loaded dump.");
+      twelves.showFlash(
+        "This track's release is not in your loaded catalogue, so Triage cannot play it.",
+      );
       return null;
     }
     return replayTrack(track);
@@ -121,7 +124,7 @@
     const { visible, selectedIndex: index, shelf } = twelves;
     const items = replayedItems(visible, { index, shelf, range });
     if (items.length === 0) {
-      twelves.showFlash("This record is not in the loaded dump, so Triage cannot play it.");
+      twelves.showFlash("This record is not in your loaded catalogue, so Triage cannot play it.");
       return null;
     }
     return { items: items.map(replayItemOf) };
@@ -324,7 +327,7 @@
         />
       </label>
       <fieldset class="sort" aria-keyshortcuts="S">
-        <legend><Key label="S" size="sm" aria-hidden="true" /> sort</legend>
+        <legend><Key label="S" size="sm" aria-hidden="true" /> Sort</legend>
         <div class="segments">
           {#each SORTS as option (option.id)}
             <label>
@@ -366,16 +369,15 @@
         <div class="handoff">
           {#if !hasMaybeList}
             <p>
-              Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step
-              with it.
+              Choose your Discogs Maybe list in Settings › Discogs to see which maybes are on it.
             </p>
           {:else}
             <p>
               {#if twelves.pending > 0}
                 <b>{formatCount(twelves.pending)}</b>
                 {twelves.pending === 1 ? "maybe is" : "maybes are"} not on your Discogs Maybe list yet.
-                The Discogs API cannot add to lists: <Key label="O" /> opens the release, where "Add to
-                list" is one click.
+                Digga can't add to Discogs lists, so press <Key label="O" /> to open the release and use
+                “Add to list” there.
               {:else}
                 Every maybe here is on your Discogs Maybe list.
               {/if}
@@ -388,7 +390,7 @@
               onclick={() => void twelves.checkList()}
             >
               <Key label="I" aria-hidden="true" />
-              {twelves.checking ? "Reading your Discogs Maybe list…" : "check the list again"}
+              {twelves.checking ? "Reading your Discogs Maybe list…" : "Check the list again"}
             </button>
           {/if}
         </div>
@@ -400,7 +402,7 @@
             {#if twelves.wantsPending.length > 0}
               <b>{formatCount(twelves.wantsPending.length)}</b>
               {twelves.wantsPending.length === 1 ? "record is" : "records are"} not on your Discogs wantlist.
-              <Key label="A" /> on a want or <Key label="C" /> on a grail adds it.
+              Press <Key label="A" /> on a want or <Key label="C" /> on a grail to add it.
             {:else}
               Everything here is on your Discogs wantlist.
             {/if}
@@ -413,7 +415,7 @@
               aria-busy={twelves.pushing}
               onclick={() => twelves.addPendingToWantlist()}
             >
-              {twelves.pushing ? "Adding…" : `add all ${formatCount(twelves.wantsPending.length)}`}
+              {twelves.pushing ? "Adding…" : `Add all ${formatCount(twelves.wantsPending.length)}`}
             </button>
           {/if}
         </div>
@@ -422,9 +424,9 @@
       {#if twelves.shelf === "no_audio" && twelves.counts.no_audio > 0}
         <div class="handoff">
           <p>
-            None of these records had a video that would play. <Key label="Y" /> searches YouTube; copy
-            a video's link there and press <CommandKey key="V" /> here to attach it, and the record goes
-            back to the queue. A newer dump brings back the records Discogs has a video for since.
+            None of these records had a video that would play. Press <Key label="Y" /> to search YouTube,
+            copy a video's link and press <CommandKey key="V" /> here to attach it. The record then goes
+            back to the queue. Records that get a video on Discogs come back with the next catalogue update.
           </p>
         </div>
       {/if}
@@ -432,8 +434,8 @@
       {#if twelves.shelf === "snoozed" && twelves.counts.snoozed > 0}
         <div class="handoff">
           <p>
-            <Key label="Enter" /> hears the snoozed records again in Triage, from the selected one. A
-            verdict replaces the snooze; <Key label="N" /> leaves it.
+            Press <Key label="Enter" /> to hear the snoozed records again in Triage, starting from the
+            selected one. A verdict replaces the snooze, and <Key label="N" /> keeps it.
           </p>
         </div>
       {/if}
@@ -504,7 +506,9 @@
                       <span class="title">{release.title}</span>
                     </a>
                   {:else}
-                    <span class="title">Not in the loaded dump ({item.key})</span>
+                    <span class="title"
+                      >Not in your loaded catalogue ({discogsKeyName(item.key)})</span
+                    >
                   {/if}
                   {#if item.membership.wantlistReleaseIds.length > 1}
                     <details>
@@ -555,7 +559,7 @@
                     <span>{lowestPriceText(release)}</span>
                     <span class="quiet">{formatCount(release.communityWant ?? 0)} want</span>
                   {:else}
-                    <span class="quiet">no market data</span>
+                    <span class="quiet">no price yet</span>
                   {/if}
                 </td>
                 <td class="verdict">
@@ -579,7 +583,7 @@
     <footer class="foot">
       <p class="hints">
         <span><Key label="J" /><Key label="K" /> move</span>
-        <span><Key label="O" /> discogs</span>
+        <span><Key label="O" /> Discogs</span>
         <span><Key label="E" /> note</span>
         {#if !onTracks}
           <span
@@ -588,12 +592,12 @@
           <span><Key label="I" /> check Maybe list</span>
         {/if}
         {#if twelves.shelf === "no_audio"}
-          <span><Key label="Y" /> youtube</span>
+          <span><Key label="Y" /> YouTube</span>
           <span><CommandKey key="V" /> attach a link</span>
         {/if}
         <span><Key label="Enter" /> hear again</span>
         {#if !onTracks && twelves.shelf !== "snoozed"}
-          <span><Key label="Shift" /><Key label="Enter" /> hear to the end</span>
+          <span><Key label="Shift" /><Key label="Enter" /> hear from here to the end</span>
         {/if}
         <span><Key label="Z" /> undo</span>
       </p>

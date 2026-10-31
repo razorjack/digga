@@ -82,7 +82,7 @@ test.describe("with a Discogs account", () => {
       await twelves.rejudge("rejected");
 
       await expect(twelves.messages).toHaveText(
-        `${rejudgedSentence(nameOf(ON_WANTLIST), "rejected")} Taken off your Discogs wantlist. Z undoes it.`,
+        `${rejudgedSentence(nameOf(ON_WANTLIST), "rejected")} Removed from your Discogs wantlist. Z undoes it.`,
       );
       await expect(twelves.record(key)).toHaveCount(0);
       await twelves.showShelf("all");
@@ -140,7 +140,7 @@ test.describe("with a Discogs account", () => {
       );
       await twelves.open();
       await expect(twelves.wantlistHandoff).toHaveText(
-        "4 records are not on your Discogs wantlist. A on a want or C on a grail adds it.",
+        "4 records are not on your Discogs wantlist. Press A on a want or C on a grail to add it.",
       );
       for (const fixture of missing)
         await expect(twelves.record(triageKeyOf(fixture))).toContainText(NOT_ON_WANTLIST);
@@ -171,7 +171,7 @@ test.describe("with a Discogs account", () => {
       );
 
       await twelves.showShelf("accepted");
-      await expect(twelves.addAllButton).toHaveText("add all 2");
+      await expect(twelves.addAllButton).toHaveText("Add all 2");
       await twelves.addAllToWantlist();
       await expect(twelves.messages).toHaveText("2 added to your Discogs wantlist.");
       await expect(twelves.wantlistHandoff).toHaveText(
@@ -208,7 +208,7 @@ test.describe("with a Discogs account", () => {
       expect((await removed).ok()).toBe(true);
       expect((await reloaded).ok()).toBe(true);
       await expect(twelves.messages).toHaveText(
-        `${rejudgedSentence(nameOf(FIRST_RECORD), "rejected")} Taken off your Discogs wantlist. Z undoes it.`,
+        `${rejudgedSentence(nameOf(FIRST_RECORD), "rejected")} Removed from your Discogs wantlist. Z undoes it.`,
       );
       // Decision 62: one change at a time, and re-judging a want always sends the removal.
       expect(
@@ -314,7 +314,8 @@ test.describe("on an account's library", () => {
     { tag: ["@TWL-08", "@P2"] },
     async ({ app }) => {
       const twelves = new TwelvesPage(app);
-      const refusal = "Wantlist and owned records come from Discogs; change them there.";
+      const refusal =
+        "This record comes from your Discogs wantlist or collection. Change it on Discogs, or judge it when Triage plays it.";
       await twelves.open();
 
       for (const [shelf, fixture, status] of [
@@ -352,10 +353,12 @@ test.describe("without a Maybe list", () => {
       await twelves.showShelf("maybe");
 
       await expect(twelves.maybeHandoff).toHaveText(
-        "Pick your Discogs Maybe list in Settings, under Discogs, to keep this shelf in step with it.",
+        "Choose your Discogs Maybe list in Settings › Discogs to see which maybes are on it.",
       );
       await app.page.keyboard.press("i");
-      await expect(twelves.messages).toHaveText("Pick your Discogs Maybe list in Settings first.");
+      await expect(twelves.messages).toHaveText(
+        "Choose your Discogs Maybe list in Settings › Discogs first.",
+      );
       // The flash comes from the key press itself; nothing was sent for it.
       expect(app.apiRequests().filter((request) => request.includes("/api/jobs/import"))).toEqual(
         [],
@@ -392,7 +395,7 @@ test.describe("with a Maybe list", () => {
       await twelves.checkMaybeList();
 
       await expect(twelves.messages).toHaveText(
-        "Your Discogs Maybe list has 2 records; 2 new here.",
+        "Your Discogs Maybe list has 2 records, 2 of them new to Digga.",
       );
       await expect(twelves.maybeHandoff).toHaveText(
         /^1 maybe is not on your Discogs Maybe list yet\./,

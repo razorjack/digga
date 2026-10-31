@@ -51,7 +51,7 @@ describe("wanted pressings", () => {
       shelf.rejudge(shelf.items[0]!, "rejected");
       await shelf.settled();
       expect(recordMembershipOf(db, "m:501").wantlistReleaseIds).toEqual([]);
-      expect(shelf.flash).toContain("Taken off your Discogs wantlist.");
+      expect(shelf.flash).toContain("Removed from your Discogs wantlist.");
       await shelf.undo();
       expect(recordMembershipOf(db, "m:501").wantlistReleaseIds).toEqual([1002]);
       expect(calls).toEqual(["remove 1002", "add 1002"]);
@@ -66,7 +66,7 @@ describe("wanted pressings", () => {
     try {
       shelf.rejudge(shelf.items[0]!, "rejected");
       await shelf.settled();
-      expect(shelf.flash).toContain("Still on your Discogs wantlist");
+      expect(shelf.flash).toContain("Discogs did not remove it");
       expect(recordMembershipOf(db, "m:501").wantlistReleaseIds).toEqual([1002]);
       await shelf.undo();
       expect(

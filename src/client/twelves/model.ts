@@ -1,5 +1,6 @@
 import type { MarkedTrack, QueueItem, TwelvesItem } from "../../shared/api.ts";
 import { formatPrice } from "../../shared/display.ts";
+import { parseTriageKey } from "../../shared/triage-key.ts";
 import type { TrackMark } from "../../shared/types.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
 import type { RecordStamp, TriageStatus } from "../keymap.ts";
@@ -35,12 +36,12 @@ export const SORTS: {
   id: SortId;
   label: string;
 }[] = [
-  { id: "newest", label: "newest" },
-  { id: "label", label: "label" },
-  { id: "artist", label: "artist" },
-  { id: "year", label: "year" },
-  { id: "price", label: "price" },
-  { id: "want", label: "most wanted" },
+  { id: "newest", label: "Newest" },
+  { id: "label", label: "Label" },
+  { id: "artist", label: "Artist" },
+  { id: "year", label: "Year" },
+  { id: "price", label: "Price" },
+  { id: "want", label: "Most wanted" },
 ];
 
 /** A table column an order sorts; the tables mark it with `aria-sort`. */
@@ -69,16 +70,16 @@ export function columnSort(
 }
 
 export const EMPTY: Record<ShelfId, string> = {
-  all: "Nothing here yet. Press A on a release in Triage, or import your Discogs wantlist and collection.",
-  accepted: "Nothing wanted yet. Press A on a release in Triage.",
-  wantlist: "No wantlist imported. Settings imports it, under Discogs.",
-  collection: "No collection imported. Settings imports it, under Discogs.",
-  maybe: "No maybes. Press M in Triage for a release that belongs on your Discogs Maybe list.",
+  all: "Nothing here yet. Press A on a record in Triage, or import your Discogs wantlist and collection.",
+  accepted: "Nothing wanted yet. Press A on a record in Triage.",
+  wantlist: "No wantlist imported yet. Import it in Settings › Discogs.",
+  collection: "No collection imported yet. Import it in Settings › Discogs.",
+  maybe: "No maybes. Press M in Triage for a record that belongs on your Discogs Maybe list.",
   candidate: "No grails yet. Press C in Triage for the one you've been hunting.",
-  snoozed: "Nothing snoozed. Press L in Triage to hear a release again later.",
+  snoozed: "Nothing snoozed. Press L in Triage to hear a record again later.",
   tracks:
-    "No marked tracks yet. In Triage, Shift+C marks the playing track as a grail and Shift+K as a keeper.",
-  no_audio: "Nothing here. D in Triage puts a record here when none of its videos plays.",
+    "No marked tracks yet. In Triage, Shift+C marks the playing track as a grail and Shift+K as keep.",
+  no_audio: "Nothing here. In Triage, press D on a record whose videos don't play.",
 };
 
 /** The marks the Tracks shelf lists: the finds, not the tracks marked meh. */
@@ -203,8 +204,8 @@ const JUDGED_SHELF: Record<TriageStatus, ShelfId | null> = {
 /** The flash's sentence for a re-judged record: where it went, by the shelf's own name. */
 export function rejudgedSentence(name: string, status: TriageStatus): string {
   const shelf = JUDGED_SHELF[status];
-  if (shelf === null) return `${name} skipped, off the shelves.`;
-  return `${name} moved to ${shelfLabel(shelf)}.`;
+  if (shelf === null) return `${name} skipped and taken off the shelves.`;
+  return `${name} moved to the ${shelfLabel(shelf)} shelf.`;
 }
 
 /** The flash for a re-judgement that would change nothing, so nothing is written. */
@@ -369,4 +370,11 @@ function matchesTrackQuery(track: MarkedTrack, query: string): boolean {
     release?.labelName,
     release?.catno,
   ].some((value) => value?.toLowerCase().includes(query));
+}
+
+/** A record by its triage key, as Discogs names it: "Discogs master 12345". */
+export function discogsKeyName(key: string): string {
+  const parsed = parseTriageKey(key);
+  if (parsed === null) return key;
+  return `Discogs ${parsed.kind} ${parsed.id}`;
 }

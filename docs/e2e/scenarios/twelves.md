@@ -68,7 +68,8 @@ Priority: **P2**.
 Given: `small-account`.
 
 Wantlist and owned records refuse re-judging with a flash: `R` on `dj`'s want and `A` on the
-collected release say "Wantlist and owned records come from Discogs; change them there.", the
+collected release say "This record comes from your Discogs wantlist or collection. Change it on Discogs, or judge it
+when Triage plays it.", the
 stamps stay, and no `POST /api/verdicts` is sent
 
 ## TWL-09
@@ -79,7 +80,7 @@ Given: `small-account` with a saved token.
 
 Wants and grails missing from the wantlist carry the marker and the banner count; `A` retries a want
 and `C` a grail; `A` again on the want now on the wantlist reads "Already on your Discogs wantlist."
-and sends no write; with two or more on the shelf, "add all N" pushes each, in order, and the banner
+and sends no write; with two or more on the shelf, "Add all N" pushes each, in order, and the banner
 says everything is on the wantlist
 
 ## TWL-10
@@ -139,7 +140,7 @@ Priority: **P2**.
 Given: a decisions backup restored before the server starts, with a snooze for `NOT_IN_ANY_DUMP`
 (`r:9001`, `dj`'s second want, which no dump has).
 
-A verdict for a release in no dump reads "Not in the loaded dump (r:…)", with the verdict's own
+A verdict for a release in no dump reads "Not in your loaded catalogue (Discogs release …)", with the verdict's own
 key, and its row has no `data-release-id`; Enter on it says Triage cannot play it
 
 ## TWL-17
@@ -172,7 +173,7 @@ Retired: the shelf no longer has a sandbox mode to switch (decision 150 in `docs
   a track note ends once `POST /api/track-verdicts` has answered and the flash reads
   "Note saved." or "Note removed."; `A`
   or `C` on a want already judged so (a retry) once `POST /api/discogs/wantlist/:id` and the reload
-  after it have answered and the flash says it was added; "add all" once the flash counts what
+  after it have answered and the flash says it was added; "Add all" once the flash counts what
   was added, after the last push and the reload; `I` once its `POST /api/jobs/import/list` has
   answered and the flash says what the list holds, after the job has ended and the shelf has
   loaded; `Z` once the restored verdict and the reload have answered and the flash says "Undone";

@@ -442,7 +442,7 @@ test.describe("with a verdict restored for a release no dump has", () => {
   });
 
   test(
-    "TWL-16 a verdict for a release in no dump reads Not in the loaded dump, with its key",
+    "TWL-16 a verdict for a release in no dump reads Not in your loaded catalogue, with its Discogs release",
     { tag: ["@TWL-16", "@P2"] },
     async ({ app }) => {
       const twelves = new TwelvesPage(app);
@@ -451,13 +451,15 @@ test.describe("with a verdict restored for a release no dump has", () => {
       await twelves.open();
 
       const row = twelves.record(key);
-      await expect(row).toContainText(`Not in the loaded dump (${key})`);
+      await expect(row).toContainText(
+        `Not in your loaded catalogue (Discogs release ${NOT_IN_ANY_DUMP.id})`,
+      );
       await expect(row).not.toHaveAttribute("data-release-id");
       await expect(twelves.stamp(row, "snoozed")).toBeVisible();
       expect(await twelves.selectedKey()).toBe(key);
       await app.page.keyboard.press("Enter");
       await expect(twelves.messages).toHaveText(
-        "This record is not in the loaded dump, so Triage cannot play it.",
+        "This record is not in your loaded catalogue, so Triage cannot play it.",
       );
     },
   );

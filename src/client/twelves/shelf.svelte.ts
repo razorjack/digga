@@ -220,7 +220,7 @@ export class TwelvesShelf {
     if (error)
       return {
         entry: null,
-        note: ` Not on your Discogs wantlist: ${error}; the same key tries again.`,
+        note: ` Discogs did not add it: ${error}. Press the same key to try again.`,
       };
     return {
       entry: { releaseIds: [releaseId], change: "added" },
@@ -244,9 +244,9 @@ export class TwelvesShelf {
     if (error)
       return {
         entry,
-        note: ` Still on your Discogs wantlist: ${error}; the same key tries again.`,
+        note: ` Discogs did not remove it: ${error}. Press the same key to try again.`,
       };
-    return { entry, note: entry ? " Taken off your Discogs wantlist." : "" };
+    return { entry, note: entry ? " Removed from your Discogs wantlist." : "" };
   }
 
   /** Re-judges a record decided in Digga, keeping the Discogs wantlist in step. */
@@ -291,7 +291,7 @@ export class TwelvesShelf {
     this.#queueRecordChange(selectedItem.key, "Saving note…", async (item) => {
       const releaseId = item.release?.id ?? null;
       if (releaseId === null) {
-        this.showFlash("This record is not in the loaded dump, so a note cannot go on it.");
+        this.showFlash("This record is not in your loaded catalogue, so it cannot take a note.");
         return;
       }
       try {
@@ -345,7 +345,9 @@ export class TwelvesShelf {
     const error = entry.kind === "verdict" ? await this.#undoWantlistChange(entry) : null;
     this.selectedKey = entry.kind === "note" ? entry.key : entry.previous.key;
     await this.load();
-    this.showFlash(error ? `Undone, but the Discogs wantlist did not follow: ${error}` : "Undone.");
+    this.showFlash(
+      error ? `Undone in Digga, but your Discogs wantlist did not change: ${error}` : "Undone.",
+    );
     void stats.refresh();
   }
 
@@ -475,7 +477,9 @@ export class TwelvesShelf {
     this.#queueRecordChange(selectedItem.key, "Saving verdict…", async (item) => {
       const { verdict } = item;
       if (verdict === null || !isTriageStatus(verdict.status)) {
-        this.showFlash("Wantlist and owned records come from Discogs; change them there.");
+        this.showFlash(
+          "This record comes from your Discogs wantlist or collection. Change it on Discogs, or judge it when Triage plays it.",
+        );
         return;
       }
       if (verdict.status === status) {
@@ -528,7 +532,9 @@ export class TwelvesShelf {
     this.#queueRecordChange(selectedItem.key, "Attaching YouTube link…", async (item) => {
       const releaseId = releaseIdOf(item);
       if (releaseId === null) {
-        this.showFlash("This record is not in the loaded dump, so a link cannot go on it.");
+        this.showFlash(
+          "This record is not in your loaded catalogue, so a link cannot be attached.",
+        );
         return;
       }
       let requeued: boolean;
@@ -600,7 +606,7 @@ export class TwelvesShelf {
   async checkList(): Promise<void> {
     if (this.checking) return;
     if (settings.value?.discogs.maybeListId == null) {
-      this.showFlash("Pick your Discogs Maybe list in Settings first.");
+      this.showFlash("Choose your Discogs Maybe list in Settings › Discogs first.");
       return;
     }
     this.checking = true;
@@ -614,7 +620,7 @@ export class TwelvesShelf {
       await this.load();
       void stats.refresh();
       this.showFlash(
-        `Your Discogs Maybe list has ${formatCounted(progress.processed, "record")}; ${formatCount(progress.added)} new here.`,
+        `Your Discogs Maybe list has ${formatCounted(progress.processed, "record")}, ${formatCount(progress.added)} of them new to Digga.`,
       );
     } catch (error) {
       this.showFlash(`The list check failed: ${errorMessage(error)}`);

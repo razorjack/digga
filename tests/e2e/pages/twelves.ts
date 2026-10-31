@@ -124,12 +124,12 @@ export class TwelvesPage {
   /** What the shelf says about the Discogs Maybe list: the hint without one, or what is missing. */
   get maybeHandoff(): Locator {
     return this.root.getByText(
-      /^(Pick your Discogs Maybe list in Settings|[\d,]+ maybes? (is|are) not on your Discogs Maybe list yet\.|Every maybe here is on your Discogs Maybe list\.)/,
+      /^(Choose your Discogs Maybe list in Settings|[\d,]+ maybes? (is|are) not on your Discogs Maybe list yet\.|Every maybe here is on your Discogs Maybe list\.)/,
     );
   }
 
   get addAllButton(): Locator {
-    return this.root.getByRole("button", { name: /^add all [\d,]+$/ });
+    return this.root.getByRole("button", { name: /^Add all [\d,]+$/ });
   }
 
   /** Opens Twelves; returns once its verdicts and track marks have loaded and show. */

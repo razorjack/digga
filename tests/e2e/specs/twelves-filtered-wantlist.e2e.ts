@@ -26,7 +26,7 @@ test(
     await twelves.open();
     await twelves.filterBy(SECOND_RECORD.label.name);
     await expect(twelves.records).toHaveCount(2);
-    await expect(twelves.addAllButton).toHaveText("add all 2");
+    await expect(twelves.addAllButton).toHaveText("Add all 2");
     await twelves.addAllToWantlist();
     await expect(twelves.messages).toHaveText("2 added to your Discogs wantlist.");
     const added = fakes.requests("PUT /users/:user/wants/:id").map((request) => request.params);
