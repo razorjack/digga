@@ -1503,3 +1503,14 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      sets the setup's button and window title. The three smallest sizes went up one step, to 11,
      12 and 13 px, because a proportional face at the monospace's sizes reads small. Column
      headers lost their letter-spaced capitals, and thin rules replace the slashes in the readout.
+204. **The interface copy is plain.** An audit in October 2026 rewrote strings that were clever
+     at the cost of clarity, used internal terms, or chained clauses with colons and semicolons.
+     The terms are now fixed: the _catalogue_ is what Digga loads, the _catalogue file_ is the
+     Discogs dump and the _catalogue folder_ holds those files; _download_, _load_ and _import_
+     name the three jobs (a seller's shop is _read_); a _record_ is what the queue and Twelves show,
+     a _release_ what the catalogue counts. Buttons say what they do ("Download the catalogue",
+     "Discard changes", "Remove them"). Text is in sentence case, except the verdict copy, stamps
+     and key legends, which keep their record-sleeve voice. A failure says "Could not …" and what to
+     do next, and names a place in the app as "Settings › Discogs". The server's error messages
+     end without a full stop, since the page puts them after a colon in its own sentence.
+     Shortcuts that need ⌘ on a Mac show Ctrl elsewhere.
