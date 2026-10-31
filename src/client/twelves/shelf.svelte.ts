@@ -370,7 +370,7 @@ export class TwelvesShelf {
   }
 
   async addAlternatives(inputs: AddAlternativesInput[]): Promise<AlternativeAdditions[]> {
-    const results: AlternativeAdditions[] = [];
+    let results: AlternativeAdditions[] = [];
     await this.#queueChange("Adding alternative pressings…", async () => {
       const operationIds = inputs.map((input) => input.operationId);
       const remembered = this.undoStack.some(
@@ -379,18 +379,16 @@ export class TwelvesShelf {
           entry.operationIds.some((id) => operationIds.includes(id)),
       );
       if (!remembered) this.undoStack = [...this.undoStack, { kind: "alternatives", operationIds }];
-      for (const input of inputs) {
-        try {
-          results.push(await this.#client.addAlternativeWants(input));
-        } catch (error) {
-          results.push({
-            operationId: input.operationId,
-            added: [],
-            existing: [],
-            undone: false,
-            errors: [{ releaseId: input.releaseId, error: errorMessage(error) }],
-          });
-        }
+      try {
+        results = await this.#client.addAlternativeWants({ additions: inputs });
+      } catch (error) {
+        results = inputs.map((input) => ({
+          operationId: input.operationId,
+          added: [],
+          existing: [],
+          undone: false,
+          errors: [{ releaseId: input.releaseId, error: errorMessage(error) }],
+        }));
       }
       await this.load();
       this.showFlash("Alternative pressings checked. Z undoes the additions.");

@@ -27,6 +27,7 @@ let wants: Map<number, string>;
 let failedAdds: Set<number>;
 let failedRemovals: Set<number>;
 let writes: string[];
+let reads: string[];
 
 beforeEach(() => {
   db = openDb(":memory:");
@@ -47,11 +48,13 @@ beforeEach(() => {
   failedAdds = new Set();
   failedRemovals = new Set();
   writes = [];
+  reads = [];
   const fetchImpl: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const method = init?.method ?? "GET";
     const id = Number(url.pathname.split("/").at(-1));
     const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+    if (method === "GET") reads.push(url.pathname);
     if (url.pathname.startsWith("/releases/"))
       return releases.has(id) ? json(releases.get(id)) : json({}, 404);
     if (url.pathname === "/masters/50/versions") {
@@ -96,6 +99,8 @@ beforeEach(() => {
   };
 });
 afterEach(() => db.close());
+const addOne = async (input: AddAlternativesInput) =>
+  (await addAlternativeWants(deps, [input]))[0]!;
 const addition = (releaseIds = [2, 3]): AddAlternativesInput => ({
   operationId: crypto.randomUUID(),
   releaseId: 1,
@@ -117,11 +122,11 @@ describe("wantlist expansion", () => {
   });
   it("preserves live manual wants and notes, records only additions, and undoes only those additions", async () => {
     const input = addition();
-    const result = await addAlternativeWants(deps, input);
+    const result = await addOne(input);
     expect(result).toMatchObject({ added: [3], existing: [2], errors: [] });
     expect(wants.get(2)).toBe("Manually added, not imported");
     expect(recordMembershipOf(db, "m:50").wantlistReleaseIds).toEqual([2, 3]);
-    expect(await addAlternativeWants(deps, input)).toEqual(result);
+    expect(await addOne(input)).toEqual(result);
     expect(writes).toEqual(["PUT 3"]);
     const undone = await undoAlternativeWants(deps, input.operationId);
     expect(undone.undone).toBe(true);
@@ -131,11 +136,11 @@ describe("wantlist expansion", () => {
   it("reports partial failure, retries only unfinished additions, and retains failed undo entries", async () => {
     const input = addition([3, 6]);
     failedAdds.add(6);
-    const result = await addAlternativeWants(deps, input);
+    const result = await addOne(input);
     expect(result.added).toEqual([3]);
     expect(result.errors[0]?.releaseId).toBe(6);
     failedAdds.clear();
-    expect((await addAlternativeWants(deps, input)).added).toEqual([3, 6]);
+    expect((await addOne(input)).added).toEqual([3, 6]);
     expect(writes.filter((write) => write === "PUT 3")).toHaveLength(1);
     failedRemovals.add(6);
     expect(await undoAlternativeWants(deps, input.operationId)).toMatchObject({
@@ -148,21 +153,36 @@ describe("wantlist expansion", () => {
   });
   it("revalidates automatic matches and permits an explicitly reviewed different tracklist", async () => {
     const automatic = { ...addition([4]), automatic: true };
-    expect((await addAlternativeWants(deps, automatic)).errors[0]?.error).toContain(
-      "manual review",
-    );
+    expect((await addOne(automatic)).errors[0]?.error).toContain("manual review");
     expect(writes).toEqual([]);
-    expect((await addAlternativeWants(deps, addition([4]))).added).toEqual([4]);
+    expect((await addOne(addition([4]))).added).toEqual([4]);
   });
   it("rejects another master, nonselected formats, reused operation IDs, and an account change", async () => {
     releases.set(6, { ...releases.get(6)!, master_id: 99 });
     const input = addition([5, 6]);
-    expect((await addAlternativeWants(deps, input)).errors).toHaveLength(2);
+    expect((await addOne(input)).errors).toHaveLength(2);
     expect(writes).toEqual([]);
-    await expect(addAlternativeWants(deps, { ...input, releaseIds: [3] })).rejects.toThrow(
-      "another selection",
-    );
+    await expect(addOne({ ...input, releaseIds: [3] })).rejects.toThrow("another selection");
     forgetAccountData(db);
     await expect(undoAlternativeWants(deps, input.operationId)).rejects.toThrow("account changed");
+  });
+  it("reads the wantlist once per batch and skips the records an earlier try finished", async () => {
+    const first = addition([2]);
+    const second = addition([3, 6]);
+    failedAdds.add(6);
+    const results = await addAlternativeWants(deps, [first, second]);
+    expect(results.map((result) => [result.added, result.existing])).toEqual([
+      [[], [2]],
+      [[3], []],
+    ]);
+    expect(reads.filter((path) => path === "/users/dj/wants")).toHaveLength(1);
+    failedAdds.clear();
+    reads = [];
+    const retried = await addAlternativeWants(deps, [first, second]);
+    expect(retried.map((result) => result.added)).toEqual([[], [3, 6]]);
+    expect(reads).toEqual(["/users/dj/wants", "/releases/1", "/releases/6"]);
+    reads = [];
+    await addAlternativeWants(deps, [first, second]);
+    expect(reads).toEqual([]);
   });
 });

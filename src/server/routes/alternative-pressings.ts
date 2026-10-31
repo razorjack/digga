@@ -1,6 +1,6 @@
 import { type Context, Hono } from "hono";
 import {
-  AddAlternativesSchema,
+  AddAlternativesBatchSchema,
   AlternativesPreviewSchema,
   UndoAlternativesSchema,
 } from "../../shared/alternative-pressings.ts";
@@ -38,7 +38,7 @@ async function preview(c: Context, context: AppContext) {
 }
 
 async function add(c: Context, context: AppContext) {
-  const body = await parseJson(c, AddAlternativesSchema);
+  const body = await parseJson(c, AddAlternativesBatchSchema);
   if (!body.ok) return body.response;
   const account = wantlistAccount(c, context);
   if ("response" in account) return account.response;
@@ -50,7 +50,7 @@ async function add(c: Context, context: AppContext) {
         username: account.username,
         currency: context.getConfig().discogs.currency,
       },
-      body.data,
+      body.data.additions,
     ),
   );
 }

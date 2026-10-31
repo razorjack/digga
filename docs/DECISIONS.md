@@ -1487,8 +1487,11 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      Unofficial versions are excluded. A release without a master cannot be expanded automatically.
      The separate Settings > Discogs choices default off and apply to future Want and Grail actions
      in Triage. They do not change the digging filters or retroactively expand the account.
-     Additions read the live wantlist first, preserving existing entries and their notes. Each
-     operation records its successful additions in `wantlist_expansions`; repeating its request
+     Additions read the live wantlist first, preserving existing entries and their notes. Twelves
+     sends the selection of every record in one request, and the server reads the wantlist once
+     for it: at about 1.1 s per Discogs request, reading a 500-want list again for each record
+     took longer than adding the pressings. A want added on Discogs while the batch runs therefore
+     counts as added, and undo removes it. Each operation records its successful additions in `wantlist_expansions`; repeating its request
      retries failures without duplicating successful writes. Undo removes only those additions and
      retains failed removals for retry. Twelves keeps one record per master and lists its wanted
      release IDs. Shop still matches exact release IDs, so adding an alternative makes that

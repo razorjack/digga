@@ -51,6 +51,11 @@ export const AddAlternativesSchema = AlternativesPreviewSchema.extend({
   automatic: z.boolean(),
 });
 export type AddAlternativesInput = z.infer<typeof AddAlternativesSchema>;
+/** One request adds the selection of every record, so the server reads the wantlist once. */
+export const AddAlternativesBatchSchema = z.object({
+  additions: z.array(AddAlternativesSchema).min(1),
+});
+export type AddAlternativesBatch = z.infer<typeof AddAlternativesBatchSchema>;
 export const UndoAlternativesSchema = z.object({ operationId: z.uuid() });
 
 export interface AlternativeAdditions {

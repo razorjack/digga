@@ -6,6 +6,7 @@ import {
   type AlternativePressing,
 } from "../shared/alternative-pressings.ts";
 import { messageOf, pressingFromApi, type AlternativesDeps } from "./alternative-pressings.ts";
+import type { Db } from "./db/db.ts";
 import { accountDataVersion, assertAccountDataVersion } from "./db/memberships.ts";
 import { getRelease, insertStubRelease } from "./db/releases.ts";
 import { expansionReceipt, readExpansion, saveExpansion } from "./db/wantlist-expansions.ts";
@@ -22,28 +23,73 @@ export interface ExpansionDeps extends AlternativesDeps {
   username: string;
 }
 
+/**
+ * Adds each record's selected pressings. The live wantlist is read once for the whole batch, so a
+ * pressing someone adds on Discogs while the batch runs counts as added, and undo removes it.
+ */
 export async function addAlternativeWants(
   deps: ExpansionDeps,
-  input: AddAlternativesInput,
-): Promise<AlternativeAdditions> {
-  const receipt = expansionReceipt(deps.db, input);
-  if (receipt.undone) throw new Error("This addition was undone; preview the alternatives again");
+  inputs: AddAlternativesInput[],
+): Promise<AlternativeAdditions[]> {
   const version = accountDataVersion(deps.db);
+  const records = inputs.map((input) => openRecord(deps.db, input));
+  const unfinished = records.filter((record) => record.pending.length > 0);
+  if (unfinished.length > 0) await addUnfinishedRecords(deps, unfinished, version);
+
+  assertAccountDataVersion(deps.db, version);
+  for (const { receipt } of records) saveExpansion(deps.db, receipt);
+  return records.map((record) => record.receipt);
+}
+
+interface RecordAddition {
+  input: AddAlternativesInput;
+  receipt: AlternativeAdditions;
+  /** The selected pressings that an earlier try of the operation has not added or found. */
+  pending: number[];
+}
+
+function openRecord(db: Db, input: AddAlternativesInput): RecordAddition {
+  const receipt = expansionReceipt(db, input);
+  if (receipt.undone) throw new Error("This addition was undone; preview the alternatives again");
   receipt.errors = [];
+  const pending = [...new Set(input.releaseIds)].filter(
+    (releaseId) => !receipt.added.includes(releaseId) && !receipt.existing.includes(releaseId),
+  );
+  return { input, receipt, pending };
+}
+
+async function addUnfinishedRecords(
+  deps: ExpansionDeps,
+  records: RecordAddition[],
+  version: number,
+): Promise<void> {
+  let wanted: Map<number, DiscogsWantItem>;
   try {
-    const wanted = await readCurrentWants(deps);
+    wanted = await readCurrentWants(deps);
+  } catch (error) {
+    for (const { input, receipt } of records)
+      receipt.errors.push({ releaseId: input.releaseId, error: messageOf(error) });
+    return;
+  }
+  for (const record of records) await addRecordAlternatives(deps, record, { wanted, version });
+}
+
+async function addRecordAlternatives(
+  deps: ExpansionDeps,
+  record: RecordAddition,
+  account: { wanted: Map<number, DiscogsWantItem>; version: number },
+): Promise<void> {
+  const { input, receipt, pending } = record;
+  const { wanted, version } = account;
+  try {
     const source = pressingFromApi(await deps.discogs.getRelease(input.releaseId, deps.currency));
-    for (const releaseId of new Set(input.releaseIds)) {
+    for (const releaseId of pending) {
       assertAccountDataVersion(deps.db, version);
-      if (receipt.added.includes(releaseId) || receipt.existing.includes(releaseId)) continue;
       await addOneAlternative(deps, { input, source, releaseId, wanted, version }, receipt);
     }
   } catch (error) {
     receipt.errors.push({ releaseId: input.releaseId, error: messageOf(error) });
   }
-  assertAccountDataVersion(deps.db, version);
-  saveExpansion(deps.db, receipt);
-  return receipt;
 }
 
 interface Addition {

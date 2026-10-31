@@ -30,13 +30,9 @@ function setup() {
       calls.push(`remove ${id}`);
     }),
     previewAlternatives: vi.fn(async () => preview),
-    addAlternativeWants: vi.fn(async (): Promise<AlternativeAdditions> => ({
-      operationId: "operation",
-      added: [2],
-      existing: [],
-      errors: [],
-      undone: false,
-    })),
+    addAlternativeWants: vi.fn(async (): Promise<AlternativeAdditions[]> => [
+      { operationId: "operation", added: [2], existing: [], errors: [], undone: false },
+    ]),
     undoAlternativeWants: vi.fn(async () => {
       calls.push("undo alternatives");
       return { operationId: "operation", added: [], existing: [], errors: [], undone: true };
@@ -65,25 +61,21 @@ describe("automatic alternative wants", () => {
   it("adds only matching versions and waits for their receipt before undoing an in-flight addition", async () => {
     const { api, sync, calls, setStatus } = setup();
     const started = Promise.withResolvers<void>();
-    const addition = Promise.withResolvers<AlternativeAdditions>();
+    const addition = Promise.withResolvers<AlternativeAdditions[]>();
     api.addAlternativeWants.mockImplementation(async () => {
       started.resolve();
       return addition.promise;
     });
     const pushed = sync.push(item, () => {});
     await started.promise;
-    expect(api.addAlternativeWants).toHaveBeenCalledWith(
-      expect.objectContaining({ releaseIds: [2], automatic: true }),
-    );
+    expect(api.addAlternativeWants).toHaveBeenCalledWith({
+      additions: [expect.objectContaining({ releaseIds: [2], automatic: true })],
+    });
     setStatus(undefined);
     const undo = sync.takeOff(item);
-    addition.resolve({
-      operationId: "operation",
-      added: [2],
-      existing: [],
-      errors: [],
-      undone: false,
-    });
+    addition.resolve([
+      { operationId: "operation", added: [2], existing: [], errors: [], undone: false },
+    ]);
     await pushed;
     await undo;
     expect(calls).toEqual(["add 1", "undo alternatives", "remove 1"]);

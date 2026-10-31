@@ -59,8 +59,8 @@ export class AlternativeWants {
         this.#operations.set(item.triageKey, input);
       }
       if (this.#closed.signal.aborted || !stillWanted()) return;
-      const result = await this.#api.addAlternativeWants(input);
-      if (this.#closed.signal.aborted) return;
+      const [result] = await this.#api.addAlternativeWants({ additions: [input] });
+      if (this.#closed.signal.aborted || !result) return;
       if (result.errors.length > 0)
         this.#flash(
           `Want saved, but Digga could not add some alternative pressings of ${item.title}: ${result.errors.map((failure) => `${failure.releaseId}: ${failure.error}`).join("; ")}. Review them in Twelves.`,

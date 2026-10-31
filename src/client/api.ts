@@ -1,5 +1,5 @@
 import type {
-  AddAlternativesInput,
+  AddAlternativesBatch,
   AlternativeAdditions,
   AlternativesPreview,
   AlternativesPreviewInput,
@@ -107,7 +107,8 @@ export interface Api {
     input: AlternativesPreviewInput,
     signal?: AbortSignal,
   ): Promise<AlternativesPreview>;
-  addAlternativeWants(input: AddAlternativesInput): Promise<AlternativeAdditions>;
+  /** One receipt per addition, in the order of `batch.additions`. */
+  addAlternativeWants(batch: AddAlternativesBatch): Promise<AlternativeAdditions[]>;
   undoAlternativeWants(operationId: string): Promise<AlternativeAdditions>;
   pushToWantlist(releaseId: number): Promise<WantlistPushResponse>;
   removeFromWantlist(releaseId: number): Promise<WantlistPushResponse>;
@@ -186,6 +187,8 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
   const call = httpCaller(baseUrl, timeouts.localMs);
   const callDiscogs = httpCaller(baseUrl, timeouts.discogsMs);
   const callAlternatives = httpCaller(baseUrl, 30 * 60_000);
+  // One batch adds every selected record, about 3 s per pressing at Discogs' request rate.
+  const callAlternativeBatch = httpCaller(baseUrl, 3 * 60 * 60_000);
   const callDialog = httpCaller(baseUrl, timeouts.dialogMs);
   return {
     getShoppingSellers: () => call("GET", "/shopping"),
@@ -234,7 +237,8 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
     cancelJob: (id) => call("POST", `/jobs/${id}/cancel`),
     previewAlternatives: (input, signal) =>
       callAlternatives("POST", "/discogs/alternatives/preview", input, signal),
-    addAlternativeWants: (input) => callAlternatives("POST", "/discogs/alternatives/add", input),
+    addAlternativeWants: (batch) =>
+      callAlternativeBatch("POST", "/discogs/alternatives/add", batch),
     undoAlternativeWants: (operationId) =>
       callAlternatives("POST", "/discogs/alternatives/undo", { operationId }),
     pushToWantlist: (releaseId) => callDiscogs("POST", `/discogs/wantlist/${releaseId}`),
