@@ -69,6 +69,7 @@ describe("automatic alternative wants", () => {
     const pushed = sync.push(item, () => {});
     await started.promise;
     expect(api.addAlternativeWants).toHaveBeenCalledWith({
+      batchId: expect.any(String),
       additions: [expect.objectContaining({ releaseIds: [2], automatic: true })],
     });
     setStatus(undefined);

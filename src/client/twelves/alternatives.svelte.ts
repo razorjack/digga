@@ -1,8 +1,10 @@
 import type {
+  AddAlternativesBatch,
   AddAlternativesInput,
   AlternativeAdditions,
   AlternativeOptions,
   AlternativesPreview,
+  AlternativesProgress,
 } from "../../shared/alternative-pressings.ts";
 import type { TwelvesItem } from "../../shared/api.ts";
 import { isWantlistVerdict } from "../../shared/wantlist.ts";
@@ -23,6 +25,9 @@ export interface PreviewEntry {
   selected: number[];
 }
 
+/** How often the dialog asks for the progress of the batch it is adding. */
+const POLL_MS = 1000;
+
 export class AlternativesPreviewState {
   entries = $state<PreviewEntry[]>([]);
   errors = $state<string[]>([]);
@@ -30,16 +35,20 @@ export class AlternativesPreviewState {
   reading = $state(false);
   writing = $state(false);
   progress = $state("");
+  /** What the progress bar counts: the records checked, or the pressings the batch finished. */
+  meter = $state<{ done: number; total: number } | null>(null);
   inputs = $state<AddAlternativesInput[]>([]);
   #read: AbortController | null = null;
-  #client: Pick<Api, "previewAlternatives">;
+  #closed = new AbortController();
+  #client: Pick<Api, "previewAlternatives" | "getAlternativesProgress">;
 
-  constructor(client: Pick<Api, "previewAlternatives"> = api) {
+  constructor(client: Pick<Api, "previewAlternatives" | "getAlternativesProgress"> = api) {
     this.#client = client;
   }
 
   destroy(): void {
     this.#read?.abort();
+    this.#closed.abort();
   }
 
   async read(items: TwelvesItem[], options: AlternativeOptions): Promise<void> {
@@ -51,15 +60,18 @@ export class AlternativesPreviewState {
     this.results = [];
     this.inputs = [];
     this.reading = true;
+    this.meter = { done: 0, total: items.length };
     try {
       for (const [index, item] of items.entries()) {
         if (controller.signal.aborted) return;
         this.progress = `Checking record ${index + 1} of ${items.length}…`;
         await this.#readOne(item, options, controller.signal);
+        if (!controller.signal.aborted) this.meter = { done: index + 1, total: items.length };
       }
     } finally {
       if (!controller.signal.aborted) {
         this.reading = false;
+        this.meter = null;
         this.progress = "Preview ready. Existing wants will be kept.";
       }
     }
@@ -85,26 +97,22 @@ export class AlternativesPreviewState {
     }
   }
 
+  /** Adds the selection in one batch; a retry sends the same operations again. */
   async add(
     options: AlternativeOptions,
-    write: (inputs: AddAlternativesInput[]) => Promise<AlternativeAdditions[]>,
+    write: (batch: AddAlternativesBatch) => Promise<AlternativeAdditions[]>,
   ): Promise<void> {
     if (this.writing || this.reading) return;
-    if (this.inputs.length === 0)
-      this.inputs = this.entries
-        .filter((entry) => entry.selected.length > 0)
-        .map((entry) => ({
-          releaseId: entry.preview.source.id,
-          options: { ...options },
-          releaseIds: [...entry.selected],
-          operationId: crypto.randomUUID(),
-          automatic: false,
-        }));
+    if (this.inputs.length === 0) this.inputs = this.#selectedInputs(options);
     if (this.inputs.length === 0) return;
     this.writing = true;
-    this.progress = "Adding selected pressings to Discogs…";
+    this.meter = null;
+    this.progress = "Adding the selected pressings to Discogs…";
+    const batch = { batchId: crypto.randomUUID(), additions: $state.snapshot(this.inputs) };
+    const request = write(batch);
+    void this.#followBatch(batch.batchId, request);
     try {
-      this.results = await write($state.snapshot(this.inputs));
+      this.results = await request;
       const failed = this.results.some((result) => result.errors.length > 0);
       this.progress = failed
         ? "Some pressings were not added. Retry the failed additions, or close and press Z to undo."
@@ -113,6 +121,64 @@ export class AlternativesPreviewState {
       this.progress = `Could not confirm the additions: ${errorMessage(error)}. Press Retry additions to try again.`;
     } finally {
       this.writing = false;
+      this.meter = null;
     }
   }
+
+  #selectedInputs(options: AlternativeOptions): AddAlternativesInput[] {
+    return this.entries
+      .filter((entry) => entry.selected.length > 0)
+      .map((entry) => ({
+        releaseId: entry.preview.source.id,
+        options: { ...options },
+        releaseIds: [...entry.selected],
+        operationId: crypto.randomUUID(),
+        automatic: false,
+      }));
+  }
+
+  /**
+   * Shows the batch's progress until its request settles or the dialog closes. The request's
+   * answer replaces the count, so a poll answered after it is dropped.
+   */
+  async #followBatch(batchId: string, request: Promise<unknown>): Promise<void> {
+    let settled = false;
+    const finished = request.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    const following = () => !settled && !this.#closed.signal.aborted;
+    while (following()) {
+      await pause(POLL_MS, finished);
+      const progress = following() ? await this.#batchProgress(batchId) : null;
+      if (progress && following()) {
+        this.meter = progress;
+        this.progress = `Adding the selected pressings to Discogs: ${progress.done} of ${progress.total}…`;
+      }
+    }
+  }
+
+  /** A failed poll keeps the last count; the batch's own answer reports what failed. */
+  async #batchProgress(batchId: string): Promise<AlternativesProgress | null> {
+    try {
+      return await this.#client.getAlternativesProgress(batchId);
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Resolves after `ms`, or as soon as `settled` does. */
+function pause(ms: number, settled: Promise<void>): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    void settled.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }

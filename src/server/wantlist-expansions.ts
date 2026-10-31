@@ -4,6 +4,7 @@ import {
   type AddAlternativesInput,
   type AlternativeAdditions,
   type AlternativePressing,
+  type AlternativesProgress,
 } from "../shared/alternative-pressings.ts";
 import { messageOf, pressingFromApi, type AlternativesDeps } from "./alternative-pressings.ts";
 import type { Db } from "./db/db.ts";
@@ -30,11 +31,13 @@ export interface ExpansionDeps extends AlternativesDeps {
 export async function addAlternativeWants(
   deps: ExpansionDeps,
   inputs: AddAlternativesInput[],
+  onProgress?: (progress: AlternativesProgress) => void,
 ): Promise<AlternativeAdditions[]> {
   const version = accountDataVersion(deps.db);
   const records = inputs.map((input) => openRecord(deps.db, input));
+  const advance = progressCounter(records, onProgress);
   const unfinished = records.filter((record) => record.pending.length > 0);
-  if (unfinished.length > 0) await addUnfinishedRecords(deps, unfinished, version);
+  if (unfinished.length > 0) await addUnfinishedRecords(deps, unfinished, { version, advance });
 
   assertAccountDataVersion(deps.db, version);
   for (const { receipt } of records) saveExpansion(deps.db, receipt);
@@ -58,37 +61,71 @@ function openRecord(db: Db, input: AddAlternativesInput): RecordAddition {
   return { input, receipt, pending };
 }
 
+/**
+ * Reports the batch's progress now and returns the function that counts finished pressings. A
+ * pressing an earlier try added or found counts as done from the start.
+ */
+function progressCounter(
+  records: RecordAddition[],
+  onProgress?: (progress: AlternativesProgress) => void,
+): (count: number) => void {
+  let total = 0;
+  let done = 0;
+  for (const { input, pending } of records) {
+    const selected = new Set(input.releaseIds).size;
+    total += selected;
+    done += selected - pending.length;
+  }
+  onProgress?.({ done, total });
+  return (count) => {
+    done += count;
+    onProgress?.({ done, total });
+  };
+}
+
+interface BatchState {
+  version: number;
+  /** Counts pressings as finished, whether added, found or failed. */
+  advance: (count: number) => void;
+}
+
 async function addUnfinishedRecords(
   deps: ExpansionDeps,
   records: RecordAddition[],
-  version: number,
+  batch: BatchState,
 ): Promise<void> {
   let wanted: Map<number, DiscogsWantItem>;
   try {
     wanted = await readCurrentWants(deps);
   } catch (error) {
-    for (const { input, receipt } of records)
+    for (const { input, receipt, pending } of records) {
       receipt.errors.push({ releaseId: input.releaseId, error: messageOf(error) });
+      batch.advance(pending.length);
+    }
     return;
   }
-  for (const record of records) await addRecordAlternatives(deps, record, { wanted, version });
+  for (const record of records) await addRecordAlternatives(deps, record, { ...batch, wanted });
 }
 
 async function addRecordAlternatives(
   deps: ExpansionDeps,
   record: RecordAddition,
-  account: { wanted: Map<number, DiscogsWantItem>; version: number },
+  batch: BatchState & { wanted: Map<number, DiscogsWantItem> },
 ): Promise<void> {
   const { input, receipt, pending } = record;
-  const { wanted, version } = account;
+  const { wanted, version } = batch;
+  let finished = 0;
   try {
     const source = pressingFromApi(await deps.discogs.getRelease(input.releaseId, deps.currency));
     for (const releaseId of pending) {
       assertAccountDataVersion(deps.db, version);
       await addOneAlternative(deps, { input, source, releaseId, wanted, version }, receipt);
+      finished += 1;
+      batch.advance(1);
     }
   } catch (error) {
     receipt.errors.push({ releaseId: input.releaseId, error: messageOf(error) });
+    batch.advance(pending.length - finished);
   }
 }
 

@@ -1491,7 +1491,9 @@ JOIN`); starting from a tune's heard key took 1.3 s per query on the owner's dat
      sends the selection of every record in one request, and the server reads the wantlist once
      for it: at about 1.1 s per Discogs request, reading a 500-want list again for each record
      took longer than adding the pressings. A want added on Discogs while the batch runs therefore
-     counts as added, and undo removes it. Each operation records its successful additions in `wantlist_expansions`; repeating its request
+     counts as added, and undo removes it. While the batch runs, the dialog asks the server for
+     its progress every second and shows how many selected pressings have finished. Each
+     operation records its successful additions in `wantlist_expansions`; repeating its request
      retries failures without duplicating successful writes. Undo removes only those additions and
      retains failed removals for retry. Twelves keeps one record per master and lists its wanted
      release IDs. Shop still matches exact release IDs, so adding an alternative makes that

@@ -61,10 +61,20 @@ test(
     await expect(promo).toBeChecked();
     await expect(remix).not.toBeChecked();
     await expect(remix).toHaveAccessibleDescription(/Review: different or incomplete tracklist/);
+    const promoWrite = fakes.hold("PUT /users/:user/wants/:id");
     await dialog.getByRole("button", { name: "Add 2 selected pressings" }).click();
+    await promoWrite.received;
+    const meter = dialog.getByRole("progressbar", { name: "Adding the selected pressings" });
+    await expect(dialog.getByRole("status")).toHaveText(
+      "Adding the selected pressings to Discogs: 1 of 2…",
+    );
+    await expect(meter).toHaveAttribute("value", "1");
+    await expect(meter).toHaveAttribute("max", "2");
+    promoWrite.release();
     await expect(dialog.getByRole("status")).toHaveText(/Selected pressings are on your wantlist/, {
       timeout: 20_000,
     });
+    await expect(meter).toBeHidden();
     await expect(dialog.getByText("1 added, 1 already on your wantlist.")).toBeVisible();
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(dialog).toHaveCount(0);

@@ -59,7 +59,10 @@ export class AlternativeWants {
         this.#operations.set(item.triageKey, input);
       }
       if (this.#closed.signal.aborted || !stillWanted()) return;
-      const [result] = await this.#api.addAlternativeWants({ additions: [input] });
+      const [result] = await this.#api.addAlternativeWants({
+        batchId: crypto.randomUUID(),
+        additions: [input],
+      });
       if (this.#closed.signal.aborted || !result) return;
       if (result.errors.length > 0)
         this.#flash(

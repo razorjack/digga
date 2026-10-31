@@ -282,6 +282,7 @@ and different-mix promo are absent from the dump.
 
 Filter the Discogs wantlist shelf to the retail record and preview the filtered records' alternatives.
 Matching pressings are selected and the different-mix promo requires review. Add the selection:
-only the missing promo is written. Twelves shows one record with three wanted pressings. Close
+only the missing promo is written. While that write is held, the dialog's status and progress bar
+count one of the two pressings. Twelves shows one record with three wanted pressings. Close
 and undo: the added promo disappears, while both manual wants and their notes remain. The public
 Twelves API confirms the remaining release IDs.

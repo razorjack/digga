@@ -2,7 +2,7 @@
   import { onDestroy, untrack } from "svelte";
   import {
     alternativesEnabled,
-    type AddAlternativesInput,
+    type AddAlternativesBatch,
     type AlternativeAdditions,
     type AlternativeOptions,
   } from "../../shared/alternative-pressings.ts";
@@ -19,7 +19,7 @@
   }: {
     items: TwelvesItem[];
     initialOptions: AlternativeOptions;
-    write: (inputs: AddAlternativesInput[]) => Promise<AlternativeAdditions[]>;
+    write: (batch: AddAlternativesBatch) => Promise<AlternativeAdditions[]>;
     onclose: () => void;
   } = $props();
   const id = $props.id();
@@ -36,6 +36,9 @@
       options.testPressings !== previewOptions.testPressings,
   );
   const busy = $derived(preview.reading || preview.writing);
+  const meterLabel = $derived(
+    preview.writing ? "Adding the selected pressings" : "Checking the records",
+  );
   onDestroy(() => preview.destroy());
 
   function open(dialog: HTMLDialogElement): void {
@@ -63,91 +66,101 @@
 
 <dialog {@attach open} aria-labelledby="{id}-title" {onclose} oncancel={preventCloseWhileWriting}>
   <header>
-    <h2 id="{id}-title">Add alternative pressings</h2>
-    <form method="dialog">
-      <button disabled={preview.writing} aria-keyshortcuts="Escape">Close</button>
-    </form>
+    <div class="title">
+      <h2 id="{id}-title">Add alternative pressings</h2>
+      <form method="dialog">
+        <button disabled={preview.writing} aria-keyshortcuts="Escape">Close</button>
+      </form>
+    </div>
+    <p role="status">
+      {optionsChanged ? "Refresh the preview to apply these format choices." : preview.progress}
+    </p>
+    <progress
+      hidden={!busy}
+      aria-label={meterLabel}
+      max={preview.meter?.total || 1}
+      value={preview.meter?.done}
+    ></progress>
   </header>
-  <p>
-    Digga keeps your existing wants and adds the vinyl pressings you select from the same Discogs
-    master. Pressings with matching tracks are selected for you. Check different or incomplete
-    tracklists yourself.
-  </p>
-  <fieldset disabled={busy || started}>
-    <legend>Include</legend>
-    <label><input type="checkbox" bind:checked={options.whiteLabels} /> White labels</label>
-    <label><input type="checkbox" bind:checked={options.promos} /> Promos</label>
-    <label><input type="checkbox" bind:checked={options.testPressings} /> Test pressings</label>
-    <button type="button" disabled={!alternativesEnabled(options)} onclick={read}
-      >Refresh preview</button
-    >
-  </fieldset>
-  <p role="status">
-    {optionsChanged ? "Refresh the preview to apply these format choices." : preview.progress}
-  </p>
-  {#each preview.errors as error (error)}<p class="problem">{error}</p>{/each}
-  {#each preview.entries as entry (entry.preview.source.id)}
-    <section aria-label={entry.preview.source.title}>
-      <h3>{entry.preview.source.artist} – {entry.preview.source.title}</h3>
-      <details>
-        <summary>Original tracklist</summary>
-        <ol>
-          {#each entry.preview.source.tracks as track, index (index)}<li>
-              {track.position}
-              {track.title}
-            </li>{/each}
-        </ol>
-      </details>
-      {#if entry.preview.source.masterId === null}
-        <p>This release has no Discogs master, so Digga cannot find other pressings of it.</p>
-      {:else if entry.preview.candidates.length === 0}
-        <p>No alternative pressings found for these formats.</p>
-      {/if}
-      {#each entry.preview.candidates as candidate (candidate.release.id)}
-        <div class="candidate">
-          <label>
-            <input
-              type="checkbox"
-              value={candidate.release.id}
-              bind:group={entry.selected}
-              disabled={busy || started || candidate.onWantlist}
-              aria-describedby="{id}-candidate-{candidate.release.id}"
-            />
-            {candidate.release.title} ({candidate.release.id})
-          </label>
-          <p id="{id}-candidate-{candidate.release.id}">
-            {formatSummary(candidate.release.formats)} · {candidate.release.catno ??
-              "No catalogue number"} · {candidate.release.country ?? "Unknown country"} · {candidate
-              .release.year ?? "Unknown year"}.
-            {candidateStatus(candidate)}
-          </p>
-          <details>
-            <summary>Tracklist and Discogs release</summary>
-            <a
-              href={discogsReleaseUrl(candidate.release.id)}
-              target="_blank"
-              rel="noopener noreferrer">Open release {candidate.release.id} on Discogs</a
-            >
-            <ol>
-              {#each candidate.release.tracks as track, index (index)}<li>
-                  {track.position}
-                  {track.artists.map((artist) => artist.name).join(", ")} – {track.title}
-                </li>{/each}
-            </ol>
-          </details>
-        </div>
-      {/each}
-      {#each entry.preview.errors as failure (failure.releaseId)}<p class="problem">
-          Could not check release {failure.releaseId}: {failure.error}
+  <div class="body">
+    <p>
+      Digga keeps your existing wants and adds the vinyl pressings you select from the same Discogs
+      master. Pressings with matching tracks are selected for you. Check different or incomplete
+      tracklists yourself.
+    </p>
+    <fieldset disabled={busy || started}>
+      <legend>Include</legend>
+      <label><input type="checkbox" bind:checked={options.whiteLabels} /> White labels</label>
+      <label><input type="checkbox" bind:checked={options.promos} /> Promos</label>
+      <label><input type="checkbox" bind:checked={options.testPressings} /> Test pressings</label>
+      <button type="button" disabled={!alternativesEnabled(options)} onclick={read}
+        >Refresh preview</button
+      >
+    </fieldset>
+    {#each preview.errors as error (error)}<p class="problem">{error}</p>{/each}
+    {#each preview.entries as entry (entry.preview.source.id)}
+      <section aria-label={entry.preview.source.title}>
+        <h3>{entry.preview.source.artist} – {entry.preview.source.title}</h3>
+        <details>
+          <summary>Original tracklist</summary>
+          <ol>
+            {#each entry.preview.source.tracks as track, index (index)}<li>
+                {track.position}
+                {track.title}
+              </li>{/each}
+          </ol>
+        </details>
+        {#if entry.preview.source.masterId === null}
+          <p>This release has no Discogs master, so Digga cannot find other pressings of it.</p>
+        {:else if entry.preview.candidates.length === 0}
+          <p>No alternative pressings found for these formats.</p>
+        {/if}
+        {#each entry.preview.candidates as candidate (candidate.release.id)}
+          <div class="candidate">
+            <label>
+              <input
+                type="checkbox"
+                value={candidate.release.id}
+                bind:group={entry.selected}
+                disabled={busy || started || candidate.onWantlist}
+                aria-describedby="{id}-candidate-{candidate.release.id}"
+              />
+              {candidate.release.title} ({candidate.release.id})
+            </label>
+            <p id="{id}-candidate-{candidate.release.id}">
+              {formatSummary(candidate.release.formats)} · {candidate.release.catno ??
+                "No catalogue number"} · {candidate.release.country ?? "Unknown country"} · {candidate
+                .release.year ?? "Unknown year"}.
+              {candidateStatus(candidate)}
+            </p>
+            <details>
+              <summary>Tracklist and Discogs release</summary>
+              <a
+                href={discogsReleaseUrl(candidate.release.id)}
+                target="_blank"
+                rel="noopener noreferrer">Open release {candidate.release.id} on Discogs</a
+              >
+              <ol>
+                {#each candidate.release.tracks as track, index (index)}<li>
+                    {track.position}
+                    {track.artists.map((artist) => artist.name).join(", ")} – {track.title}
+                  </li>{/each}
+              </ol>
+            </details>
+          </div>
+        {/each}
+        {#each entry.preview.errors as failure (failure.releaseId)}<p class="problem">
+            Could not check release {failure.releaseId}: {failure.error}
+          </p>{/each}
+      </section>
+    {/each}
+    {#each preview.results as result (result.operationId)}
+      <p>{result.added.length} added, {result.existing.length} already on your wantlist.</p>
+      {#each result.errors as failure, index (index)}<p class="problem">
+          Release {failure.releaseId}: {failure.error}
         </p>{/each}
-    </section>
-  {/each}
-  {#each preview.results as result (result.operationId)}
-    <p>{result.added.length} added, {result.existing.length} already on your wantlist.</p>
-    {#each result.errors as failure, index (index)}<p class="problem">
-        Release {failure.releaseId}: {failure.error}
-      </p>{/each}
-  {/each}
+    {/each}
+  </div>
   <footer>
     <button
       type="button"
@@ -163,29 +176,69 @@
   dialog {
     width: min(850px, calc(100% - 48px));
     max-height: calc(100% - 48px);
-    padding: 24px;
+    padding: 0;
     color: var(--fg);
     background: var(--surface);
     border: 1px solid var(--rule);
   }
+  /* The status and the Add button stay in view while a long preview scrolls between them. */
+  dialog[open] {
+    display: flex;
+    flex-direction: column;
+  }
   dialog::backdrop {
     background: rgb(0 0 0 / 55%);
   }
-  header,
+  header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 24px 16px;
+  }
+  footer {
+    padding: 16px 24px 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .title,
   fieldset {
     display: flex;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
   }
-  header {
+  .title {
     justify-content: space-between;
   }
   p,
   fieldset,
-  section,
-  footer {
+  section {
     margin-top: 16px;
+  }
+  progress {
+    display: block;
+    width: 100%;
+    height: 3px;
+    margin-top: 12px;
+    appearance: none;
+    border: 0;
+    background: var(--rule);
+    color: var(--accent-mark);
+  }
+  progress[hidden] {
+    display: none;
+  }
+  progress::-webkit-progress-bar {
+    background: var(--rule);
+  }
+  progress::-webkit-progress-value {
+    background: var(--accent-mark);
+  }
+  progress::-moz-progress-bar {
+    background: var(--accent-mark);
   }
   label {
     display: inline-flex;

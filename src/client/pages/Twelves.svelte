@@ -283,7 +283,7 @@
     initialOptions={alternativesEnabled(alternativeOptions)
       ? alternativeOptions
       : { whiteLabels: true, promos: true, testPressings: false }}
-    write={(inputs) => twelves.addAlternatives(inputs)}
+    write={(batch) => twelves.addAlternatives(batch)}
     onclose={() => (alternativeItems = null)}
   />
 {/if}

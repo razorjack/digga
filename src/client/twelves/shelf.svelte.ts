@@ -1,5 +1,5 @@
 import type {
-  AddAlternativesInput,
+  AddAlternativesBatch,
   AlternativeAdditions,
 } from "../../shared/alternative-pressings.ts";
 import { expectedVerdict, type MarkedTrack, type TwelvesItem } from "../../shared/api.ts";
@@ -369,7 +369,8 @@ export class TwelvesShelf {
     return errors.length > 0 ? errors.join("; ") : null;
   }
 
-  async addAlternatives(inputs: AddAlternativesInput[]): Promise<AlternativeAdditions[]> {
+  async addAlternatives(batch: AddAlternativesBatch): Promise<AlternativeAdditions[]> {
+    const inputs = batch.additions;
     let results: AlternativeAdditions[] = [];
     await this.#queueChange("Adding alternative pressings…", async () => {
       const operationIds = inputs.map((input) => input.operationId);
@@ -380,7 +381,7 @@ export class TwelvesShelf {
       );
       if (!remembered) this.undoStack = [...this.undoStack, { kind: "alternatives", operationIds }];
       try {
-        results = await this.#client.addAlternativeWants({ additions: inputs });
+        results = await this.#client.addAlternativeWants(batch);
       } catch (error) {
         results = inputs.map((input) => ({
           operationId: input.operationId,

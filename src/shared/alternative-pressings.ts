@@ -51,11 +51,21 @@ export const AddAlternativesSchema = AlternativesPreviewSchema.extend({
   automatic: z.boolean(),
 });
 export type AddAlternativesInput = z.infer<typeof AddAlternativesSchema>;
-/** One request adds the selection of every record, so the server reads the wantlist once. */
+/**
+ * One request adds the selection of every record, so the server reads the wantlist once. The page
+ * asks for the progress of a running batch by its `batchId`.
+ */
 export const AddAlternativesBatchSchema = z.object({
+  batchId: z.uuid(),
   additions: z.array(AddAlternativesSchema).min(1),
 });
 export type AddAlternativesBatch = z.infer<typeof AddAlternativesBatchSchema>;
+
+/** The selected pressings of a batch, and how many of them were added, found or failed so far. */
+export interface AlternativesProgress {
+  done: number;
+  total: number;
+}
 export const UndoAlternativesSchema = z.object({ operationId: z.uuid() });
 
 export interface AlternativeAdditions {

@@ -185,4 +185,18 @@ describe("wantlist expansion", () => {
     await addAlternativeWants(deps, [first, second]);
     expect(reads).toEqual([]);
   });
+  it("counts each finished pressing, whether added, found or failed, and starts from earlier tries", async () => {
+    const first = addition([2, 3]);
+    const second = { ...addition([6]), releaseId: 404 };
+    const progress: string[] = [];
+    await addAlternativeWants(deps, [first, second], ({ done, total }) =>
+      progress.push(`${done}/${total}`),
+    );
+    expect(progress).toEqual(["0/3", "1/3", "2/3", "3/3"]);
+    progress.length = 0;
+    await addAlternativeWants(deps, [first], ({ done, total }) =>
+      progress.push(`${done}/${total}`),
+    );
+    expect(progress).toEqual(["2/2"]);
+  });
 });

@@ -3,6 +3,7 @@ import type {
   AlternativeAdditions,
   AlternativesPreview,
   AlternativesPreviewInput,
+  AlternativesProgress,
 } from "../shared/alternative-pressings.ts";
 import {
   filtersParam,
@@ -109,6 +110,8 @@ export interface Api {
   ): Promise<AlternativesPreview>;
   /** One receipt per addition, in the order of `batch.additions`. */
   addAlternativeWants(batch: AddAlternativesBatch): Promise<AlternativeAdditions[]>;
+  /** Null while the batch waits behind another one, and after it has finished. */
+  getAlternativesProgress(batchId: string): Promise<AlternativesProgress | null>;
   undoAlternativeWants(operationId: string): Promise<AlternativeAdditions>;
   pushToWantlist(releaseId: number): Promise<WantlistPushResponse>;
   removeFromWantlist(releaseId: number): Promise<WantlistPushResponse>;
@@ -239,6 +242,8 @@ export function createHttpApi(baseUrl = "/api", timeouts: Timeouts = DEFAULT_TIM
       callAlternatives("POST", "/discogs/alternatives/preview", input, signal),
     addAlternativeWants: (batch) =>
       callAlternativeBatch("POST", "/discogs/alternatives/add", batch),
+    getAlternativesProgress: (batchId) =>
+      call("GET", `/discogs/alternatives/batches/${encodeURIComponent(batchId)}`),
     undoAlternativeWants: (operationId) =>
       callAlternatives("POST", "/discogs/alternatives/undo", { operationId }),
     pushToWantlist: (releaseId) => callDiscogs("POST", `/discogs/wantlist/${releaseId}`),
