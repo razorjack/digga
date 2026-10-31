@@ -23,7 +23,7 @@ async function chooseDumpFile(c: Context, context: AppContext, desktop: Desktop)
   if (file !== null && !isDumpFileElsewhere(file))
     return c.json(
       {
-        error: `${path.basename(file)} is not a releases dump; pick a file ending in .xml.gz`,
+        error: `${path.basename(file)} is not a Discogs catalogue file. Choose a file ending in .xml.gz`,
       } satisfies ApiError,
       400,
     );
@@ -38,14 +38,19 @@ async function chooseDumpFile(c: Context, context: AppContext, desktop: Desktop)
 async function chooseDumpsFolder(c: Context, context: AppContext, desktop: Desktop) {
   if (context.paths.dumpsDirSource === "environment")
     return c.json(
-      { error: "DIGGA_DUMPS_DIR names the dumps folder; change it there" } satisfies ApiError,
+      {
+        error: "DIGGA_DUMPS_DIR sets the catalogue folder. Change it in .env or the environment",
+      } satisfies ApiError,
       409,
     );
   refuseWhileDumpJobRuns(context);
   const folder = await desktop.chooseDumpsFolder(context.paths.dumpsDir);
   if (folder === null) return c.json({ folder } satisfies DumpsFolderResponse);
   if (!canHoldDumps(folder))
-    return c.json({ error: `Digga cannot write to ${folder}` } satisfies ApiError, 400);
+    return c.json(
+      { error: `Digga cannot write to ${folder}. Choose another folder` } satisfies ApiError,
+      400,
+    );
   // One may have started while the dialog was open.
   refuseWhileDumpJobRuns(context);
   context.useChosenDumpsDir(folder);

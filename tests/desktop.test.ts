@@ -103,9 +103,9 @@ describe("the server's reports to the desktop", () => {
 
   it("tells it how a job failed, and that a stopping server cancelled one", async () => {
     const failed = server.jobs.runAndWait("import_collection", async () => {
-      throw new Error("Discogs answered 503");
+      throw new Error("Discogs returned an error (503)");
     });
-    await expect(failed).rejects.toThrow("Discogs answered 503");
+    await expect(failed).rejects.toThrow("Discogs returned an error (503)");
     runDownloadUntilStopped(server);
 
     await server.stop();
@@ -115,7 +115,7 @@ describe("the server's reports to the desktop", () => {
         type: "import_collection",
         status: "failed",
         progress: null,
-        error: "Discogs answered 503",
+        error: "Discogs returned an error (503)",
       },
       { type: "dump_download", status: "cancelled", progress: null, error: QUIT_JOB_ERROR },
     ]);
@@ -213,7 +213,7 @@ describe("the setup's dialogs", () => {
         status: 400,
         body: {
           error:
-            "discogs_20260901_releases.tar.gz is not a releases dump; pick a file ending in .xml.gz",
+            "discogs_20260901_releases.tar.gz is not a Discogs catalogue file. Choose a file ending in .xml.gz",
         } satisfies ApiError,
       });
       chosen = path.join(tmp, "discogs_20260901_releases.xml.gz");
@@ -259,7 +259,7 @@ describe("the setup's dialogs", () => {
       chosen = path.join(tmp, "gone");
       expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
         status: 400,
-        body: { error: `Digga cannot write to ${chosen}` },
+        body: { error: `Digga cannot write to ${chosen}. Choose another folder` },
       });
     });
 
@@ -280,7 +280,9 @@ describe("the setup's dialogs", () => {
     await withServer({ desktop, paths: named }, async (server) => {
       expect(await send(server, "POST", "/api/desktop/dumps-folder")).toEqual({
         status: 409,
-        body: { error: "DIGGA_DUMPS_DIR names the dumps folder; change it there" },
+        body: {
+          error: "DIGGA_DUMPS_DIR sets the catalogue folder. Change it in .env or the environment",
+        },
       });
     });
 

@@ -82,7 +82,7 @@ test(
     test.slow();
     app.expectProblems({ apiErrors: [/^PUT \/api\/discogs\/token answered 400$/] });
     const regions = await LiveRegionWatch.install(app.page);
-    const refusal = "Discogs refused this token; copy it again from discogs.com";
+    const refusal = "Discogs did not accept this token. Copy it again from discogs.com";
     const setup = await openDiscogsStep(app);
 
     await setup.connectRefused("e2e-token-refused");

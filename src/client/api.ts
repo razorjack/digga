@@ -277,7 +277,7 @@ function httpCaller(baseUrl: string, timeoutMs: number) {
       const error = (data ?? {}) as { error?: string; issues?: unknown };
       throw new ApiRequestError(
         response.status,
-        error.error ?? `${method} ${path} failed with ${response.status}`,
+        error.error ?? `Digga's server returned an error (${response.status})`,
         error.issues,
       );
     }
@@ -304,7 +304,10 @@ async function fetchText(
     return { response, text: await response.text() };
   } catch (error) {
     if (error instanceof DOMException && error.name === "TimeoutError")
-      throw new Error(`No answer within ${formatWait(timeoutMs)}`);
+      throw new Error(`Digga's server did not answer within ${formatWait(timeoutMs)}`);
+    // Browsers word a failed connection differently ("Failed to fetch", "Load failed"), so the
+    // page says the same thing in each.
+    if (error instanceof TypeError) throw new Error("Can't reach Digga's server");
     throw error;
   }
 }

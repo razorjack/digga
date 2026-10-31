@@ -341,7 +341,7 @@ describe("collection and wantlist importers", () => {
     await importWantlist(deps, { username: "dj" });
 
     await expect(importCollection(deps, { username: "Other" })).rejects.toThrow(
-      "This library holds the Discogs collection and wantlist of dj; forget them in Settings before using Other",
+      "Your library holds dj's Discogs collection and wantlist. To use Other, remove dj's data in Settings › Discogs first",
     );
     await importWantlist(deps, { username: "DJ" });
     expect(heldAccount(db, "")).toBe("DJ");
@@ -366,7 +366,9 @@ describe("collection and wantlist importers", () => {
     });
 
     expect(heldAccount(db, "dj")).toBe("dj");
-    expect(accountConflict(db, "other", "dj")).toMatch(/of dj; forget them/);
+    expect(accountConflict(db, "other", "dj")).toMatch(
+      /^Your library holds dj's Discogs collection and wantlist\. To use other,/,
+    );
     expect(accountConflict(db, "", "dj")).toBeNull();
     db.close();
   });

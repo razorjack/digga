@@ -130,7 +130,10 @@ export async function importSeedPages(
   onProgress?: (progress: ImportProgress) => void,
 ): Promise<SeedImportResult> {
   const { kind } = read;
-  if (read.username === "") throw new Error("discogs.username is not set in digga.config.json");
+  if (read.username === "")
+    throw new Error(
+      "Set your Discogs username in Settings › Discogs first (discogs.username in digga.config.json)",
+    );
   const conflict = claimAccount(deps.db, read.username);
   if (conflict !== null) throw new Error(conflict);
   const accountVersion = accountDataVersion(deps.db);

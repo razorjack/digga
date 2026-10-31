@@ -79,8 +79,8 @@ export function discogsErrorStatus(error: DiscogsApiError): 401 | 403 | 502 {
 export function discogsErrorMessage(error: DiscogsApiError): string {
   if (error instanceof DiscogsUserNotFoundError) return error.message;
   if (error.status === 401 || error.status === 403)
-    return `Discogs answered ${error.status}: check the Discogs token in Settings and that it belongs to your Discogs username`;
-  return `Discogs answered ${error.status}`;
+    return `Discogs refused the token (${error.status}). Check that the token in Settings › Discogs belongs to your Discogs username`;
+  return `Discogs returned an error (${error.status}). Try again later`;
 }
 /**
  * The account a wantlist change goes to, which the library's Discogs data then comes from; a

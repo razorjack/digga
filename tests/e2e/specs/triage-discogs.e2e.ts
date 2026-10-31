@@ -241,7 +241,7 @@ test.describe("with the username dj and the clock", () => {
 
       await expect(triage.lastAction).toContainText(SAVED_NOT_PUSHED);
       await expect(triage.messages).toContainText(
-        "Discogs answered 403: check the Discogs token in Settings and that it belongs to your Discogs username.",
+        "Discogs refused the token (403). Check that the token in Settings › Discogs belongs to your Discogs username.",
       );
       // A refused token is refused again, so no retry runs, however long the page waits.
       await app.clock.runFor(PUSH_RETRY_DELAYS_MS.reduce((sum, delayMs) => sum + delayMs, 0));

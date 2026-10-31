@@ -17,7 +17,9 @@ export function registerSetupRoutes(api: Hono, context: AppContext): void {
 function forgetFirstLoad(c: Context, context: AppContext) {
   if (hasLoadedCatalogue(context.db))
     return c.json(
-      { error: "A load has finished; change the styles in Settings instead" } satisfies ApiError,
+      {
+        error: "The catalogue is already loaded. Change the styles in Settings › Library",
+      } satisfies ApiError,
       409,
     );
   refuseWhileDumpJobRuns(context, downloadJobId(context));

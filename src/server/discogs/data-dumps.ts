@@ -81,7 +81,7 @@ export function createDataDumpClient(options: DataDumpClientOptions = {}): DataD
       headers: { "User-Agent": DEFAULT_USER_AGENT },
       signal,
     });
-    if (!response.ok) throw new DataDumpError(`${url.host} answered ${response.status}`);
+    if (!response.ok) throw new DataDumpError(`${url.host} returned an error (${response.status})`);
     return response;
   };
   const listing = async (prefix: string, signal?: AbortSignal) =>

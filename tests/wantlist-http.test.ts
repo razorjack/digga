@@ -142,7 +142,7 @@ describe("Discogs wantlist over HTTP", () => {
   it("explains a missing username or token, and a refused token", async () => {
     const refused = await send<ApiError>("POST", "/api/discogs/wantlist/1002", {});
     expect(refused.status).toBe(401);
-    expect(refused.body.error).toMatch(/check the Discogs token in Settings/);
+    expect(refused.body.error).toMatch(/^Discogs refused the token \(401\)\. Check that the token/);
     token = undefined;
     const noToken = await send<ApiError>("POST", "/api/discogs/wantlist/1001", {});
     expect([noToken.status, noToken.body.error]).toEqual([
@@ -220,12 +220,14 @@ describe("Discogs wantlist over HTTP", () => {
       status: 409,
       body: {
         error:
-          "This library holds the Discogs collection and wantlist of dj; forget them in Settings before using someone",
+          "Your library holds dj's Discogs collection and wantlist. To use someone, remove dj's data in Settings › Discogs first",
       },
     });
     const otherToken = await send<ApiError>("PUT", "/api/discogs/token", { token: "other" });
     expect(otherToken.status).toBe(409);
-    expect(otherToken.body.error).toMatch(/of dj; forget them in Settings before using other$/);
+    expect(otherToken.body.error).toMatch(
+      /To use other, remove dj's data in Settings › Discogs first$/,
+    );
     expect(fs.readFileSync(envFile, "utf8")).toBe("DISCOGS_TOKEN=token\n");
     expect(await dataAccount()).toBe("dj");
 

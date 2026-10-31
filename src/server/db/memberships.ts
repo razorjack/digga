@@ -135,7 +135,7 @@ export function heldAccount(db: Db, configured: string): string | null {
 export function accountConflict(db: Db, requested: string, configured: string): string | null {
   const held = heldAccount(db, configured);
   if (held === null || requested === "" || sameAccount(held, requested)) return null;
-  return `This library holds the Discogs collection and wantlist of ${held}; forget them in Settings before using ${requested}`;
+  return `Your library holds ${held}'s Discogs collection and wantlist. To use ${requested}, remove ${held}'s data in Settings › Discogs first`;
 }
 
 /**

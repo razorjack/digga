@@ -292,19 +292,21 @@ describe("triage session", () => {
     const { session, http } = await started([1, 2]);
     const pushes = vi
       .spyOn(http, "pushToWantlist")
-      .mockRejectedValue(new ApiRequestError(502, "Discogs answered 503"));
+      .mockRejectedValue(
+        new ApiRequestError(502, "Discogs returned an error (503). Try again later"),
+      );
     session.judge("accepted");
     await until(() => session.slip?.kind === "verdict" && session.slip.push === "failed");
     expect(pushes).toHaveBeenCalledTimes(4);
     expect(session.flash).toBe(
-      `Could not add ${queueItem(1).artistDisplay} – ${queueItem(1).title} to your Discogs wantlist: Discogs answered 503. Press A on it in Twelves to try again.`,
+      `Could not add ${queueItem(1).artistDisplay} – ${queueItem(1).title} to your Discogs wantlist: Discogs returned an error (503). Try again later. Press A on it in Twelves to try again.`,
     );
   });
 
   it("ends at once a push Discogs refused for its token", async () => {
     const { session, http } = await started([1, 2]);
     const refusal =
-      "Discogs answered 403: check the Discogs token in Settings and that it belongs to your Discogs username";
+      "Discogs refused the token (403). Check that the token in Settings › Discogs belongs to your Discogs username";
     const pushes = vi
       .spyOn(http, "pushToWantlist")
       .mockRejectedValue(new ApiRequestError(403, refusal));
@@ -570,7 +572,7 @@ describe("session recovery", () => {
     const forget = vi
       .spyOn(http, "deleteVerdict")
       .mockRejectedValueOnce(
-        new ApiRequestError(409, "The record's verdict changed since this page read it"),
+        new ApiRequestError(409, "This record's verdict changed in another tab or during a load"),
       );
     session.undo();
     await until(() => session.flash?.startsWith("Undo failed") ?? false);

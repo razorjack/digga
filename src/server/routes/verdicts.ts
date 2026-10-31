@@ -32,8 +32,7 @@ export function registerVerdictsRoutes(api: Hono, context: AppContext): void {
 }
 
 const VERDICT_CHANGED: ApiError = {
-  error:
-    "The record's verdict changed since this page read it, in another tab or by a load; reload to see it",
+  error: "This record's verdict changed in another tab or during a load. Reload to see it",
 };
 
 async function saveVerdict(c: Context, context: AppContext) {

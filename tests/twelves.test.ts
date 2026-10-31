@@ -280,13 +280,15 @@ describe("Twelves changes", () => {
     );
 
     http.postVerdict.mockRejectedValueOnce(
-      new ApiRequestError(409, "The record's verdict changed since this page read it"),
+      new ApiRequestError(409, "This record's verdict changed in another tab or during a load"),
     );
     await shelf.undo();
     expect(http.postVerdict).toHaveBeenLastCalledWith(
       expect.objectContaining({ status: "maybe", expected: { status: "accepted", decidedAt } }),
     );
-    expect(shelf.flash).toBe("Undo failed: The record's verdict changed since this page read it");
+    expect(shelf.flash).toBe(
+      "Undo failed: This record's verdict changed in another tab or during a load",
+    );
     expect(shelf.undoStack).toHaveLength(0);
   });
 

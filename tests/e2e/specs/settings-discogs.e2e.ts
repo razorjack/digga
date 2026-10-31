@@ -65,7 +65,7 @@ test(
     expect(refused.status()).toBe(400);
     await expect(settings.token).toHaveAttribute("aria-invalid", "true");
     await expect(settings.token).toHaveAccessibleDescription(
-      /^Not saved: Discogs refused this token; copy it again from discogs\.com\. /,
+      /^Not saved: Discogs did not accept this token\. Copy it again from discogs\.com\. /,
     );
     expect(await app.api.get<DiscogsAccountResponse>("/api/discogs/account")).toMatchObject({
       tokenSource: "saved",
@@ -156,7 +156,7 @@ test.describe("with a Discogs account", () => {
       await settings.open("discogs");
 
       await expect(settings.maybeList).toHaveAccessibleDescription(
-        "Could not read your lists: Discogs answered 500.",
+        "Could not read your lists: Discogs returned an error (500). Try again later.",
       );
       await expect(settings.listsButton).toHaveText("Read my lists");
       await settings.readLists();
@@ -213,7 +213,7 @@ test.describe("with a Discogs account", () => {
       const refused = await settings.saveToken("e2e-token-other");
       expect(refused.status()).toBe(409);
       await expect(settings.token).toHaveAccessibleDescription(
-        /^Not saved: This library holds the Discogs collection and wantlist of dj; forget them in Settings before using other\. /,
+        /^Not saved: Your library holds dj's Discogs collection and wantlist\. To use other, remove dj's data in Settings › Discogs first\. /,
       );
 
       expect(await settings.forgetDiscogsData()).toBe(

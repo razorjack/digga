@@ -281,7 +281,7 @@ Priority: **P2**.
 
 The listing says 2 MB and the transfer's `Content-Length` 900 TB (`set({ contentLength })`): the
 download job fails for lack of space before it writes a byte, and step 2 says "The download stopped:
-The dump needs … free in …, counting 1 GB to spare; it has …." in an alert that was in the page
+The catalogue needs … of free space in …, including 1 GB to spare. The disk has … free." in an alert that was in the page
 before; the dumps folder stays empty
 
 ## SETUP-33

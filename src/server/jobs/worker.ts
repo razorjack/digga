@@ -62,7 +62,7 @@ export function runWorker<Result, Progress = JobProgress>(
       if (outcome?.ok) resolve(outcome.result);
       else if (outcome) reject(outcome.error);
       else if (signal.aborted) reject(new Error("Cancelled"));
-      else reject(new Error(`Worker exited with code ${code}`));
+      else reject(new Error(`Digga's background worker stopped unexpectedly (exit code ${code})`));
     });
   });
 }

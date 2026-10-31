@@ -71,7 +71,7 @@ test(
     const problem = setup.root.getByText(/^Digga can't get the list of catalogue files:/);
 
     await app.open();
-    await expect(problem).toContainText(" 503");
+    await expect(problem).toContainText("returned an error (503)");
     await expect(problem).toContainText("Check your internet connection, or try again later.");
     await expect(setup.button("Download the catalogue")).toBeHidden();
 
@@ -131,8 +131,8 @@ test(
     await setup.fetchCatalogue();
 
     await expect(setup.downloadStopped).toContainText(
-      `The download stopped: The dump needs ${formatBytes(announcedBytes + SPARE_BYTES)} free in ` +
-        `${app.library.dumpsDir}, counting 1 GB to spare; it has `,
+      `The download stopped: The catalogue needs ${formatBytes(announcedBytes + SPARE_BYTES)} of ` +
+        `free space in ${app.library.dumpsDir}, including 1 GB to spare. The disk has `,
     );
     await expect(setup.downloadStrip).toBeHidden();
     expect(await regions.insertedWithText()).not.toContainEqual(

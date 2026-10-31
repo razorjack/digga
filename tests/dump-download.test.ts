@@ -200,7 +200,7 @@ describe("downloading the newest dump", () => {
 
   it("refuses to fill the disk", async () => {
     await expect(download(async () => 1024)).rejects.toThrow(
-      /needs 1 GB free in .*, counting 1 GB to spare; it has 1 KB/,
+      /needs 1 GB of free space in .*, including 1 GB to spare\. The disk has 1 KB free/,
     );
     expect(fs.readdirSync(dumpsDir)).toEqual([]);
   });

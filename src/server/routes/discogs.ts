@@ -159,7 +159,10 @@ function tokenRefusal(
   identity: Identity,
 ): { error: string; status: 400 | 409 } | null {
   if ("refused" in identity && identity.refused)
-    return { error: "Discogs refused this token; copy it again from discogs.com", status: 400 };
+    return {
+      error: "Discogs did not accept this token. Copy it again from discogs.com",
+      status: 400,
+    };
   if (!("username" in identity)) return null;
   const configured = context.getConfig().discogs.username;
   const conflict = accountConflict(context.db, identity.username, configured);

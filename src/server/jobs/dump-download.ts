@@ -169,7 +169,7 @@ async function ensureRoom(options: DumpDownloadOptions, bytes: number | null): P
   const free = await (options.freeBytes ?? freeBytesIn)(options.dumpsDir);
   if (free >= bytes + SPARE_BYTES) return;
   throw new DataDumpError(
-    `The dump needs ${formatBytes(bytes + SPARE_BYTES)} free in ${options.dumpsDir}, counting 1 GB to spare; it has ${formatBytes(free)}`,
+    `The catalogue needs ${formatBytes(bytes + SPARE_BYTES)} of free space in ${options.dumpsDir}, including 1 GB to spare. The disk has ${formatBytes(free)} free`,
   );
 }
 

@@ -316,7 +316,9 @@ it("reports an unexpected worker exit as failure and a stopped worker as cancell
   const hanging = run(hang);
   try {
     await expect.poll(() => runner.get(crashed.id)?.status).toBe("failed");
-    expect(runner.get(crashed.id)?.error).toBe("Worker exited with code 2");
+    expect(runner.get(crashed.id)?.error).toBe(
+      "Digga's background worker stopped unexpectedly (exit code 2)",
+    );
     expect(runner.cancel(hanging.id)).toBe(true);
     await expect.poll(() => runner.get(hanging.id)?.status).toBe("cancelled");
     expect(runner.active()).toEqual([]);

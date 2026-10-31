@@ -281,8 +281,7 @@ describe("HTTP API", () => {
     const changed = {
       status: 409,
       body: {
-        error:
-          "The record's verdict changed since this page read it, in another tab or by a load; reload to see it",
+        error: "This record's verdict changed in another tab or during a load. Reload to see it",
       },
     };
 

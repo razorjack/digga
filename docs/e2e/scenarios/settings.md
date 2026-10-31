@@ -206,8 +206,8 @@ Given: `small-account` with a saved token.
 
 A library holds one Discogs account's data (decision 138). The Username field's description says
 the library holds `dj`'s collection, wantlist and Maybe list; `e2e-token-other` is not saved (`409`,
-declared, "Not saved: This library holds the Discogs collection and wantlist of dj; forget them in
-Settings before using other."). "Remove them", its confirmation accepted, removes 3 items ("Removed
+declared, "Not saved: Your library holds dj's Discogs collection and wantlist. To use other, remove
+dj's data in Settings › Discogs first."). "Remove them", its confirmation accepted, removes 3 items ("Removed
 dj's Discogs data (3 items)."); then `/api/discogs/account` names no data account, the collected and
 wanted records are back in the queue, `e2e-token-other` saves and reads as another account's,
 and Twelves' Discogs wantlist and Owned shelves count 0. `tests/wantlist-http.test.ts` covers the

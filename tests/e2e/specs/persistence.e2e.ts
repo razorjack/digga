@@ -331,8 +331,7 @@ test.describe("with a Discogs account and the clock", () => {
 // Web only: two pages of the app are two tabs of a browser, and the Electron app opens one window.
 test.describe("two pages of the app", () => {
   /** The server's refusal of a write whose expected verdict another page has replaced. */
-  const CHANGED =
-    "The record's verdict changed since this page read it, in another tab or by a load; reload to see it";
+  const CHANGED = "This record's verdict changed in another tab or during a load. Reload to see it";
 
   test(
     "PER-10 an undo in one page is refused once another page has re-judged the record",

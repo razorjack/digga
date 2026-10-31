@@ -32,7 +32,7 @@ describe("request timeouts", () => {
       discogsMs: 1000,
       dialogMs: 1000,
     });
-    await expect(api.getStats()).rejects.toThrow("No answer within 30 ms");
+    await expect(api.getStats()).rejects.toThrow("Digga's server did not answer within 30 ms");
   });
 
   it("let requests that wait on Discogs take longer", async () => {
@@ -59,6 +59,13 @@ describe("request timeouts", () => {
       discogsMs: 1000,
       dialogMs: 1000,
     });
-    await expect(api.getQueue()).rejects.toThrow("No answer within 50 ms");
+    await expect(api.getQueue()).rejects.toThrow("Digga's server did not answer within 50 ms");
+  });
+
+  it("say the same thing whatever the runtime calls a refused connection", async () => {
+    const url = await slowServer({ delayMs: 0 });
+    server?.close();
+    const api = createHttpApi(url, { localMs: 1000, discogsMs: 1000, dialogMs: 1000 });
+    await expect(api.getStats()).rejects.toThrow("Can't reach Digga's server");
   });
 });

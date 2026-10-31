@@ -207,7 +207,10 @@ describe("GET /api/setup", () => {
     const { body } = await send<SetupResponse>("GET", "/api/setup");
 
     expect(body.needed).toBe(false);
-    expect(body.catalogue).toMatchObject({ newest: null, error: "data.discogs.com answered 503" });
+    expect(body.catalogue).toMatchObject({
+      newest: null,
+      error: "data.discogs.com returned an error (503)",
+    });
   });
 
   it("is not needed for a library loaded before loads were recorded", async () => {
@@ -299,7 +302,7 @@ describe("connecting Discogs", () => {
     const refused = await send<ApiError>("PUT", "/api/discogs/token", { token: "wrong" });
 
     expect(refused.status).toBe(400);
-    expect(refused.body.error).toMatch(/Discogs refused this token/);
+    expect(refused.body.error).toMatch(/Discogs did not accept this token/);
     const account = await send<DiscogsAccountResponse>("GET", "/api/discogs/account");
     expect(account.body).toMatchObject({ hasToken: true, tokenUsername: "dj" });
   });

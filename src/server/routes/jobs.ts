@@ -63,7 +63,7 @@ function deleteDump(c: Context, context: AppContext) {
   refuseWhileDumpJobRuns(context);
   const name = c.req.param("name") ?? "";
   if (!deleteDumpFile(context.paths.dumpsDir, name))
-    return c.json({ error: "The dumps folder has no such dump" } satisfies ApiError, 404);
+    return c.json({ error: "That file is not in the catalogue folder" } satisfies ApiError, 404);
   context.logger.info(`deleted ${name} from the dumps folder`);
   return c.json(dumpsResponse(context));
 }

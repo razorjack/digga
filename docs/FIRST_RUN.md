@@ -179,7 +179,7 @@ Says what Digga is and what setup will do, and starts the one long download.
   (`dumpFileMissing`) keeps the setup on step 1, which says "Digga can't find …, the file you
   chose. Connect its disk, or choose another file." with "Check again" and Continue disabled. A
   file that goes while the user is on steps 2 and 3 is found only by the load, whose refusal
-  ("Dump file not found") step 4 shows; reopening the setup then returns to step 1.
+  ("Catalogue file not found") step 4 shows; reopening the setup then returns to step 1.
 - From step 2 on, a download strip stays at the foot of the screen: "Downloading the catalogue · 2.9
   of 10.5 GB · 5 min left", a native `<progress>`.
 

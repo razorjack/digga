@@ -455,9 +455,9 @@ test(
     });
     await app.abortRequests({ method: "DELETE", path: dumpPath });
     await setup.button("Delete it").click();
-    await expect(setup.alert("Failed to fetch")).toBeVisible();
+    await expect(setup.alert("Can't reach Digga's server")).toBeVisible();
     expect(await regions.insertedWithText()).not.toContainEqual(
-      expect.stringContaining("Failed to fetch"),
+      expect.stringContaining("Can't reach Digga's server"),
     );
 
     const deleted = app.page.waitForResponse((response) => isRequest(response, "DELETE", dumpPath));
@@ -466,7 +466,7 @@ test(
     await expect(
       setup.root.getByText("The catalogue file is deleted.", { exact: true }),
     ).toBeVisible();
-    await expect(setup.alert("Failed to fetch")).toBeHidden();
+    await expect(setup.alert("Can't reach Digga's server")).toBeHidden();
     expect((await app.api.get<DumpsResponse>("/api/dumps")).files).toEqual([]);
     // Said once: the header's status still holds the one announcement.
     await expect(header.announcement).toHaveText(catalogueIn);

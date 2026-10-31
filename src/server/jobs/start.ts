@@ -92,7 +92,8 @@ function prepareDumpLoad(context: AppContext, input: DumpLoadJobInput): DumpLoad
   const file = resolveDumpFile(context.paths, input.file);
   if (file === "-") throw new JobInputError("stdin is only supported from the CLI");
   const followJobId = fs.existsSync(file) ? undefined : downloadWriting(context, file)?.id;
-  if (!fs.existsSync(file) && !followJobId) throw new JobInputError(`Dump file not found: ${file}`);
+  if (!fs.existsSync(file) && !followJobId)
+    throw new JobInputError(`Catalogue file not found: ${file}`);
   const labelIds = input.labelsFile
     ? readIdList(resolveDumpFile(context.paths, input.labelsFile))
     : undefined;
